@@ -58,10 +58,6 @@ public final class ClanListMenu implements InventoryHolder {
                 plugin.getMessages().component("gui.clan-list.title", player));
         fillGlass(inventory);
 
-        // Back button in slot 0
-        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_BACK)
-                .name(plugin.getMessages().component("gui.back", player)).build());
-
         int start = currentPage * CONTENT_SLOTS.length;
         int end = Math.min(start + CONTENT_SLOTS.length, allClans.size());
         for (int index = start; index < end; index++) {
@@ -170,8 +166,8 @@ public final class ClanListMenu implements InventoryHolder {
     public void open() { player.openInventory(getInventory()); }
 
     public void handleInventoryClick(int slot) {
-        if (slot == 0) { // Back button
-            player.closeInventory(); // Assuming back means close for now, or open previous menu if applicable
+        if (slot == 49) { // Close button
+            player.closeInventory();
             return;
         }
         if (slot == 45 && currentPage > 0) { currentPage--; open(); return; }
@@ -192,21 +188,6 @@ public final class ClanListMenu implements InventoryHolder {
         if (clanIndex < 0 || clanIndex >= allClans.size()) return;
 
         Clan clickedClan = allClans.get(clanIndex);
-        Optional<Clan> playerClan = plugin.getClanManager().getPlayerClan(player.getUniqueId());
-
-        // Handle apply button click (if it was the apply button, which is now part of the clan item lore)
-        // The click on the clan item itself will open ClanInfoMenu.
-        // If the player clicks on a clan item and is not a member, and the clan is open, they can apply.
-        if (playerClan.isEmpty() && clickedClan.isOpen()) {
-            plugin.getClanManager().applyToClanAsync(clickedClan, player.getUniqueId())
-                .thenRun(() -> plugin.runSync(() -> {
-                    plugin.getMessages().send(player, "clan.applied", Map.of("tag", clickedClan.tag()));
-                    player.closeInventory();
-                }))
-                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
-            return;
-        }
-
 
         // Click → open clan info
         new ClanInfoMenu(plugin, player, clickedClan).open();
@@ -214,8 +195,6 @@ public final class ClanListMenu implements InventoryHolder {
 
     private void fillGlass(Inventory inventory) {
         for (int slot = 0; slot < inventory.getSize(); slot++) {
-            // Don't fill slot 0 (back button)
-            if (slot == 0) continue;
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
     }

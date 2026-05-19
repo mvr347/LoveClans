@@ -31,38 +31,34 @@ public final class ClanTerritoriesMenu {
         List<ClanTerritory> territories = clan.territories().stream().toList();
 
         int numTerritories = territories.size();
-        // Calculate required rows for territories, each row holds 7 territories (leaving 1 slot on each side for padding)
-        // Plus 2 rows for top/bottom control rows.
         int contentRows = (int) Math.ceil(numTerritories / 7.0);
-        if (contentRows == 0) contentRows = 1; // At least one content row for the "empty" message
-        int inventorySize = Math.max(27, Math.min(54, (contentRows + 2) * 9)); // Min 3 rows, max 6 rows
+        if (contentRows == 0) contentRows = 1;
+        int inventorySize = Math.max(27, Math.min(54, (contentRows + 2) * 9));
 
         Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.TERRITORIES, clan.id()), inventorySize,
-                plugin.getMessages().component("gui.territories-title", Map.of("tag", clan.tag()), player));
+                plugin.getMessages().component("gui.territories-title", Map.of("tag", clan.coloredTag()), player));
 
         fillGlass(inventory);
 
         if (territories.isEmpty()) {
-            inventory.setItem(inventorySize / 2, ItemBuilder.of(Material.BARRIER) // Centered dynamically
+            inventory.setItem(inventorySize / 2, ItemBuilder.of(Material.BARRIER)
                     .name(plugin.getMessages().component("gui.territories.empty.name", player))
                     .lore(plugin.getMessages().component("gui.territories.empty.lore", player))
                     .build());
         } else {
-            // Start placing from slot 10 (second row, second slot)
             for (int i = 0; i < numTerritories; i++) {
                 ClanTerritory territory = territories.get(i);
                 int centerX = territory.key().chunkX() * 16 + 8;
                 int centerZ = territory.key().chunkZ() * 16 + 8;
 
-                // Calculate slot dynamically, skipping first and last slot of each row for padding
                 int row = i / 7;
                 int col = i % 7;
-                int slot = 9 * (row + 1) + 1 + col; // (row+1) for content rows, +1 for left padding
+                int slot = 9 * (row + 1) + 1 + col;
 
                 inventory.setItem(slot, ItemBuilder.head(ItemBuilder.HEAD_MAP)
                         .name(plugin.getMessages().component("gui.territories.item.name",
                                 Map.of("world", territory.key().world()), player))
-                        .lore(plugin.getMessages().component("gui.territories.item.coords",
+                        .lore(plugin.getMessages().component("gui.territorries.item.coords",
                                 Map.of(
                                         "x", String.valueOf(centerX),
                                         "z", String.valueOf(centerZ),
@@ -94,13 +90,12 @@ public final class ClanTerritoriesMenu {
 
         boolean hasInstalledBanner = clan.territories().stream().anyMatch(t -> t.bannerX() != null);
 
-        // Place control buttons in the last row
-        inventory.setItem(inventorySize - 5, ItemBuilder.head(ItemBuilder.HEAD_BACK) // Back button
+        inventory.setItem(inventorySize - 5, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
-                
+
         if (canManage && !alreadyHasBanner && !hasInstalledBanner) {
-            inventory.setItem(inventorySize - 4, ItemBuilder.of(Material.WHITE_BANNER) // Banner button
+            inventory.setItem(inventorySize - 4, ItemBuilder.of(Material.WHITE_BANNER)
                     .name(plugin.getMessages().component("gui.territories.banner.name", player))
                     .lore(plugin.getMessages().component("gui.territories.banner.lore", player))
                     .build());
@@ -111,17 +106,16 @@ public final class ClanTerritoriesMenu {
 
     public void handleTerritoryClick(Player player, Clan clan, int slot, boolean isRightClick) {
         int inventorySize = player.getOpenInventory().getTopInventory().getSize();
-        if (slot == inventorySize - 5) { // Back button
+        if (slot == inventorySize - 5) {
             plugin.getGuiManager().openMain(player, clan);
             return;
         }
 
-        if (slot == inventorySize - 4) { // Banner button
+        if (slot == inventorySize - 4) {
             boolean canManage = clan.member(player.getUniqueId())
                     .map(m -> m.rank().atLeast(ClanRank.GUARDIAN))
                     .orElse(false);
             if (canManage) {
-                // Give banner logic here
                 ItemStack banner = ItemBuilder.of(Material.WHITE_BANNER)
                         .name(plugin.getMessages().component("item.claim-banner.name", player))
                         .lore(plugin.getMessages().component("item.claim-banner.lore", player))
@@ -138,16 +132,12 @@ public final class ClanTerritoriesMenu {
             return;
         }
 
-        // Check if it's a territory item slot
-        // Content slots are from row 1 (slot 9) to row (contentRows + 1) (slot inventorySize - 9 - 1)
-        // And within each row, from slot +1 to +7 (excluding first and last for padding)
         boolean isContentSlot = slot >= 9 && slot < inventorySize - 9;
         if (!isContentSlot) return;
 
-        // Further check if it's within the 7-slot content area of a row
-        if ((slot % 9 == 0) || (slot % 9 == 8)) return; // Exclude first and last column (padding)
+        if ((slot % 9 == 0) || (slot % 9 == 8)) return;
 
-        org.bukkit.inventory.ItemStack item = player.getOpenInventory().getTopInventory().getItem(slot);
+        ItemStack item = player.getOpenInventory().getTopInventory().getItem(slot);
         if (item == null || !item.hasItemMeta()) return;
 
         String data = item.getItemMeta().getPersistentDataContainer()
@@ -161,7 +151,7 @@ public final class ClanTerritoriesMenu {
             String worldName = parts[0];
             int chunkX = Integer.parseInt(parts[1]);
             int chunkZ = Integer.parseInt(parts[2]);
-            
+
             if (isRightClick) {
                 World world = Bukkit.getWorld(worldName);
                 if (world == null) {
@@ -175,18 +165,20 @@ public final class ClanTerritoriesMenu {
                 player.teleport(new Location(world, centerX + 0.5, y, centerZ + 0.5));
                 plugin.getMessages().send(player, "territory.teleported");
             } else {
-                // Open territory settings
                 TerritoryKey key = new TerritoryKey(worldName, chunkX, chunkZ);
-                clan.territory(key).ifPresent(territory -> {
-                    plugin.getGuiManager().openTerritorySettings(player, clan, territory);
-                });
+                clan.territories().stream()
+                        .filter(t -> t.key().equals(key))
+                        .findFirst()
+                        .ifPresent(territory -> {
+                            plugin.getGuiManager().openTerritorySettings(player, clan, territory);
+                        });
             }
-        } catch (NumberFormatException ignored) {}
+        } catch (NumberFormatException ignored) {
+        }
     }
 
     private void fillGlass(Inventory inventory) {
         for (int slot = 0; slot < inventory.getSize(); slot++) {
-            // Only fill empty slots, do not overwrite existing items
             if (inventory.getItem(slot) == null) {
                 inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
                         .name(Component.empty())

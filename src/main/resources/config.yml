@@ -59,6 +59,16 @@ leveling:
   war-win-exp: 1200
   ritual-exp: 250
 
+upgrades:
+  MEMBERS:
+    max-level: 5
+  CHEST:
+    max-level: 3
+  SPIRIT_CAPACITY:
+    max-level: 10
+  SPIRIT_REGEN:
+    max-level: 10
+
 mechanics:
   spirit:
     enabled: true
@@ -97,6 +107,8 @@ integration:
   advanced-claims:
     enabled: true
     auto-claim-chunk: true
+    claim-radius: 12 # Radius for AdvancedClaims (25x25x25 area)
+    border-display-ticks: 100 # Duration in ticks for showing claim border (5 seconds)
     api-class: "me.lovelace.advancedclaims.api.AdvancedClaimsAPI"
     trust-level-class: "me.lovelace.advancedclaims.model.TrustLevel"
     trust-mapping:

@@ -21,11 +21,18 @@ import me.lovelace.clans.model.ClanUpgrade;
 import me.lovelace.clans.model.DiplomacyRelation;
 import me.lovelace.clans.model.TerritoryKey;
 import me.lovelace.clans.storage.ClanStorage;
+import me.lovelace.clans.util.ClanItemFactory;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.BoundingBox;
+
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -42,16 +49,19 @@ import java.util.regex.Pattern;
 public final class ClanManager {
     private final ClansPlugin plugin;
     private final ClanStorage storage;
+    private final ClanItemFactory clanItemFactory;
     private final Map<UUID, Clan> clansById = new ConcurrentHashMap<>();
     private final Map<String, UUID> clanByTag = new ConcurrentHashMap<>();
     private final Map<UUID, UUID> clanByPlayer = new ConcurrentHashMap<>();
     private final Map<TerritoryKey, UUID> clanByTerritory = new ConcurrentHashMap<>();
     private final Map<UUID, List<ClanInvite>> invitesByPlayer = new ConcurrentHashMap<>();
     private final Map<UUID, List<ClanApplication>> applicationsByClan = new ConcurrentHashMap<>();
+    private final Map<UUID, PendingClaim> pendingClaims = new ConcurrentHashMap<>();
 
     public ClanManager(ClansPlugin plugin, ClanStorage storage) {
         this.plugin = plugin;
         this.storage = storage;
+        this.clanItemFactory = new ClanItemFactory(plugin);
     }
 
     public CompletableFuture<Void> loadAsync() {
@@ -87,18 +97,28 @@ public final class ClanManager {
     }
 
     public Optional<Clan> getPlayerClan(UUID playerId) {
+        if (playerId == null) return Optional.empty();
         UUID clanId = clanByPlayer.get(playerId);
         return clanId == null ? Optional.empty() : getClanById(clanId);
     }
 
     public Optional<Clan> getClanAt(Location location) {
-        if (location.getWorld() == null) {
+        if (location == null || location.getWorld() == null) {
             return Optional.empty();
         }
+
+        if (plugin.getAdvancedClaimsHook().enabled()) {
+            Optional<UUID> ownerId = plugin.getAdvancedClaimsHook().getClaimOwner(location);
+            if (ownerId.isPresent()) {
+                return getClanById(ownerId.get());
+            }
+        }
+
         return getClanAt(TerritoryKey.fromLocation(location));
     }
 
     public Optional<Clan> getClanAt(TerritoryKey key) {
+        if (key == null) return Optional.empty();
         UUID clanId = clanByTerritory.get(key);
         return clanId == null ? Optional.empty() : getClanById(clanId);
     }
@@ -108,10 +128,12 @@ public final class ClanManager {
     }
 
     public List<ClanApplication> getClanApplications(UUID clanId) {
+        if (clanId == null) return List.of();
         return List.copyOf(applicationsByClan.getOrDefault(clanId, List.of()));
     }
 
     public List<ClanInvite> getClanInvites(UUID clanId) {
+        if (clanId == null) return List.of();
         long now = System.currentTimeMillis();
         return invitesByPlayer.values().stream()
                 .flatMap(List::stream)
@@ -120,6 +142,7 @@ public final class ClanManager {
     }
 
     public List<ClanInvite> getPlayerInvites(UUID playerId) {
+        if (playerId == null) return List.of();
         long now = System.currentTimeMillis();
         return invitesByPlayer.getOrDefault(playerId, List.of()).stream()
                 .filter(invite -> !invite.expired(now))
@@ -127,11 +150,14 @@ public final class ClanManager {
     }
 
     public void removeInvite(UUID playerId, UUID clanId) {
+        if (playerId == null || clanId == null) return;
         List<ClanInvite> invites = invitesByPlayer.get(playerId);
         if (invites != null) invites.removeIf(inv -> inv.clanId().equals(clanId));
     }
 
     public CompletableFuture<Void> rejectApplicationSelfAsync(UUID clanId, UUID applicantId) {
+        if (clanId == null || applicantId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan ID and Applicant ID cannot be null."));
         return plugin.supplySync(() -> {
             List<ClanApplication> applications = applicationsByClan.computeIfAbsent(clanId, k -> new ArrayList<>());
             applications.removeIf(app -> app.applicantId().equals(applicantId));
@@ -139,22 +165,26 @@ public final class ClanManager {
         }).thenCompose(v -> storage.deleteApplicationAsync(clanId, applicantId));
     }
 
-    // Alliance request system
-    private final Map<UUID, UUID> pendingAllianceRequests = new ConcurrentHashMap<>(); // sourceId → targetId
+    private final Map<UUID, UUID> pendingAllianceRequests = new ConcurrentHashMap<>();
 
     public void addAllianceRequest(UUID sourceClanId, UUID targetClanId) {
+        if (sourceClanId == null || targetClanId == null) return;
         pendingAllianceRequests.put(sourceClanId, targetClanId);
     }
 
     public boolean hasPendingAllianceFrom(UUID sourceClanId, UUID targetClanId) {
+        if (sourceClanId == null || targetClanId == null) return false;
         return targetClanId.equals(pendingAllianceRequests.get(sourceClanId));
     }
 
     public void removeAllianceRequest(UUID sourceClanId) {
+        if (sourceClanId == null) return;
         pendingAllianceRequests.remove(sourceClanId);
     }
 
     public CompletableFuture<Void> acceptAllianceAsync(Clan acceptorClan, Clan requesterClan, UUID actorId) {
+        if (acceptorClan == null || requesterClan == null || actorId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clans and actor ID cannot be null."));
         return plugin.supplySync(() -> {
             if (!acceptorClan.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
                 throw new IllegalStateException("general.no-permission");
@@ -169,6 +199,8 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Void> declineAllianceAsync(Clan declinerClan, Clan requesterClan, UUID actorId) {
+        if (declinerClan == null || requesterClan == null || actorId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clans and actor ID cannot be null."));
         return plugin.supplySync(() -> {
             if (!declinerClan.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
                 throw new IllegalStateException("general.no-permission");
@@ -179,13 +211,15 @@ public final class ClanManager {
     }
 
     public Optional<Player> getOnlineLeader(Clan clan) {
+        if (clan == null) return Optional.empty();
         return clan.leaderId().flatMap(id -> Optional.ofNullable(Bukkit.getPlayer(id)));
     }
-    
+
     public Optional<Player> getOnlineGuardianOrLeader(Clan clan) {
+        if (clan == null) return Optional.empty();
         Optional<Player> leader = getOnlineLeader(clan);
         if (leader.isPresent()) return leader;
-        
+
         return clan.members().values().stream()
                 .filter(member -> member.rank() == ClanRank.GUARDIAN)
                 .map(member -> Bukkit.getPlayer(member.playerId()))
@@ -193,7 +227,14 @@ public final class ClanManager {
                 .findFirst();
     }
 
+    public ItemStack getClanHomeBanner(Clan clan) {
+        if (clan == null) return new ItemStack(Material.AIR);
+        return clanItemFactory.createCapitalBanner(clan.id(), clan.name());
+    }
+
     public CompletableFuture<Clan> createClanAsync(String name, String tag, UUID founderId, boolean open) {
+        if (founderId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Founder ID cannot be null."));
         return plugin.supplySync(() -> {
             validateName(name);
             validateTag(tag);
@@ -203,6 +244,12 @@ public final class ClanManager {
             if (getClanByTag(tag).isPresent()) {
                 throw new IllegalStateException("clan.tag-exists");
             }
+
+            Player founder = Bukkit.getPlayer(founderId);
+            if (founder != null && clanItemFactory.hasExistingBanner(founder, "CAPITAL", null)) {
+                throw new IllegalStateException("clan.founder-has-capital-banner");
+            }
+
             Material emblem = Material.matchMaterial(plugin.getConfig().getString("clans.default-emblem", "WHITE_BANNER"));
             if (emblem == null) {
                 emblem = Material.WHITE_BANNER;
@@ -215,13 +262,20 @@ public final class ClanManager {
                 throw new IllegalStateException("general.error");
             }
             indexClan(clan);
+
+            if (founder != null) {
+                founder.getInventory().addItem(clanItemFactory.createCapitalBanner(clan.id(), clan.name()));
+                plugin.getMessages().send(founder, "territory.banner-given");
+            }
+
             return clan;
         }).thenCompose(clan -> storage.saveClanAsync(clan).thenApply(ignored -> clan));
     }
 
     public CompletableFuture<Void> disbandClanAsync(Clan clan, UUID actorId) {
+        if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
         return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) { // Disband is a setting
+            if (actorId != null && !clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
                 throw new IllegalStateException("general.no-permission");
             }
             ClanDisbandEvent event = new ClanDisbandEvent(clan, actorId);
@@ -246,6 +300,8 @@ public final class ClanManager {
     }
 
     public CompletableFuture<ClanInvite> invitePlayerAsync(Clan clan, UUID inviterId, UUID invitedPlayerId) {
+        if (clan == null || inviterId == null || invitedPlayerId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and player IDs cannot be null."));
         return plugin.supplySync(() -> {
             if (!clan.hasPermission(inviterId, ClanPermission.INVITE)) {
                 throw new IllegalStateException("general.no-permission");
@@ -265,6 +321,8 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Clan> acceptInviteAsync(UUID playerId, String tag) {
+        if (playerId == null || tag == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Player ID and tag cannot be null."));
         return plugin.supplySync(() -> {
             Clan clan = getClanByTag(tag).orElseThrow(() -> new IllegalStateException("clan.invite-missing"));
             List<ClanInvite> invites = invitesByPlayer.getOrDefault(playerId, List.of());
@@ -279,6 +337,8 @@ public final class ClanManager {
     }
 
     public CompletableFuture<ClanApplication> applyToClanAsync(Clan clan, UUID applicantId) {
+        if (clan == null || applicantId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and applicant ID cannot be null."));
         return plugin.supplySync(() -> {
             if (getPlayerClan(applicantId).isPresent()) {
                 throw new IllegalStateException("clan.already-in-clan");
@@ -299,8 +359,10 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Clan> acceptApplicationAsync(Clan clan, UUID actorId, UUID applicantId) {
+        if (clan == null || actorId == null || applicantId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor and applicant IDs cannot be null."));
         return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.INVITE)) { // Accept application is like inviting
+            if (!clan.hasPermission(actorId, ClanPermission.INVITE)) {
                 throw new IllegalStateException("general.no-permission");
             }
             List<ClanApplication> applications = applicationsByClan.computeIfAbsent(clan.id(), ignored -> new ArrayList<>());
@@ -315,8 +377,10 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Void> rejectApplicationAsync(Clan clan, UUID actorId, UUID applicantId) {
+        if (clan == null || actorId == null || applicantId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor and applicant IDs cannot be null."));
         return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.INVITE)) { // Reject application is like inviting
+            if (!clan.hasPermission(actorId, ClanPermission.INVITE)) {
                 throw new IllegalStateException("general.no-permission");
             }
             List<ClanApplication> applications = applicationsByClan.computeIfAbsent(clan.id(), ignored -> new ArrayList<>());
@@ -330,6 +394,8 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Clan> addMemberAsync(Clan clan, UUID playerId, ClanRank rank) {
+        if (clan == null || playerId == null || rank == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, player ID and rank cannot be null."));
         return plugin.supplySync(() -> {
             if (getPlayerClan(playerId).isPresent()) {
                 throw new IllegalStateException("clan.already-in-clan");
@@ -341,9 +407,15 @@ public final class ClanManager {
             ClanMember member = clan.member(playerId).orElseThrow();
             clanByPlayer.put(playerId, clan.id());
             Bukkit.getPluginManager().callEvent(new ClanMemberJoinEvent(clan, member));
-            plugin.getAdvancedClaimsHook().syncPlayerTrust(clan, Bukkit.getOfflinePlayer(playerId), rank);
-            
-            // Broadcast to all clan members
+
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerId);
+            for (ClanTerritory territory : clan.territories()) {
+                if (territory.advancedClaimId() != null) {
+                    plugin.getAdvancedClaimsHook().findClaim(territory.advancedClaimId()).ifPresent(claimObject ->
+                            plugin.getAdvancedClaimsHook().updatePlayerTrust(claimObject, offlinePlayer, rank));
+                }
+            }
+
             String playerName = Bukkit.getOfflinePlayer(playerId).getName();
             if (playerName == null) playerName = playerId.toString();
             for (UUID memberId : clan.members().keySet()) {
@@ -352,14 +424,16 @@ public final class ClanManager {
                     plugin.getMessages().send(clanMember, "clan.joined-broadcast", Map.of("player", playerName));
                 }
             }
-            
+
             return clan;
         }).thenCompose(saved -> storage.saveMemberAsync(saved.id(), saved.member(playerId).orElseThrow()).thenApply(ignored -> saved));
     }
 
     public CompletableFuture<Void> removeMemberAsync(Clan clan, UUID actorId, UUID playerId, boolean kicked) {
+        if (clan == null || playerId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and player ID cannot be null."));
         return plugin.supplySync(() -> {
-            if (kicked && !clan.hasPermission(actorId, ClanPermission.KICK)) {
+            if (kicked && (actorId == null || !clan.hasPermission(actorId, ClanPermission.KICK))) {
                 throw new IllegalStateException("general.no-permission");
             }
             ClanMember target = clan.member(playerId).orElseThrow(() -> new IllegalStateException("clan.not-in-clan"));
@@ -374,7 +448,15 @@ public final class ClanManager {
             }
             clan.removeMember(playerId);
             clanByPlayer.remove(playerId);
-            plugin.getAdvancedClaimsHook().removePlayerTrust(clan, Bukkit.getOfflinePlayer(playerId));
+
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerId);
+            for (ClanTerritory territory : clan.territories()) {
+                if (territory.advancedClaimId() != null) {
+                    plugin.getAdvancedClaimsHook().findClaim(territory.advancedClaimId()).ifPresent(claimObject ->
+                            plugin.getAdvancedClaimsHook().removePlayerTrust(claimObject, offlinePlayer));
+                }
+            }
+
             Bukkit.getPluginManager().callEvent(new ClanMemberLeaveEvent(clan, playerId, kicked));
             if (clan.members().isEmpty()) {
                 for (ClanTerritory territory : clan.territories()) {
@@ -388,8 +470,10 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Clan> setRankAsync(Clan clan, UUID actorId, UUID playerId, ClanRank rank) {
+        if (clan == null || actorId == null || playerId == null || rank == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor, player and rank cannot be null."));
         return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.KICK)) { // Promote/demote is like kicking
+            if (!clan.hasPermission(actorId, ClanPermission.KICK)) {
                 throw new IllegalStateException("general.no-permission");
             }
             ClanMember target = clan.member(playerId).orElseThrow(() -> new IllegalStateException("clan.not-in-clan"));
@@ -399,9 +483,15 @@ public final class ClanManager {
             ClanRank oldRank = target.rank();
             clan.setRank(playerId, rank);
             Bukkit.getPluginManager().callEvent(new ClanRankChangeEvent(clan, playerId, oldRank, rank));
-            plugin.getAdvancedClaimsHook().syncPlayerTrust(clan, Bukkit.getOfflinePlayer(playerId), rank);
-            
-            // Broadcast to all clan members
+
+            OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerId);
+            for (ClanTerritory territory : clan.territories()) {
+                if (territory.advancedClaimId() != null) {
+                    plugin.getAdvancedClaimsHook().findClaim(territory.advancedClaimId()).ifPresent(claimObject ->
+                            plugin.getAdvancedClaimsHook().updatePlayerTrust(claimObject, offlinePlayer, rank));
+                }
+            }
+
             String playerName = Bukkit.getOfflinePlayer(playerId).getName();
             if (playerName == null) playerName = playerId.toString();
             for (UUID memberId : clan.members().keySet()) {
@@ -410,22 +500,34 @@ public final class ClanManager {
                     plugin.getMessages().send(clanMember, "clan.rank-changed-broadcast", Map.of("player", playerName, "rank", rank.displayName()));
                 }
             }
-            
+
             return clan;
         }).thenCompose(saved -> storage.saveMemberAsync(saved.id(), saved.member(playerId).orElseThrow()).thenApply(ignored -> saved));
     }
 
     public CompletableFuture<Void> transferLeadershipAsync(Clan clan, UUID actorId, UUID newLeaderId) {
+        if (clan == null || actorId == null || newLeaderId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor and new leader IDs cannot be null."));
         return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) { // Transfer leadership is a setting
+            if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
                 throw new IllegalStateException("general.no-permission");
             }
             clan.member(newLeaderId).orElseThrow(() -> new IllegalStateException("clan.not-in-clan"));
             clan.setRank(actorId, ClanRank.GUARDIAN);
             clan.setRank(newLeaderId, ClanRank.LEADER);
             Bukkit.getPluginManager().callEvent(new ClanRankChangeEvent(clan, newLeaderId, ClanRank.RECRUIT, ClanRank.LEADER));
-            
-            // Broadcast to all clan members
+
+            OfflinePlayer oldLeaderPlayer = Bukkit.getOfflinePlayer(actorId);
+            OfflinePlayer newLeaderPlayer = Bukkit.getOfflinePlayer(newLeaderId);
+            for (ClanTerritory territory : clan.territories()) {
+                if (territory.advancedClaimId() != null) {
+                    plugin.getAdvancedClaimsHook().findClaim(territory.advancedClaimId()).ifPresent(claimObject -> {
+                        plugin.getAdvancedClaimsHook().updatePlayerTrust(claimObject, oldLeaderPlayer, ClanRank.GUARDIAN);
+                        plugin.getAdvancedClaimsHook().updatePlayerTrust(claimObject, newLeaderPlayer, ClanRank.LEADER);
+                    });
+                }
+            }
+
             String newLeaderName = Bukkit.getOfflinePlayer(newLeaderId).getName();
             if (newLeaderName == null) newLeaderName = newLeaderId.toString();
             for (UUID memberId : clan.members().keySet()) {
@@ -434,13 +536,15 @@ public final class ClanManager {
                     plugin.getMessages().send(clanMember, "clan.leadership-transferred-broadcast", Map.of("player", newLeaderName));
                 }
             }
-            
-            return null; // Return null to indicate success without returning the clan, as the caller might need to fetch the updated clan state
+
+            return null;
         }).thenCompose(c -> storage.saveMemberAsync(clan.id(), clan.member(actorId).orElseThrow())
                 .thenCompose(v -> storage.saveMemberAsync(clan.id(), clan.member(newLeaderId).orElseThrow())));
     }
 
     public CompletableFuture<Clan> changeTagColorAsync(Clan clan, UUID actorId, String colorTag) {
+        if (clan == null || actorId == null || colorTag == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor ID and color tag cannot be null."));
         return plugin.supplySync(() -> {
             if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
                 throw new IllegalStateException("general.no-permission");
@@ -451,6 +555,8 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Clan> renameClanAsync(Clan clan, UUID actorId, String newName) {
+        if (clan == null || actorId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and actor ID cannot be null."));
         return plugin.supplySync(() -> {
             if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
                 throw new IllegalStateException("general.no-permission");
@@ -462,6 +568,8 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Clan> changeClanTagAsync(Clan clan, UUID actorId, String newTag) {
+        if (clan == null || actorId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and actor ID cannot be null."));
         return plugin.supplySync(() -> {
             if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
                 throw new IllegalStateException("general.no-permission");
@@ -480,19 +588,38 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Clan> changeClanEmblemAsync(Clan clan, UUID actorId, Material newEmblem) {
+        if (clan == null || actorId == null || newEmblem == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor ID and emblem cannot be null."));
         return plugin.supplySync(() -> {
             if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
-                throw new IllegalStateException("general.no-permission");
+                throw new IllegalStateException("gui.settings.change-banner.invalid-item");
             }
             if (!newEmblem.toString().endsWith("_BANNER")) {
                 throw new IllegalStateException("gui.settings.change-banner.invalid-item");
             }
             clan.setEmblem(newEmblem);
+
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                for (ClanTerritory territory : clan.territories()) {
+                    if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
+                        World world = Bukkit.getWorld(territory.key().world());
+                        if (world != null) {
+                            org.bukkit.block.Block block = world.getBlockAt(territory.bannerX(), territory.bannerY(), territory.bannerZ());
+                            if (block.getType().toString().endsWith("_BANNER")) {
+                                block.setType(newEmblem);
+                            }
+                        }
+                    }
+                }
+            });
+
             return clan;
         }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
     }
 
     public CompletableFuture<Clan> setClanOpenStatusAsync(Clan clan, UUID actorId, boolean open) {
+        if (clan == null || actorId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and actor ID cannot be null."));
         return plugin.supplySync(() -> {
             if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
                 throw new IllegalStateException("general.no-permission");
@@ -501,74 +628,215 @@ public final class ClanManager {
             return clan;
         }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
     }
-    
+
     public CompletableFuture<ClanTerritory> updateTerritoryAsync(Clan clan, ClanTerritory territory) {
+        if (clan == null || territory == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and territory cannot be null."));
         return plugin.supplySync(() -> {
             clan.addTerritory(territory);
             return territory;
         }).thenCompose(updated -> storage.saveTerritoryAsync(updated).thenApply(ignored -> updated));
     }
 
-    public CompletableFuture<ClanTerritory> claimTerritoryAsync(Clan clan, Chunk chunk, Player actor) {
+    public CompletableFuture<Boolean> claimTerritoryAsync(Clan clan, Location location, Player actor, String bannerType) {
+        if (clan == null || location == null || actor == null || bannerType == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, location, actor and banner type cannot be null."));
         return plugin.supplySync(() -> {
             if (!clan.hasPermission(actor.getUniqueId(), ClanPermission.CLAIM)) {
                 throw new IllegalStateException("general.no-permission");
             }
-            if (clan.territories().size() >= maxTerritories(clan)) {
-                throw new IllegalStateException("territory.limit-reached");
-            }
-            TerritoryKey key = TerritoryKey.fromChunk(chunk);
-            Optional<Clan> existing = getClanAt(key);
-            if (existing.isPresent()) {
-                throw new IllegalStateException("territory.already-claimed");
-            }
 
-            // Check if already claimed by AdvancedClaims and not by this clan
-            if (plugin.getAdvancedClaimsHook().isClaimed(chunk) && plugin.getAdvancedClaimsHook().getClaimOwner(chunk).map(ownerId -> !ownerId.equals(clan.id())).orElse(true)) {
-                throw new IllegalStateException("territory.already-claimed-by-advancedclaims");
+            if (pendingClaims.containsKey(actor.getUniqueId())) {
+                confirmPendingClaim(actor, location);
+                return true;
+            } else {
+                return initiateClaimConfirmation(actor, clan, location, bannerType);
             }
+        });
+    }
 
-            ClanTerritory territory = new ClanTerritory(clan.id(), key, null, actor.getUniqueId(), System.currentTimeMillis());
-            ClanClaimEvent event = new ClanClaimEvent(clan, territory, actor.getUniqueId());
-            Bukkit.getPluginManager().callEvent(event);
-            if (event.isCancelled()) {
-                throw new IllegalStateException("general.error");
-            }
+    public boolean initiateClaimConfirmation(Player player, Clan clan, Location location, String bannerType) {
+        if (!plugin.getAdvancedClaimsHook().enabled()) {
+            plugin.getMessages().send(player, "territory.advancedclaims-disabled");
+            return false;
+        }
+
+        if (location.getWorld().getEnvironment() != World.Environment.NORMAL) {
+            plugin.getMessages().send(player, "territory.invalid-world");
+            return false;
+        }
+
+        Location spawnLoc = location.getWorld().getSpawnLocation();
+        int spawnProtectionRadius = plugin.getConfig().getInt("limits.spawn-protection-radius", 500);
+        if (spawnLoc.distance(location) < spawnProtectionRadius) {
+            plugin.getMessages().send(player, "territory.too-close-to-spawn");
+            return false;
+        }
+
+        if (clan.territories().size() >= maxTerritories(clan)) {
+            plugin.getMessages().send(player, "territory.limit-reached");
+            return false;
+        }
+
+        TerritoryKey key = TerritoryKey.fromLocation(location);
+
+        if (getClanAt(key).isPresent()) {
+            plugin.getMessages().send(player, "territory.already-claimed");
+            return false;
+        }
+
+        if (plugin.getAdvancedClaimsHook().isClaimed(location)) {
+            plugin.getMessages().send(player, "territory.already-claimed-by-advancedclaims");
+            return false;
+        }
+
+        int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 12);
+        BoundingBox visualizationBox = new BoundingBox(
+                location.getBlockX() - radius, location.getWorld().getMinHeight(), location.getBlockZ() - radius,
+                location.getBlockX() + radius, location.getWorld().getMaxHeight(), location.getBlockZ() + radius
+        );
+
+        PendingClaim pendingClaim = new PendingClaim(player.getUniqueId(), clan, location, bannerType, visualizationBox);
+        pendingClaims.put(player.getUniqueId(), pendingClaim);
+
+        long borderDuration = plugin.getConfig().getLong("integration.advanced-claims.border-display-ticks", 100L);
+        plugin.getAdvancedClaimsHook().showClaimBorder(player, visualizationBox, borderDuration);
+
+        plugin.getMessages().send(player, "territory.claim-confirm-chat");
+        player.showTitle(Title.title(
+                plugin.getMessages().component("territory.claim-confirm-title", Map.of(), player),
+                plugin.getMessages().component("territory.claim-confirm-subtitle", Map.of(), player),
+                Title.Times.times(Duration.ofMillis(500), Duration.ofSeconds(borderDuration / 20), Duration.ofMillis(500))
+        ));
+
+        return true;
+    }
+
+    public CompletableFuture<ClanTerritory> confirmPendingClaim(Player player, Location location) {
+        PendingClaim pendingClaim = pendingClaims.remove(player.getUniqueId());
+        if (pendingClaim == null) {
+            return CompletableFuture.failedFuture(new IllegalStateException("territory.claim-no-pending"));
+        }
+
+        if (!pendingClaim.location().getBlock().equals(location.getBlock())) {
+            plugin.getAdvancedClaimsHook().hideClaimBorder(player);
+            return CompletableFuture.failedFuture(new IllegalStateException("territory.claim-location-mismatch"));
+        }
+
+        Clan clan = pendingClaim.clan();
+        TerritoryKey key = TerritoryKey.fromLocation(location);
+        String bannerType = pendingClaim.bannerType();
+        ItemStack bannerItem = clanItemFactory.createBannerByType(bannerType, clan.id(), clan.name());
+
+        ClanTerritory territory = new ClanTerritory(clan.id(), location.getWorld().getName(), pendingClaim.visualizationBox(), player.getUniqueId(), System.currentTimeMillis())
+                .withBannerCoords(location.getBlockX(), location.getBlockY(), location.getBlockZ())
+                .withCapital(bannerType.equals("CAPITAL"));
+
+        ClanClaimEvent event = new ClanClaimEvent(clan, territory, player.getUniqueId());
+        Bukkit.getPluginManager().callEvent(event);
+        if (event.isCancelled()) {
+            plugin.getAdvancedClaimsHook().hideClaimBorder(player);
+            return CompletableFuture.failedFuture(new IllegalStateException("general.error"));
+        }
+
+        return plugin.supplySync(() -> {
             UUID claimId = plugin.getAdvancedClaimsHook().createOrAttachClaim(clan, territory).orElse(null);
-            ClanTerritory saved = territory.withAdvancedClaimId(claimId);
-            clan.addTerritory(saved);
+            return territory.withAdvancedClaimId(claimId);
+        }).thenCompose(savedTerritory -> {
+            clan.addTerritory(savedTerritory);
             clanByTerritory.put(key, clan.id());
-            return saved;
-        }).thenCompose(territory -> storage.saveTerritoryAsync(territory)
-                .thenCompose(ignored -> addExperienceAsync(clan, plugin.getConfig().getLong("leveling.territory-claim-exp", 150L)))
-                .thenApply(ignored -> territory));
+
+            if (bannerType.equals("CAPITAL")) {
+                clan.setHomeLocation(location);
+                return storage.saveClanAsync(clan).thenCompose(v -> storage.saveTerritoryAsync(savedTerritory)).thenApply(v -> savedTerritory);
+            }
+            return storage.saveTerritoryAsync(savedTerritory).thenApply(v -> savedTerritory);
+        }).thenApply(savedTerritory -> {
+            plugin.runSync(() -> {
+                location.getBlock().setType(bannerItem.getType());
+                player.getInventory().removeItem(bannerItem);
+                plugin.getAdvancedClaimsHook().hideClaimBorder(player);
+                plugin.getMessages().send(player, "territory.claimed-success", Map.of("clan", clan.name(), "tag", clan.tag()));
+                addExperienceAsync(clan, plugin.getConfig().getLong("leveling.territory-claim-exp", 150L));
+            });
+            return savedTerritory;
+        }).exceptionally(ex -> {
+            plugin.runSync(() -> {
+                plugin.sendOperationError(player, ex);
+                plugin.getAdvancedClaimsHook().hideClaimBorder(player);
+                player.getInventory().addItem(bannerItem);
+            });
+            return null;
+        });
+    }
+
+    public Optional<PendingClaim> cancelPendingClaim(UUID playerId) {
+        PendingClaim cancelledClaim = pendingClaims.remove(playerId);
+        if (cancelledClaim != null) {
+            Player player = Bukkit.getPlayer(playerId);
+            if (player != null) {
+                plugin.getAdvancedClaimsHook().hideClaimBorder(player);
+                plugin.getMessages().send(player, "territory.claim-cancelled");
+            }
+        }
+        return Optional.ofNullable(cancelledClaim);
+    }
+
+    public boolean hasPendingClaim(UUID playerId) {
+        return pendingClaims.containsKey(playerId);
     }
 
     public CompletableFuture<Void> unclaimTerritoryAsync(Clan clan, TerritoryKey key, UUID actorId) {
+        if (clan == null || key == null || actorId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, key and actor ID cannot be null."));
         return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.CLAIM)) { // Unclaim is also a claim permission
+            if (!clan.hasPermission(actorId, ClanPermission.CLAIM)) {
                 throw new IllegalStateException("general.no-permission");
             }
             if (plugin.getWarManager().activeWars().stream().anyMatch(war -> war.involves(clan.id()))) {
                 throw new IllegalStateException("war.cannot-unclaim");
             }
-            ClanTerritory territory = clan.territory(key).orElseThrow(() -> new IllegalStateException("territory.not-claimed"));
+            ClanTerritory territory = clan.territories().stream()
+                    .filter(t -> t.key().equals(key))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("territory.not-claimed"));
+
             plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
-            clan.removeTerritory(key);
+            clan.removeTerritory(territory.id());
             clanByTerritory.remove(key);
+
+            if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    World world = Bukkit.getWorld(territory.key().world());
+                    if (world != null) {
+                        org.bukkit.block.Block block = world.getBlockAt(territory.bannerX(), territory.bannerY(), territory.bannerZ());
+                        if (block.getType().toString().endsWith("_BANNER")) {
+                            block.setType(Material.AIR);
+                        }
+                    }
+                });
+            }
+
             Bukkit.getPluginManager().callEvent(new ClanUnclaimEvent(clan, territory, actorId));
             return territory;
-        }).thenCompose(territory -> storage.deleteTerritoryAsync(territory.key()));
+        }).thenCompose(territory -> storage.deleteTerritoryAsync(territory.id()));
     }
 
     public CompletableFuture<Clan> setDiplomacyAsync(Clan source, Clan target, DiplomacyRelation relation, UUID actorId) {
+        if (source == null || target == null || relation == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Source, target and relation cannot be null."));
         return plugin.supplySync(() -> {
-            if (!source.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
+            if (actorId != null && !source.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
                 throw new IllegalStateException("general.no-permission");
             }
             if (source.id().equals(target.id())) {
                 throw new IllegalStateException("general.error");
             }
+
+            if (source.territories().isEmpty() || target.territories().isEmpty()) {
+                throw new IllegalStateException("diplomacy.requires-home");
+            }
+
             if (relation == DiplomacyRelation.ALLY) {
                 addAllianceRequest(source.id(), target.id());
                 getOnlineLeader(target).ifPresent(leader ->
@@ -583,26 +851,27 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Clan> addExperienceAsync(Clan clan, long amount) {
+        if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
         return plugin.supplySync(() -> {
             int maxLevel = plugin.getConfig().getInt("limits.max-level", 20);
             int oldLevel = clan.level();
             clan.addExperience(amount);
             while (clan.level() < maxLevel && clan.experience() >= experienceForLevel(clan.level() + 1)) {
                 clan.levelUp();
-                Bukkit.getPluginManager().callEvent(new ClanLevelUpEvent(clan, clan.level() - 1, clan.level()));
-            }
-            if (oldLevel != clan.level()) {
-                clan.setUpgradeLevel(ClanUpgrade.SPIRIT, Math.max(clan.upgradeLevel(ClanUpgrade.SPIRIT), clan.level() / 4));
+                Bukkit.getPluginManager().callEvent(new ClanLevelUpEvent(clan, oldLevel, clan.level()));
+                oldLevel = clan.level();
             }
             return clan;
-        }).thenCompose(storage::saveClanAsync).thenApply(ignored -> clan);
+        }).thenCompose(c -> storage.saveClanAsync(c).thenApply(ignored -> c));
     }
-    
+
     public CompletableFuture<Clan> updateClanAsync(Clan clan) {
+        if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
         return storage.saveClanAsync(clan).thenApply(ignored -> clan);
     }
 
     public void updateLastSeen(UUID playerId, long timestamp) {
+        if (playerId == null) return;
         getPlayerClan(playerId).ifPresent(clan -> {
             clan.markSeen(playerId, timestamp);
             clan.member(playerId).ifPresent(member -> storage.saveMemberAsync(clan.id(), member));
@@ -610,15 +879,18 @@ public final class ClanManager {
     }
 
     public boolean isClanFull(Clan clan) {
+        if (clan == null) return true;
         return clan.members().size() >= maxMembers(clan);
     }
 
     public int maxMembers(Clan clan) {
+        if (clan == null) return 0;
         return plugin.getConfig().getInt("limits.base-members", 10)
                 + clan.upgradeLevel(ClanUpgrade.MEMBERS) * plugin.getConfig().getInt("limits.members-per-upgrade", 3);
     }
 
     public int maxTerritories(Clan clan) {
+        if (clan == null) return 0;
         return plugin.getConfig().getInt("limits.base-territories", 4) + clan.level() * plugin.getConfig().getInt("limits.territories-per-level", 1);
     }
 
@@ -639,6 +911,7 @@ public final class ClanManager {
     }
 
     private void indexClan(Clan clan) {
+        if (clan == null) return;
         clansById.put(clan.id(), clan);
         clanByTag.put(normalizeTag(clan.tag()), clan.id());
         for (UUID playerId : clan.members().keySet()) {
@@ -650,6 +923,7 @@ public final class ClanManager {
     }
 
     private void unindexClan(Clan clan) {
+        if (clan == null) return;
         clansById.remove(clan.id());
         clanByTag.remove(normalizeTag(clan.tag()));
         for (UUID playerId : clan.members().keySet()) {
@@ -661,6 +935,8 @@ public final class ClanManager {
     }
 
     private void requireRank(Clan clan, UUID playerId, ClanRank minimum) {
+        if (clan == null || playerId == null || minimum == null)
+            throw new IllegalStateException("clan.not-in-clan");
         ClanMember member = clan.member(playerId).orElseThrow(() -> new IllegalStateException("clan.not-in-clan"));
         if (!member.rank().atLeast(minimum)) {
             throw new IllegalStateException("clan.rank-too-low");
@@ -685,6 +961,11 @@ public final class ClanManager {
     }
 
     private String normalizeTag(String tag) {
+        if (tag == null) return "";
         return tag.toLowerCase(Locale.ROOT);
+    }
+
+    public ClanItemFactory getClanItemFactory() {
+        return clanItemFactory;
     }
 }

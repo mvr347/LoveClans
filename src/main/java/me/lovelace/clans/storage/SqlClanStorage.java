@@ -9,8 +9,10 @@ import me.lovelace.clans.model.ClanSpirit;
 import me.lovelace.clans.model.ClanTerritory;
 import me.lovelace.clans.model.ClanUpgrade;
 import me.lovelace.clans.model.DiplomacyRelation;
-import me.lovelace.clans.model.TerritoryKey;
+import org.bukkit.Bukkit; // Import Bukkit for World access
+import org.bukkit.Location; // Import Location
 import org.bukkit.Material;
+import org.bukkit.World; // Import World
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -45,16 +47,33 @@ public final class SqlClanStorage implements ClanStorage {
                         if (emblem == null) {
                             emblem = Material.WHITE_BANNER;
                         }
+                        long onlineTimeWeekly = 0L;
+                        long lastDecayCheck = System.currentTimeMillis();
+                        try {
+                            onlineTimeWeekly = result.getLong("spirit_online_time");
+                            lastDecayCheck = result.getLong("spirit_last_decay");
+                        } catch (SQLException ignored) {}
                         ClanSpirit spirit = new ClanSpirit(
                                 result.getInt("spirit_level"),
                                 result.getLong("spirit_energy"),
-                                result.getLong("spirit_awakened_until")
+                                result.getLong("spirit_awakened_until"),
+                                onlineTimeWeekly,
+                                lastDecayCheck
                         );
                         boolean isOpen = result.getInt("is_open") == 1;
                         int upgradePoints = 0;
                         try {
                             upgradePoints = result.getInt("upgrade_points");
                         } catch (SQLException ignored) {}
+
+                        // Load home_location
+                        Location homeLocation = null;
+                        try {
+                            String serializedHomeLocation = result.getString("home_location");
+                            homeLocation = deserializeLocation(serializedHomeLocation);
+                        } catch (SQLException ignored) {
+                            // Column might not exist yet
+                        }
 
                         Clan clan = new Clan(
                                 id,
@@ -69,7 +88,8 @@ public final class SqlClanStorage implements ClanStorage {
                                 result.getInt("chest_rows"),
                                 spirit,
                                 result.getLong("created_at"),
-                                isOpen
+                                isOpen,
+                                homeLocation // Pass homeLocation to constructor
                         );
                         clans.put(id, clan);
                     }
@@ -107,6 +127,7 @@ public final class SqlClanStorage implements ClanStorage {
                 savePermissions(connection, clan);
                 connection.commit();
             } catch (SQLException exception) {
+                exception.printStackTrace();
                 throw new StorageException("Unable to save clan " + clan.id(), exception);
             }
         }, database.executor());
@@ -156,22 +177,20 @@ public final class SqlClanStorage implements ClanStorage {
             try (Connection connection = database.dataSource().getConnection()) {
                 saveTerritory(connection, territory);
             } catch (SQLException exception) {
-                throw new StorageException("Unable to save territory " + territory.key(), exception);
+                throw new StorageException("Unable to save territory " + territory.id(), exception);
             }
         }, database.executor());
     }
 
     @Override
-    public CompletableFuture<Void> deleteTerritoryAsync(TerritoryKey key) {
+    public CompletableFuture<Void> deleteTerritoryAsync(UUID territoryId) {
         return CompletableFuture.runAsync(() -> {
             try (Connection connection = database.dataSource().getConnection();
-                 PreparedStatement statement = connection.prepareStatement("DELETE FROM clan_territories WHERE world = ? AND chunk_x = ? AND chunk_z = ?")) {
-                statement.setString(1, key.world());
-                statement.setInt(2, key.chunkX());
-                statement.setInt(3, key.chunkZ());
+                 PreparedStatement statement = connection.prepareStatement("DELETE FROM clan_territories WHERE id = ?")) {
+                statement.setString(1, territoryId.toString());
                 statement.executeUpdate();
             } catch (SQLException exception) {
-                throw new StorageException("Unable to delete territory " + key, exception);
+                throw new StorageException("Unable to delete territory " + territoryId, exception);
             }
         }, database.executor());
     }
@@ -307,33 +326,25 @@ public final class SqlClanStorage implements ClanStorage {
                 if (clan == null) {
                     continue;
                 }
-                String claimId = result.getString("advanced_claim_id");
-                
-                // Read the new columns if they exist
-                Integer bannerX = null;
-                Integer bannerY = null;
-                Integer bannerZ = null;
-                String name = null;
-                boolean pvp = false;
-                
-                try {
-                    bannerX = result.getInt("banner_x");
-                    if (result.wasNull()) bannerX = null;
-                    bannerY = result.getInt("banner_y");
-                    if (result.wasNull()) bannerY = null;
-                    bannerZ = result.getInt("banner_z");
-                    if (result.wasNull()) bannerZ = null;
-                    name = result.getString("name");
-                    pvp = result.getInt("pvp") == 1;
-                } catch (SQLException ignored) {}
-                
                 clan.addTerritory(new ClanTerritory(
+                        UUID.fromString(result.getString("id")),
                         clan.id(),
-                        new TerritoryKey(result.getString("world"), result.getInt("chunk_x"), result.getInt("chunk_z")),
-                        claimId == null ? null : UUID.fromString(claimId),
+                        result.getString("world"),
+                        result.getInt("min_x"),
+                        result.getInt("min_y"),
+                        result.getInt("min_z"),
+                        result.getInt("max_x"),
+                        result.getInt("max_y"),
+                        result.getInt("max_z"),
+                        result.getString("advanced_claim_id") == null ? null : UUID.fromString(result.getString("advanced_claim_id")),
                         UUID.fromString(result.getString("claimed_by")),
                         result.getLong("claimed_at"),
-                        bannerX, bannerY, bannerZ, name, pvp
+                        result.getObject("banner_x") == null ? null : result.getInt("banner_x"),
+                        result.getObject("banner_y") == null ? null : result.getInt("banner_y"),
+                        result.getObject("banner_z") == null ? null : result.getInt("banner_z"),
+                        result.getString("name"),
+                        result.getBoolean("pvp"),
+                        result.getBoolean("is_capital")
                 ));
             }
         }
@@ -387,37 +398,48 @@ public final class SqlClanStorage implements ClanStorage {
     private void saveClan(Connection connection, Clan clan) throws SQLException {
         boolean exists = exists(connection, "clans", "id", clan.id().toString());
         
-        try (java.sql.Statement s = connection.createStatement()) {
-            s.executeUpdate("ALTER TABLE clans ADD COLUMN upgrade_points INT NOT NULL DEFAULT 0");
-        } catch (SQLException ignored) {}
+        // try (java.sql.Statement s = connection.createStatement()) {
+        //     s.executeUpdate("ALTER TABLE clans ADD COLUMN upgrade_points INT NOT NULL DEFAULT 0");
+        // } catch (SQLException ignored) {}
+        
+        // try (java.sql.Statement s = connection.createStatement()) {
+        //     s.executeUpdate("ALTER TABLE clans ADD COLUMN home_location VARCHAR(255)");
+        // } catch (SQLException ignored) {}
 
         String sql = exists
                 ? """
                   UPDATE clans SET name = ?, tag = ?, tag_color = ?, description = ?, emblem_material = ?,
                   level = ?, experience = ?, upgrade_points = ?, chest_rows = ?, spirit_level = ?, spirit_energy = ?,
-                  spirit_awakened_until = ?, created_at = ?, is_open = ? WHERE id = ?
+                  spirit_awakened_until = ?, created_at = ?, is_open = ?, home_location = ? WHERE id = ?
                   """
                 : """
                   INSERT INTO clans (name, tag, tag_color, description, emblem_material, level, experience, upgrade_points,
-                  chest_rows, spirit_level, spirit_energy, spirit_awakened_until, created_at, is_open, id)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  chest_rows, spirit_level, spirit_energy, spirit_awakened_until, created_at, is_open, home_location, id)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                   """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, clan.name());
-            statement.setString(2, clan.tag());
-            statement.setString(3, clan.tagColor());
-            statement.setString(4, clan.description());
-            statement.setString(5, clan.emblem().name());
-            statement.setInt(6, clan.level());
-            statement.setLong(7, clan.experience());
-            statement.setInt(8, clan.upgradePoints());
-            statement.setInt(9, clan.chestRows());
-            statement.setInt(10, clan.spirit().level());
-            statement.setLong(11, clan.spirit().energy());
-            statement.setLong(12, clan.spirit().awakenedUntil());
-            statement.setLong(13, clan.createdAt());
-            statement.setInt(14, clan.isOpen() ? 1 : 0);
-            statement.setString(15, clan.id().toString());
+            int paramIndex = 1;
+            statement.setString(paramIndex++, clan.name());
+            statement.setString(paramIndex++, clan.tag());
+            statement.setString(paramIndex++, clan.tagColor());
+            statement.setString(paramIndex++, clan.description());
+            statement.setString(paramIndex++, clan.emblem().name());
+            statement.setInt(paramIndex++, clan.level());
+            statement.setLong(paramIndex++, clan.experience());
+            statement.setInt(paramIndex++, clan.upgradePoints());
+            statement.setInt(paramIndex++, clan.chestRows());
+            statement.setInt(paramIndex++, clan.spirit().level());
+            statement.setLong(paramIndex++, clan.spirit().energy());
+            statement.setLong(paramIndex++, clan.spirit().awakenedUntil());
+            statement.setLong(paramIndex++, clan.createdAt());
+            statement.setInt(paramIndex++, clan.isOpen() ? 1 : 0);
+            String serializedHomeLocation = serializeLocation(clan.getHomeLocation().orElse(null));
+            if (serializedHomeLocation == null) {
+                statement.setNull(paramIndex++, Types.VARCHAR);
+            } else {
+                statement.setString(paramIndex++, serializedHomeLocation);
+            }
+            statement.setString(paramIndex++, clan.id().toString());
             statement.executeUpdate();
         }
     }
@@ -425,9 +447,9 @@ public final class SqlClanStorage implements ClanStorage {
     private void saveMember(Connection connection, UUID clanId, ClanMember member) throws SQLException {
         boolean exists = memberExists(connection, clanId, member.playerId());
         
-        try (java.sql.Statement s = connection.createStatement()) {
-            s.executeUpdate("ALTER TABLE clan_members ADD COLUMN contribution INT NOT NULL DEFAULT 0");
-        } catch (SQLException ignored) {}
+        // try (java.sql.Statement s = connection.createStatement()) {
+        //     s.executeUpdate("ALTER TABLE clan_members ADD COLUMN contribution INT NOT NULL DEFAULT 0");
+        // } catch (SQLException ignored) {}
         
         String sql = exists
                 ? "UPDATE clan_members SET rank = ?, joined_at = ?, last_seen = ?, contribution = ? WHERE clan_id = ? AND player_id = ?"
@@ -444,47 +466,60 @@ public final class SqlClanStorage implements ClanStorage {
     }
 
     private void saveTerritory(Connection connection, ClanTerritory territory) throws SQLException {
-        boolean exists = territoryExists(connection, territory.key());
-        
-        // Ensure table columns exist
-        try (java.sql.Statement s = connection.createStatement()) {
-             s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_x INT");
-             s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_y INT");
-             s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_z INT");
-             s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN name VARCHAR(64)");
-             s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN pvp TINYINT DEFAULT 0");
-        } catch (SQLException ignored) {}
-        
+        boolean exists = territoryExists(connection, territory.id());
+
+        // try (java.sql.Statement s = connection.createStatement()) {
+        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_x INT");
+        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_y INT");
+        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_z INT");
+        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN name VARCHAR(64)");
+        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN pvp TINYINT DEFAULT 0");
+        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN is_capital TINYINT DEFAULT 0");
+        // } catch (SQLException ignored) {}
+
         String sql = exists
                 ? """
-                  UPDATE clan_territories SET clan_id = ?, advanced_claim_id = ?, claimed_by = ?, claimed_at = ?,
-                  banner_x = ?, banner_y = ?, banner_z = ?, name = ?, pvp = ?
-                  WHERE world = ? AND chunk_x = ? AND chunk_z = ?
+                  UPDATE clan_territories SET clan_id = ?, world = ?, min_x = ?, min_y = ?, min_z = ?, max_x = ?, max_y = ?, max_z = ?, 
+                  advanced_claim_id = ?, claimed_by = ?, claimed_at = ?, banner_x = ?, banner_y = ?, banner_z = ?, name = ?, pvp = ?, is_capital = ?
+                  WHERE id = ?
                   """
                 : """
-                  INSERT INTO clan_territories (clan_id, advanced_claim_id, claimed_by, claimed_at, banner_x, banner_y, banner_z, name, pvp, world, chunk_x, chunk_z)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  INSERT INTO clan_territories (id, clan_id, world, min_x, min_y, min_z, max_x, max_y, max_z, advanced_claim_id, claimed_by, claimed_at, banner_x, banner_y, banner_z, name, pvp, is_capital)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                   """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, territory.clanId().toString());
-            if (territory.advancedClaimId() == null) {
-                statement.setNull(2, Types.VARCHAR);
-            } else {
-                statement.setString(2, territory.advancedClaimId().toString());
+            int paramIndex = 1;
+            if (!exists) { // For INSERT, id is the first parameter
+                statement.setString(paramIndex++, territory.id().toString());
             }
-            statement.setString(3, territory.claimedBy().toString());
-            statement.setLong(4, territory.claimedAt());
+            statement.setString(paramIndex++, territory.clanId().toString());
+            statement.setString(paramIndex++, territory.world());
+            statement.setInt(paramIndex++, territory.minX());
+            statement.setInt(paramIndex++, territory.minY());
+            statement.setInt(paramIndex++, territory.minZ());
+            statement.setInt(paramIndex++, territory.maxX());
+            statement.setInt(paramIndex++, territory.maxY());
+            statement.setInt(paramIndex++, territory.maxZ());
+            if (territory.advancedClaimId() == null) {
+                statement.setNull(paramIndex++, Types.VARCHAR);
+            } else {
+                statement.setString(paramIndex++, territory.advancedClaimId().toString());
+            }
+            statement.setString(paramIndex++, territory.claimedBy().toString());
+            statement.setLong(paramIndex++, territory.claimedAt());
+
+            if (territory.bannerX() == null) statement.setNull(paramIndex++, Types.INTEGER); else statement.setInt(paramIndex++, territory.bannerX());
+            if (territory.bannerY() == null) statement.setNull(paramIndex++, Types.INTEGER); else statement.setInt(paramIndex++, territory.bannerY());
+            if (territory.bannerZ() == null) statement.setNull(paramIndex++, Types.INTEGER); else statement.setInt(paramIndex++, territory.bannerZ());
+
+            if (territory.name() == null) statement.setNull(paramIndex++, Types.VARCHAR); else statement.setString(paramIndex++, territory.name());
+            statement.setInt(paramIndex++, territory.pvp() ? 1 : 0);
+            statement.setInt(paramIndex++, territory.isCapital() ? 1 : 0);
             
-            if (territory.bannerX() == null) statement.setNull(5, Types.INTEGER); else statement.setInt(5, territory.bannerX());
-            if (territory.bannerY() == null) statement.setNull(6, Types.INTEGER); else statement.setInt(6, territory.bannerY());
-            if (territory.bannerZ() == null) statement.setNull(7, Types.INTEGER); else statement.setInt(7, territory.bannerZ());
+            if (exists) { // For UPDATE, id is the last parameter (WHERE clause)
+                statement.setString(paramIndex++, territory.id().toString());
+            }
             
-            if (territory.name() == null) statement.setNull(8, Types.VARCHAR); else statement.setString(8, territory.name());
-            statement.setInt(9, territory.pvp() ? 1 : 0);
-            
-            statement.setString(10, territory.key().world());
-            statement.setInt(11, territory.key().chunkX());
-            statement.setInt(12, territory.key().chunkZ());
             statement.executeUpdate();
         }
     }
@@ -553,11 +588,9 @@ public final class SqlClanStorage implements ClanStorage {
         }
     }
 
-    private boolean territoryExists(Connection connection, TerritoryKey key) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM clan_territories WHERE world = ? AND chunk_x = ? AND chunk_z = ?")) {
-            statement.setString(1, key.world());
-            statement.setInt(2, key.chunkX());
-            statement.setInt(3, key.chunkZ());
+    private boolean territoryExists(Connection connection, UUID territoryId) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM clan_territories WHERE id = ?")) {
+            statement.setString(1, territoryId.toString());
             try (ResultSet result = statement.executeQuery()) {
                 return result.next();
             }
@@ -600,6 +633,48 @@ public final class SqlClanStorage implements ClanStorage {
             try (ResultSet result = statement.executeQuery()) {
                 return result.next();
             }
+        }
+    }
+
+    // Helper methods for Location serialization/deserialization
+    private String serializeLocation(Location location) {
+        if (location == null || location.getWorld() == null) {
+            return null;
+        }
+        return String.format("%s;%f;%f;%f;%f;%f",
+                location.getWorld().getName(),
+                location.getX(),
+                location.getY(),
+                location.getZ(),
+                location.getYaw(),
+                location.getPitch());
+    }
+
+    private Location deserializeLocation(String serializedLocation) {
+        if (serializedLocation == null || serializedLocation.isEmpty()) {
+            return null;
+        }
+        String[] parts = serializedLocation.split(";");
+        if (parts.length != 6) {
+            // Log a warning or handle invalid format
+            return null;
+        }
+        try {
+            String worldName = parts[0];
+            World world = Bukkit.getWorld(worldName);
+            if (world == null) {
+                // Log a warning or handle missing world
+                return null;
+            }
+            double x = Double.parseDouble(parts[1]);
+            double y = Double.parseDouble(parts[2]);
+            double z = Double.parseDouble(parts[3]);
+            float yaw = Float.parseFloat(parts[4]);
+            float pitch = Float.parseFloat(parts[5]);
+            return new Location(world, x, y, z, yaw, pitch);
+        } catch (NumberFormatException e) {
+            // Log error
+            return null;
         }
     }
 }

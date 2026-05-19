@@ -1,5 +1,6 @@
 package me.lovelace.clans.model;
 
+import org.bukkit.Location; // Import Location
 import org.bukkit.Material;
 
 import java.util.Collection;
@@ -26,9 +27,10 @@ public final class Clan {
     private int chestRows;
     private ClanSpirit spirit;
     private boolean open;
+    private Location homeLocation; // New field for home location
 
     private final Map<UUID, ClanMember> members = new ConcurrentHashMap<>();
-    private final Map<TerritoryKey, ClanTerritory> territories = new ConcurrentHashMap<>();
+    private final Map<UUID, ClanTerritory> territories = new ConcurrentHashMap<>();
     private final Map<UUID, DiplomacyRelation> diplomacy = new ConcurrentHashMap<>();
     private final Map<ClanUpgrade, Integer> upgrades = new ConcurrentHashMap<>();
     private final Map<ClanRank, Set<ClanPermission>> permissions = new ConcurrentHashMap<>();
@@ -45,7 +47,8 @@ public final class Clan {
                 int chestRows,
                 ClanSpirit spirit,
                 long createdAt,
-                boolean open) {
+                boolean open,
+                Location homeLocation) { // Added homeLocation to constructor
         this.id = id;
         this.name = name;
         this.tag = tag;
@@ -59,6 +62,7 @@ public final class Clan {
         this.spirit = spirit;
         this.createdAt = createdAt;
         this.open = open;
+        this.homeLocation = homeLocation; // Initialize homeLocation
         for (ClanUpgrade upgrade : ClanUpgrade.values()) {
             upgrades.put(upgrade, 0);
         }
@@ -72,7 +76,8 @@ public final class Clan {
     }
 
     public static Clan create(UUID id, String name, String tag, String tagColor, Material emblem, UUID founderId, int chestRows, boolean open) {
-        Clan clan = new Clan(id, name, tag, tagColor, "", emblem, 1, 0L, 0, chestRows, ClanSpirit.fresh(), System.currentTimeMillis(), open);
+        // homeLocation is null initially, will be set when the capital banner is placed
+        Clan clan = new Clan(id, name, tag, tagColor, "", emblem, 1, 0L, 0, chestRows, ClanSpirit.fresh(), System.currentTimeMillis(), open, null);
         clan.addMember(founderId, ClanRank.LEADER);
         return clan;
     }
@@ -160,6 +165,14 @@ public final class Clan {
     public boolean hasMember(UUID playerId) {
         return members.containsKey(playerId);
     }
+
+    public boolean isMember(UUID playerId) {
+        return hasMember(playerId);
+    }
+
+    public Optional<ClanTerritory> getCapitalTerritory() {
+        return territories.values().stream().filter(ClanTerritory::isCapital).findFirst();
+    }
     
     public boolean hasPermission(UUID playerId, ClanPermission permission) {
         Optional<ClanMember> member = member(playerId);
@@ -216,15 +229,15 @@ public final class Clan {
     }
 
     public void addTerritory(ClanTerritory territory) {
-        territories.put(territory.key(), territory);
+        territories.put(territory.id(), territory);
     }
 
-    public void removeTerritory(TerritoryKey key) {
-        territories.remove(key);
+    public void removeTerritory(UUID id) {
+        territories.remove(id);
     }
 
-    public Optional<ClanTerritory> territory(TerritoryKey key) {
-        return Optional.ofNullable(territories.get(key));
+    public Optional<ClanTerritory> territory(UUID id) {
+        return Optional.ofNullable(territories.get(id));
     }
 
     public void setDiplomacy(UUID targetClanId, DiplomacyRelation relation) {
@@ -309,5 +322,15 @@ public final class Clan {
 
     public void setEmblem(Material emblem) {
         this.emblem = emblem;
+    }
+
+    // New getter for homeLocation
+    public Optional<Location> getHomeLocation() {
+        return Optional.ofNullable(homeLocation);
+    }
+
+    // New setter for homeLocation
+    public void setHomeLocation(Location homeLocation) {
+        this.homeLocation = homeLocation;
     }
 }

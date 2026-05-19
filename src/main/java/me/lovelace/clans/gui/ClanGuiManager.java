@@ -42,7 +42,7 @@ public final class ClanGuiManager implements Listener {
 
     public ClanGuiManager(ClansPlugin plugin) {
         this.plugin = plugin;
-        this.mainMenu = new ClanMainMenu(plugin);
+        this.mainMenu = null; // ClanMainMenu now requires clan+player at construction time
         this.membersMenu = new ClanMembersMenu(plugin);
         this.territoriesMenu = new ClanTerritoriesMenu(plugin);
         this.upgradesMenu = new ClanUpgradesMenu(plugin);
@@ -57,7 +57,7 @@ public final class ClanGuiManager implements Listener {
 
     public NamespacedKey memberKey() { return memberKey; }
 
-    public void openMain(Player player, Clan clan) { mainMenu.open(player, clan); }
+    public void openMain(Player player, Clan clan) { new ClanMainMenu(plugin, clan, player).open(); }
     public void openMembers(Player player, Clan clan) { membersMenu.open(player, clan); }
     public void openTerritories(Player player, Clan clan) { territoriesMenu.open(player, clan); }
     public void openUpgrades(Player player, Clan clan) { upgradesMenu.open(player, clan); }
@@ -108,6 +108,10 @@ public final class ClanGuiManager implements Listener {
     public void openQuests(Player player, Clan clan) {
         new ClanQuestsMenu(plugin, clan).open(player, clan);
     }
+    
+    public void openSpirit(Player player, Clan clan) {
+        new ClanSpiritMenu(plugin, clan).open(player);
+    }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
@@ -135,7 +139,20 @@ public final class ClanGuiManager implements Listener {
         if (event.getView().getTopInventory().getHolder() instanceof ClanInfoMenu infoMenu) {
             if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
             event.setCancelled(true);
-            infoMenu.handleInventoryClick(event.getRawSlot());
+            if (event.getRawSlot() == 22) {
+                Clan clan = infoMenu.clan();
+                if (clan.isOpen()) {
+                    plugin.getClanManager().applyToClanAsync(clan, player.getUniqueId())
+                            .thenRun(() -> plugin.runSync(() -> {
+                                plugin.getMessages().send(player, "clan.applied", Map.of("clan", clan.name()));
+                                player.closeInventory();
+                            }))
+                            .exceptionally(t -> {
+                                plugin.runSync(() -> plugin.sendOperationError(player, t));
+                                return null;
+                            });
+                }
+            }
             return;
         }
         if (event.getView().getTopInventory().getHolder() instanceof PlayerApplicationsMenu appMenu) {
@@ -156,6 +173,12 @@ public final class ClanGuiManager implements Listener {
             Optional<Clan> optionalClan = plugin.getClanManager().getClanById(questsMenu.clanId());
             if (optionalClan.isEmpty()) { player.closeInventory(); return; }
             questsMenu.handleInventoryClick(player, optionalClan.get(), event.getRawSlot());
+            return;
+        }
+        if (event.getView().getTopInventory().getHolder() instanceof ClanSpiritMenu spiritMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            spiritMenu.handleInventoryClick(player, event.getRawSlot());
             return;
         }
 
@@ -227,8 +250,9 @@ public final class ClanGuiManager implements Listener {
             case 20 -> openMembers(player, clan);
             case 22 -> openTerritories(player, clan);
             case 24 -> openUpgrades(player, clan);
-            case 30 -> openDiplomacySelect(player, clan);
-            case 32 -> {
+            case 29 -> openDiplomacySelect(player, clan);
+            case 31 -> openSpirit(player, clan); // Clan Spirit
+            case 33 -> {
                 if (!isGuildmaster(clan, player.getUniqueId())) {
                     plugin.getMessages().send(player, "general.no-permission"); return;
                 }

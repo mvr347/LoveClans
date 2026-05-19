@@ -163,6 +163,10 @@ public final class MessageService {
         guildmaster.sendMessage(msg);
     }
 
+    public String formatDate(long timestamp) {
+        return new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm").format(new java.util.Date(timestamp));
+    }
+
     private String applyPlaceholders(Player player, String raw) {
         if (player == null || papiSetPlaceholders == null || !Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             return raw;

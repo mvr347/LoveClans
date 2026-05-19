@@ -2,7 +2,6 @@ name: Clans
 version: '${project.version}'
 main: me.lovelace.clans.ClansPlugin
 api-version: '1.21.11'
-load: POSTWORLD
 authors: [ lovelace ]
 description: Full-featured clans, guild wars, territories and AdvancedClaims integration.
 softdepend:

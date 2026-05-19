@@ -113,18 +113,19 @@ public final class DatabaseManager implements AutoCloseable {
                         spirit_level INT NOT NULL,
                         spirit_energy BIGINT NOT NULL,
                         spirit_awakened_until BIGINT NOT NULL,
+                        spirit_online_time BIGINT NOT NULL DEFAULT 0,
+                        spirit_last_decay BIGINT NOT NULL DEFAULT 0,
                         created_at BIGINT NOT NULL,
-                        is_open TINYINT NOT NULL DEFAULT 1
+                        is_open TINYINT NOT NULL DEFAULT 1,
+                        home_location TEXT
                     )
                     """);
-            // Migration: add is_open for existing databases
-            try {
-                statement.executeUpdate("ALTER TABLE clans ADD COLUMN is_open TINYINT NOT NULL DEFAULT 1");
-            } catch (SQLException ignored) { /* column already exists */ }
-            // Migration: add upgrade_points for existing databases
-            try {
-                statement.executeUpdate("ALTER TABLE clans ADD COLUMN upgrade_points INT NOT NULL DEFAULT 0");
-            } catch (SQLException ignored) { /* column already exists */ }
+            // Migrations
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN is_open TINYINT NOT NULL DEFAULT 1"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN upgrade_points INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_online_time BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_last_decay BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN home_location TEXT"); } catch (SQLException ignored) {}
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_members (
@@ -133,16 +134,24 @@ public final class DatabaseManager implements AutoCloseable {
                         rank VARCHAR(32) NOT NULL,
                         joined_at BIGINT NOT NULL,
                         last_seen BIGINT NOT NULL,
+                        contribution INT NOT NULL DEFAULT 0,
                         PRIMARY KEY (clan_id, player_id),
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);
+             try { statement.executeUpdate("ALTER TABLE clan_members ADD COLUMN contribution INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_territories (
-                        world VARCHAR(128) NOT NULL,
-                        chunk_x INT NOT NULL,
-                        chunk_z INT NOT NULL,
+                        id VARCHAR(36) PRIMARY KEY,
                         clan_id VARCHAR(36) NOT NULL,
+                        world VARCHAR(128) NOT NULL,
+                        min_x INT NOT NULL,
+                        min_y INT NOT NULL,
+                        min_z INT NOT NULL,
+                        max_x INT NOT NULL,
+                        max_y INT NOT NULL,
+                        max_z INT NOT NULL,
                         advanced_claim_id VARCHAR(36),
                         claimed_by VARCHAR(36) NOT NULL,
                         claimed_at BIGINT NOT NULL,
@@ -151,18 +160,11 @@ public final class DatabaseManager implements AutoCloseable {
                         banner_z INT,
                         name VARCHAR(64),
                         pvp TINYINT DEFAULT 0,
-                        PRIMARY KEY (world, chunk_x, chunk_z),
+                        is_capital TINYINT DEFAULT 0,
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);
-             // Migration for territories
-             try {
-                 statement.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_x INT");
-                 statement.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_y INT");
-                 statement.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_z INT");
-                 statement.executeUpdate("ALTER TABLE clan_territories ADD COLUMN name VARCHAR(64)");
-                 statement.executeUpdate("ALTER TABLE clan_territories ADD COLUMN pvp TINYINT DEFAULT 0");
-             } catch (SQLException ignored) {}
+
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_diplomacy (
                         source_clan_id VARCHAR(36) NOT NULL,
@@ -201,23 +203,33 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
 
-            // Drop old player_quest_progress table if it exists
             try {
                 statement.executeUpdate("DROP TABLE IF EXISTS player_quest_progress");
             } catch (SQLException e) {
                 plugin.getLogger().log(Level.WARNING, "Failed to drop old player_quest_progress table (may not exist): " + e.getMessage());
             }
 
-            // Create new clan_quest_progress table
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_quest_progress (
                         clan_id VARCHAR(36) NOT NULL,
                         quest_id VARCHAR(64) NOT NULL,
-                        objective_progress TEXT NOT NULL, -- Stores JSON representation of Map<Integer, Integer>
+                        objective_progress TEXT NOT NULL,
                         completed TINYINT NOT NULL,
                         claimed TINYINT NOT NULL,
                         last_reset BIGINT NOT NULL,
                         PRIMARY KEY (clan_id, quest_id),
+                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
+                    )
+                    """);
+                    
+            // History for Clan Spirit
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_spirit_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        clan_id VARCHAR(36) NOT NULL,
+                        action VARCHAR(64) NOT NULL,
+                        amount INT NOT NULL,
+                        timestamp BIGINT NOT NULL,
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);

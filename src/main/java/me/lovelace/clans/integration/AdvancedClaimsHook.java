@@ -7,7 +7,7 @@ import me.lovelace.clans.model.ClanRank;
 import me.lovelace.clans.model.ClanTerritory;
 import me.lovelace.clans.model.TerritoryKey;
 import org.bukkit.Bukkit;
-import org.bukkit.Chunk;
+import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
@@ -47,7 +47,7 @@ public final class AdvancedClaimsHook {
             Method getInstance = apiClass.getMethod(plugin.getConfig().getString("integration.advanced-claims.methods.get-instance", "getInstance"));
             api = getInstance.invoke(null);
             trustLevelClass = Class.forName(trustLevelClassName);
-            
+
             // Get showBorder and hideBorder methods
             showBorderMethod = apiClass.getMethod("showBorder", Player.class, BoundingBox.class, long.class);
             hideBorderMethod = apiClass.getMethod("hideBorder", Player.class);
@@ -64,22 +64,46 @@ public final class AdvancedClaimsHook {
     }
 
     public Optional<UUID> createOrAttachClaim(Clan clan, ClanTerritory territory) {
-        if (!enabled() || !plugin.getConfig().getBoolean("integration.advanced-claims.auto-claim-chunk", true)) {
+        if (!enabled() || api == null || !plugin.getConfig().getBoolean("integration.advanced-claims.auto-claim-chunk", true)) {
             return Optional.empty();
         }
+        // Защита от дурачков: Проверка на null для входных параметров
+        if (clan == null || territory == null) {
+            plugin.getLogger().warning("createOrAttachClaim called with null clan or territory.");
+            return Optional.empty();
+        }
+
         TerritoryKey key = territory.key();
         World world = Bukkit.getWorld(key.world());
         if (world == null) {
+            plugin.getLogger().warning("createOrAttachClaim called for a non-existent world: " + key.world());
             return Optional.empty();
         }
-        int minX = key.chunkX() << 4;
-        int minZ = key.chunkZ() << 4;
-        BoundingBox box = new BoundingBox(minX, world.getMinHeight(), minZ, minX + 15, world.getMaxHeight(), minZ + 15);
+
+        BoundingBox box;
+        Location centerLoc;
+
+        if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
+            // New 25x25x25 logic around banner
+            int radius = 12; // 25 total (12 + 1 + 12)
+            box = new BoundingBox(
+                    territory.bannerX() - radius, world.getMinHeight(), territory.bannerZ() - radius,
+                    territory.bannerX() + radius, world.getMaxHeight(), territory.bannerZ() + radius
+            );
+            centerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
+        } else {
+            // Fallback to old chunk logic if for some reason no banner coords
+            int minX = key.chunkX() << 4;
+            int minZ = key.chunkZ() << 4;
+            box = new BoundingBox(minX, world.getMinHeight(), minZ, minX + 15, world.getMaxHeight(), minZ + 15);
+            centerLoc = world.getHighestBlockAt(minX + 8, minZ + 8).getLocation();
+        }
+
+        // Use createClanClaim instead of createClaim for clan territories.
+        // The owner is the clan's UUID, not the leader's.
         Object claim = invokeBest(
-                methodName("create-claim", "createClaim"),
-                new Object[]{world, box, clan.leaderId().orElse(territory.claimedBy()), world.getHighestBlockAt(minX + 8, minZ + 8).getLocation()},
-                new Object[]{world, box, clan.leaderId().orElse(territory.claimedBy())},
-                new Object[]{clan.leaderId().orElse(territory.claimedBy()), world.getChunkAt(key.chunkX(), key.chunkZ())}
+                methodName("create-clan-claim", "createClanClaim"),
+                new Object[]{world, box, clan.id(), centerLoc}
         ).orElse(null);
 
         Optional<UUID> claimId = extractClaimId(claim);
@@ -88,99 +112,142 @@ public final class AdvancedClaimsHook {
     }
 
     public void deleteClaim(UUID claimId) {
-        if (!enabled() || claimId == null) {
+        if (!enabled() || api == null) {
+            return;
+        }
+        // Защита от дурачков: Проверка на null для claimId
+        if (claimId == null) {
+            plugin.getLogger().warning("deleteClaim called with null claimId.");
             return;
         }
         invokeBest(methodName("delete-claim", "deleteClaim"), new Object[]{claimId}, new Object[]{claimId.toString()});
     }
 
-    public boolean isClaimed(Chunk chunk) {
-        if (!enabled()) {
+    public boolean isClaimed(Location location) {
+        if (!enabled() || api == null) {
             return false;
         }
-        return (boolean) invokeBest(methodName("is-claimed", "isClaimed"),
-                new Object[]{chunk},
-                new Object[]{chunk.getWorld(), chunk.getX(), chunk.getZ()}
-        ).orElse(false);
+        // Защита от дурачков: Проверка на null для location
+        if (location == null) {
+            plugin.getLogger().warning("isClaimed called with null location.");
+            return false;
+        }
+        // AdvancedClaims API may return Optional<?> itself, so use extractClaimId
+        // to properly unwrap nested Optionals and avoid false positives.
+        Optional<Object> result = getClaimAt(location);
+        if (result.isEmpty()) return false;
+        Object value = result.get();
+        if (value instanceof Optional<?> inner) {
+            return inner.isPresent();
+        }
+        return true;
     }
 
-    public Optional<UUID> getClaimOwner(Chunk chunk) {
-        if (!enabled()) {
+    public Optional<Object> getClaimAt(Location location) {
+        if (!enabled() || api == null) {
             return Optional.empty();
         }
-        Object owner = invokeBest(methodName("get-claim-owner", "getClaimOwner"),
-                new Object[]{chunk},
-                new Object[]{chunk.getWorld(), chunk.getX(), chunk.getZ()}
-        ).orElse(null);
-        
-        if (owner instanceof UUID uuid) {
-            return Optional.of(uuid);
+        // Защита от дурачков: Проверка на null для location
+        if (location == null) {
+            plugin.getLogger().warning("getClaimAt called with null location.");
+            return Optional.empty();
         }
-        // If the API returns a Claim object, try to extract the owner UUID from it
-        if (owner != null) {
-            for (String method : new String[]{"getOwnerId", "ownerId", "getOwner", "owner"}) {
-                try {
-                    Object value = owner.getClass().getMethod(method).invoke(owner);
-                    if (value instanceof UUID uuid) {
-                        return Optional.of(uuid);
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                }
-            }
-        }
-        return Optional.empty();
+        return invokeBest(methodName("get-claim-at", "getClaimAt"), new Object[]{location});
     }
 
+    public Optional<UUID> getClaimOwner(Location location) {
+        if (!enabled() || api == null) {
+            return Optional.empty();
+        }
+        // Защита от дурачков: Проверка на null для location
+        if (location == null) {
+            plugin.getLogger().warning("getClaimOwner called with null location.");
+            return Optional.empty();
+        }
+        return getClaimAt(location).flatMap(this::extractClaimId);
+    }
+
+    /**
+     * Синхронизирует права всех членов клана для указанной территории AdvancedClaims.
+     * Вызывается при создании территории или при загрузке клана.
+     *
+     * @param clan Клан
+     * @param territory Территория клана
+     */
     public void syncClanTrust(Clan clan, ClanTerritory territory) {
-        if (!enabled() || territory.advancedClaimId() == null) {
+        if (!enabled() || api == null) {
             return;
         }
-        Object claim = findClaim(territory.advancedClaimId()).orElse(territory.advancedClaimId());
-        for (ClanMember member : clan.members().values()) {
-            OfflinePlayer player = Bukkit.getOfflinePlayer(member.playerId());
-            syncPlayerTrust(claim, player, member.rank());
-        }
-    }
-
-    public void syncPlayerTrust(Clan clan, OfflinePlayer player, ClanRank rank) {
-        if (!enabled()) {
+        // Защита от дурачков: Проверка на null для входных параметров
+        if (clan == null || territory == null || territory.advancedClaimId() == null) {
+            plugin.getLogger().warning("syncClanTrust called with null clan, territory, or advancedClaimId.");
             return;
         }
-        for (ClanTerritory territory : clan.territories()) {
-            if (territory.advancedClaimId() == null) {
-                continue;
+        // AdvancedClaimsAPI.addPlayerToClaim принимает Claim, а не UUID.
+        // Поэтому сначала нужно получить объект Claim.
+        findClaim(territory.advancedClaimId()).ifPresent(claimObject -> {
+            for (ClanMember member : clan.members().values()) {
+                OfflinePlayer player = Bukkit.getOfflinePlayer(member.playerId());
+                // Защита от дурачков: Проверка на null для OfflinePlayer
+                if (player == null) {
+                    plugin.getLogger().warning("syncClanTrust: OfflinePlayer is null for member " + member.playerId());
+                    continue;
+                }
+                updatePlayerTrust(claimObject, player, member.rank());
             }
-            Object claim = findClaim(territory.advancedClaimId()).orElse(territory.advancedClaimId());
-            syncPlayerTrust(claim, player, rank);
-        }
+        });
     }
 
-    public void removePlayerTrust(Clan clan, OfflinePlayer player) {
-        if (!enabled()) {
+    /**
+     * Обновляет права конкретного игрока в привате AdvancedClaims на основе его ранга в клане.
+     *
+     * @param claimObject Объект привата AdvancedClaims (не UUID)
+     * @param player Игрок
+     * @param rank Ранг игрока в клане
+     */
+    public void updatePlayerTrust(Object claimObject, OfflinePlayer player, ClanRank rank) {
+        if (!enabled() || api == null) {
             return;
         }
-        for (ClanTerritory territory : clan.territories()) {
-            if (territory.advancedClaimId() == null) {
-                continue;
-            }
-            Object claim = findClaim(territory.advancedClaimId()).orElse(territory.advancedClaimId());
-            invokeBest(methodName("remove-player", "removePlayerFromClaim"),
-                    new Object[]{claim, player},
-                    new Object[]{territory.advancedClaimId(), player.getUniqueId()},
-                    new Object[]{territory.advancedClaimId(), player});
+        // Защита от дурачков: Проверка на null для входных параметров
+        if (claimObject == null || player == null || rank == null) {
+            plugin.getLogger().warning("updatePlayerTrust called with null claimObject, player, or rank.");
+            return;
         }
-    }
 
-    private void syncPlayerTrust(Object claim, OfflinePlayer player, ClanRank rank) {
         Object trustLevel = trustLevel(rank);
         invokeBest(methodName("add-player", "addPlayerToClaim"),
-                new Object[]{claim, player, trustLevel},
-                new Object[]{claim, player.getUniqueId(), trustLevel},
-                new Object[]{claim, player, String.valueOf(trustLevel)},
-                new Object[]{claim, player.getUniqueId(), String.valueOf(trustLevel)});
+                new Object[]{claimObject, player, trustLevel});
     }
 
-    private Optional<Object> findClaim(UUID claimId) {
+    /**
+     * Удаляет игрока из привата AdvancedClaims.
+     *
+     * @param claimObject Объект привата AdvancedClaims (не UUID)
+     * @param player Игрок
+     */
+    public void removePlayerTrust(Object claimObject, OfflinePlayer player) {
+        if (!enabled() || api == null) {
+            return;
+        }
+        // Защита от дурачков: Проверка на null для входных параметров
+        if (claimObject == null || player == null) {
+            plugin.getLogger().warning("removePlayerTrust called with null claimObject or player.");
+            return;
+        }
+        invokeBest(methodName("remove-player", "removePlayerFromClaim"),
+                new Object[]{claimObject, player});
+    }
+
+    public Optional<Object> findClaim(UUID claimId) {
+        if (!enabled() || api == null) { // Добавлена проверка
+            return Optional.empty();
+        }
+        // Защита от дурачков: Проверка на null для claimId
+        if (claimId == null) {
+            plugin.getLogger().warning("findClaim called with null claimId.");
+            return Optional.empty();
+        }
         Object value = invokeBest(methodName("get-claim-by-id", "getClaimById"), new Object[]{claimId}, new Object[]{claimId.toString()}).orElse(null);
         if (value instanceof Optional<?> optional) {
             return optional.map(object -> object);
@@ -190,11 +257,36 @@ public final class AdvancedClaimsHook {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Object trustLevel(ClanRank rank) {
-        String configured = plugin.getConfig().getString("integration.advanced-claims.trust-mapping." + rank.name(), "INTERACT");
-        if (trustLevelClass != null && trustLevelClass.isEnum()) {
-            return Enum.valueOf((Class<? extends Enum>) trustLevelClass.asSubclass(Enum.class), configured.toUpperCase(Locale.ROOT));
+        String defaultTrustLevel;
+        // Определяем дефолтный TrustLevel в зависимости от ClanRank
+        if (rank == null) {
+            plugin.getLogger().warning("trustLevel called with null ClanRank. Defaulting to CONTAINER.");
+            defaultTrustLevel = "CONTAINER";
+        } else {
+            switch (rank) {
+                case LEADER:
+                case GUARDIAN:
+                    defaultTrustLevel = "BUILD";
+                    break;
+                case MEMBER:
+                case RECRUIT:
+                default: // Should not happen if all ranks are covered
+                    defaultTrustLevel = "CONTAINER";
+                    break;
+            }
         }
-        return configured;
+
+        String configured = plugin.getConfig().getString("integration.advanced-claims.trust-mapping." + rank.name(), defaultTrustLevel);
+
+        if (trustLevelClass != null && trustLevelClass.isEnum()) {
+            try {
+                return Enum.valueOf((Class<? extends Enum>) trustLevelClass.asSubclass(Enum.class), configured.toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                plugin.getLogger().log(Level.WARNING, "Invalid TrustLevel mapping for ClanRank " + rank.name() + ": " + configured + ". Defaulting to " + defaultTrustLevel + ".", e);
+                return Enum.valueOf((Class<? extends Enum>) trustLevelClass.asSubclass(Enum.class), defaultTrustLevel);
+            }
+        }
+        return configured; // Fallback if TrustLevel is not an enum or class not found
     }
 
     private Optional<UUID> extractClaimId(Object claim) {
@@ -214,7 +306,7 @@ public final class AdvancedClaimsHook {
                 return Optional.empty();
             }
         }
-        for (String method : new String[]{"getId", "id", "getUniqueId", "uniqueId"}) {
+        for (String method : new String[]{"getId", "id", "getUniqueId", "uniqueId", "getOwnerId", "ownerId"}) {
             try {
                 Object value = claim.getClass().getMethod(method).invoke(claim);
                 Optional<UUID> uuid = extractClaimId(value);
@@ -228,24 +320,30 @@ public final class AdvancedClaimsHook {
     }
 
     private Optional<Object> invokeBest(String methodName, Object[]... candidates) {
-        if (!enabled()) {
+        if (!enabled() || api == null) {
+            plugin.getLogger().fine("AdvancedClaimsHook is not enabled or API is null. Cannot invoke method " + methodName);
             return Optional.empty();
         }
         for (Object[] args : candidates) {
             Optional<Method> method = findCompatibleMethod(methodName, args);
             if (method.isEmpty()) {
+                plugin.getLogger().fine("No compatible method found for " + methodName + " with arguments: " + java.util.Arrays.toString(args));
                 continue;
             }
             try {
                 return Optional.ofNullable(method.get().invoke(api, args));
             } catch (IllegalAccessException | InvocationTargetException exception) {
-                plugin.getLogger().fine("AdvancedClaims call failed for " + methodName + ": " + exception.getMessage());
+                plugin.getLogger().log(Level.WARNING, "AdvancedClaims call failed for " + methodName + " with arguments " + java.util.Arrays.toString(args) + ": " + exception.getMessage(), exception);
             }
         }
+        plugin.getLogger().warning("Failed to invoke method " + methodName + " after trying all candidates.");
         return Optional.empty();
     }
 
     private Optional<Method> findCompatibleMethod(String methodName, Object[] args) {
+        if (api == null) {
+            return Optional.empty();
+        }
         for (Method method : api.getClass().getMethods()) {
             if (!method.getName().equals(methodName) || method.getParameterCount() != args.length) {
                 continue;
@@ -253,7 +351,15 @@ public final class AdvancedClaimsHook {
             Class<?>[] parameterTypes = method.getParameterTypes();
             boolean compatible = true;
             for (int index = 0; index < parameterTypes.length; index++) {
-                if (args[index] != null && !wrap(parameterTypes[index]).isAssignableFrom(args[index].getClass())) {
+                // Handle primitive types and null arguments
+                if (args[index] == null) {
+                    // If the argument is null, it can be assigned to any non-primitive type.
+                    // If the parameter type is primitive, null is not compatible.
+                    if (parameterTypes[index].isPrimitive()) {
+                        compatible = false;
+                        break;
+                    }
+                } else if (!wrap(parameterTypes[index]).isAssignableFrom(args[index].getClass())) {
                     compatible = false;
                     break;
                 }
@@ -297,12 +403,18 @@ public final class AdvancedClaimsHook {
         return type;
     }
 
+
     private String methodName(String pathName, String fallback) {
         return plugin.getConfig().getString("integration.advanced-claims.methods." + pathName, fallback);
     }
-    
+
     public void showClaimBorder(Player player, BoundingBox box, long durationTicks) {
-        if (!enabled() || showBorderMethod == null) return;
+        if (!enabled() || api == null || showBorderMethod == null) return;
+        // Защита от дурачков: Проверка на null для входных параметров
+        if (player == null || box == null) {
+            plugin.getLogger().warning("showClaimBorder called with null player or bounding box.");
+            return;
+        }
         try {
             showBorderMethod.invoke(api, player, box, durationTicks);
         } catch (IllegalAccessException | InvocationTargetException e) {
@@ -311,7 +423,12 @@ public final class AdvancedClaimsHook {
     }
 
     public void hideClaimBorder(Player player) {
-        if (!enabled() || hideBorderMethod == null) return;
+        if (!enabled() || api == null || hideBorderMethod == null) return;
+        // Защита от дурачков: Проверка на null для player
+        if (player == null) {
+            plugin.getLogger().warning("hideBorder called with null player.");
+            return;
+        }
         try {
             hideBorderMethod.invoke(api, player);
         } catch (IllegalAccessException | InvocationTargetException e) {

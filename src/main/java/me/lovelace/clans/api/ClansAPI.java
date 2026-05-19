@@ -123,8 +123,8 @@ public final class ClansAPI {
         return plugin.getClanManager().setRankAsync(clan, actorId, playerId, rank);
     }
 
-    public CompletableFuture<ClanTerritory> claimChunkAsync(Clan clan, Chunk chunk, Player actor) {
-        return plugin.getClanManager().claimTerritoryAsync(clan, chunk, actor);
+    public CompletableFuture<Boolean> claimTerritoryAsync(Clan clan, Location location, Player actor) {
+        return plugin.getClanManager().claimTerritoryAsync(clan, location, actor, "TERRITORY");
     }
 
     public CompletableFuture<Void> unclaimChunkAsync(Clan clan, TerritoryKey key, UUID actorId) {

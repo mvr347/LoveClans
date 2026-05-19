@@ -20,6 +20,7 @@ public final class Permissions {
     public static final String VOTE = "clans.vote";
     public static final String APPLICATIONS = "clans.applications";
     public static final String ADMIN = "clans.admin";
+    public static final String HOME = "clans.home"; // Added HOME permission
 
     private Permissions() {
     }

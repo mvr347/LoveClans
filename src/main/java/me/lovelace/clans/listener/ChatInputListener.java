@@ -19,9 +19,23 @@ public class ChatInputListener implements Listener {
     @EventHandler
     public void onAsyncPlayerChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
+        String message = event.getMessage();
+
+        // Check for pending claim cancellation first
+        if (plugin.getClanManager().hasPendingClaim(player.getUniqueId())) {
+            if (message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("отмена")) {
+                event.setCancelled(true);
+                plugin.runSync(() -> {
+                    plugin.getClanManager().cancelPendingClaim(player.getUniqueId());
+                    // Message is already sent by cancelPendingClaim
+                });
+                return; // Handled the cancellation
+            }
+        }
+
+        // If not a pending claim cancellation, proceed with generic chat input listeners
         plugin.getChatInputListener(player.getUniqueId()).ifPresent(callback -> {
             event.setCancelled(true);
-            String message = event.getMessage();
             if (message.equalsIgnoreCase("cancel") || message.equalsIgnoreCase("отмена")) {
                 plugin.runSync(() -> {
                     callback.accept(null, true);
