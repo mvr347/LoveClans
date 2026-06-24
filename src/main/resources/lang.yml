@@ -188,6 +188,26 @@ gui:
     prompt-name: "<prefix><yellow>Введите название клана в чат."
     prompt-tag: "<prefix><yellow>Введите тег клана в чат."
     success: "<prefix><green>Клан <gold><tag></gold> (<name>) успешно создан!"
+    name:
+      button: "<gold>Название клана"
+      lore: "<gray>Текущее: <white><value></white>"
+      not-set: "<red>Не задано"
+      prompt: "<prefix><yellow>Введите название клана в чат (4-10 символов)."
+    tag:
+      button: "<gold>Тег клана"
+      lore: "<gray>Текущий: <white><value></white>"
+      not-set: "<red>Не задан"
+      prompt: "<prefix><yellow>Введите тег клана в чат (3-6 символов, только A-Z 0-9 _)."
+    type:
+      open: "<green>Открытый клан"
+      closed: "<red>Закрытый клан"
+      lore:
+        - "<gray>Нажмите чтобы переключить."
+        - "<gray>Открытый = принимаются заявки."
+        - "<gray>Закрытый = только по приглашению."
+    create:
+      ready: "<green>✔ Создать клан"
+      not-ready: "<red>✗ Сначала введите название и тег"
   diplomacy:
     title: "<gray>Дипломатия с кланом <color><tag>"
     ally:
