@@ -96,6 +96,54 @@ public final class ClanMembersMenu {
         player.openInventory(inventory);
     }
 
+    public void handleInventoryClick(Player player, Clan clan, int slot) {
+        int inventorySize = player.getOpenInventory().getTopInventory().getSize();
+        int backButtonSlot = inventorySize - 5;
+        int inviteButtonSlot = inventorySize - 4;
+
+        if (slot == backButtonSlot) {
+            plugin.getGuiManager().openMain(player, clan);
+            return;
+        }
+
+        if (slot == inviteButtonSlot) {
+            boolean canInvite = clan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.INVITE);
+            if (canInvite) {
+                if (plugin.getClanManager().isClanFull(clan)) {
+                    plugin.getMessages().send(player, "clan.member-limit-reached");
+                    return;
+                }
+                player.closeInventory();
+                plugin.getMessages().send(player, "gui.members.invite.prompt");
+                plugin.expectChatInput(player.getUniqueId(), (inputName, isCancelled) -> {
+                    if (isCancelled) {
+                        plugin.runSync(() -> open(player, clan));
+                        return;
+                    }
+                    plugin.getServer().dispatchCommand(player, "clan invite " + inputName);
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                        plugin.getClanManager().getPlayerClan(player.getUniqueId())
+                                .ifPresent(refreshed -> open(player, refreshed));
+                    }, 10L);
+                });
+            } else {
+                plugin.getMessages().send(player, "general.no-permission");
+            }
+            return;
+        }
+
+        org.bukkit.inventory.ItemStack item = player.getOpenInventory().getTopInventory().getItem(slot);
+        if (item == null || !item.hasItemMeta()) return;
+        String playerId = item.getItemMeta().getPersistentDataContainer()
+                .get(plugin.getGuiManager().memberKey(), PersistentDataType.STRING);
+        if (playerId == null) return;
+        try {
+            java.util.UUID targetId = java.util.UUID.fromString(playerId);
+            if (targetId.equals(player.getUniqueId())) return;
+            plugin.getGuiManager().openMemberDetail(player, clan, targetId);
+        } catch (IllegalArgumentException ignored) {}
+    }
+
     private void fillGlass(Inventory inventory) {
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             // Only fill empty slots, do not overwrite existing items

@@ -160,7 +160,12 @@ gui:
       apply-closed: "<red>Заявки закрыты"
       apply-open: "<green>Заявки открыты"
       click-info: "<gray>ЛКМ - подробная информация"
+  color-picker:
+    title: "<gray>Выбор цвета клана"
+    preview: "<preview>"
   confirm:
+    "yes": "<green>[Подтвердить]"
+    "no": "<red>[Отмена]"
     change-tag:
       title: "<gold>Подтвердите смену тега"
     close-clan:
@@ -175,6 +180,44 @@ gui:
       title: "<gold>Подтвердите смену названия"
     transfer:
       title: "<gold>Подтвердите передачу лидерства"
+  create:
+    title: "<gold>Создание клана"
+    start:
+      name: "<green>Создать клан"
+      lore: "<gray>Нажмите, чтобы начать создание клана."
+    prompt-name: "<prefix><yellow>Введите название клана в чат."
+    prompt-tag: "<prefix><yellow>Введите тег клана в чат."
+    success: "<prefix><green>Клан <gold><tag></gold> (<name>) успешно создан!"
+  diplomacy:
+    title: "<gray>Дипломатия с кланом <color><tag>"
+    ally:
+      name: "<green>Союз"
+      lore: "<gray>Нажмите, чтобы предложить союз."
+    neutral:
+      name: "<yellow>Нейтралитет"
+      lore: "<gray>Нажмите, чтобы установить нейтральные отношения."
+    enemy:
+      name: "<red>Вражда"
+      lore: "<gray>Нажмите, чтобы объявить кланы враждующими."
+    select-other:
+      name: "<gray>« Выбрать другой клан"
+  diplomacy-select:
+    title: "<gold>Выберите клан"
+    clan-item:
+      name: "<color><tag> <white><name>"
+      relation: "<gray>Отношения: <white><relation>"
+  info:
+    title: "<color><tag> <white><name>"
+    name: "<color><tag> <white><name>"
+    level: "<gray>Уровень: <white><level>"
+    members: "<gray>Участников: <white><current>/<max>"
+    leader: "<gray>Глава: <white><player>"
+    apply:
+      name: "<green>Подать заявку"
+      lore: "<gray>Нажмите, чтобы подать заявку на вступление."
+    apply-closed:
+      name: "<red>Заявки закрыты"
+      lore: "<gray>Этот клан сейчас не принимает заявки."
   main:
     title: "<color><clan> <white>- Меню клана"
     info:
@@ -207,6 +250,22 @@ gui:
     leave:
       name: "<red>Покинуть клан"
       lore: "<gray>Выйти из состава клана."
+  member-detail:
+    title: "<gray>Участник <white><player>"
+    name: "<yellow><player>"
+    rank: "<gray>Ранг: <white><rank>"
+    transfer:
+      name: "<gold>Передать лидерство"
+      lore: "<gray>Сделать этого участника новым главой клана."
+    promote:
+      name: "<green>Повысить"
+      lore: "<gray>Повысить ранг участника."
+    demote:
+      name: "<red>Понизить"
+      lore: "<gray>Понизить ранг участника."
+    kick:
+      name: "<red>Исключить"
+      lore: "<gray>Исключить участника из клана."
   members:
     invite:
       name: "<green>Пригласить игрока"
@@ -226,6 +285,37 @@ gui:
       world: "<gray>Мир: <white><world>"
       claimed-at: "<gray>Захвачен: <white><date>"
       unclaim-hint: "<gray>ПКМ - снять захват"
+  player-applications:
+    title: "<gold>Мои заявки и приглашения"
+    application-item:
+      name: "<color><tag> <white><name>"
+      lore: "<gray>ЛКМ - отозвать заявку"
+    invite-item:
+      name: "<color><tag> <white><name>"
+      left-click-accept: "<green>ЛКМ - принять приглашение"
+      right-click-decline: "<red>ПКМ - отклонить приглашение"
+    empty:
+      name: "<gray>Пусто"
+      lore: "<gray>У вас нет активных заявок или приглашений."
+    cancelled: "<prefix><yellow>Заявка отозвана."
+    invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <gold><tag></gold>."
+  rank-permissions:
+    title: "<gold>Права ранга <white><rank>"
+    enabled: "<green>Включено"
+    disabled: "<red>Отключено"
+    permission:
+      build: "<gold>Строительство"
+      invite: "<gold>Приглашение игроков"
+      kick: "<gold>Исключение игроков"
+      claim: "<gold>Захват территорий"
+      upgrade: "<gold>Улучшения клана"
+      settings: "<gold>Настройки клана"
+      diplomacy: "<gold>Дипломатия"
+  role-settings:
+    title: "<gold>Управление рангами"
+    rank:
+      name: "<gold><rank>"
+      lore: "<gray>Нажмите, чтобы настроить права этого ранга."
   settings:
     title: "<color><clan> <white>- Настройки"
     rename:
@@ -272,6 +362,9 @@ gui:
     buffs:
       name: "<gold>Активные бафы"
       lore_active: "<gray>Бафы духа активны для участников клана."
+      entry:
+        unlocked: "<green><level></green> <white><name> <gray>- <description>"
+        locked: "<red><level></red> <gray><name> - <description>"
     ability:
       name: "<gold>Способность духа"
       locked: "<red>Заблокировано до 10 уровня."
@@ -279,9 +372,18 @@ gui:
     history:
       name: "<gold>История"
       lore: "<gray>История призывов духа клана."
+    history-menu:
+      title: "<gray>История духа клана"
+      entry:
+        name: "<yellow><action>"
+        amount: "<gray>Изменение: <white><amount>"
+        date: "<gray>Дата: <white><date>"
+      empty: "<gray>История пуста."
     top:
-      name: "<gold>Топ кланов"
-      lore: "<gray>Рейтинг кланов по уровню духа."
+      name: "<gold>Топ участников"
+      lore: "<gray>Рейтинг участников клана по вкладу."
+      empty: "<gray>Пока нет данных о вкладе участников."
+      entry: "<gray>#<rank> <yellow><player> <gray>- <white><amount>"
   territories:
     empty:
       name: "<gray>Нет территорий"

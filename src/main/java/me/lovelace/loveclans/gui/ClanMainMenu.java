@@ -113,7 +113,7 @@ public final class ClanMainMenu implements InventoryHolder {
             case 21 -> plugin.getGuiManager().openDiplomacySelect(clicker, clan);
             case 23 -> plugin.getGuiManager().openClanTerritoriesMenu(clicker, clan);
             case 25 -> plugin.getGuiManager().openUpgrades(clicker, clan);
-            case 38 -> plugin.getGuiManager().openSpirit(clicker, clan);
+            case 38 -> plugin.getGuiManager().openSpiritMenu(clicker, clan);
             case 40 -> plugin.getGuiManager().openSettings(clicker, clan);
             case 42 -> {
                 boolean canViewApps = clan.member(clicker.getUniqueId())

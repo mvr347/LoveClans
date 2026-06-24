@@ -2,7 +2,6 @@ package me.lovelace.loveclans;
 
 import me.lovelace.loveclans.api.LoveClansAPI;
 import me.lovelace.loveclans.command.ClanCommand;
-import me.lovelace.loveclans.gui.ClanGuiManager;
 import me.lovelace.loveclans.manager.GuiManager;
 import me.lovelace.loveclans.integration.AdvancedClaimsHook;
 import me.lovelace.loveclans.integration.PlaceholderAPIHook;
@@ -51,7 +50,6 @@ public final class LoveClansPlugin extends JavaPlugin {
     private SpiritManager spiritManager;
     private ArtifactManager artifactManager;
     private GuiManager guiManager;
-    private ClanGuiManager clanGuiManager;
     private AdvancedClaimsHook advancedClaimsHook;
     private ClanProtectionListener clanProtectionListener;
     private BukkitTask heartbeatTask;
@@ -76,7 +74,6 @@ public final class LoveClansPlugin extends JavaPlugin {
         spiritManager = new SpiritManager(this);
         artifactManager = new ArtifactManager(this);
         guiManager = new GuiManager(this);
-        clanGuiManager = new ClanGuiManager(this);
         advancedClaimsHook = new AdvancedClaimsHook(this);
 
         clanManager.loadAsync().thenRunAsync(() -> {
@@ -182,7 +179,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         return artifactManager;
     }
 
-    public GuiManager getGuiManager() { // Changed from ClanGuiManager
+    public GuiManager getGuiManager() {
         return guiManager;
     }
 
@@ -259,7 +256,6 @@ public final class LoveClansPlugin extends JavaPlugin {
     private void registerListeners() {
         PluginManager pluginManager = Bukkit.getPluginManager();
         pluginManager.registerEvents(guiManager, this);
-        pluginManager.registerEvents(clanGuiManager, this);
         pluginManager.registerEvents(new PlayerConnectionListener(this), this);
         clanProtectionListener = new ClanProtectionListener(this, clanManager, warManager); // Pass clanManager and warManager
         pluginManager.registerEvents(clanProtectionListener, this);

@@ -2,15 +2,19 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.spirit.SpiritBuffLevel;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 
 public class ClanSpiritMenu implements InventoryHolder {
@@ -36,7 +40,7 @@ public class ClanSpiritMenu implements InventoryHolder {
         String levelName = buffLevel != null ? buffLevel.getName() : "Пробуждение";
         
         long currentExp = clan.spirit().energy();
-        long nextExp = getExpForNextLevel(currentLevel);
+        long nextExp = plugin.getSpiritManager().getExpForNextLevel(currentLevel);
         
         String progressStr = createProgressBar(currentExp, nextExp, 20);
 
@@ -48,11 +52,17 @@ public class ClanSpiritMenu implements InventoryHolder {
                 .build());
 
         // Buffs List
-        inventory.setItem(30, ItemBuilder.of(Material.POTION)
+        ItemBuilder buffsItem = ItemBuilder.of(Material.POTION)
                 .name(plugin.getMessages().component("gui.spirit.buffs.name", player))
-                .lore(plugin.getMessages().component("gui.spirit.buffs.lore_active", player))
-                // Add logic to list active buffs here based on SpiritBuffLevel
-                .build());
+                .lore(plugin.getMessages().component("gui.spirit.buffs.lore_active", player));
+        for (SpiritBuffLevel level : SpiritBuffLevel.values()) {
+            boolean unlocked = level.getLevel() <= currentLevel;
+            buffsItem.lore(plugin.getMessages().component(
+                    unlocked ? "gui.spirit.buffs.entry.unlocked" : "gui.spirit.buffs.entry.locked",
+                    Map.of("level", String.valueOf(level.getLevel()), "name", level.getName(), "description", level.getDescription()),
+                    player));
+        }
+        inventory.setItem(30, buffsItem.build());
 
         // Unique Ability (Level 10)
         inventory.setItem(32, ItemBuilder.of(Material.BEACON)
@@ -67,10 +77,26 @@ public class ClanSpiritMenu implements InventoryHolder {
                 .build());
 
         // Top Contributors
-        inventory.setItem(48, ItemBuilder.head(ItemBuilder.HEAD_MEMBERS)
+        List<ClanMember> topContributors = clan.members().values().stream()
+                .sorted(Comparator.comparingInt(ClanMember::contribution).reversed())
+                .limit(5)
+                .toList();
+        ItemBuilder topItem = ItemBuilder.head(ItemBuilder.HEAD_MEMBERS)
                 .name(plugin.getMessages().component("gui.spirit.top.name", player))
-                .lore(plugin.getMessages().component("gui.spirit.top.lore", player))
-                .build());
+                .lore(plugin.getMessages().component("gui.spirit.top.lore", player));
+        if (topContributors.isEmpty()) {
+            topItem.lore(plugin.getMessages().component("gui.spirit.top.empty", player));
+        } else {
+            int rank = 1;
+            for (ClanMember member : topContributors) {
+                OfflinePlayer offline = Bukkit.getOfflinePlayer(member.playerId());
+                String memberName = offline.getName() != null ? offline.getName() : member.playerId().toString().substring(0, 8);
+                topItem.lore(plugin.getMessages().component("gui.spirit.top.entry",
+                        Map.of("rank", String.valueOf(rank), "player", memberName, "amount", String.valueOf(member.contribution())), player));
+                rank++;
+            }
+        }
+        inventory.setItem(48, topItem.build());
 
         // Back button
         inventory.setItem(50, ItemBuilder.head(ItemBuilder.HEAD_BACK)
@@ -85,7 +111,12 @@ public class ClanSpiritMenu implements InventoryHolder {
             plugin.getGuiManager().openMain(player, clan);
             return;
         }
-        // Handle history and top contributors clicks if needed
+        if (slot == 40) {
+            plugin.getSpiritManager().getHistoryAsync(clan.id(), 27)
+                    .thenAccept(entries -> plugin.runSync(() ->
+                            new ClanSpiritHistoryMenu(plugin, player, clan, entries).open()))
+                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+        }
     }
 
     private String createProgressBar(long current, long max, int length) {
@@ -95,11 +126,6 @@ public class ClanSpiritMenu implements InventoryHolder {
         return "<green>" + "█".repeat(Math.max(0, filled)) + "</green><gray>" + "█".repeat(Math.max(0, empty)) + "</gray>";
     }
     
-    private long getExpForNextLevel(int level) {
-        // Placeholder formula for spirit exp
-        return level * 1000L; 
-    }
-
     @Override
     public Inventory getInventory() {
         return inventory;

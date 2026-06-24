@@ -77,6 +77,126 @@ public final class ClanSettingsMenu {
         player.openInventory(inventory);
     }
 
+    public void handleInventoryClick(Player player, Clan clan, int slot) {
+        if (slot == 13) {
+            plugin.getGuiManager().openMain(player, clan);
+            return;
+        }
+        if (!clan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.SETTINGS)) {
+            plugin.getMessages().send(player, "general.no-permission");
+            return;
+        }
+        switch (slot) {
+            case 1 -> {
+                player.closeInventory();
+                plugin.getMessages().send(player, "gui.settings.rename.prompt");
+                plugin.expectChatInput(player.getUniqueId(), (newName, isCancelled) -> {
+                    if (isCancelled) {
+                        plugin.runSync(() -> open(player, clan));
+                        return;
+                    }
+                    int min = plugin.getConfig().getInt("clans.name.min-length", 4);
+                    int max = plugin.getConfig().getInt("clans.name.max-length", 10);
+                    if (newName.trim().length() < min || newName.trim().length() > max) {
+                        plugin.getMessages().send(player, "clan.invalid-name",
+                                Map.of("min", String.valueOf(min), "max", String.valueOf(max)));
+                        plugin.runSync(() -> open(player, clan));
+                        return;
+                    }
+                    plugin.getGuiManager().openConfirm(player, clan,
+                            plugin.getMessages().component("gui.confirm.rename.title", player), Component.empty(),
+                            () -> plugin.getClanManager().renameClanAsync(clan, player.getUniqueId(), newName.trim())
+                                    .thenAccept(updated -> plugin.runSync(() -> {
+                                        plugin.getMessages().send(player, "gui.settings.rename.success", Map.of("name", updated.name()));
+                                        open(player, updated);
+                                    }))
+                                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
+                            () -> plugin.runSync(() -> open(player, clan))
+                    );
+                });
+            }
+            case 2 -> {
+                player.closeInventory();
+                plugin.getMessages().send(player, "gui.settings.change-tag.prompt");
+                plugin.expectChatInput(player.getUniqueId(), (newTag, isCancelled) -> {
+                    if (isCancelled) {
+                        plugin.runSync(() -> open(player, clan));
+                        return;
+                    }
+                    int min = plugin.getConfig().getInt("clans.tag.min-length", 3);
+                    int max = plugin.getConfig().getInt("clans.tag.max-length", 6);
+                    String pattern = plugin.getConfig().getString("clans.tag.pattern", "^[A-Za-z0-9_]+$");
+                    if (newTag.trim().length() < min || newTag.trim().length() > max || !newTag.trim().matches(pattern)) {
+                        plugin.getMessages().send(player, "clan.invalid-tag",
+                                Map.of("min", String.valueOf(min), "max", String.valueOf(max)));
+                        plugin.runSync(() -> open(player, clan));
+                        return;
+                    }
+                    plugin.getGuiManager().openConfirm(player, clan,
+                            plugin.getMessages().component("gui.confirm.change-tag.title", player), Component.empty(),
+                            () -> plugin.getClanManager().changeClanTagAsync(clan, player.getUniqueId(), newTag.trim())
+                                    .thenAccept(updated -> plugin.runSync(() -> {
+                                        plugin.getMessages().send(player, "gui.settings.change-tag.success", Map.of("tag", updated.tag()));
+                                        open(player, updated);
+                                    }))
+                                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
+                            () -> plugin.runSync(() -> open(player, clan))
+                    );
+                });
+            }
+            case 3 -> {
+                org.bukkit.inventory.ItemStack inHand = player.getInventory().getItemInMainHand();
+                if (!inHand.getType().name().endsWith("_BANNER")) {
+                    plugin.getMessages().send(player, "gui.settings.change-banner.no-banner-in-hand");
+                    return;
+                }
+                Material bannerMat = inHand.getType();
+                plugin.getClanManager().changeClanEmblemAsync(clan, player.getUniqueId(), bannerMat)
+                        .thenAccept(updated -> plugin.runSync(() -> {
+                            plugin.getMessages().send(player, "gui.settings.change-banner.success");
+                            open(player, updated);
+                        }))
+                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+            }
+            case 4 -> plugin.getGuiManager().openColorPicker(player, clan);
+            case 5 -> plugin.getGuiManager().openConfirm(player, clan,
+                    clan.isOpen()
+                            ? plugin.getMessages().component("gui.confirm.close-clan.title", player)
+                            : plugin.getMessages().component("gui.confirm.open-clan.title", player),
+                    Component.empty(),
+                    () -> plugin.getClanManager().setClanOpenStatusAsync(clan, player.getUniqueId(), !clan.isOpen())
+                            .thenAccept(updated -> plugin.runSync(() -> {
+                                plugin.getMessages().send(player, updated.isOpen()
+                                        ? "gui.settings.status.open.success" : "gui.settings.status.closed.success");
+                                open(player, updated);
+                            }))
+                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
+                    () -> plugin.runSync(() -> open(player, clan))
+            );
+            case 6 -> plugin.getGuiManager().openRoleSettings(player, clan);
+            case 7 -> {
+                boolean isLeader = clan.member(player.getUniqueId())
+                        .map(m -> m.rank() == me.lovelace.loveclans.model.ClanRank.LEADER)
+                        .orElse(false);
+                if (!isLeader) {
+                    plugin.getMessages().send(player, "general.no-permission");
+                    return;
+                }
+                plugin.getGuiManager().openConfirm(player, clan,
+                        plugin.getMessages().component("gui.confirm.disband.title", player), Component.empty(),
+                        () -> {
+                            player.closeInventory();
+                            plugin.getClanManager().disbandClanAsync(clan, player.getUniqueId())
+                                    .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(player, "clan.disbanded")))
+                                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                        },
+                        () -> plugin.runSync(() -> open(player, clan))
+                );
+            }
+            default -> {}
+        }
+    }
+
     private void fillGlass(Inventory inventory) {
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             // Only fill empty slots, do not overwrite existing items

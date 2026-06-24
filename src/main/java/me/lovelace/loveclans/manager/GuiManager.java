@@ -3,28 +3,43 @@ package me.lovelace.loveclans.manager;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.gui.ClanApplicationsMenu;
 import me.lovelace.loveclans.gui.ClanCapitalManagementMenu;
+import me.lovelace.loveclans.gui.ClanColorPickerMenu;
+import me.lovelace.loveclans.gui.ClanConfirmMenu;
+import me.lovelace.loveclans.gui.ClanCreateMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacyMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacySelectMenu;
+import me.lovelace.loveclans.gui.ClanInfoMenu;
 import me.lovelace.loveclans.gui.ClanListMenu;
 import me.lovelace.loveclans.gui.ClanMainMenu;
+import me.lovelace.loveclans.gui.ClanMemberDetailMenu;
 import me.lovelace.loveclans.gui.ClanMembersMenu;
-import me.lovelace.loveclans.gui.ClanMenuHolder; // Добавлено
-import me.lovelace.loveclans.gui.ClanMenuType; // Добавлено
+import me.lovelace.loveclans.gui.ClanMenuHolder;
+import me.lovelace.loveclans.gui.ClanMenuType;
 import me.lovelace.loveclans.gui.ClanOtherTerritoriesMenu;
+import me.lovelace.loveclans.gui.ClanRankPermissionsMenu;
+import me.lovelace.loveclans.gui.ClanRoleSettingsMenu;
 import me.lovelace.loveclans.gui.ClanSettingsMenu;
+import me.lovelace.loveclans.gui.ClanSpiritHistoryMenu;
 import me.lovelace.loveclans.gui.ClanSpiritMenu;
 import me.lovelace.loveclans.gui.ClanTerritoriesMenu;
 import me.lovelace.loveclans.gui.ClanTerritoriesSelectionGui;
 import me.lovelace.loveclans.gui.ClanUpgradesMenu;
+import me.lovelace.loveclans.gui.PlayerApplicationsMenu;
 import me.lovelace.loveclans.gui.TerritorySettingsMenu;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
+import net.kyori.adventure.text.Component;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.inventory.InventoryHolder; // Добавлено
+import org.bukkit.inventory.InventoryHolder;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class GuiManager implements Listener {
 
@@ -36,6 +51,14 @@ public class GuiManager implements Listener {
     private final ClanUpgradesMenu upgradesMenu;
     private final ClanSettingsMenu settingsMenu;
     private final ClanApplicationsMenu applicationsMenu;
+    private final ClanConfirmMenu confirmMenu;
+    private final ClanMemberDetailMenu memberDetailMenu;
+    private final ClanColorPickerMenu colorPickerMenu;
+    private final ClanRoleSettingsMenu roleSettingsMenu;
+    private final ClanRankPermissionsMenu rankPermissionsMenu;
+
+    private final Map<UUID, Runnable> confirmYes = new ConcurrentHashMap<>();
+    private final Map<UUID, Runnable> confirmNo = new ConcurrentHashMap<>();
 
     public GuiManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -46,6 +69,11 @@ public class GuiManager implements Listener {
         this.upgradesMenu = new ClanUpgradesMenu(plugin);
         this.settingsMenu = new ClanSettingsMenu(plugin);
         this.applicationsMenu = new ClanApplicationsMenu(plugin);
+        this.confirmMenu = new ClanConfirmMenu(plugin);
+        this.memberDetailMenu = new ClanMemberDetailMenu(plugin);
+        this.colorPickerMenu = new ClanColorPickerMenu(plugin);
+        this.roleSettingsMenu = new ClanRoleSettingsMenu(plugin);
+        this.rankPermissionsMenu = new ClanRankPermissionsMenu(plugin);
     }
 
     public NamespacedKey memberKey() {
@@ -72,6 +100,36 @@ public class GuiManager implements Listener {
 
     public void openApplications(Player player, Clan clan) {
         applicationsMenu.open(player, clan);
+    }
+
+    public void openClanList(Player player) {
+        new ClanListMenu(plugin, player).open();
+    }
+
+    // ── Confirm dialog ─────────────────────────────────────────────────────────
+
+    public void openConfirm(Player player, Clan clan, Component title, Component lore, Runnable onYes, Runnable onNo) {
+        confirmYes.put(player.getUniqueId(), onYes);
+        confirmNo.put(player.getUniqueId(), onNo);
+        confirmMenu.open(player, clan, title, lore);
+    }
+
+    // ── Member management ──────────────────────────────────────────────────────
+
+    public void openMemberDetail(Player player, Clan clan, UUID targetId) {
+        memberDetailMenu.open(player, clan, targetId);
+    }
+
+    public void openColorPicker(Player player, Clan clan) {
+        colorPickerMenu.open(player, clan);
+    }
+
+    public void openRoleSettings(Player player, Clan clan) {
+        roleSettingsMenu.open(player, clan);
+    }
+
+    public void openRankPermissions(Player player, Clan clan, ClanRank rank) {
+        rankPermissionsMenu.open(player, clan, rank);
     }
 
     // ── Territory menus ────────────────────────────────────────────────────────
@@ -117,15 +175,14 @@ public class GuiManager implements Listener {
 
     // ── Misc ───────────────────────────────────────────────────────────────────
 
-    public void openClanList(Player player) {
-        new ClanListMenu(plugin, player).open();
-    }
-
-    public void clearPlayerCache(java.util.UUID playerId) {
+    public void clearPlayerCache(UUID playerId) {
         applicationsMenu.clearPlayer(playerId);
+        rankPermissionsMenu.clearPlayer(playerId);
+        confirmYes.remove(playerId);
+        confirmNo.remove(playerId);
     }
 
-    // ── Click routing for new InventoryHolder menus ────────────────────────────
+    // ── Click routing ──────────────────────────────────────────────────────────
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
@@ -155,22 +212,107 @@ public class GuiManager implements Listener {
             return;
         }
 
-        // Обработка ClanMenuHolder
+        if (holder instanceof ClanSpiritMenu spiritMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            spiritMenu.handleInventoryClick(player, event.getRawSlot());
+            return;
+        }
+
+        if (holder instanceof ClanSpiritHistoryMenu spiritHistoryMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            spiritHistoryMenu.handleInventoryClick(player, event.getRawSlot());
+            return;
+        }
+
+        if (holder instanceof TerritorySettingsMenu territorySettingsMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            territorySettingsMenu.handleInventoryClick(player, event.getRawSlot());
+            return;
+        }
+
+        if (holder instanceof ClanListMenu clanListMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            clanListMenu.handleInventoryClick(event.getRawSlot());
+            return;
+        }
+
+        if (holder instanceof ClanDiplomacySelectMenu diplomacySelectMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            diplomacySelectMenu.handleInventoryClick(event.getRawSlot());
+            return;
+        }
+
+        if (holder instanceof ClanCreateMenu createMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            createMenu.handleInventoryClick(event.getRawSlot());
+            return;
+        }
+
+        if (holder instanceof PlayerApplicationsMenu playerApplicationsMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            playerApplicationsMenu.handleInventoryClick(event);
+            return;
+        }
+
+        if (holder instanceof ClanInfoMenu infoMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            if (event.getRawSlot() == 22) {
+                Clan clan = infoMenu.clan();
+                if (clan.isOpen()) {
+                    plugin.getClanManager().applyToClanAsync(clan, player.getUniqueId())
+                            .thenRun(() -> plugin.runSync(() -> {
+                                plugin.getMessages().send(player, "clan.applied", Map.of("tag", clan.tag()));
+                                player.closeInventory();
+                            }))
+                            .exceptionally(t -> {
+                                plugin.runSync(() -> plugin.sendOperationError(player, t));
+                                return null;
+                            });
+                }
+            }
+            return;
+        }
+
         if (holder instanceof ClanMenuHolder clanMenuHolder) {
             if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
             event.setCancelled(true);
+            int slot = event.getRawSlot();
 
-            switch (clanMenuHolder.type()) {
-                case UPGRADES -> upgradesMenu.handleInventoryClick(player, event.getRawSlot());
-                // Добавьте другие типы меню, если они используют ClanMenuHolder
-                // case MEMBERS -> membersMenu.handleInventoryClick(player, event.getRawSlot());
-                // case TERRITORIES -> territoriesMenu.handleInventoryClick(player, event.getRawSlot());
-                // case APPLICATIONS -> applicationsMenu.handleInventoryClick(player, event.getRawSlot());
-                // case DIPLOMACY -> diplomacyMenu.handleInventoryClick(player, event.getRawSlot());
-                default -> {
-                    // Возможно, логирование или другая обработка неизвестного типа
-                }
+            if (clanMenuHolder.type() == ClanMenuType.CONFIRM) {
+                Runnable onYes = confirmYes.remove(player.getUniqueId());
+                Runnable onNo = confirmNo.remove(player.getUniqueId());
+                confirmMenu.handleInventoryClick(player, slot, onYes, onNo);
+                return;
             }
+
+            if (clanMenuHolder.type() == ClanMenuType.UPGRADES) {
+                upgradesMenu.handleInventoryClick(player, slot);
+                return;
+            }
+
+            plugin.getClanManager().getClanById(clanMenuHolder.clanId()).ifPresentOrElse(clan -> {
+                switch (clanMenuHolder.type()) {
+                    case MEMBERS -> membersMenu.handleInventoryClick(player, clan, slot);
+                    case TERRITORIES -> territoriesMenu.handleTerritoryClick(player, clan, slot, event.isRightClick());
+                    case SETTINGS -> settingsMenu.handleInventoryClick(player, clan, slot);
+                    case APPLICATIONS -> applicationsMenu.handleInventoryClick(event, player, clan);
+                    case DIPLOMACY -> diplomacyMenu.handleInventoryClick(player, clan, slot);
+                    case MEMBER_DETAIL -> memberDetailMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
+                    case COLOR_PICKER -> colorPickerMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
+                    case ROLE_SETTINGS -> roleSettingsMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
+                    case RANK_PERMISSIONS -> rankPermissionsMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
+                    default -> {
+                    }
+                }
+            }, player::closeInventory);
         }
     }
 }

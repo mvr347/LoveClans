@@ -5,6 +5,7 @@ import me.lovelace.loveclans.api.events.ClanClaimEvent;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanTerritory;
+import me.lovelace.loveclans.model.SpiritHistoryEntry;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -25,10 +26,14 @@ import org.bukkit.util.BoundingBox;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
@@ -112,6 +117,29 @@ public final class SpiritManager implements Listener {
 
     public long getExpForNextLevel(int level) {
         return level * 1000L;
+    }
+
+    public CompletableFuture<List<SpiritHistoryEntry>> getHistoryAsync(UUID clanId, int limit) {
+        return CompletableFuture.supplyAsync(() -> {
+            List<SpiritHistoryEntry> entries = new ArrayList<>();
+            try (Connection connection = plugin.getDatabaseManager().dataSource().getConnection();
+                 PreparedStatement ps = connection.prepareStatement(
+                         "SELECT action, amount, timestamp FROM clan_spirit_history WHERE clan_id = ? ORDER BY timestamp DESC LIMIT ?")) {
+                ps.setString(1, clanId.toString());
+                ps.setInt(2, limit);
+                try (ResultSet result = ps.executeQuery()) {
+                    while (result.next()) {
+                        entries.add(new SpiritHistoryEntry(
+                                result.getString("action"),
+                                result.getLong("amount"),
+                                result.getLong("timestamp")));
+                    }
+                }
+            } catch (SQLException exception) {
+                plugin.getLogger().log(Level.WARNING, "Failed to load spirit history", exception);
+            }
+            return entries;
+        }, plugin.getDatabaseManager().executor());
     }
 
     private void tick() {
