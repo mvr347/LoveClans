@@ -1,0 +1,18 @@
+package me.lovelace.loveclans.gui;
+
+public enum ClanMenuType {
+    MAIN,
+    MEMBERS,
+    TERRITORIES,
+    UPGRADES,
+    SETTINGS,
+    APPLICATIONS,
+    DIPLOMACY,
+    DIPLOMACY_SELECT,
+    CONFIRM,
+    MEMBER_DETAIL,
+    COLOR_PICKER,
+    TERRITORY_SETTINGS,
+    ROLE_SETTINGS,
+    RANK_PERMISSIONS
+}

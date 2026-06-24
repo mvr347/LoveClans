@@ -1,0 +1,532 @@
+# LoveClans language file (Russian)
+# Keys are looked up via Bukkit YamlConfiguration.getString("a.b.c") which resolves
+# dotted paths against nested YAML sections, so all keys below are grouped by their
+# top-level (and further) namespace segments.
+#
+# Placeholders are written as <name> and are substituted by MiniMessage TagResolvers
+# (see MessageService#parse). The special <prefix> tag is replaced with the value of
+# the top-level "prefix" key below.
+
+prefix: "<gray>[<gold>LoveClans<gray>] "
+
+general:
+  error: "<prefix><red>Произошла ошибка: <reason>"
+  no-permission: "<prefix><red>У вас нет прав для выполнения этого действия."
+  players-only: "<prefix><red>Эту команду может использовать только игрок."
+  player-not-found: "<prefix><red>Игрок <player> не найден."
+  invalid-number: "<prefix><red>Указано некорректное число."
+  invalid-relation: "<prefix><red>Указан некорректный тип отношений."
+  unknown-command: "<prefix><red>Неизвестная команда. Используйте /clan help."
+  reloaded: "<prefix><green>Конфигурация и язык плагина успешно перезагружены."
+  chat-input-cancelled: "<prefix><yellow>Ввод отменён."
+
+admin:
+  diplo-updated: "<prefix><green>Отношения между <gold><clan1></gold> и <gold><clan2></gold> изменены на <yellow><relation></yellow>."
+  disbanded: "<prefix><green>Клан <gold><tag></gold> был распущен администратором."
+  exp-updated: "<prefix><green>Опыт клана <gold><tag></gold> обновлён."
+  points-updated: "<prefix><green>Очки улучшений клана <gold><tag></gold> обновлены."
+  war-ended: "<prefix><green>Война между <gold><clan1></gold> и <gold><clan2></gold> завершена администратором."
+  war-started: "<prefix><green>Война между <gold><clan1></gold> и <gold><clan2></gold> начата администратором."
+
+clan:
+  already-in-clan: "<prefix><red>Вы уже состоите в клане."
+  already-applied: "<prefix><red>Вы уже подали заявку в этот клан."
+  application-not-found: "<prefix><red>Заявка не найдена."
+  application-rejected: "<prefix><red>Ваша заявка в клан <gold><tag></gold> была отклонена."
+  applied: "<prefix><green>Вы подали заявку на вступление в клан <gold><tag></gold>."
+  disbanded: "<prefix><yellow>Ваш клан был распущен."
+  founder-has-capital-banner: "<prefix><red>У вас уже есть знамя столицы. Сначала установите его или избавьтесь от него."
+  home:
+    not-set: "<prefix><red>Дом клана не установлен."
+  info:
+    header: "<prefix><gold>Информация о клане <white><tag></white>:"
+    line: "<gray><key>: <white><value>"
+    no-name: "<gray>(без названия)"
+  invalid-name: "<prefix><red>Название клана должно содержать от <min> до <max> символов."
+  invalid-tag: "<prefix><red>Тег клана должен содержать от <min> до <max> символов и состоять из букв, цифр и подчёркивания."
+  invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <gold><tag></gold>."
+  invite-missing: "<prefix><red>Приглашение не найдено."
+  invited: "<prefix><green>Игрок <yellow><player></yellow> приглашён в клан."
+  invite-received: "<prefix><gold><tag></gold> приглашает вас присоединиться к клану!"
+  application-received: "<prefix><yellow><player></yellow> подал заявку на вступление в клан <gold><tag></gold>."
+  joined: "<prefix><green>Вы вступили в клан <gold><tag></gold>!"
+  joined-broadcast: "<prefix><yellow><player></yellow> вступил в клан!"
+  kicked: "<prefix><yellow>Игрок <player> был исключён из клана."
+  leadership-transferred-broadcast: "<prefix><gold><player></gold> теперь новый глава клана!"
+  left: "<prefix><yellow>Вы покинули клан."
+  list:
+    empty: "<prefix><gray>Список кланов пуст."
+  member-limit-reached: "<prefix><red>Достигнут лимит участников клана."
+  not-found: "<prefix><red>Клан не найден."
+  not-in-clan: "<prefix><red>Вы не состоите в клане."
+  not-leader: "<prefix><red>Это действие может выполнить только глава клана."
+  rank-changed: "<prefix><green>Ранг игрока <yellow><player></yellow> изменён на <gold><rank></gold>."
+  rank-changed-broadcast: "<prefix><yellow><player></yellow> теперь имеет ранг <gold><rank></gold>."
+  rank-too-low: "<prefix><red>Ваш ранг в клане слишком низок для этого действия."
+  tag-exists: "<prefix><red>Клан с таким тегом уже существует."
+  help:
+    accept: "<gray>/clan accept <tag> <white>- принять приглашение в клан"
+    admin: "<gray>/clansadmin <reload|delete|setspirit> <white>- административные команды"
+    admin-diplo: "<gray>/clansadmin diplo <clan1> <clan2> <relation> <white>- изменить отношения между кланами"
+    admin-war: "<gray>/clansadmin war <start|end> <clan1> <clan2> <white>- управление войнами"
+    artifact: "<gray>/clan artifact <white>- использовать артефакт клана"
+    console: "<gray>Эта команда доступна только в игре."
+    diplomacy: "<gray>/diplo [tag] <white>- открыть меню дипломатии клана"
+    in-clan: "<gray>Используйте /clan menu, чтобы открыть меню вашего клана."
+    invite: "<gray>/clan invite <player> <white>- пригласить игрока в клан"
+    kick: "<gray>/clan kick <player> <white>- исключить игрока из клана"
+    not-in-clan: "<gray>Используйте /clan create <tag> <name>, чтобы создать клан."
+    rank: "<gray>/clan rank <player> <rank> <white>- изменить ранг участника"
+    ritual: "<gray>/clan ritual <type> <white>- провести ритуал клана"
+    vote: "<gray>/clan vote <white>- проголосовать за нового главу клана"
+    war: "<gray>/clan war <start|peace> <tag> <white>- управление войной клана"
+
+diplomacy:
+  alliance-accepted: "<prefix><green>Вы заключили союз с кланом <gold><tag></gold>."
+  alliance-accepted-by: "<prefix><green>Клан <gold><tag></gold> принял ваше предложение о союзе."
+  alliance-declined: "<prefix><yellow>Вы отклонили предложение о союзе от клана <gold><tag></gold>."
+  alliance-declined-by: "<prefix><yellow>Клан <gold><tag></gold> отклонил ваше предложение о союзе."
+  alliance-request: "<prefix><gold><tag></gold> предлагает заключить союз!"
+  alliance-sent: "<prefix><green>Предложение о союзе отправлено клану <gold><tag></gold>."
+  no-other-clans: "<prefix><gray>Других кланов пока не существует."
+  no-pending-request: "<prefix><red>Нет ожидающих запросов от клана <gold><tag></gold>."
+  requires-home: "<prefix><red>Для этого действия у вашего клана должен быть установлен дом."
+  updated: "<prefix><green>Отношения с кланом <gold><tag></gold> изменены на <yellow><relation></yellow>."
+
+gui:
+  accept: "<green>[Принять]"
+  reject: "<red>[Отклонить]"
+  back: "<gray>« Назад"
+  close: "<red>Закрыть"
+  next-page: "<gray>Следующая страница »"
+  previous-page: "<gray>« Предыдущая страница"
+  members-title: "<color><tag> <white>- Участники"
+  territories-title: "<gray>Территории клана <white><tag>"
+  territories-selection-title: "<gray>Управление столицей клана <white><clan>"
+  upgrades-title: "<gray>Улучшения клана <white><tag>"
+  territorries:
+    item:
+      coords: "<gray>Чанк: <white><cx>, <cz></white> (<x>, <z>)"
+  applications:
+    title: "<color><clan> <white>- Заявки"
+    applicant-item:
+      name: "<yellow><player>"
+      applied-at: "<gray>Подана: <white><date>"
+      left-click-accept: "<green>ЛКМ - принять"
+      right-click-reject: "<red>ПКМ - отклонить"
+    invite-item:
+      name: "<yellow><player>"
+      status: "<gray>Ожидает ответа..."
+    empty:
+      name: "<gray>Нет заявок"
+      lore: "<gray>Пока никто не подал заявку в клан."
+    accepted: "<prefix><green>Заявка игрока <yellow><player></yellow> принята."
+    rejected: "<prefix><yellow>Заявка игрока <yellow><player></yellow> отклонена."
+  capital:
+    title: "<gray>Управление столицей <white><clan>"
+    no-permission: "<prefix><red>У вас нет прав для управления столицей клана."
+    war-blocked: "<prefix><red>Это действие недоступно во время войны."
+    disband:
+      name: "<red>Распустить столицу"
+      lore: "<gray>Снести столицу клана и вернуть знамя."
+      action: "<prefix><yellow>Столица клана была распущена."
+    move-home:
+      name: "<gold>Перенести дом"
+      lore: "<gray>Перенести точку возрождения клана сюда."
+      action: "<prefix><green>Дом клана перенесён."
+    transfer:
+      name: "<gold>Передать столицу"
+      lore: "<gray>Передать столицу другому клану."
+      action: "<prefix><green>Столица клана передана."
+  clan-list:
+    title: "<gold>Список кланов"
+    empty:
+      name: "<gray>Список пуст"
+      lore: "<gray>Кланов пока не существует."
+    my-applications:
+      name: "<yellow>Мои заявки"
+      lore: "<gray>Активных заявок: <white><count>"
+    clan-item:
+      name: "<color><name> <white>[<tag>]"
+      leader: "<gray>Глава: <white><player>"
+      leader-status:
+        online: "<green>● онлайн"
+        offline: "<red>● не в сети"
+      leader-last-seen: "<gray>Был в сети: <white><date>"
+      level: "<gray>Уровень: <white><level>"
+      members: "<gray>Участников: <white><current>/<max>"
+      created-at: "<gray>Создан: <white><date>"
+      already-member: "<gray>Вы состоите в этом клане"
+      apply-closed: "<red>Заявки закрыты"
+      apply-open: "<green>Заявки открыты"
+      click-info: "<gray>ЛКМ - подробная информация"
+  color-picker:
+    title: "<gray>Выбор цвета клана"
+    preview: "<preview>"
+  confirm:
+    "yes": "<green>[Подтвердить]"
+    "no": "<red>[Отмена]"
+    change-tag:
+      title: "<gold>Подтвердите смену тега"
+    close-clan:
+      title: "<gold>Подтвердите закрытие клана"
+    open-clan:
+      title: "<gold>Подтвердите открытие клана"
+    disband:
+      title: "<red>Подтвердите распуск клана"
+    leave:
+      title: "<gold>Подтвердите выход из клана"
+    rename:
+      title: "<gold>Подтвердите смену названия"
+    transfer:
+      title: "<gold>Подтвердите передачу лидерства"
+  create:
+    title: "<gold>Создание клана"
+    start:
+      name: "<green>Создать клан"
+      lore: "<gray>Нажмите, чтобы начать создание клана."
+    prompt-name: "<prefix><yellow>Введите название клана в чат."
+    prompt-tag: "<prefix><yellow>Введите тег клана в чат."
+    success: "<prefix><green>Клан <gold><tag></gold> (<name>) успешно создан!"
+  diplomacy:
+    title: "<gray>Дипломатия с кланом <color><tag>"
+    ally:
+      name: "<green>Союз"
+      lore: "<gray>Нажмите, чтобы предложить союз."
+    neutral:
+      name: "<yellow>Нейтралитет"
+      lore: "<gray>Нажмите, чтобы установить нейтральные отношения."
+    enemy:
+      name: "<red>Вражда"
+      lore: "<gray>Нажмите, чтобы объявить кланы враждующими."
+    select-other:
+      name: "<gray>« Выбрать другой клан"
+  diplomacy-select:
+    title: "<gold>Выберите клан"
+    clan-item:
+      name: "<color><tag> <white><name>"
+      relation: "<gray>Отношения: <white><relation>"
+  info:
+    title: "<color><tag> <white><name>"
+    name: "<color><tag> <white><name>"
+    level: "<gray>Уровень: <white><level>"
+    members: "<gray>Участников: <white><current>/<max>"
+    leader: "<gray>Глава: <white><player>"
+    apply:
+      name: "<green>Подать заявку"
+      lore: "<gray>Нажмите, чтобы подать заявку на вступление."
+    apply-closed:
+      name: "<red>Заявки закрыты"
+      lore: "<gray>Этот клан сейчас не принимает заявки."
+  main:
+    title: "<color><clan> <white>- Меню клана"
+    info:
+      name: "<gold><clan>"
+      tag: "<gray>Тег: <white><tag>"
+      level: "<gray>Уровень: <white><level>"
+      members: "<gray>Участников: <white><current>/<max>"
+    members:
+      name: "<gold>Участники"
+      lore: "<gray>Список участников клана."
+    territories:
+      name: "<gold>Территории"
+      lore: "<gray>Управление территориями клана."
+    upgrades:
+      name: "<gold>Улучшения"
+      lore: "<gray>Улучшить характеристики клана."
+    spirit:
+      name: "<gold>Дух клана"
+      lore: "<gray>Информация о духе-покровителе клана."
+    diplomacy:
+      name: "<gold>Дипломатия"
+      lore: "<gray>Управление отношениями с другими кланами."
+    settings:
+      name: "<gold>Настройки"
+      lore: "<gray>Настройки клана."
+    applications:
+      name: "<gold>Заявки"
+      lore: "<gray>Ожидающих заявок: <white><count>"
+      no-permission-lore: "<red>У вас нет прав для просмотра заявок."
+    leave:
+      name: "<red>Покинуть клан"
+      lore: "<gray>Выйти из состава клана."
+  member-detail:
+    title: "<gray>Участник <white><player>"
+    name: "<yellow><player>"
+    rank: "<gray>Ранг: <white><rank>"
+    transfer:
+      name: "<gold>Передать лидерство"
+      lore: "<gray>Сделать этого участника новым главой клана."
+    promote:
+      name: "<green>Повысить"
+      lore: "<gray>Повысить ранг участника."
+    demote:
+      name: "<red>Понизить"
+      lore: "<gray>Понизить ранг участника."
+    kick:
+      name: "<red>Исключить"
+      lore: "<gray>Исключить участника из клана."
+  members:
+    invite:
+      name: "<green>Пригласить игрока"
+      lore: "<gray>Нажмите, чтобы пригласить нового участника."
+      lore-full: "<red>Клан переполнен."
+      prompt: "<prefix><yellow>Введите имя игрока в чат, чтобы пригласить его в клан."
+    item:
+      name: "<yellow><player>"
+      rank: "<gray>Ранг: <white><rank>"
+      status: "<gray>Статус: <white><status>"
+      contribution: "<gray>Вклад: <white><amount>"
+      hint: "<gray>ЛКМ - изменить ранг, ПКМ - исключить"
+  other-territories:
+    title: "<gray>Территории других кланов <white><clan>"
+    item:
+      name: "<gold>Чанк <white><x>, <z>"
+      world: "<gray>Мир: <white><world>"
+      claimed-at: "<gray>Захвачен: <white><date>"
+      unclaim-hint: "<gray>ПКМ - снять захват"
+  player-applications:
+    title: "<gold>Мои заявки и приглашения"
+    application-item:
+      name: "<color><tag> <white><name>"
+      lore: "<gray>ЛКМ - отозвать заявку"
+    invite-item:
+      name: "<color><tag> <white><name>"
+      left-click-accept: "<green>ЛКМ - принять приглашение"
+      right-click-decline: "<red>ПКМ - отклонить приглашение"
+    empty:
+      name: "<gray>Пусто"
+      lore: "<gray>У вас нет активных заявок или приглашений."
+    cancelled: "<prefix><yellow>Заявка отозвана."
+    invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <gold><tag></gold>."
+  rank-permissions:
+    title: "<gold>Права ранга <white><rank>"
+    enabled: "<green>Включено"
+    disabled: "<red>Отключено"
+    permission:
+      build: "<gold>Строительство"
+      invite: "<gold>Приглашение игроков"
+      kick: "<gold>Исключение игроков"
+      claim: "<gold>Захват территорий"
+      upgrade: "<gold>Улучшения клана"
+      settings: "<gold>Настройки клана"
+      diplomacy: "<gold>Дипломатия"
+  role-settings:
+    title: "<gold>Управление рангами"
+    rank:
+      name: "<gold><rank>"
+      lore: "<gray>Нажмите, чтобы настроить права этого ранга."
+  settings:
+    title: "<color><clan> <white>- Настройки"
+    rename:
+      name: "<gold>Переименовать клан"
+      lore: "<gray>Изменить название клана."
+      prompt: "<prefix><yellow>Введите новое название клана в чат."
+      success: "<prefix><green>Название клана изменено на <white><name>."
+    change-tag:
+      name: "<gold>Изменить тег"
+      lore: "<gray>Изменить тег клана."
+      prompt: "<prefix><yellow>Введите новый тег клана в чат."
+      success: "<prefix><green>Тег клана изменён на <white><tag>."
+    change-color:
+      name: "<gold>Изменить цвет"
+      lore: "<gray>Текущий цвет: <preview>"
+      success: "<prefix><green>Цвет клана изменён."
+    change-banner:
+      name: "<gold>Изменить знамя"
+      lore: "<gray>Возьмите знамя в руку и нажмите."
+      no-banner-in-hand: "<prefix><red>Возьмите знамя в руку."
+      success: "<prefix><green>Знамя клана изменено."
+      invalid-item: "<prefix><red>Этот предмет не может быть использован как знамя клана."
+    status:
+      open:
+        name: "<green>Клан открыт"
+        lore: "<gray>Любой игрок может подать заявку на вступление."
+        success: "<prefix><green>Клан теперь открыт для заявок."
+      closed:
+        name: "<red>Клан закрыт"
+        lore: "<gray>Заявки на вступление запрещены."
+        success: "<prefix><yellow>Клан теперь закрыт для заявок."
+    roles:
+      name: "<gold>Управление рангами"
+      lore: "<gray>Настройка рангов участников клана."
+    disband:
+      name: "<red>Распустить клан"
+      lore: "<gray>Безвозвратно распустить клан."
+  spirit:
+    title: "<gray>Дух клана <white><clan>"
+    info:
+      name: "<gold><name> <gray>(уровень <level>)"
+      exp: "<gray>Опыт: <white><current></white>/<next>"
+      progress: "<gray><bar>"
+    buffs:
+      name: "<gold>Активные бафы"
+      lore_active: "<gray>Бафы духа активны для участников клана."
+      entry:
+        unlocked: "<green><level></green> <white><name> <gray>- <description>"
+        locked: "<red><level></red> <gray><name> - <description>"
+    ability:
+      name: "<gold>Способность духа"
+      locked: "<red>Заблокировано до 10 уровня."
+      unlocked: "<green>Разблокировано!"
+    history:
+      name: "<gold>История"
+      lore: "<gray>История призывов духа клана."
+    history-menu:
+      title: "<gray>История духа клана"
+      entry:
+        name: "<yellow><action>"
+        amount: "<gray>Изменение: <white><amount>"
+        date: "<gray>Дата: <white><date>"
+      empty: "<gray>История пуста."
+    top:
+      name: "<gold>Топ участников"
+      lore: "<gray>Рейтинг участников клана по вкладу."
+      empty: "<gray>Пока нет данных о вкладе участников."
+      entry: "<gray>#<rank> <yellow><player> <gray>- <white><amount>"
+  territories:
+    empty:
+      name: "<gray>Нет территорий"
+      lore: "<gray>Ваш клан ещё не захватил ни одной территории."
+    item:
+      name: "<gold>Чанк <white><world>"
+      coords: "<gray>Координаты: <white><cx>, <cz></white> (<x>, <z>)"
+      click-teleport: "<gray>ЛКМ - телепортироваться"
+    banner:
+      name: "<gold>Знамя захвата"
+      lore: "<gray>Используйте знамя, чтобы захватить территорию."
+    capital:
+      name: "<gold>Столица клана"
+      no-permission: "<prefix><red>У вас нет прав для управления столицей."
+      no-permission-management: "<prefix><red>У вас нет прав для управления столицей клана."
+      not-created: "<gray>Столица ещё не создана."
+      get-banner: "<gold>Получить знамя столицы"
+      get-banner-lore: "<gray>Нажмите, чтобы получить знамя для установки столицы."
+      place-it: "<gray>Установите знамя, чтобы создать столицу клана."
+      already-have-banner: "<prefix><red>У вас уже есть знамя столицы в инвентаре."
+      info:
+        coords: "<gray>Координаты: <white><x>, <y>, <z>"
+        created: "<gray>Создана: <white><date>"
+    other:
+      name: "<gold>Территории других кланов"
+      info: "<gray>Просмотр территорий, захваченных другими кланами."
+      none: "<gray>Нет территорий"
+      none-lore: "<gray>У других кланов нет захваченных территорий."
+      no-territories: "<prefix><gray>У этого клана нет территорий."
+  territory-settings:
+    title: "<gray>Настройки чанка <white><chunk>"
+    pvp:
+      name: "<gold>PvP в чанке"
+      lore: "<gray>Текущий статус: <white><status>"
+      success: "<prefix><green>Настройки PvP для чанка обновлены."
+    rename-private:
+      name: "<gold>Переименовать чанк"
+      lore: "<gray>Задать собственное название этому чанку."
+    disband-private:
+      name: "<red>Снять личное владение"
+      lore: "<gray>Убрать персональные настройки этого чанка."
+    rename:
+      prompt: "<prefix><yellow>Введите новое название для этого чанка в чат."
+      success: "<prefix><green>Название чанка изменено на <white><name>."
+  upgrades:
+    item:
+      name: "<gold><name>"
+      level: "<gray>Уровень: <white><level>"
+      click-to-upgrade: "<gray>ЛКМ - улучшить"
+    level-info:
+      name: "<gold>Информация об уровне"
+      lore:
+        - "<gray>Текущий уровень: <white><level>"
+        - "<gray>Опыт: <white><current_exp></white>/<next_exp>"
+        - "<gray>Прогресс: <white><percent>%"
+    points-info:
+      lore: "<gray>Доступно очков улучшений: <white><points>"
+    success: "<prefix><green>Улучшение <gold><upgrade></gold> успешно применено."
+    not-enough-points: "<prefix><red>Недостаточно очков улучшений."
+
+item:
+  capital-banner:
+    name: "<gold>Знамя столицы <white><clan>"
+    lore:
+      type: "<gray>Тип: <white>Знамя столицы"
+      clan: "<gray>Клан: <white><clan>"
+      info: "<gray>Установите это знамя, чтобы создать столицу клана."
+  territory-banner:
+    name: "<gold>Знамя территории <white><clan>"
+    lore:
+      type: "<gray>Тип: <white>Знамя территории"
+      clan: "<gray>Клан: <white><clan>"
+      info: "<gray>Установите это знамя, чтобы захватить территорию для клана."
+  claim-banner:
+    name: "<gold>Знамя захвата"
+    lore: "<gray>Установите это знамя, чтобы захватить чанк для клана."
+  war-compass:
+    name: "<gold>Боевой компас <white><tag>"
+    lore: "<gray>Указывает направление к territории противника во время войны."
+
+quest:
+  reward:
+    clan_xp: "<prefix><green>Награда за задание: <gold><amount></gold> опыта клана."
+    player_xp: "<prefix><green>Награда за задание: <gold><amount></gold> опыта игрока."
+    item: "<prefix><green>Награда за задание: <gold><amount>x <item></gold>."
+    upgrade_points: "<prefix><green>Награда за задание: <gold><amount></gold> очков улучшений."
+
+ritual:
+  cooldown: "<prefix><red>Ритуал ещё на перезарядке: <white><time></white>."
+  started: "<prefix><green>Ритуал <gold><ritual></gold> успешно начат."
+
+spirit:
+  level-up: "<prefix><gold>Дух клана достиг <white><level> уровня!"
+
+succession:
+  promoted: "<prefix><gold><player></gold> назначен новым главой клана по результатам голосования."
+  vote-started: "<prefix><yellow>Начато голосование за нового главу клана (лидер долго не заходил на сервер)."
+  voted: "<prefix><green>Ваш голос засчитан."
+
+territory:
+  advancedclaims-disabled: "<prefix><red>Интеграция с AdvancedClaims отключена, захват территорий недоступен."
+  already-claimed: "<prefix><red>Эта территория уже захвачена другим кланом."
+  already-claimed-by-advancedclaims: "<prefix><red>Эта территория уже защищена через AdvancedClaims."
+  banner-given: "<prefix><green>Вам выдано знамя захвата."
+  banner:
+    cannot-drop: "<prefix><red>Вы не можете выбросить это знамя."
+    invalid-clan: "<prefix><red>Это знамя принадлежит клану, которого больше не существует."
+    not-your-clan: "<prefix><red>Это знамя принадлежит другому клану."
+  capital:
+    cannot-break-bearing-block: "<prefix><red>Невозможно сломать блок, удерживающий знамя столицы."
+    cannot-break-peace: "<prefix><red>Нельзя ломать столицу в мирное время."
+    not-found: "<prefix><red>Столица клана не найдена."
+  claim-cancelled: "<prefix><yellow>Захват территории отменён."
+  claim-confirm-chat: "<prefix><yellow>Подтвердите захват территории, нажав на подсказку выше."
+  claim-confirm-subtitle: "<yellow>Нажмите, чтобы подтвердить"
+  claim-confirm-title: "<gold>Подтверждение захвата"
+  claim-location-mismatch: "<prefix><red>Вы должны находиться в том же месте, где начали захват."
+  claim-no-pending: "<prefix><red>У вас нет активного запроса на захват территории."
+  claimed: "<prefix><green>Территория успешно захвачена."
+  claimed-success: "<prefix><green>Клан <gold><clan></gold> захватил территорию <white><tag></white>."
+  invalid-world: "<prefix><red>В этом мире захват территорий запрещён."
+  limit-reached: "<prefix><red>Достигнут лимит территорий для вашего клана."
+  not-claimed: "<prefix><red>Эта территория не захвачена вашим кланом."
+  teleported: "<prefix><green>Вы телепортированы на территорию клана."
+  too-close-to-spawn: "<prefix><red>Эта территория находится слишком близко к спавну."
+  unclaim:
+    no-permission: "<prefix><red>У вас нет прав для снятия захвата этой территории."
+  unclaimed: "<prefix><yellow>Захват территории снят."
+  unclaimed-success: "<prefix><yellow>Захват территории <white><x>, <z></white> снят."
+  world-not-found: "<prefix><red>Мир дома клана больше не существует."
+
+war:
+  already-at-war: "<prefix><red>Ваш клан уже находится в состоянии войны с этим кланом."
+  banner-dropped: "<prefix><yellow>Боевой компас был выброшен, так как война окончена."
+  cannot-claim: "<prefix><red>Нельзя захватывать территории во время войны."
+  cannot-unclaim: "<prefix><red>Нельзя снимать захват территории во время войны."
+  compass-given: "<prefix><green>Вам выдан боевой компас для войны с кланом <gold><tag></gold>."
+  compass-removed: "<prefix><yellow>Боевой компас был изъят."
+  cooldown-active: "<prefix><red>Нельзя объявить войну этому клану ещё <white><seconds></white> сек."
+  defender-no-online-leader-or-guardian: "<prefix><red>У клана-защитника нет онлайн главы или хранителя."
+  max-wars-reached: "<prefix><red>Достигнут лимит одновременных войн."
+  not-at-war: "<prefix><red>Кланы не находятся в состоянии войны."
+  not-enough-members: "<prefix><red>Недостаточно участников онлайн для начала войны (нужно минимум 3 с каждой стороны)."
+  not-found: "<prefix><red>Война не найдена."
+  peace: "<prefix><green>Заключён мир с кланом <gold><tag></gold>."
+  started: "<prefix><gold>Война между <white><attacker></white> и <white><defender></white> началась!"

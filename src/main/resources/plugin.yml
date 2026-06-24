@@ -1,6 +1,6 @@
-name: Clans
+name: LoveClans
 version: '${project.version}'
-main: me.lovelace.clans.ClansPlugin
+main: me.lovelace.loveclans.LoveClansPlugin
 api-version: '1.21.11'
 authors: [ lovelace ]
 description: Full-featured clans, guild wars, territories and AdvancedClaims integration.
@@ -9,27 +9,67 @@ softdepend:
   - PlaceholderAPI
 
 commands:
-  clan:
+  loveclan:
     description: Main clans command.
-    usage: /clan
-    aliases: [ c ]
-    permission: clans.command
+    usage: /loveclan
+    aliases: [ clan, c ]
   diplo:
     description: Open clan diplomacy menu.
     usage: /diplo [tag]
     aliases: [ cd ]
-    permission: clans.diplomacy
-  clans:
+  loveclans:
     description: Open clan list.
-    usage: /clans
-    permission: clans.command
-  clansadmin:
-    description: Admin commands for Clans plugin.
-    usage: /clansadmin <reload|delete|setspirit>
-    aliases: [ ca ]
-    permission: clans.admin
+    usage: /loveclans
+    aliases: [ clans ]
+  loveclansadmin:
+    description: Admin commands for LoveClans plugin.
+    usage: /loveclansadmin <reload|delete|setspirit>
+    aliases: [ clansadmin, ca ]
 
 permissions:
+  loveclans.command:
+    default: true
+  loveclans.create:
+    default: true
+  loveclans.disband:
+    default: true
+  loveclans.invite:
+    default: true
+  loveclans.accept:
+    default: true
+  loveclans.leave:
+    default: true
+  loveclans.kick:
+    default: true
+  loveclans.rank:
+    default: true
+  loveclans.claim:
+    default: true
+  loveclans.unclaim:
+    default: true
+  loveclans.menu:
+    default: true
+  loveclans.chest:
+    default: true
+  loveclans.ritual:
+    default: true
+  loveclans.war:
+    default: true
+  loveclans.diplomacy:
+    default: true
+  loveclans.settings:
+    default: true
+  loveclans.applications:
+    default: true
+  loveclans.vote:
+    default: true
+  loveclans.admin:
+    default: op
+  loveclans.home:
+    default: true
+  # Deprecated nodes kept for backward compatibility with existing permission
+  # setups configured before the LoveClans rebrand. New installs should use
+  # the loveclans.* nodes above; these are checked as a fallback in code.
   clans.command:
     default: true
   clans.create:
@@ -52,6 +92,8 @@ permissions:
     default: true
   clans.menu:
     default: true
+  clans.chest:
+    default: true
   clans.ritual:
     default: true
   clans.war:
@@ -66,3 +108,5 @@ permissions:
     default: true
   clans.admin:
     default: op
+  clans.home:
+    default: true
