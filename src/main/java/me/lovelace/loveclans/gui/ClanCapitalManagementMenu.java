@@ -57,20 +57,20 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component("gui.capital.move-home.lore", player))
                 .build());
 
-        // Slot 12: Transfer Capital Base
-        ItemStack transferItem;
+        // Slot 12: Relocate Capital Territory
+        ItemStack relocateItem;
         if (isAtWar) {
-            transferItem = ItemBuilder.of(Material.RED_CONCRETE)
-                    .name(plugin.getMessages().component("gui.capital.transfer.name", player))
+            relocateItem = ItemBuilder.of(Material.RED_CONCRETE)
+                    .name(plugin.getMessages().component("gui.capital.relocate-territory.name", player))
                     .lore(plugin.getMessages().component("gui.capital.war-blocked", player))
                     .build();
         } else {
-            transferItem = ItemBuilder.of(Material.ENDER_CHEST)
-                    .name(plugin.getMessages().component("gui.capital.transfer.name", player))
-                    .lore(plugin.getMessages().component("gui.capital.transfer.lore", player))
+            relocateItem = ItemBuilder.of(Material.ENDER_CHEST)
+                    .name(plugin.getMessages().component("gui.capital.relocate-territory.name", player))
+                    .lore(plugin.getMessages().component("gui.capital.relocate-territory.lore", player))
                     .build();
         }
-        inventory.setItem(12, transferItem);
+        inventory.setItem(12, relocateItem);
 
         // Slot 14: Disband Capital Base
         ItemStack disbandItem;
@@ -118,7 +118,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(clicker, t)); return null; }),
                         () -> plugin.getMessages().send(clicker, "general.chat-input-cancelled"));
                 break;
-            case 12: // Transfer Capital Base
+            case 12: // Relocate Capital Territory
                 if (!canManage) {
                     plugin.getMessages().send(clicker, "gui.capital.no-permission");
                     return;
@@ -127,8 +127,12 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                     plugin.getMessages().send(clicker, "gui.capital.war-blocked");
                     return;
                 }
-                plugin.getMessages().send(clicker, "gui.capital.transfer.action");
                 clicker.closeInventory();
+                plugin.getMessages().sendChatConfirmPrompt(clicker, "gui.capital.relocate-territory.confirm-prompt", Map.of(),
+                        () -> plugin.getClanManager().relocateCapitalTerritoryAsync(clan, clicker.getUniqueId())
+                                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(clicker, "gui.capital.relocate-territory.action")))
+                                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(clicker, t)); return null; }),
+                        () -> plugin.getMessages().send(clicker, "general.chat-input-cancelled"));
                 break;
             case 14: // Disband Capital Base
                 if (!canManage) {

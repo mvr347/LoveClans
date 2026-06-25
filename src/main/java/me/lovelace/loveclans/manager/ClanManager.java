@@ -810,6 +810,55 @@ public final class ClanManager {
         }).thenCompose(c -> storage.saveClanAsync(c).thenApply(ignored -> c));
     }
 
+    public CompletableFuture<Void> relocateCapitalTerritoryAsync(Clan clan, UUID actorId) {
+        if (clan == null || actorId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and actor cannot be null."));
+        return plugin.supplySync(() -> {
+            boolean canManage = clan.member(actorId)
+                    .map(m -> m.rank() == ClanRank.LEADER || m.rank() == ClanRank.GUARDIAN)
+                    .orElse(false);
+            if (!canManage) {
+                throw new IllegalStateException("gui.capital.no-permission");
+            }
+            if (plugin.getWarManager().isAtWar(clan.id())) {
+                throw new IllegalStateException("gui.capital.war-blocked");
+            }
+            ClanTerritory territory = clan.territories().stream()
+                    .filter(ClanTerritory::isCapital)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("territory.capital.not-found"));
+
+            plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
+            clan.removeTerritory(territory.id());
+            clanByTerritory.remove(territory.key());
+            clan.setHomeLocation(null);
+
+            if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    World world = Bukkit.getWorld(territory.key().world());
+                    if (world != null) {
+                        org.bukkit.block.Block block = world.getBlockAt(territory.bannerX(), territory.bannerY(), territory.bannerZ());
+                        if (block.getType().toString().endsWith("_BANNER")) {
+                            block.setType(Material.AIR);
+                        }
+                    }
+                });
+            }
+
+            Player actor = Bukkit.getPlayer(actorId);
+            if (actor != null) {
+                ItemStack bannerItem = clanItemFactory.createCapitalBanner(clan.id(), clan.name());
+                if (actor.getInventory().addItem(bannerItem).size() > 0) {
+                    actor.getWorld().dropItemNaturally(actor.getLocation(), bannerItem);
+                }
+            }
+
+            Bukkit.getPluginManager().callEvent(new ClanUnclaimEvent(clan, territory, actorId));
+            return territory;
+        }).thenCompose(territory -> storage.deleteTerritoryAsync(territory.id())
+                .thenCompose(v -> storage.saveClanAsync(clan)).thenApply(v -> null));
+    }
+
     public CompletableFuture<Void> unclaimTerritoryAsync(Clan clan, TerritoryKey key, UUID actorId) {
         if (clan == null || key == null || actorId == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, key and actor ID cannot be null."));
