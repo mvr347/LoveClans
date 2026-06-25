@@ -41,19 +41,22 @@ public class ClanSpiritMenu implements InventoryHolder {
         String levelName = buffLevel != null ? buffLevel.getName() : "Пробуждение";
         
         long currentExp = clan.spirit().energy();
-        long nextExp = plugin.getSpiritManager().getExpForNextLevel(currentLevel);
-        
-        String progressStr = createProgressBar(currentExp, nextExp, 20);
+        boolean maxed = currentLevel >= 10;
 
-        inventory.setItem(13, ItemBuilder.of(Material.NETHER_STAR)
-                .name(plugin.getMessages().component("gui.spirit.info.name", Map.of("level", String.valueOf(currentLevel), "name", levelName), player))
-                .lore(plugin.getMessages().component("gui.spirit.info.exp", Map.of("current", String.valueOf(currentExp), "next", String.valueOf(nextExp)), player))
-                .lore(plugin.getMessages().component("gui.spirit.info.progress", Map.of("bar", progressStr), player))
-                .glow(true)
-                .build());
+        ItemBuilder infoItem = ItemBuilder.head(ItemBuilder.HEAD_SPIRIT)
+                .name(plugin.getMessages().component("gui.spirit.info.name", Map.of("level", String.valueOf(currentLevel), "name", levelName), player));
+        if (maxed) {
+            infoItem.lore(plugin.getMessages().component("gui.spirit.info.maximum", player));
+        } else {
+            long nextExp = plugin.getSpiritManager().getExpForNextLevel(currentLevel);
+            String progressStr = createProgressBar(currentExp, nextExp, 20);
+            infoItem.lore(plugin.getMessages().component("gui.spirit.info.exp", Map.of("current", String.valueOf(currentExp), "next", String.valueOf(nextExp)), player))
+                    .lore(plugin.getMessages().component("gui.spirit.info.progress", Map.of("bar", progressStr), player));
+        }
+        inventory.setItem(13, infoItem.glow(true).build());
 
         // Buffs List
-        ItemBuilder buffsItem = ItemBuilder.of(Material.POTION)
+        ItemBuilder buffsItem = ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
                 .name(plugin.getMessages().component("gui.spirit.buffs.name", player))
                 .lore(plugin.getMessages().component("gui.spirit.buffs.lore_active", player));
         for (SpiritBuffLevel level : SpiritBuffLevel.values()) {
@@ -65,9 +68,9 @@ public class ClanSpiritMenu implements InventoryHolder {
         }
         inventory.setItem(30, buffsItem.build());
 
-        // Unique Ability (Level 10)
+        // Unique Ability (Level 10) - always clickable, even before unlocking
         me.lovelace.loveclans.model.spirit.SpiritAbility chosenAbility = clan.spirit().ability();
-        ItemBuilder abilityItem = ItemBuilder.of(Material.BEACON)
+        ItemBuilder abilityItem = ItemBuilder.head(ItemBuilder.HEAD_SPIRIT_ABILITIES)
                 .name(plugin.getMessages().component("gui.spirit.ability.name", player));
         if (currentLevel < 10) {
             abilityItem.lore(plugin.getMessages().component("gui.spirit.ability.locked", player));
@@ -82,7 +85,7 @@ public class ClanSpiritMenu implements InventoryHolder {
         inventory.setItem(32, abilityItem.build());
 
         // History
-        inventory.setItem(40, ItemBuilder.of(Material.PAPER)
+        inventory.setItem(40, ItemBuilder.head(ItemBuilder.HEAD_SPIRIT_HISTORY)
                 .name(plugin.getMessages().component("gui.spirit.history.name", player))
                 .lore(plugin.getMessages().component("gui.spirit.history.lore", player))
                 .build());
@@ -130,10 +133,6 @@ public class ClanSpiritMenu implements InventoryHolder {
             return;
         }
         if (slot == 32) {
-            if (clan.spirit().level() < 10) {
-                plugin.getMessages().send(player, "gui.spirit.ability.locked-message");
-                return;
-            }
             new ClanSpiritAbilityMenu(plugin, player, clan).open();
         }
     }

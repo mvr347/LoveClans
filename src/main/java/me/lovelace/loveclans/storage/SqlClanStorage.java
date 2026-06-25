@@ -60,13 +60,18 @@ public final class SqlClanStorage implements ClanStorage {
                                 spiritAbility = me.lovelace.loveclans.model.spirit.SpiritAbility.valueOf(rawAbility);
                             }
                         } catch (SQLException | IllegalArgumentException ignored) {}
+                        long abilityChosenAt = 0L;
+                        try {
+                            abilityChosenAt = result.getLong("spirit_ability_chosen_at");
+                        } catch (SQLException ignored) {}
                         ClanSpirit spirit = new ClanSpirit(
                                 result.getInt("spirit_level"),
                                 result.getLong("spirit_energy"),
                                 result.getLong("spirit_awakened_until"),
                                 onlineTimeWeekly,
                                 lastDecayCheck,
-                                spiritAbility
+                                spiritAbility,
+                                abilityChosenAt
                         );
                         boolean isOpen = result.getInt("is_open") == 1;
                         int upgradePoints = 0;
@@ -422,14 +427,14 @@ public final class SqlClanStorage implements ClanStorage {
                 ? """
                   UPDATE clans SET name = ?, tag = ?, tag_color = ?, description = ?, emblem_material = ?,
                   level = ?, experience = ?, upgrade_points = ?, chest_rows = ?, spirit_level = ?, spirit_energy = ?,
-                  spirit_awakened_until = ?, spirit_online_time = ?, spirit_last_decay = ?, spirit_ability = ?, created_at = ?, is_open = ?,
+                  spirit_awakened_until = ?, spirit_online_time = ?, spirit_last_decay = ?, spirit_ability = ?, spirit_ability_chosen_at = ?, created_at = ?, is_open = ?,
                   home_location = ? WHERE id = ?
                   """
                 : """
                   INSERT INTO clans (name, tag, tag_color, description, emblem_material, level, experience, upgrade_points,
-                  chest_rows, spirit_level, spirit_energy, spirit_awakened_until, spirit_online_time, spirit_last_decay, spirit_ability,
+                  chest_rows, spirit_level, spirit_energy, spirit_awakened_until, spirit_online_time, spirit_last_decay, spirit_ability, spirit_ability_chosen_at,
                   created_at, is_open, home_location, id)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                   """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int paramIndex = 1;
@@ -452,6 +457,7 @@ public final class SqlClanStorage implements ClanStorage {
             } else {
                 statement.setString(paramIndex++, clan.spirit().ability().name());
             }
+            statement.setLong(paramIndex++, clan.spirit().abilityChosenAt());
             statement.setLong(paramIndex++, clan.createdAt());
             statement.setInt(paramIndex++, clan.isOpen() ? 1 : 0);
             String serializedHomeLocation = serializeLocation(clan.getHomeLocation().orElse(null));

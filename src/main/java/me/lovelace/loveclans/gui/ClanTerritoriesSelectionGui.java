@@ -74,7 +74,7 @@ public class ClanTerritoriesSelectionGui implements Listener {
             if (isManagement) {
                 boolean hasBanner = plugin.getClanManager().getClanItemFactory().hasExistingBanner(player, "CAPITAL", clan.id());
                 if (hasBanner) {
-                    capitalItem = ItemBuilder.of(Material.BARRIER)
+                    capitalItem = ItemBuilder.head(ItemBuilder.HEAD_LEAVE_CLAN)
                             .name(plugin.getMessages().component("gui.territories.capital.already-have-banner"))
                             .lore(List.of(plugin.getMessages().component("gui.territories.capital.place-it")))
                             .build();
@@ -85,7 +85,7 @@ public class ClanTerritoriesSelectionGui implements Listener {
                             .build();
                 }
             } else {
-                capitalItem = ItemBuilder.of(Material.BARRIER)
+                capitalItem = ItemBuilder.head(ItemBuilder.HEAD_LEAVE_CLAN)
                         .name(plugin.getMessages().component("gui.territories.capital.not-created"))
                         .lore(List.of(plugin.getMessages().component("gui.territories.capital.no-permission-management")))
                         .build();
@@ -100,7 +100,7 @@ public class ClanTerritoriesSelectionGui implements Listener {
                     .lore(List.of(plugin.getMessages().component("gui.territories.other.info")))
                     .build();
         } else {
-            otherTerritoriesItem = ItemBuilder.of(Material.BARRIER)
+            otherTerritoriesItem = ItemBuilder.head(ItemBuilder.HEAD_LEAVE_CLAN)
                     .name(plugin.getMessages().component("gui.territories.other.none"))
                     .lore(List.of(plugin.getMessages().component("gui.territories.other.none-lore")))
                     .build();

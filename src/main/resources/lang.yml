@@ -389,6 +389,7 @@ gui:
       name: "<gold><name> <gray>(уровень <level>)"
       exp: "<gray>Опыт: <white><current></white>/<next>"
       progress: "<gray><bar>"
+      maximum: "<gold>МАКСИМУМ"
     buffs:
       name: "<gold>Активные бафы"
       lore_active: "<gray>Бафы духа активны для участников клана."
@@ -401,6 +402,7 @@ gui:
       locked-message: "<prefix><red>Уникальная способность духа разблокируется на 10 уровне."
       unlocked: "<green>Способность не выбрана. Нажмите, чтобы выбрать."
       chosen: "<green>Выбрана: <white><name></white>. <gray><description>"
+      cooldown: "<red>Смену способности можно сделать через <white><time></white>."
     ability-menu:
       title: "<gray>Способность духа <color><tag>"
       item:
@@ -408,6 +410,7 @@ gui:
         description: "<gray><description>"
         selected: "<green>✔ Выбрана"
         click-to-select: "<gray>ЛКМ - выбрать"
+        on-cooldown: "<red>Недоступно: смена через <white><time></white>"
       success: "<prefix><green>Выбрана уникальная способность духа: <white><name>."
     history:
       name: "<gold>История"
@@ -523,8 +526,12 @@ ritual:
 
 spirit:
   level-up: "<prefix><gold>Дух клана достиг <white><level> уровня!"
+  level-down: "<prefix><red>Дух клана упал до <white><level> уровня."
+  level-change:
+    open: "<gray>[<yellow>Открыть меню духа</yellow>]"
   ability:
     phoenix-save: "<prefix><gold>Дух Феникса спас <white><player></white> от гибели!"
+    cooldown-active: "<prefix><red>Смену способности духа можно сделать только через <white><time></white>."
 
 succession:
   promoted: "<prefix><gold><player></gold> назначен новым главой клана по результатам голосования."

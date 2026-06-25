@@ -149,6 +149,15 @@ public final class MessageService {
         target.sendMessage(msg);
     }
 
+    public void sendClickableSpiritLevelChange(Player target, int newLevel, boolean increased) {
+        Component msg = component(increased ? "spirit.level-up" : "spirit.level-down",
+                Map.of("level", String.valueOf(newLevel)), target)
+                .append(Component.text(" "))
+                .append(component("spirit.level-change.open", target)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan spirit")));
+        target.sendMessage(msg);
+    }
+
     public void sendClickableAlliance(Player guildmaster, String sourceClanTag) {
         Component msg = component("diplomacy.alliance-request",
                 Map.of("tag", sourceClanTag), guildmaster)

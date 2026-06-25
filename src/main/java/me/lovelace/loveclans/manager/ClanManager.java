@@ -309,6 +309,9 @@ public final class ClanManager {
             if (!clan.hasPermission(inviterId, ClanPermission.INVITE)) {
                 throw new IllegalStateException("general.no-permission");
             }
+            if (plugin.getWarManager().isAtWar(clan.id())) {
+                throw new IllegalStateException("gui.capital.war-blocked");
+            }
             if (clan.hasMember(invitedPlayerId) || getPlayerClan(invitedPlayerId).isPresent()) {
                 throw new IllegalStateException("clan.already-in-clan");
             }
@@ -367,6 +370,9 @@ public final class ClanManager {
         return plugin.supplySync(() -> {
             if (!clan.hasPermission(actorId, ClanPermission.INVITE)) {
                 throw new IllegalStateException("general.no-permission");
+            }
+            if (plugin.getWarManager().isAtWar(clan.id())) {
+                throw new IllegalStateException("gui.capital.war-blocked");
             }
             List<ClanApplication> applications = applicationsByClan.computeIfAbsent(clan.id(), ignored -> new ArrayList<>());
             ClanApplication application = applications.stream()
@@ -941,7 +947,15 @@ public final class ClanManager {
             if (clan.spirit().level() < 10) {
                 throw new IllegalStateException("gui.spirit.ability.locked");
             }
-            clan.setSpirit(clan.spirit().withAbility(ability));
+            if (ability == clan.spirit().ability()) {
+                return clan;
+            }
+            long now = System.currentTimeMillis();
+            long remaining = clan.spirit().abilityCooldownRemaining(now);
+            if (clan.spirit().ability() != null && remaining > 0) {
+                throw new SpiritAbilityCooldownException(remaining);
+            }
+            clan.setSpirit(clan.spirit().withAbility(ability, now));
             return clan;
         }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
     }
