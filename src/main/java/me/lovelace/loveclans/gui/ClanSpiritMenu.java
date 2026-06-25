@@ -28,7 +28,8 @@ public class ClanSpiritMenu implements InventoryHolder {
     }
 
     public void open(Player player) {
-        this.inventory = Bukkit.createInventory(this, 54, plugin.getMessages().component("gui.spirit.title", Map.of("clan", clan.name()), player));
+        this.inventory = Bukkit.createInventory(this, 54, plugin.getMessages().component("gui.spirit.title",
+                Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
         for (int i = 0; i < 54; i++) {
             inventory.setItem(i, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
@@ -65,10 +66,20 @@ public class ClanSpiritMenu implements InventoryHolder {
         inventory.setItem(30, buffsItem.build());
 
         // Unique Ability (Level 10)
-        inventory.setItem(32, ItemBuilder.of(Material.BEACON)
-                .name(plugin.getMessages().component("gui.spirit.ability.name", player))
-                .lore(plugin.getMessages().component(currentLevel == 10 ? "gui.spirit.ability.unlocked" : "gui.spirit.ability.locked", player))
-                .build());
+        me.lovelace.loveclans.model.spirit.SpiritAbility chosenAbility = clan.spirit().ability();
+        ItemBuilder abilityItem = ItemBuilder.of(Material.BEACON)
+                .name(plugin.getMessages().component("gui.spirit.ability.name", player));
+        if (currentLevel < 10) {
+            abilityItem.lore(plugin.getMessages().component("gui.spirit.ability.locked", player));
+        } else if (chosenAbility == null) {
+            abilityItem.lore(plugin.getMessages().component("gui.spirit.ability.unlocked", player))
+                    .glow(true);
+        } else {
+            abilityItem.lore(plugin.getMessages().component("gui.spirit.ability.chosen",
+                            Map.of("name", chosenAbility.displayName(), "description", chosenAbility.description()), player))
+                    .glow(true);
+        }
+        inventory.setItem(32, abilityItem.build());
 
         // History
         inventory.setItem(40, ItemBuilder.of(Material.PAPER)
@@ -116,6 +127,14 @@ public class ClanSpiritMenu implements InventoryHolder {
                     .thenAccept(entries -> plugin.runSync(() ->
                             new ClanSpiritHistoryMenu(plugin, player, clan, entries).open()))
                     .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+            return;
+        }
+        if (slot == 32) {
+            if (clan.spirit().level() < 10) {
+                plugin.getMessages().send(player, "gui.spirit.ability.locked-message");
+                return;
+            }
+            new ClanSpiritAbilityMenu(plugin, player, clan).open();
         }
     }
 

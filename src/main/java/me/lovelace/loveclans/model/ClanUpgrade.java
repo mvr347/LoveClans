@@ -1,11 +1,9 @@
 package me.lovelace.loveclans.model;
 
 public enum ClanUpgrade {
-    MEMBERS("Больше участников"),
-    TERRITORIES("Больше территорий"),
-    LOOTING("Бонус добычи"),
-    SPIRIT("Дух клана"),
-    WARFARE("Военные перки");
+    MEMBERS("Состав клана"),
+    TERRITORIES("Территории"),
+    EXPERIENCE("Развитие клана");
 
     private final String displayName;
 

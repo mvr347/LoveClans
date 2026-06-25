@@ -109,8 +109,9 @@ public final class ClanApplicationsMenu {
         }
 
         if (combined.isEmpty()) {
-            int emptySlot = invSize / 2 - (invSize >= 54 ? 4 : 4);
-            inventory.setItem(Math.max(0, emptySlot), ItemBuilder.of(Material.PAPER)
+            int middleRow = (invSize / 9) / 2;
+            int emptySlot = middleRow * 9 + 4;
+            inventory.setItem(emptySlot, ItemBuilder.of(Material.PAPER)
                     .name(plugin.getMessages().component("gui.applications.empty.name", player))
                     .lore(plugin.getMessages().component("gui.applications.empty.lore", player))
                     .build());

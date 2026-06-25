@@ -6,31 +6,20 @@ import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public final class ClanColorPickerMenu {
-    private static final Map<String, Material> PALETTE = new LinkedHashMap<>();
+    private record ColorOption(String tag, Material material, String name) {}
 
-    static {
-        PALETTE.put("<white>", Material.WHITE_DYE);
-        PALETTE.put("<gray>", Material.GRAY_DYE);
-        PALETTE.put("<dark_gray>", Material.BLACK_DYE);
-        PALETTE.put("<red>", Material.RED_DYE);
-        PALETTE.put("<gold>", Material.YELLOW_DYE);
-        PALETTE.put("<yellow>", Material.YELLOW_DYE);
-        PALETTE.put("<green>", Material.LIME_DYE);
-        PALETTE.put("<dark_green>", Material.GREEN_DYE);
-        PALETTE.put("<aqua>", Material.LIGHT_BLUE_DYE);
-        PALETTE.put("<blue>", Material.BLUE_DYE);
-        PALETTE.put("<dark_blue>", Material.BLUE_DYE);
-        PALETTE.put("<light_purple>", Material.PINK_DYE);
-        PALETTE.put("<dark_purple>", Material.PURPLE_DYE);
-    }
+    private static final int[] COLOR_SLOTS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
 
     private final LoveClansPlugin plugin;
 
@@ -43,21 +32,18 @@ public final class ClanColorPickerMenu {
                 new ClanMenuHolder(ClanMenuType.COLOR_PICKER, clan.id()), 27,
                 plugin.getMessages().component("gui.color-picker.title", player));
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        fillGlass(inventory);
 
-        int slot = 0;
-        for (Map.Entry<String, Material> entry : PALETTE.entrySet()) {
-            if (slot >= 21) break;
-            String colorTag = entry.getKey();
-            ItemBuilder builder = ItemBuilder.of(entry.getValue())
+        List<ColorOption> options = loadOptions();
+        for (int i = 0; i < Math.min(options.size(), COLOR_SLOTS.length); i++) {
+            ColorOption opt = options.get(i);
+            boolean current = opt.tag().equals(clan.tagColor());
+            ItemBuilder builder = ItemBuilder.of(opt.material())
                     .name(plugin.getMessages().component("gui.color-picker.preview",
-                            Map.of("preview", colorTag + clan.tag()), player));
+                            Map.of("preview", opt.tag() + opt.name() + (current ? " ✔" : "")), player));
             builder.mutate(meta -> meta.getPersistentDataContainer()
-                    .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, colorTag));
-            inventory.setItem(slot, builder.build());
-            slot++;
+                    .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, opt.tag()));
+            inventory.setItem(COLOR_SLOTS[i], builder.build());
         }
 
         inventory.setItem(22, ItemBuilder.head(ItemBuilder.HEAD_BACK)
@@ -67,7 +53,7 @@ public final class ClanColorPickerMenu {
         player.openInventory(inventory);
     }
 
-    public void handleInventoryClick(Player player, Clan clan, int slot, org.bukkit.inventory.ItemStack clickedItem) {
+    public void handleInventoryClick(Player player, Clan clan, int slot, ItemStack clickedItem) {
         if (slot == 22) {
             plugin.getGuiManager().openSettings(player, clan);
             return;
@@ -82,5 +68,27 @@ public final class ClanColorPickerMenu {
                     open(player, updated);
                 }))
                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+    }
+
+    private List<ColorOption> loadOptions() {
+        List<ColorOption> list = new ArrayList<>();
+        ConfigurationSection section = plugin.getConfig().getConfigurationSection("clans.available-colors");
+        if (section == null) return List.of();
+        for (String key : section.getKeys(false)) {
+            String tag = section.getString(key + ".tag", "<white>");
+            String matName = section.getString(key + ".material", "WHITE_WOOL");
+            String name = section.getString(key + ".name", key);
+            Material material = Material.matchMaterial(matName);
+            list.add(new ColorOption(tag, material != null ? material : Material.WHITE_WOOL, name));
+        }
+        return list;
+    }
+
+    private void fillGlass(Inventory inventory) {
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
+                    .name(Component.empty())
+                    .build());
+        }
     }
 }

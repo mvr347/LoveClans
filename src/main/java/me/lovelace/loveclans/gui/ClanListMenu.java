@@ -112,7 +112,7 @@ public final class ClanListMenu implements InventoryHolder {
 
         ItemBuilder builder = ItemBuilder.of(emblemMaterial)
                 .name(plugin.getMessages().component("gui.clan-list.clan-item.name",
-                        Map.of("tag", clan.coloredTag(), "name", clan.name()), player));
+                        Map.of("tag", clan.tag(), "color", clan.tagColor(), "name", clan.name()), player));
         
         // Leader information
         clan.leaderId().ifPresent(leaderId -> {
@@ -120,7 +120,11 @@ public final class ClanListMenu implements InventoryHolder {
             String leaderName = leader.getName() != null ? leader.getName() : leaderId.toString().substring(0, 8);
             builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.leader",
                     Map.of("player", leaderName), player));
-            
+
+            builder.lore(plugin.getMessages().component(closed
+                    ? "gui.clan-list.clan-item.status.closed"
+                    : "gui.clan-list.clan-item.status.open", player));
+
             if (leader.isOnline()) {
                 builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.leader-status.online", player));
             } else {

@@ -39,7 +39,8 @@ public final class ClanSpiritHistoryMenu implements InventoryHolder {
 
     public void open() {
         this.inventory = Bukkit.createInventory(this, 45,
-                plugin.getMessages().component("gui.spirit.history-menu.title", player));
+                plugin.getMessages().component("gui.spirit.history-menu.title",
+                        Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());

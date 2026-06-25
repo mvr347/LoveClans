@@ -19,6 +19,7 @@ import me.lovelace.loveclans.gui.ClanOtherTerritoriesMenu;
 import me.lovelace.loveclans.gui.ClanRankPermissionsMenu;
 import me.lovelace.loveclans.gui.ClanRoleSettingsMenu;
 import me.lovelace.loveclans.gui.ClanSettingsMenu;
+import me.lovelace.loveclans.gui.ClanSpiritAbilityMenu;
 import me.lovelace.loveclans.gui.ClanSpiritHistoryMenu;
 import me.lovelace.loveclans.gui.ClanSpiritMenu;
 import me.lovelace.loveclans.gui.ClanTerritoriesMenu;
@@ -226,6 +227,13 @@ public class GuiManager implements Listener {
             return;
         }
 
+        if (holder instanceof ClanSpiritAbilityMenu spiritAbilityMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            spiritAbilityMenu.handleInventoryClick(player, event.getRawSlot());
+            return;
+        }
+
         if (holder instanceof TerritorySettingsMenu territorySettingsMenu) {
             if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
             event.setCancelled(true);
@@ -264,20 +272,7 @@ public class GuiManager implements Listener {
         if (holder instanceof ClanInfoMenu infoMenu) {
             if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
             event.setCancelled(true);
-            if (event.getRawSlot() == 22) {
-                Clan clan = infoMenu.clan();
-                if (clan.isOpen()) {
-                    plugin.getClanManager().applyToClanAsync(clan, player.getUniqueId())
-                            .thenRun(() -> plugin.runSync(() -> {
-                                plugin.getMessages().send(player, "clan.applied", Map.of("tag", clan.tag()));
-                                player.closeInventory();
-                            }))
-                            .exceptionally(t -> {
-                                plugin.runSync(() -> plugin.sendOperationError(player, t));
-                                return null;
-                            });
-                }
-            }
+            infoMenu.handleInventoryClick(event.getRawSlot());
             return;
         }
 

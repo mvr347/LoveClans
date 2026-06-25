@@ -66,7 +66,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
             Material emblemMaterial = target.emblem().name().endsWith("_BANNER") ? target.emblem() : Material.WHITE_BANNER;
             ItemBuilder builder = ItemBuilder.of(emblemMaterial)
                     .name(plugin.getMessages().component("gui.diplomacy-select.clan-item.name",
-                            Map.of("tag", target.coloredTag(), "name", target.name()), player))
+                            Map.of("tag", target.tag(), "color", target.tagColor(), "name", target.name()), player))
                     .lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.relation",
                             Map.of("relation", sourceClan.relationTo(target.id()).name()), player));
             builder.mutate(meta -> meta.getPersistentDataContainer()
