@@ -65,7 +65,7 @@ public class ClanTerritoriesSelectionGui implements Listener {
                         ))
                         .build();
             } else {
-                capitalItem = ItemBuilder.of(Material.LIGHT_GRAY_STAINED_GLASS_PANE)
+                capitalItem = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                         .name(plugin.getMessages().component("gui.territories.capital.name"))
                         .lore(List.of(plugin.getMessages().component("gui.territories.capital.no-permission-management")))
                         .build();

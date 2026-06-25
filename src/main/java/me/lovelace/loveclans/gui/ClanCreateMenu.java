@@ -53,7 +53,7 @@ public final class ClanCreateMenu implements InventoryHolder {
                 .build());
 
         boolean ready = !name.isEmpty() && !tag.isEmpty();
-        inventory.setItem(16, ItemBuilder.head(ready ? ItemBuilder.HEAD_DELETE_YES : ItemBuilder.HEAD_BARRIER)
+        inventory.setItem(16, ItemBuilder.head(ready ? ItemBuilder.HEAD_DELETE_YES : ItemBuilder.HEAD_INACTIVE)
                 .name(plugin.getMessages().component(ready ? "gui.create.create.ready" : "gui.create.create.not-ready", player))
                 .build());
 

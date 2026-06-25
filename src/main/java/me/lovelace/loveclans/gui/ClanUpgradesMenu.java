@@ -61,7 +61,7 @@ public final class ClanUpgradesMenu {
             boolean maxed = level >= maxLevel;
             boolean canUpgrade = !maxed && clan.upgradePoints() > 0;
 
-            ItemBuilder builder = ItemBuilder.head(headFor(upgrade))
+            ItemBuilder builder = ItemBuilder.head(maxed || !canUpgrade ? ItemBuilder.HEAD_INACTIVE : headFor(upgrade))
                     .name(plugin.getMessages().component("gui.upgrades.item.name", Map.of("name", upgrade.displayName()), player))
                     .lore(plugin.getMessages().component("gui.upgrades.item.level", Map.of(
                             "level", String.valueOf(level),

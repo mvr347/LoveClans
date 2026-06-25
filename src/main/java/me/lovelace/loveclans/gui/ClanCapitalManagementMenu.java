@@ -60,7 +60,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         // Slot 12: Relocate Capital Territory
         ItemStack relocateItem;
         if (isAtWar) {
-            relocateItem = ItemBuilder.of(Material.RED_CONCRETE)
+            relocateItem = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.capital.relocate-territory.name", player))
                     .lore(plugin.getMessages().component("gui.capital.war-blocked", player))
                     .build();
@@ -75,7 +75,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         // Slot 14: Disband Capital Base
         ItemStack disbandItem;
         if (isAtWar) {
-            disbandItem = ItemBuilder.of(Material.RED_CONCRETE)
+            disbandItem = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.capital.disband.name", player))
                     .lore(plugin.getMessages().component("gui.capital.war-blocked", player))
                     .build();
