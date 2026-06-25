@@ -53,12 +53,20 @@ public final class SqlClanStorage implements ClanStorage {
                             onlineTimeWeekly = result.getLong("spirit_online_time");
                             lastDecayCheck = result.getLong("spirit_last_decay");
                         } catch (SQLException ignored) {}
+                        me.lovelace.loveclans.model.spirit.SpiritAbility spiritAbility = null;
+                        try {
+                            String rawAbility = result.getString("spirit_ability");
+                            if (rawAbility != null) {
+                                spiritAbility = me.lovelace.loveclans.model.spirit.SpiritAbility.valueOf(rawAbility);
+                            }
+                        } catch (SQLException | IllegalArgumentException ignored) {}
                         ClanSpirit spirit = new ClanSpirit(
                                 result.getInt("spirit_level"),
                                 result.getLong("spirit_energy"),
                                 result.getLong("spirit_awakened_until"),
                                 onlineTimeWeekly,
-                                lastDecayCheck
+                                lastDecayCheck,
+                                spiritAbility
                         );
                         boolean isOpen = result.getInt("is_open") == 1;
                         int upgradePoints = 0;
@@ -371,7 +379,11 @@ public final class SqlClanStorage implements ClanStorage {
                 if (clan == null) {
                     continue;
                 }
-                clan.setUpgradeLevel(ClanUpgrade.valueOf(result.getString("upgrade_name")), result.getInt("upgrade_level"));
+                try {
+                    clan.setUpgradeLevel(ClanUpgrade.valueOf(result.getString("upgrade_name")), result.getInt("upgrade_level"));
+                } catch (IllegalArgumentException ignored) {
+                    // Upgrade type no longer exists (legacy data); skip it.
+                }
             }
         }
     }
@@ -410,14 +422,14 @@ public final class SqlClanStorage implements ClanStorage {
                 ? """
                   UPDATE clans SET name = ?, tag = ?, tag_color = ?, description = ?, emblem_material = ?,
                   level = ?, experience = ?, upgrade_points = ?, chest_rows = ?, spirit_level = ?, spirit_energy = ?,
-                  spirit_awakened_until = ?, spirit_online_time = ?, spirit_last_decay = ?, created_at = ?, is_open = ?,
+                  spirit_awakened_until = ?, spirit_online_time = ?, spirit_last_decay = ?, spirit_ability = ?, created_at = ?, is_open = ?,
                   home_location = ? WHERE id = ?
                   """
                 : """
                   INSERT INTO clans (name, tag, tag_color, description, emblem_material, level, experience, upgrade_points,
-                  chest_rows, spirit_level, spirit_energy, spirit_awakened_until, spirit_online_time, spirit_last_decay,
+                  chest_rows, spirit_level, spirit_energy, spirit_awakened_until, spirit_online_time, spirit_last_decay, spirit_ability,
                   created_at, is_open, home_location, id)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                   """;
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int paramIndex = 1;
@@ -435,6 +447,11 @@ public final class SqlClanStorage implements ClanStorage {
             statement.setLong(paramIndex++, clan.spirit().awakenedUntil());
             statement.setLong(paramIndex++, clan.spirit().onlineTimeWeekly());
             statement.setLong(paramIndex++, clan.spirit().lastDecayCheck());
+            if (clan.spirit().ability() == null) {
+                statement.setNull(paramIndex++, Types.VARCHAR);
+            } else {
+                statement.setString(paramIndex++, clan.spirit().ability().name());
+            }
             statement.setLong(paramIndex++, clan.createdAt());
             statement.setInt(paramIndex++, clan.isOpen() ? 1 : 0);
             String serializedHomeLocation = serializeLocation(clan.getHomeLocation().orElse(null));

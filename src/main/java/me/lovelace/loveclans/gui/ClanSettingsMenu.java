@@ -20,57 +20,57 @@ public final class ClanSettingsMenu {
 
     public void open(Player player, Clan clan) {
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.SETTINGS, clan.id()), 18,
+                new ClanMenuHolder(ClanMenuType.SETTINGS, clan.id()), 36,
                 plugin.getMessages().component("gui.settings.title", Map.of("clan", clan.name(), "color", clan.tagColor()), player));
 
         fillGlass(inventory);
 
-        inventory.setItem(1, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTY3ZDgxM2FlN2ZmZTViZTk1MWE0ZjQxZjJhYTYxOWE1ZTM4OTRlODVlYTVkNDk4NmY4NDk0OWM2M2Q3NjcyZSJ9fX0=")
+        inventory.setItem(10, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTY3ZDgxM2FlN2ZmZTViZTk1MWE0ZjQxZjJhYTYxOWE1ZTM4OTRlODVlYTVkNDk4NmY4NDk0OWM2M2Q3NjcyZSJ9fX0=")
                 .name(plugin.getMessages().component("gui.settings.rename.name", player))
                 .lore(plugin.getMessages().component("gui.settings.rename.lore", player))
                 .build());
 
-        inventory.setItem(2, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNzFiYzJiY2ZiMmJkMzc1OWU2YjFlODZmYzdhNzk1ODVlMTEyN2RkMzU3ZmMyMDI4OTNmOWRlMjQxYmM5ZTUzMCJ9fX0=")
+        inventory.setItem(12, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNzFiYzJiY2ZiMmJkMzc1OWU2YjFlODZmYzdhNzk1ODVlMTEyN2RkMzU3ZmMyMDI4OTNmOWRlMjQxYmM5ZTUzMCJ9fX0=")
                 .name(plugin.getMessages().component("gui.settings.change-tag.name", player))
                 .lore(plugin.getMessages().component("gui.settings.change-tag.lore", player))
                 .build());
 
         Material emblemMaterial = clan.emblem().name().endsWith("_BANNER") ? clan.emblem() : Material.WHITE_BANNER;
-        inventory.setItem(3, ItemBuilder.of(emblemMaterial)
+        inventory.setItem(14, ItemBuilder.of(emblemMaterial)
                 .name(plugin.getMessages().component("gui.settings.change-banner.name", player))
                 .lore(plugin.getMessages().component("gui.settings.change-banner.lore", player))
                 .build());
 
-        inventory.setItem(4, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZGIyNDllODhhZmEzMGZjODM3YjgyMTczYTMwNDgzNDU4ZDRlOWEzM2M3ZWMyNWU1NTEzODdlOGU1NGEwMThhZSJ9fX0=")
+        inventory.setItem(16, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZGIyNDllODhhZmEzMGZjODM3YjgyMTczYTMwNDgzNDU4ZDRlOWEzM2M3ZWMyNWU1NTEzODdlOGU1NGEwMThhZSJ9fX0=")
                 .name(plugin.getMessages().component("gui.settings.change-color.name", player))
                 .lore(plugin.getMessages().component("gui.settings.change-color.lore",
                         Map.of("preview", clan.coloredTag()), player))
                 .build());
 
-        // New item for open/closed status
+        // Open/closed status
         if (clan.isOpen()) {
-            inventory.setItem(5, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOTQ4YmI0ZTQ0MzVjMmMyMWQ3ZjYxODNiMzhhMmI3MzcyNjUzZjM1NDBiZTAyMjU5ZGQ0N2JmNTI0OTJkZTY2OSJ9fX0=")
+            inventory.setItem(19, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOTQ4YmI0ZTQ0MzVjMmMyMWQ3ZjYxODNiMzhhMmI3MzcyNjUzZjM1NDBiZTAyMjU5ZGQ0N2JmNTI0OTJkZTY2OSJ9fX0=")
                     .name(plugin.getMessages().component("gui.settings.status.open.name", player))
                     .lore(plugin.getMessages().component("gui.settings.status.open.lore", player))
                     .build());
         } else {
-            inventory.setItem(5, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZmJmNDZiZjM5ZGZjNzE4ZTdlYTMxZGI0MzQ3N2ZjNmI3ZGNhNTg4ZmUwYTc4OTFkNDgxYzVkZGE5ZTE2ZjUyMCJ9fX0=")
+            inventory.setItem(19, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZmJmNDZiZjM5ZGZjNzE4ZTdlYTMxZGI0MzQ3N2ZjNmI3ZGNhNTg4ZmUwYTc4OTFkNDgxYzVkZGE5ZTE2ZjUyMCJ9fX0=")
                     .name(plugin.getMessages().component("gui.settings.status.closed.name", player))
                     .lore(plugin.getMessages().component("gui.settings.status.closed.lore", player))
                     .build());
         }
 
-        inventory.setItem(6, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZDVmODcyZTMxYTQzZWU4YTY1Y2FjY2Y3M2I5NDJjOTdmMmNmODJjYzdjYmRhN2M5NzUyODc0MDliYzhlMjQxNCJ9fX0=")
+        inventory.setItem(22, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZDVmODcyZTMxYTQzZWU4YTY1Y2FjY2Y3M2I5NDJjOTdmMmNmODJjYzdjYmRhN2M5NzUyODc0MDliYzhlMjQxNCJ9fX0=")
                 .name(plugin.getMessages().component("gui.settings.roles.name", player))
                 .lore(plugin.getMessages().component("gui.settings.roles.lore", player))
                 .build());
 
-        inventory.setItem(7, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
+        inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
                 .name(plugin.getMessages().component("gui.settings.disband.name", player))
                 .lore(plugin.getMessages().component("gui.settings.disband.lore", player))
                 .build());
 
-        inventory.setItem(13, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
 
@@ -78,7 +78,7 @@ public final class ClanSettingsMenu {
     }
 
     public void handleInventoryClick(Player player, Clan clan, int slot) {
-        if (slot == 13) {
+        if (slot == 31) {
             plugin.getGuiManager().openMain(player, clan);
             return;
         }
@@ -87,7 +87,7 @@ public final class ClanSettingsMenu {
             return;
         }
         switch (slot) {
-            case 1 -> {
+            case 10 -> {
                 player.closeInventory();
                 plugin.getMessages().send(player, "gui.settings.rename.prompt");
                 plugin.expectChatInput(player.getUniqueId(), (newName, isCancelled) -> {
@@ -115,7 +115,7 @@ public final class ClanSettingsMenu {
                     );
                 });
             }
-            case 2 -> {
+            case 12 -> {
                 player.closeInventory();
                 plugin.getMessages().send(player, "gui.settings.change-tag.prompt");
                 plugin.expectChatInput(player.getUniqueId(), (newTag, isCancelled) -> {
@@ -144,7 +144,7 @@ public final class ClanSettingsMenu {
                     );
                 });
             }
-            case 3 -> {
+            case 14 -> {
                 org.bukkit.inventory.ItemStack inHand = player.getInventory().getItemInMainHand();
                 if (!inHand.getType().name().endsWith("_BANNER")) {
                     plugin.getMessages().send(player, "gui.settings.change-banner.no-banner-in-hand");
@@ -158,8 +158,8 @@ public final class ClanSettingsMenu {
                         }))
                         .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
             }
-            case 4 -> plugin.getGuiManager().openColorPicker(player, clan);
-            case 5 -> plugin.getGuiManager().openConfirm(player, clan,
+            case 16 -> plugin.getGuiManager().openColorPicker(player, clan);
+            case 19 -> plugin.getGuiManager().openConfirm(player, clan,
                     clan.isOpen()
                             ? plugin.getMessages().component("gui.confirm.close-clan.title", player)
                             : plugin.getMessages().component("gui.confirm.open-clan.title", player),
@@ -173,8 +173,8 @@ public final class ClanSettingsMenu {
                             .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
                     () -> plugin.runSync(() -> open(player, clan))
             );
-            case 6 -> plugin.getGuiManager().openRoleSettings(player, clan);
-            case 7 -> {
+            case 22 -> plugin.getGuiManager().openRoleSettings(player, clan);
+            case 25 -> {
                 boolean isLeader = clan.member(player.getUniqueId())
                         .map(m -> m.rank() == me.lovelace.loveclans.model.ClanRank.LEADER)
                         .orElse(false);

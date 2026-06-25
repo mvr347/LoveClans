@@ -101,9 +101,9 @@ gui:
   next-page: "<gray>Следующая страница »"
   previous-page: "<gray>« Предыдущая страница"
   members-title: "<color><tag> <white>- Участники"
-  territories-title: "<gray>Территории клана <white><tag>"
+  territories-title: "<gray>Территории клана <color><tag>"
   territories-selection-title: "<gray>Управление столицей клана <white><clan>"
-  upgrades-title: "<gray>Улучшения клана <white><tag>"
+  upgrades-title: "<gray>Улучшения клана <color><tag>"
   territorries:
     item:
       coords: "<gray>Чанк: <white><cx>, <cz></white> (<x>, <z>)"
@@ -123,7 +123,7 @@ gui:
     accepted: "<prefix><green>Заявка игрока <yellow><player></yellow> принята."
     rejected: "<prefix><yellow>Заявка игрока <yellow><player></yellow> отклонена."
   capital:
-    title: "<gray>Управление столицей <white><clan>"
+    title: "<gray>Управление столицей <color><tag>"
     no-permission: "<prefix><red>У вас нет прав для управления столицей клана."
     war-blocked: "<prefix><red>Это действие недоступно во время войны."
     disband:
@@ -149,6 +149,9 @@ gui:
     clan-item:
       name: "<color><name> <white>[<tag>]"
       leader: "<gray>Глава: <white><player>"
+      status:
+        open: "<gray>Статус: <green>Открытый клан"
+        closed: "<gray>Статус: <red>Закрытый клан"
       leader-status:
         online: "<green>● онлайн"
         offline: "<red>● не в сети"
@@ -232,12 +235,19 @@ gui:
     level: "<gray>Уровень: <white><level>"
     members: "<gray>Участников: <white><current>/<max>"
     leader: "<gray>Глава: <white><player>"
+    status:
+      open: "<gray>Статус: <green>Открытый клан"
+      closed: "<gray>Статус: <red>Закрытый клан"
     apply:
       name: "<green>Подать заявку"
       lore: "<gray>Нажмите, чтобы подать заявку на вступление."
     apply-closed:
       name: "<red>Заявки закрыты"
       lore: "<gray>Этот клан сейчас не принимает заявки."
+    no-members:
+      name: "<gray>Участников пока нет"
+      lore: "<gray>В этом клане ещё никто не состоит."
+    page-indicator: "<gold>Страница <white><page></white>/<max>"
   main:
     title: "<color><clan> <white>- Меню клана"
     info:
@@ -374,7 +384,7 @@ gui:
       name: "<red>Распустить клан"
       lore: "<gray>Безвозвратно распустить клан."
   spirit:
-    title: "<gray>Дух клана <white><clan>"
+    title: "<gray>Дух клана <color><tag>"
     info:
       name: "<gold><name> <gray>(уровень <level>)"
       exp: "<gray>Опыт: <white><current></white>/<next>"
@@ -388,12 +398,22 @@ gui:
     ability:
       name: "<gold>Способность духа"
       locked: "<red>Заблокировано до 10 уровня."
-      unlocked: "<green>Разблокировано!"
+      locked-message: "<prefix><red>Уникальная способность духа разблокируется на 10 уровне."
+      unlocked: "<green>Способность не выбрана. Нажмите, чтобы выбрать."
+      chosen: "<green>Выбрана: <white><name></white>. <gray><description>"
+    ability-menu:
+      title: "<gray>Способность духа <color><tag>"
+      item:
+        name: "<gold><name>"
+        description: "<gray><description>"
+        selected: "<green>✔ Выбрана"
+        click-to-select: "<gray>ЛКМ - выбрать"
+      success: "<prefix><green>Выбрана уникальная способность духа: <white><name>."
     history:
       name: "<gold>История"
       lore: "<gray>История призывов духа клана."
     history-menu:
-      title: "<gray>История духа клана"
+      title: "<gray>История духа <color><tag>"
       entry:
         name: "<yellow><action>"
         amount: "<gray>Изменение: <white><amount>"
@@ -451,8 +471,13 @@ gui:
   upgrades:
     item:
       name: "<gold><name>"
-      level: "<gray>Уровень: <white><level>"
-      click-to-upgrade: "<gray>ЛКМ - улучшить"
+      level: "<gray>Уровень: <white><level></white>/<max>"
+      members: "<gray>+3 участника за уровень"
+      territories: "<gray>+2 территории за уровень"
+      experience: "<gray>+5% опыта клана за уровень"
+      click-to-upgrade: "<gray>ЛКМ - повысить уровень"
+      maxed: "<gold>Максимальный уровень достигнут"
+      no-points: "<red>Недостаточно очков улучшений"
     level-info:
       name: "<gold>Информация об уровне"
       lore:
@@ -463,6 +488,7 @@ gui:
       lore: "<gray>Доступно очков улучшений: <white><points>"
     success: "<prefix><green>Улучшение <gold><upgrade></gold> успешно применено."
     not-enough-points: "<prefix><red>Недостаточно очков улучшений."
+    max-level-reached: "<prefix><red>Это улучшение уже достигло максимального уровня."
 
 item:
   capital-banner:
@@ -497,6 +523,8 @@ ritual:
 
 spirit:
   level-up: "<prefix><gold>Дух клана достиг <white><level> уровня!"
+  ability:
+    phoenix-save: "<prefix><gold>Дух Феникса спас <white><player></white> от гибели!"
 
 succession:
   promoted: "<prefix><gold><player></gold> назначен новым главой клана по результатам голосования."

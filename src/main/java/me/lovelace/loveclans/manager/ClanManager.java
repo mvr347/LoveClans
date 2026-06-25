@@ -858,7 +858,8 @@ public final class ClanManager {
         return plugin.supplySync(() -> {
             int maxLevel = plugin.getConfig().getInt("limits.max-level", 20);
             int oldLevel = clan.level();
-            clan.addExperience(amount);
+            long boostedAmount = Math.round(amount * experienceBonusMultiplier(clan));
+            clan.addExperience(boostedAmount);
             while (clan.level() < maxLevel && clan.experience() >= experienceForLevel(clan.level() + 1)) {
                 clan.levelUp();
                 Bukkit.getPluginManager().callEvent(new ClanLevelUpEvent(clan, oldLevel, clan.level()));
@@ -895,7 +896,54 @@ public final class ClanManager {
 
     public int maxTerritories(Clan clan) {
         if (clan == null) return 0;
-        return plugin.getConfig().getInt("limits.base-territories", 4) + clan.level() * plugin.getConfig().getInt("limits.territories-per-level", 1);
+        return plugin.getConfig().getInt("limits.base-territories", 4)
+                + clan.level() * plugin.getConfig().getInt("limits.territories-per-level", 1)
+                + clan.upgradeLevel(ClanUpgrade.TERRITORIES) * plugin.getConfig().getInt("limits.territories-per-upgrade", 2);
+    }
+
+    public double experienceBonusMultiplier(Clan clan) {
+        if (clan == null) return 1.0D;
+        double perUpgrade = plugin.getConfig().getDouble("limits.experience-percent-per-upgrade", 5.0D);
+        return 1.0D + (clan.upgradeLevel(ClanUpgrade.EXPERIENCE) * perUpgrade / 100.0D);
+    }
+
+    public int maxUpgradeLevel(ClanUpgrade upgrade) {
+        return plugin.getConfig().getInt("upgrades." + upgrade.name() + ".max-level", 1);
+    }
+
+    public CompletableFuture<Clan> purchaseUpgradeAsync(Clan clan, UUID actorId, ClanUpgrade upgrade) {
+        if (clan == null || actorId == null || upgrade == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor ID and upgrade cannot be null."));
+        return plugin.supplySync(() -> {
+            if (!clan.hasPermission(actorId, ClanPermission.UPGRADE)) {
+                throw new IllegalStateException("general.no-permission");
+            }
+            if (clan.upgradePoints() <= 0) {
+                throw new IllegalStateException("gui.upgrades.not-enough-points");
+            }
+            int maxLevel = maxUpgradeLevel(upgrade);
+            if (clan.upgradeLevel(upgrade) >= maxLevel) {
+                throw new IllegalStateException("gui.upgrades.max-level-reached");
+            }
+            clan.setUpgradeLevel(upgrade, clan.upgradeLevel(upgrade) + 1);
+            clan.removeUpgradePoints(1);
+            return clan;
+        }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
+    }
+
+    public CompletableFuture<Clan> chooseSpiritAbilityAsync(Clan clan, UUID actorId, me.lovelace.loveclans.model.spirit.SpiritAbility ability) {
+        if (clan == null || actorId == null || ability == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor ID and ability cannot be null."));
+        return plugin.supplySync(() -> {
+            if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
+                throw new IllegalStateException("general.no-permission");
+            }
+            if (clan.spirit().level() < 10) {
+                throw new IllegalStateException("gui.spirit.ability.locked");
+            }
+            clan.setSpirit(clan.spirit().withAbility(ability));
+            return clan;
+        }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
     }
 
     public long experienceForLevel(int level) {

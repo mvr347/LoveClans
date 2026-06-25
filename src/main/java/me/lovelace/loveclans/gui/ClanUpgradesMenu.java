@@ -13,19 +13,29 @@ import org.bukkit.inventory.Inventory;
 import java.util.Map;
 
 public final class ClanUpgradesMenu {
+    private static final int[] UPGRADE_SLOTS = {20, 22, 24};
+
     private final LoveClansPlugin plugin;
 
     public ClanUpgradesMenu(LoveClansPlugin plugin) {
         this.plugin = plugin;
     }
 
+    private String headFor(ClanUpgrade upgrade) {
+        return switch (upgrade) {
+            case MEMBERS -> ItemBuilder.HEAD_MEMBERS;
+            case TERRITORIES -> ItemBuilder.HEAD_TERRITORIES;
+            case EXPERIENCE -> ItemBuilder.HEAD_EXPERIENCE;
+        };
+    }
+
     public void open(Player player, Clan clan) {
-        Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.UPGRADES, clan.id()), 54,
-                plugin.getMessages().component("gui.upgrades-title", Map.of("tag", clan.tag()), player));
+        Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.UPGRADES, clan.id()), 45,
+                plugin.getMessages().component("gui.upgrades-title",
+                        Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
         fillGlass(inventory);
 
-        // Level Info in the middle of second row
         long currentExp = clan.experience();
         long expForCurrent = plugin.getClanManager().experienceForLevel(clan.level());
         long expForNext = plugin.getClanManager().experienceForLevel(clan.level() + 1);
@@ -33,7 +43,7 @@ public final class ClanUpgradesMenu {
         long progress = currentExp - expForCurrent;
         double percent = required > 0 ? (double) progress / required * 100 : 100.0;
 
-        inventory.setItem(13, ItemBuilder.head(ItemBuilder.HEAD_EXP)
+        inventory.setItem(4, ItemBuilder.head(ItemBuilder.HEAD_EXP)
                 .name(plugin.getMessages().component("gui.upgrades.level-info.name", player))
                 .lore(plugin.getMessages().components("gui.upgrades.level-info.lore", Map.of(
                         "level", String.valueOf(clan.level()),
@@ -44,28 +54,33 @@ public final class ClanUpgradesMenu {
                 .lore(plugin.getMessages().component("gui.upgrades.points-info.lore", Map.of("points", String.valueOf(clan.upgradePoints())), player))
                 .build());
 
-        int[] slots = {20, 21, 22, 23, 24};
-        ClanUpgrade[] upgrades = ClanUpgrade.values();
-        for (int i = 0; i < Math.min(slots.length, upgrades.length); i++) {
-            ClanUpgrade upgrade = upgrades[i];
-            
-            int maxLevel = plugin.getConfig().getInt("upgrades." + upgrade.name() + ".max-level", 1);
-            boolean canUpgrade = clan.upgradePoints() > 0 && clan.upgradeLevel(upgrade) < maxLevel;
-            
-            ItemBuilder builder = ItemBuilder.head(canUpgrade ? ItemBuilder.HEAD_EXPAND : ItemBuilder.HEAD_BARRIER)
+        for (int i = 0; i < UPGRADE_SLOTS.length; i++) {
+            ClanUpgrade upgrade = ClanUpgrade.values()[i];
+            int level = clan.upgradeLevel(upgrade);
+            int maxLevel = plugin.getClanManager().maxUpgradeLevel(upgrade);
+            boolean maxed = level >= maxLevel;
+            boolean canUpgrade = !maxed && clan.upgradePoints() > 0;
+
+            ItemBuilder builder = ItemBuilder.head(headFor(upgrade))
                     .name(plugin.getMessages().component("gui.upgrades.item.name", Map.of("name", upgrade.displayName()), player))
                     .lore(plugin.getMessages().component("gui.upgrades.item.level", Map.of(
-                            "level", String.valueOf(clan.upgradeLevel(upgrade))
-                    ), player));
-            
-            if (canUpgrade) {
+                            "level", String.valueOf(level),
+                            "max", String.valueOf(maxLevel)
+                    ), player))
+                    .lore(plugin.getMessages().component("gui.upgrades.item." + upgrade.name().toLowerCase(), player));
+
+            if (maxed) {
+                builder.lore(plugin.getMessages().component("gui.upgrades.item.maxed", player));
+            } else if (canUpgrade) {
                 builder.lore(plugin.getMessages().component("gui.upgrades.item.click-to-upgrade", player));
+            } else {
+                builder.lore(plugin.getMessages().component("gui.upgrades.item.no-points", player));
             }
-            
-            inventory.setItem(slots[i], builder.build());
+
+            inventory.setItem(UPGRADE_SLOTS[i], builder.build());
         }
 
-        inventory.setItem(49, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(40, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
 
@@ -73,33 +88,23 @@ public final class ClanUpgradesMenu {
     }
 
     public void handleInventoryClick(Player player, int slot) {
-        if (slot == 49) {
-            plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> {
-                plugin.getGuiManager().openMain(player, clan);
-            });
+        if (slot == 40) {
+            plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> plugin.getGuiManager().openMain(player, clan));
             return;
         }
 
-        int[] slots = {20, 21, 22, 23, 24};
-        ClanUpgrade[] upgrades = ClanUpgrade.values();
-        for (int i = 0; i < Math.min(slots.length, upgrades.length); i++) {
-            if (slot == slots[i]) {
-                ClanUpgrade upgrade = upgrades[i];
-                plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> {
-                    int maxLevel = plugin.getConfig().getInt("upgrades." + upgrade.name() + ".max-level", 1);
-                    if (clan.upgradePoints() > 0 && clan.upgradeLevel(upgrade) < maxLevel) {
-                        clan.setUpgradeLevel(upgrade, clan.upgradeLevel(upgrade) + 1);
-                        clan.removeUpgradePoints(1);
-                        plugin.getClanManager().updateClanAsync(clan).thenRun(() -> {
-                            plugin.getMessages().send(player, "gui.upgrades.success", Map.of("upgrade", upgrade.displayName()));
-                            open(player, clan);
-                        });
-                    } else {
-                        plugin.getMessages().send(player, "gui.upgrades.not-enough-points");
-                    }
-                });
-                return;
-            }
+        for (int i = 0; i < UPGRADE_SLOTS.length; i++) {
+            if (slot != UPGRADE_SLOTS[i]) continue;
+            ClanUpgrade upgrade = ClanUpgrade.values()[i];
+            plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan ->
+                    plugin.getClanManager().purchaseUpgradeAsync(clan, player.getUniqueId(), upgrade)
+                            .thenAccept(updated -> plugin.runSync(() -> {
+                                plugin.getMessages().send(player, "gui.upgrades.success", Map.of("upgrade", upgrade.displayName()));
+                                open(player, updated);
+                            }))
+                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; })
+            );
+            return;
         }
     }
 

@@ -51,6 +51,8 @@ limits:
   members-per-upgrade: 3
   base-territories: 4
   territories-per-level: 1
+  territories-per-upgrade: 2
+  experience-percent-per-upgrade: 5.0
   base-chest-rows: 3
   max-chest-rows: 6
 
@@ -64,12 +66,10 @@ leveling:
 upgrades:
   MEMBERS:
     max-level: 5
-  CHEST:
-    max-level: 3
-  SPIRIT_CAPACITY:
-    max-level: 10
-  SPIRIT_REGEN:
-    max-level: 10
+  TERRITORIES:
+    max-level: 5
+  EXPERIENCE:
+    max-level: 5
 
 mechanics:
   spirit:

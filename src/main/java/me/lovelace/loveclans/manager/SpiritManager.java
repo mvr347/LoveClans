@@ -6,6 +6,7 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.SpiritHistoryEntry;
+import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
@@ -45,6 +46,7 @@ public final class SpiritManager implements Listener {
     private final Map<UUID, Long> lastClaimExp = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> hourlyKills = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastKillReset = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> phoenixCooldown = new ConcurrentHashMap<>();
 
     public SpiritManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -354,6 +356,39 @@ public final class SpiritManager implements Listener {
         });
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onPhoenixSave(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+        if (player.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return;
+        if (event.getFinalDamage() < player.getHealth()) return;
+
+        plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> {
+            if (clan.spirit().level() < 10 || clan.spirit().ability() != SpiritAbility.PHOENIX) return;
+
+            Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(player.getLocation());
+            if (territoryClan.isEmpty() || !territoryClan.get().id().equals(clan.id())) return;
+
+            long now = System.currentTimeMillis();
+            long cooldownMillis = 30L * 60L * 1000L;
+            Long last = phoenixCooldown.get(player.getUniqueId());
+            if (last != null && now - last < cooldownMillis) return;
+
+            phoenixCooldown.put(player.getUniqueId(), now);
+            event.setCancelled(true);
+
+            AttributeInstance maxHealthAttribute = player.getAttribute(Attribute.MAX_HEALTH);
+            double maxHealth = maxHealthAttribute != null ? maxHealthAttribute.getValue() : 20.0;
+            player.setHealth(Math.max(1.0, maxHealth * 0.3));
+
+            for (UUID memberId : clan.members().keySet()) {
+                Player member = Bukkit.getPlayer(memberId);
+                if (member != null) {
+                    plugin.getMessages().send(member, "spirit.ability.phoenix-save", Map.of("player", player.getName()));
+                }
+            }
+        });
+    }
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         if (event.getEntity() instanceof Player victim && !(event.getDamager() instanceof Player)) {
@@ -386,6 +421,14 @@ public final class SpiritManager implements Listener {
                     event.setDamage(event.getDamage() * (1.0 + bonus));
                 }
 
+                if (level >= 10 && clan.spirit().ability() == SpiritAbility.BERSERKER) {
+                    AttributeInstance maxHealthAttribute = attacker.getAttribute(Attribute.MAX_HEALTH);
+                    double maxHealth = maxHealthAttribute != null ? maxHealthAttribute.getValue() : 20.0;
+                    if (attacker.getHealth() < maxHealth * 0.3) {
+                        event.setDamage(event.getDamage() * 1.25);
+                    }
+                }
+
                 if (event.getEntity() instanceof Player victim && level >= 7) {
                     Optional<Clan> victimClan = plugin.getClanManager().getPlayerClan(victim.getUniqueId());
                     if (victimClan.isEmpty() || !victimClan.get().id().equals(clan.id())) {
@@ -407,6 +450,21 @@ public final class SpiritManager implements Listener {
                         }
                     }
                 }
+            });
+        }
+
+        if (event.getEntity() instanceof Player victim && event.getDamager() instanceof Player attacker) {
+            if (victim.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return;
+            plugin.getClanManager().getPlayerClan(victim.getUniqueId()).ifPresent(victimClan -> {
+                if (victimClan.spirit().level() < 10 || victimClan.spirit().ability() != SpiritAbility.SANCTUARY) return;
+
+                Optional<Clan> attackerClan = plugin.getClanManager().getPlayerClan(attacker.getUniqueId());
+                if (attackerClan.isPresent() && attackerClan.get().id().equals(victimClan.id())) return;
+
+                Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(victim.getLocation());
+                if (territoryClan.isEmpty() || !territoryClan.get().id().equals(victimClan.id())) return;
+
+                event.setDamage(event.getDamage() * 0.8);
             });
         }
     }

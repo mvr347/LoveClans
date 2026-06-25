@@ -28,7 +28,8 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
     }
 
     public void open() {
-        this.inventory = Bukkit.createInventory(this, 27, plugin.getMessages().component("gui.capital.title", Map.of("clan", clan.name()), player));
+        this.inventory = Bukkit.createInventory(this, 27, plugin.getMessages().component("gui.capital.title",
+                Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
         for (int i = 0; i < 27; i++) {
             inventory.setItem(i, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());

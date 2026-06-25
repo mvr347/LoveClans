@@ -36,7 +36,8 @@ public final class ClanTerritoriesMenu {
         int inventorySize = Math.max(27, Math.min(54, (contentRows + 2) * 9));
 
         Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.TERRITORIES, clan.id()), inventorySize,
-                plugin.getMessages().component("gui.territories-title", Map.of("tag", clan.coloredTag()), player));
+                plugin.getMessages().component("gui.territories-title",
+                        Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
         fillGlass(inventory);
 
