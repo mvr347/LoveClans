@@ -182,6 +182,8 @@ gui:
       title: "<gold>Подтвердите открытие клана"
     disband:
       title: "<red>Подтвердите распуск клана"
+    disband-capital:
+      title: "<red>Подтвердите распуск столицы"
     leave:
       title: "<gold>Подтвердите выход из клана"
     rename:
