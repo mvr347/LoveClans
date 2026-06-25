@@ -8,9 +8,11 @@ import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.Map;
 import java.util.Optional;
@@ -103,13 +105,18 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
             case 22: // Back button
                 plugin.getGuiManager().openClanTerritoriesMenu(clicker, clan);
                 break;
-            case 10: // Move Home Point
+            case 10: // Relocate clan spawn
                 if (!canManage) {
                     plugin.getMessages().send(clicker, "gui.capital.no-permission");
                     return;
                 }
-                plugin.getMessages().send(clicker, "gui.capital.move-home.action");
                 clicker.closeInventory();
+                Location target = clicker.getLocation();
+                plugin.getMessages().sendChatConfirmPrompt(clicker, "gui.capital.move-home.confirm-prompt", Map.of(),
+                        () -> plugin.getClanManager().relocateHomeAsync(clan, clicker.getUniqueId(), target)
+                                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(clicker, "gui.capital.move-home.action")))
+                                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(clicker, t)); return null; }),
+                        () -> plugin.getMessages().send(clicker, "general.chat-input-cancelled"));
                 break;
             case 12: // Transfer Capital Base
                 if (!canManage) {

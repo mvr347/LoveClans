@@ -161,6 +161,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                     }
                 }
                 case "home" -> home(requirePlayer(sender)); // Added home command handler
+                case "confirm" -> confirmPendingChatInput(requirePlayer(sender));
+                case "cancel" -> cancelPendingChatInput(requirePlayer(sender));
                 default -> plugin.getMessages().send(sender, "general.unknown-command");
             }
         } catch (IllegalStateException exception) {
@@ -290,6 +292,14 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                         return null;
                     });
         }, () -> plugin.getMessages().send(player, "clan.home.not-set")); // New message key
+    }
+
+    private void confirmPendingChatInput(Player player) {
+        plugin.getChatInputListener(player.getUniqueId()).ifPresent(callback -> callback.accept("подтвердить", false));
+    }
+
+    private void cancelPendingChatInput(Player player) {
+        plugin.getChatInputListener(player.getUniqueId()).ifPresent(callback -> callback.accept(null, true));
     }
 
     private void openCreateGui(Player player) {

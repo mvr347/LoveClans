@@ -795,6 +795,21 @@ public final class ClanManager {
         return pendingClaims.containsKey(playerId);
     }
 
+    public CompletableFuture<Clan> relocateHomeAsync(Clan clan, UUID actorId, Location location) {
+        if (clan == null || actorId == null || location == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor and location cannot be null."));
+        return plugin.supplySync(() -> {
+            boolean canManage = clan.member(actorId)
+                    .map(m -> m.rank() == ClanRank.LEADER || m.rank() == ClanRank.GUARDIAN)
+                    .orElse(false);
+            if (!canManage) {
+                throw new IllegalStateException("gui.capital.no-permission");
+            }
+            clan.setHomeLocation(location);
+            return clan;
+        }).thenCompose(c -> storage.saveClanAsync(c).thenApply(ignored -> c));
+    }
+
     public CompletableFuture<Void> unclaimTerritoryAsync(Clan clan, TerritoryKey key, UUID actorId) {
         if (clan == null || key == null || actorId == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, key and actor ID cannot be null."));

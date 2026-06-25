@@ -131,9 +131,10 @@ gui:
       lore: "<gray>Снести столицу клана и вернуть знамя."
       action: "<prefix><yellow>Столица клана была распущена."
     move-home:
-      name: "<gold>Перенести дом"
+      name: "<gold>Перенести клановый спавн"
       lore: "<gray>Перенести точку возрождения клана сюда."
-      action: "<prefix><green>Дом клана перенесён."
+      confirm-prompt: "<prefix><yellow>Вы уверены, что хотите перенести клановый спавн в текущее место?"
+      action: "<prefix><green>Клановый спавн перенесён."
     transfer:
       name: "<gold>Передать столицу"
       lore: "<gray>Передать столицу другому клану."
@@ -169,6 +170,9 @@ gui:
   confirm:
     "yes": "<green>[Подтвердить]"
     "no": "<red>[Отмена]"
+    chat-yes: "<green>[ПОДТВЕРДИТЬ]"
+    chat-no: "<red>[ОТМЕНИТЬ]"
+    invalid-input: "<prefix><red>Напишите <green>подтвердить</green> или <red>отменить</red> в чат."
     change-tag:
       title: "<gold>Подтвердите смену тега"
     close-clan:
