@@ -4,6 +4,7 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import me.lovelace.loveclans.util.ItemBuilder;
+import me.lovelace.loveclans.util.TimeUtil;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -27,11 +28,11 @@ public final class ClanSpiritAbilityMenu implements InventoryHolder {
         this.clan = clan;
     }
 
-    private Material materialFor(SpiritAbility ability) {
+    private String headFor(SpiritAbility ability) {
         return switch (ability) {
-            case PHOENIX -> Material.TOTEM_OF_UNDYING;
-            case BERSERKER -> Material.IRON_SWORD;
-            case SANCTUARY -> Material.SHIELD;
+            case PHOENIX -> ItemBuilder.HEAD_ABILITY_PHOENIX;
+            case BERSERKER -> ItemBuilder.HEAD_ABILITY_BERSERKER;
+            case SANCTUARY -> ItemBuilder.HEAD_ABILITY_SANCTUARY;
         };
     }
 
@@ -45,12 +46,15 @@ public final class ClanSpiritAbilityMenu implements InventoryHolder {
         }
 
         SpiritAbility current = clan.spirit().ability();
+        long now = System.currentTimeMillis();
+        long cooldownRemaining = clan.spirit().abilityCooldownRemaining(now);
         SpiritAbility[] abilities = SpiritAbility.values();
         for (int i = 0; i < ABILITY_SLOTS.length && i < abilities.length; i++) {
             SpiritAbility ability = abilities[i];
             boolean selected = ability == current;
+            boolean lockedByCooldown = !selected && current != null && cooldownRemaining > 0;
 
-            ItemBuilder builder = ItemBuilder.of(materialFor(ability))
+            ItemBuilder builder = ItemBuilder.head(lockedByCooldown ? ItemBuilder.HEAD_INACTIVE : headFor(ability))
                     .name(plugin.getMessages().component("gui.spirit.ability-menu.item.name",
                             Map.of("name", ability.displayName()), player))
                     .lore(plugin.getMessages().component("gui.spirit.ability-menu.item.description",
@@ -58,6 +62,9 @@ public final class ClanSpiritAbilityMenu implements InventoryHolder {
 
             if (selected) {
                 builder.lore(plugin.getMessages().component("gui.spirit.ability-menu.item.selected", player)).glow(true);
+            } else if (lockedByCooldown) {
+                builder.lore(plugin.getMessages().component("gui.spirit.ability-menu.item.on-cooldown",
+                        Map.of("time", TimeUtil.formatDuration(cooldownRemaining)), player));
             } else {
                 builder.lore(plugin.getMessages().component("gui.spirit.ability-menu.item.click-to-select", player));
             }
@@ -78,10 +85,17 @@ public final class ClanSpiritAbilityMenu implements InventoryHolder {
             return;
         }
 
+        SpiritAbility current = clan.spirit().ability();
+        long cooldownRemaining = clan.spirit().abilityCooldownRemaining(System.currentTimeMillis());
+
         SpiritAbility[] abilities = SpiritAbility.values();
         for (int i = 0; i < ABILITY_SLOTS.length && i < abilities.length; i++) {
             if (slot != ABILITY_SLOTS[i]) continue;
             SpiritAbility ability = abilities[i];
+            if (ability != current && current != null && cooldownRemaining > 0) {
+                plugin.getMessages().send(clicker, "gui.spirit.ability.cooldown", Map.of("time", TimeUtil.formatDuration(cooldownRemaining)));
+                return;
+            }
             plugin.getClanManager().chooseSpiritAbilityAsync(clan, clicker.getUniqueId(), ability)
                     .thenAccept(updated -> plugin.runSync(() -> {
                         plugin.getMessages().send(clicker, "gui.spirit.ability-menu.success", Map.of("name", ability.displayName()));

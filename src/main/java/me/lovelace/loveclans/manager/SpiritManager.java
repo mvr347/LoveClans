@@ -46,7 +46,14 @@ public final class SpiritManager implements Listener {
     private final Map<UUID, Long> lastClaimExp = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> hourlyKills = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastKillReset = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> phoenixCooldown = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> phoenixAttackerSlow = new ConcurrentHashMap<>();
+
+    private static final String BERSERKER_ATTACK_SPEED_KEY = "clans_spirit_berserker_atkspd";
+    private static final String SANCTUARY_ARMOR_BASE_KEY = "clans_spirit_sanctuary_armor_base";
+    private static final String SANCTUARY_ARMOR_BONUS_KEY = "clans_spirit_sanctuary_armor_bonus";
+    private static final String PHOENIX_HEARTS_KEY = "clans_spirit_phoenix_hearts";
+    private static final String PHOENIX_SPEED_KEY = "clans_spirit_phoenix_speed";
+    private static final String PHOENIX_ATTACKER_SLOW_KEY = "clans_spirit_phoenix_attacker_slow";
 
     public SpiritManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -73,6 +80,7 @@ public final class SpiritManager implements Listener {
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
             removeSpeedAttribute(player);
+            clearAbilityEffects(player);
         }
     }
 
@@ -88,10 +96,11 @@ public final class SpiritManager implements Listener {
             newExp -= getExpForNextLevel(newLevel);
             newLevel++;
             plugin.getLogger().info("Clan " + clan.tag() + " spirit leveled up to " + newLevel + "!");
+            int finalLevel = newLevel;
             for (UUID memberId : clan.members().keySet()) {
                 Player p = Bukkit.getPlayer(memberId);
                 if (p != null) {
-                    plugin.getMessages().send(p, "spirit.level-up", Map.of("level", String.valueOf(newLevel)));
+                    plugin.getMessages().sendClickableSpiritLevelChange(p, finalLevel, true);
                 }
             }
         }
@@ -166,6 +175,12 @@ public final class SpiritManager implements Listener {
         }
 
         for (Player player : Bukkit.getOnlinePlayers()) {
+            Long slowExpiry = phoenixAttackerSlow.get(player.getUniqueId());
+            if (slowExpiry != null && System.currentTimeMillis() >= slowExpiry) {
+                setOrRemoveModifier(player, Attribute.ATTACK_SPEED, PHOENIX_ATTACKER_SLOW_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
+                phoenixAttackerSlow.remove(player.getUniqueId());
+            }
+
             Optional<Clan> playerClan = plugin.getClanManager().getPlayerClan(player.getUniqueId());
             if (playerClan.isEmpty()) {
                 removeSpeedAttribute(player);
@@ -174,6 +189,12 @@ public final class SpiritManager implements Listener {
 
             Clan clan = playerClan.get();
             int spiritLevel = clan.spirit().level();
+
+            if (spiritLevel >= 10 && clan.spirit().ability() != null) {
+                applyAbilityPassives(player, clan, clan.spirit().ability());
+            } else {
+                clearAbilityEffects(player);
+            }
 
             if (spiritLevel < 1) {
                 removeSpeedAttribute(player);
@@ -208,6 +229,112 @@ public final class SpiritManager implements Listener {
                 }
             }
         }
+    }
+
+    private void applyAbilityPassives(Player player, Clan clan, SpiritAbility ability) {
+        AttributeInstance maxHealthAttribute = player.getAttribute(Attribute.MAX_HEALTH);
+        double maxHealth = maxHealthAttribute != null ? maxHealthAttribute.getValue() : 20.0;
+        double healthPercent = (player.getHealth() / maxHealth) * 100.0;
+
+        switch (ability) {
+            case BERSERKER -> {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 140, 0, true, false, false));
+
+                if (healthPercent < 50.0) {
+                    double missingPercent = 50.0 - healthPercent;
+                    double bonus = Math.min(20.0, missingPercent * 0.1) / 100.0;
+                    setOrRemoveModifier(player, Attribute.ATTACK_SPEED, BERSERKER_ATTACK_SPEED_KEY, bonus, AttributeModifier.Operation.ADD_SCALAR);
+                } else {
+                    setOrRemoveModifier(player, Attribute.ATTACK_SPEED, BERSERKER_ATTACK_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
+                }
+
+                if (healthPercent < 20.0) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 140, 1, true, false, false));
+                }
+
+                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BASE_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
+                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BONUS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
+                setOrRemoveModifier(player, Attribute.MAX_HEALTH, PHOENIX_HEARTS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
+                setOrRemoveModifier(player, Attribute.MOVEMENT_SPEED, PHOENIX_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
+            }
+            case SANCTUARY -> {
+                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BASE_KEY, 3.0, AttributeModifier.Operation.ADD_NUMBER);
+
+                int resistanceTier = 0;
+                if (healthPercent < 50.0) resistanceTier = 1;
+                if (healthPercent < 35.0) resistanceTier = 2;
+                if (healthPercent < 30.0) resistanceTier = 3;
+                if (healthPercent < 20.0) resistanceTier = 4;
+                if (resistanceTier > 0) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 140, resistanceTier - 1, true, false, false));
+                }
+
+                double armorBonus = 0.0;
+                if (healthPercent < 30.0) armorBonus = 5.0;
+                if (healthPercent < 20.0) armorBonus = 10.0;
+                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BONUS_KEY, armorBonus, AttributeModifier.Operation.ADD_NUMBER);
+
+                setOrRemoveModifier(player, Attribute.ATTACK_SPEED, BERSERKER_ATTACK_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
+                setOrRemoveModifier(player, Attribute.MAX_HEALTH, PHOENIX_HEARTS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
+                setOrRemoveModifier(player, Attribute.MOVEMENT_SPEED, PHOENIX_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
+            }
+            case PHOENIX -> {
+                player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 140, 0, true, false, false));
+
+                boolean atWar = plugin.getWarManager().isAtWar(clan.id());
+                setOrRemoveModifier(player, Attribute.MAX_HEALTH, PHOENIX_HEARTS_KEY, atWar ? 8.0 : 0.0, AttributeModifier.Operation.ADD_NUMBER);
+
+                int regenTier = 0;
+                if (healthPercent < 50.0) regenTier = 1;
+                if (healthPercent < 40.0) regenTier = 2;
+                if (healthPercent < 30.0) regenTier = 3;
+                if (healthPercent < 25.0) regenTier = 4;
+                if (regenTier > 0) {
+                    player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 140, regenTier - 1, true, false, false));
+                }
+
+                setOrRemoveModifier(player, Attribute.MOVEMENT_SPEED, PHOENIX_SPEED_KEY, healthPercent < 30.0 ? 0.2 : 0.0, AttributeModifier.Operation.ADD_SCALAR);
+
+                setOrRemoveModifier(player, Attribute.ATTACK_SPEED, BERSERKER_ATTACK_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
+                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BASE_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
+                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BONUS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
+            }
+        }
+    }
+
+    private void clearAbilityEffects(Player player) {
+        setOrRemoveModifier(player, Attribute.ATTACK_SPEED, BERSERKER_ATTACK_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
+        setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BASE_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
+        setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BONUS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
+        setOrRemoveModifier(player, Attribute.MAX_HEALTH, PHOENIX_HEARTS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
+        setOrRemoveModifier(player, Attribute.MOVEMENT_SPEED, PHOENIX_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
+    }
+
+    private void setOrRemoveModifier(Player player, Attribute attribute, String keyName, double amount, AttributeModifier.Operation operation) {
+        AttributeInstance attributeInstance = player.getAttribute(attribute);
+        if (attributeInstance == null) return;
+
+        NamespacedKey key = new NamespacedKey(plugin, keyName);
+        AttributeModifier existing = null;
+        for (AttributeModifier mod : attributeInstance.getModifiers()) {
+            if (mod.getKey().equals(key)) {
+                existing = mod;
+                break;
+            }
+        }
+
+        if (amount == 0.0) {
+            if (existing != null) {
+                attributeInstance.removeModifier(existing);
+            }
+            return;
+        }
+
+        if (existing != null) {
+            if (existing.getAmount() == amount) return;
+            attributeInstance.removeModifier(existing);
+        }
+        attributeInstance.addModifier(new AttributeModifier(key, amount, operation));
     }
 
     private void decayCheck() {
@@ -356,39 +483,6 @@ public final class SpiritManager implements Listener {
         });
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onPhoenixSave(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player player)) return;
-        if (player.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return;
-        if (event.getFinalDamage() < player.getHealth()) return;
-
-        plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> {
-            if (clan.spirit().level() < 10 || clan.spirit().ability() != SpiritAbility.PHOENIX) return;
-
-            Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(player.getLocation());
-            if (territoryClan.isEmpty() || !territoryClan.get().id().equals(clan.id())) return;
-
-            long now = System.currentTimeMillis();
-            long cooldownMillis = 30L * 60L * 1000L;
-            Long last = phoenixCooldown.get(player.getUniqueId());
-            if (last != null && now - last < cooldownMillis) return;
-
-            phoenixCooldown.put(player.getUniqueId(), now);
-            event.setCancelled(true);
-
-            AttributeInstance maxHealthAttribute = player.getAttribute(Attribute.MAX_HEALTH);
-            double maxHealth = maxHealthAttribute != null ? maxHealthAttribute.getValue() : 20.0;
-            player.setHealth(Math.max(1.0, maxHealth * 0.3));
-
-            for (UUID memberId : clan.members().keySet()) {
-                Player member = Bukkit.getPlayer(memberId);
-                if (member != null) {
-                    plugin.getMessages().send(member, "spirit.ability.phoenix-save", Map.of("player", player.getName()));
-                }
-            }
-        });
-    }
-
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         if (event.getEntity() instanceof Player victim && !(event.getDamager() instanceof Player)) {
@@ -421,14 +515,6 @@ public final class SpiritManager implements Listener {
                     event.setDamage(event.getDamage() * (1.0 + bonus));
                 }
 
-                if (level >= 10 && clan.spirit().ability() == SpiritAbility.BERSERKER) {
-                    AttributeInstance maxHealthAttribute = attacker.getAttribute(Attribute.MAX_HEALTH);
-                    double maxHealth = maxHealthAttribute != null ? maxHealthAttribute.getValue() : 20.0;
-                    if (attacker.getHealth() < maxHealth * 0.3) {
-                        event.setDamage(event.getDamage() * 1.25);
-                    }
-                }
-
                 if (event.getEntity() instanceof Player victim && level >= 7) {
                     Optional<Clan> victimClan = plugin.getClanManager().getPlayerClan(victim.getUniqueId());
                     if (victimClan.isEmpty() || !victimClan.get().id().equals(clan.id())) {
@@ -453,18 +539,24 @@ public final class SpiritManager implements Listener {
             });
         }
 
-        if (event.getEntity() instanceof Player victim && event.getDamager() instanceof Player attacker) {
+        if (event.getEntity() instanceof Player victim && event.getDamager() instanceof org.bukkit.entity.LivingEntity damager
+                && damager != victim) {
             if (victim.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return;
             plugin.getClanManager().getPlayerClan(victim.getUniqueId()).ifPresent(victimClan -> {
-                if (victimClan.spirit().level() < 10 || victimClan.spirit().ability() != SpiritAbility.SANCTUARY) return;
+                if (victimClan.spirit().level() < 10 || victimClan.spirit().ability() != SpiritAbility.PHOENIX) return;
 
-                Optional<Clan> attackerClan = plugin.getClanManager().getPlayerClan(attacker.getUniqueId());
-                if (attackerClan.isPresent() && attackerClan.get().id().equals(victimClan.id())) return;
+                AttributeInstance maxHealthAttribute = victim.getAttribute(Attribute.MAX_HEALTH);
+                double maxHealth = maxHealthAttribute != null ? maxHealthAttribute.getValue() : 20.0;
+                double healthPercent = (victim.getHealth() / maxHealth) * 100.0;
 
-                Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(victim.getLocation());
-                if (territoryClan.isEmpty() || !territoryClan.get().id().equals(victimClan.id())) return;
+                if (healthPercent < 50.0) {
+                    damager.setFireTicks(Math.max(damager.getFireTicks(), 100));
+                }
 
-                event.setDamage(event.getDamage() * 0.8);
+                if (healthPercent < 30.0 && damager instanceof Player attackerPlayer) {
+                    phoenixAttackerSlow.put(attackerPlayer.getUniqueId(), System.currentTimeMillis() + 3000L);
+                    setOrRemoveModifier(attackerPlayer, Attribute.ATTACK_SPEED, PHOENIX_ATTACKER_SLOW_KEY, -0.3, AttributeModifier.Operation.ADD_SCALAR);
+                }
             });
         }
     }

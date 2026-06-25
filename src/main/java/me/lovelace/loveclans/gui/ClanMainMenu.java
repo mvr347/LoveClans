@@ -51,28 +51,40 @@ public final class ClanMainMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component("gui.main.members.lore", player))
                 .build());
 
-        inventory.setItem(21, ItemBuilder.of(Material.WRITABLE_BOOK)
+        inventory.setItem(21, ItemBuilder.head(ItemBuilder.HEAD_DIPLOMACY)
                 .name(plugin.getMessages().component("gui.main.diplomacy.name", player))
                 .lore(plugin.getMessages().component("gui.main.diplomacy.lore", player))
                 .build());
 
-        inventory.setItem(23, ItemBuilder.of(Material.GRASS_BLOCK)
-                .name(plugin.getMessages().component("gui.main.territories.name", player))
-                .lore(plugin.getMessages().component("gui.main.territories.lore", player))
-                .build());
+        boolean atWar = plugin.getWarManager().isAtWar(clan.id());
 
-        inventory.setItem(25, ItemBuilder.of(Material.ANVIL)
-                .name(plugin.getMessages().component("gui.main.upgrades.name", player))
-                .lore(plugin.getMessages().component("gui.main.upgrades.lore", player))
-                .build());
+        ItemBuilder territoriesItem = atWar
+                ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                : ItemBuilder.head(ItemBuilder.HEAD_TERRITORIES);
+        territoriesItem.name(plugin.getMessages().component("gui.main.territories.name", player))
+                .lore(plugin.getMessages().component("gui.main.territories.lore", player));
+        if (atWar) {
+            territoriesItem.lore(plugin.getMessages().component("gui.capital.war-blocked", player));
+        }
+        inventory.setItem(23, territoriesItem.build());
+
+        ItemBuilder upgradesItem = atWar
+                ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                : ItemBuilder.of(Material.ANVIL);
+        upgradesItem.name(plugin.getMessages().component("gui.main.upgrades.name", player))
+                .lore(plugin.getMessages().component("gui.main.upgrades.lore", player));
+        if (atWar) {
+            upgradesItem.lore(plugin.getMessages().component("gui.capital.war-blocked", player));
+        }
+        inventory.setItem(25, upgradesItem.build());
 
         // Row 4 — secondary buttons
-        inventory.setItem(38, ItemBuilder.of(Material.NETHER_STAR)
+        inventory.setItem(38, ItemBuilder.head(ItemBuilder.HEAD_SPIRIT)
                 .name(plugin.getMessages().component("gui.main.spirit.name", player))
                 .lore(plugin.getMessages().component("gui.main.spirit.lore", player))
                 .build());
 
-        inventory.setItem(40, ItemBuilder.head(ItemBuilder.HEAD_SETTINGS)
+        inventory.setItem(40, ItemBuilder.head(ItemBuilder.HEAD_MAIN_SETTINGS)
                 .name(plugin.getMessages().component("gui.main.settings.name", player))
                 .lore(plugin.getMessages().component("gui.main.settings.lore", player))
                 .build());
@@ -81,7 +93,7 @@ public final class ClanMainMenu implements InventoryHolder {
         boolean isLeaderOrGuardian = clan.member(player.getUniqueId())
                 .map(m -> m.rank() == ClanRank.LEADER || m.rank() == ClanRank.GUARDIAN)
                 .orElse(false);
-        inventory.setItem(42, ItemBuilder.of(Material.PAPER)
+        inventory.setItem(42, ItemBuilder.head(ItemBuilder.HEAD_MAIN_APPLICATIONS)
                 .name(plugin.getMessages().component("gui.main.applications.name", player))
                 .lore(isLeaderOrGuardian
                         ? plugin.getMessages().component("gui.main.applications.lore",
@@ -90,7 +102,7 @@ public final class ClanMainMenu implements InventoryHolder {
                 .build());
 
         // Row 5 — Close + Leave (only for non-leaders)
-        inventory.setItem(49, ItemBuilder.of(Material.BARRIER)
+        inventory.setItem(49, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
@@ -98,7 +110,7 @@ public final class ClanMainMenu implements InventoryHolder {
                 .map(m -> m.rank() == ClanRank.LEADER)
                 .orElse(false);
         if (!isLeader) {
-            inventory.setItem(52, ItemBuilder.of(Material.RED_BED)
+            inventory.setItem(52, ItemBuilder.head(ItemBuilder.HEAD_LEAVE_CLAN)
                     .name(plugin.getMessages().component("gui.main.leave.name", player))
                     .lore(plugin.getMessages().component("gui.main.leave.lore", player))
                     .build());
@@ -111,8 +123,20 @@ public final class ClanMainMenu implements InventoryHolder {
         switch (slot) {
             case 19 -> plugin.getGuiManager().openMembers(clicker, clan);
             case 21 -> plugin.getGuiManager().openDiplomacySelect(clicker, clan);
-            case 23 -> plugin.getGuiManager().openClanTerritoriesMenu(clicker, clan);
-            case 25 -> plugin.getGuiManager().openUpgrades(clicker, clan);
+            case 23 -> {
+                if (plugin.getWarManager().isAtWar(clan.id())) {
+                    plugin.getMessages().send(clicker, "gui.capital.war-blocked");
+                } else {
+                    plugin.getGuiManager().openClanTerritoriesMenu(clicker, clan);
+                }
+            }
+            case 25 -> {
+                if (plugin.getWarManager().isAtWar(clan.id())) {
+                    plugin.getMessages().send(clicker, "gui.capital.war-blocked");
+                } else {
+                    plugin.getGuiManager().openUpgrades(clicker, clan);
+                }
+            }
             case 38 -> plugin.getGuiManager().openSpiritMenu(clicker, clan);
             case 40 -> plugin.getGuiManager().openSettings(clicker, clan);
             case 42 -> {

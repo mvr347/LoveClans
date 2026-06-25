@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "accept", "leave", "kick", "promote", "demote",
-            "info", "claim", "unclaim", "menu", "members", "territories", "upgrades",
+            "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
             "war", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home" // Added "home"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
@@ -128,6 +128,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "members" -> openMembers(requirePlayer(sender));
                 case "territories" -> openTerritories(requirePlayer(sender));
                 case "upgrades" -> openUpgrades(requirePlayer(sender));
+                case "spirit" -> openSpirit(requirePlayer(sender));
                 case "list" -> openClanList(requirePlayer(sender));
                 case "war" -> war(requirePlayer(sender), args);
                 case "peace" -> peace(requirePlayer(sender), args);
@@ -160,6 +161,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                     }
                 }
                 case "home" -> home(requirePlayer(sender)); // Added home command handler
+                case "confirm" -> confirmPendingChatInput(requirePlayer(sender));
+                case "cancel" -> cancelPendingChatInput(requirePlayer(sender));
                 default -> plugin.getMessages().send(sender, "general.unknown-command");
             }
         } catch (IllegalStateException exception) {
@@ -289,6 +292,14 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                         return null;
                     });
         }, () -> plugin.getMessages().send(player, "clan.home.not-set")); // New message key
+    }
+
+    private void confirmPendingChatInput(Player player) {
+        plugin.getChatInputListener(player.getUniqueId()).ifPresent(callback -> callback.accept("подтвердить", false));
+    }
+
+    private void cancelPendingChatInput(Player player) {
+        plugin.getChatInputListener(player.getUniqueId()).ifPresent(callback -> callback.accept(null, true));
     }
 
     private void openCreateGui(Player player) {
@@ -634,6 +645,16 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         new ClanUpgradesMenu(plugin).open(player, optionalClan.get());
+    }
+
+    private void openSpirit(Player player) {
+        requirePermission(player, Permissions.MENU);
+        Optional<Clan> optionalClan = requireClan(player);
+        if (optionalClan.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        plugin.getGuiManager().openSpiritMenu(player, optionalClan.get());
     }
 
     private void openClanList(Player player) {

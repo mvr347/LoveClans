@@ -131,6 +131,7 @@ public final class DatabaseManager implements AutoCloseable {
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_last_decay BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN home_location TEXT"); } catch (SQLException ignored) {}
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_ability VARCHAR(32)"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_ability_chosen_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_members (

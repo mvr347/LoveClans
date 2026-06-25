@@ -131,13 +131,15 @@ gui:
       lore: "<gray>Снести столицу клана и вернуть знамя."
       action: "<prefix><yellow>Столица клана была распущена."
     move-home:
-      name: "<gold>Перенести дом"
+      name: "<gold>Перенести клановый спавн"
       lore: "<gray>Перенести точку возрождения клана сюда."
-      action: "<prefix><green>Дом клана перенесён."
-    transfer:
-      name: "<gold>Передать столицу"
-      lore: "<gray>Передать столицу другому клану."
-      action: "<prefix><green>Столица клана передана."
+      confirm-prompt: "<prefix><yellow>Вы уверены, что хотите перенести клановый спавн в текущее место?"
+      action: "<prefix><green>Клановый спавн перенесён."
+    relocate-territory:
+      name: "<gold>Перенести территорию столицы"
+      lore: "<gray>Снести приват столицы и получить знамя обратно для переноса."
+      confirm-prompt: "<prefix><yellow>Вы уверены? Приват столицы будет снесён, а знамя возвращено вам для переноса."
+      action: "<prefix><green>Территория столицы перенесена. Разместите знамя в новом месте."
   clan-list:
     title: "<gold>Список кланов"
     empty:
@@ -169,6 +171,9 @@ gui:
   confirm:
     "yes": "<green>[Подтвердить]"
     "no": "<red>[Отмена]"
+    chat-yes: "<green>[ПОДТВЕРДИТЬ]"
+    chat-no: "<red>[ОТМЕНИТЬ]"
+    invalid-input: "<prefix><red>Напишите <green>подтвердить</green> или <red>отменить</red> в чат."
     change-tag:
       title: "<gold>Подтвердите смену тега"
     close-clan:
@@ -177,6 +182,8 @@ gui:
       title: "<gold>Подтвердите открытие клана"
     disband:
       title: "<red>Подтвердите распуск клана"
+    disband-capital:
+      title: "<red>Подтвердите распуск столицы"
     leave:
       title: "<gold>Подтвердите выход из клана"
     rename:
@@ -389,6 +396,7 @@ gui:
       name: "<gold><name> <gray>(уровень <level>)"
       exp: "<gray>Опыт: <white><current></white>/<next>"
       progress: "<gray><bar>"
+      maximum: "<gold>МАКСИМУМ"
     buffs:
       name: "<gold>Активные бафы"
       lore_active: "<gray>Бафы духа активны для участников клана."
@@ -401,6 +409,7 @@ gui:
       locked-message: "<prefix><red>Уникальная способность духа разблокируется на 10 уровне."
       unlocked: "<green>Способность не выбрана. Нажмите, чтобы выбрать."
       chosen: "<green>Выбрана: <white><name></white>. <gray><description>"
+      cooldown: "<red>Смену способности можно сделать через <white><time></white>."
     ability-menu:
       title: "<gray>Способность духа <color><tag>"
       item:
@@ -408,6 +417,7 @@ gui:
         description: "<gray><description>"
         selected: "<green>✔ Выбрана"
         click-to-select: "<gray>ЛКМ - выбрать"
+        on-cooldown: "<red>Недоступно: смена через <white><time></white>"
       success: "<prefix><green>Выбрана уникальная способность духа: <white><name>."
     history:
       name: "<gold>История"
@@ -523,8 +533,12 @@ ritual:
 
 spirit:
   level-up: "<prefix><gold>Дух клана достиг <white><level> уровня!"
+  level-down: "<prefix><red>Дух клана упал до <white><level> уровня."
+  level-change:
+    open: "<gray>[<yellow>Открыть меню духа</yellow>]"
   ability:
     phoenix-save: "<prefix><gold>Дух Феникса спас <white><player></white> от гибели!"
+    cooldown-active: "<prefix><red>Смену способности духа можно сделать только через <white><time></white>."
 
 succession:
   promoted: "<prefix><gold><player></gold> назначен новым главой клана по результатам голосования."
@@ -567,6 +581,7 @@ war:
   already-at-war: "<prefix><red>Ваш клан уже находится в состоянии войны с этим кланом."
   banner-dropped: "<prefix><yellow>Боевой компас был выброшен, так как война окончена."
   cannot-claim: "<prefix><red>Нельзя захватывать территории во время войны."
+  cannot-declare-on-ally: "<prefix><red>Нельзя объявить войну союзному клану."
   cannot-unclaim: "<prefix><red>Нельзя снимать захват территории во время войны."
   compass-given: "<prefix><green>Вам выдан боевой компас для войны с кланом <gold><tag></gold>."
   compass-removed: "<prefix><yellow>Боевой компас был изъят."

@@ -42,7 +42,7 @@ public final class ClanTerritoriesMenu {
         fillGlass(inventory);
 
         if (territories.isEmpty()) {
-            inventory.setItem(inventorySize / 2, ItemBuilder.of(Material.BARRIER)
+            inventory.setItem(inventorySize / 2, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.territories.empty.name", player))
                     .lore(plugin.getMessages().component("gui.territories.empty.lore", player))
                     .build());

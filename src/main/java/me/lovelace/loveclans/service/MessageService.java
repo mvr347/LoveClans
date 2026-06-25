@@ -149,6 +149,15 @@ public final class MessageService {
         target.sendMessage(msg);
     }
 
+    public void sendClickableSpiritLevelChange(Player target, int newLevel, boolean increased) {
+        Component msg = component(increased ? "spirit.level-up" : "spirit.level-down",
+                Map.of("level", String.valueOf(newLevel)), target)
+                .append(Component.text(" "))
+                .append(component("spirit.level-change.open", target)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan spirit")));
+        target.sendMessage(msg);
+    }
+
     public void sendClickableAlliance(Player guildmaster, String sourceClanTag) {
         Component msg = component("diplomacy.alliance-request",
                 Map.of("tag", sourceClanTag), guildmaster)
@@ -161,6 +170,30 @@ public final class MessageService {
                         .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
                                 "/clan ally decline " + sourceClanTag)));
         guildmaster.sendMessage(msg);
+    }
+
+    public void sendChatConfirmPrompt(Player player, String promptKey, Map<String, String> placeholders, Runnable onConfirm, Runnable onCancel) {
+        player.sendMessage(component(promptKey, placeholders, player));
+        player.sendMessage(component("gui.confirm.chat-yes", player)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/loveclan confirm"))
+                .append(Component.text("  "))
+                .append(component("gui.confirm.chat-no", player)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/loveclan cancel"))));
+        plugin.expectChatInput(player.getUniqueId(), (message, cancelled) -> {
+            if (cancelled) {
+                onCancel.run();
+                return;
+            }
+            String normalized = message == null ? "" : message.trim().toLowerCase(java.util.Locale.ROOT);
+            if (normalized.equals("подтвердить") || normalized.equals("confirm")) {
+                onConfirm.run();
+            } else if (normalized.equals("отменить") || normalized.equals("отмена") || normalized.equals("cancel")) {
+                onCancel.run();
+            } else {
+                send(player, "gui.confirm.invalid-input");
+                sendChatConfirmPrompt(player, promptKey, placeholders, onConfirm, onCancel);
+            }
+        });
     }
 
     public String formatDate(long timestamp) {
