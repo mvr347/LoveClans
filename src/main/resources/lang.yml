@@ -581,6 +581,7 @@ war:
   already-at-war: "<prefix><red>Ваш клан уже находится в состоянии войны с этим кланом."
   banner-dropped: "<prefix><yellow>Боевой компас был выброшен, так как война окончена."
   cannot-claim: "<prefix><red>Нельзя захватывать территории во время войны."
+  cannot-declare-on-ally: "<prefix><red>Нельзя объявить войну союзному клану."
   cannot-unclaim: "<prefix><red>Нельзя снимать захват территории во время войны."
   compass-given: "<prefix><green>Вам выдан боевой компас для войны с кланом <gold><tag></gold>."
   compass-removed: "<prefix><yellow>Боевой компас был изъят."

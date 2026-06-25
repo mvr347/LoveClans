@@ -7,6 +7,7 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
+import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.model.war.ClanWar;
 import me.lovelace.loveclans.model.war.WarResult;
@@ -57,6 +58,9 @@ public final class WarManager {
             }
             if (areAtWar(attacker.id(), defender.id())) {
                 throw new IllegalStateException("war.already-at-war");
+            }
+            if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
+                throw new IllegalStateException("war.cannot-declare-on-ally");
             }
 
             AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = getWarPairKey(attacker.id(), defender.id());
