@@ -51,7 +51,7 @@ public class ClanTerritoriesSelectionGui implements Listener {
         ItemStack capitalItem;
         if (clan.getCapitalTerritory().isPresent()) {
             if (isManagement) {
-                capitalItem = ItemBuilder.of(Material.RED_BED)
+                capitalItem = ItemBuilder.head(ItemBuilder.HEAD_CAPITAL)
                         .name(plugin.getMessages().component("gui.territories.capital.name"))
                         .lore(List.of(
                                 plugin.getMessages().component("gui.territories.capital.info.coords", Map.of(
@@ -95,7 +95,7 @@ public class ClanTerritoriesSelectionGui implements Listener {
 
         ItemStack otherTerritoriesItem;
         if (clan.territories().stream().anyMatch(t -> !t.isCapital())) {
-            otherTerritoriesItem = ItemBuilder.of(Material.GRASS_BLOCK)
+            otherTerritoriesItem = ItemBuilder.head(ItemBuilder.HEAD_MORE_TERRITORIES)
                     .name(plugin.getMessages().component("gui.territories.other.name"))
                     .lore(List.of(plugin.getMessages().component("gui.territories.other.info")))
                     .build();

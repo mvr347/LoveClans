@@ -67,6 +67,11 @@ public final class ItemBuilder {
     public static final String HEAD_ABILITY_BERSERKER = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZDE4MWJmNDQxNjhjOWMyZmU2YmRhNzExNDBhYzEzMjk2NWZlOGVhZmVmZjI4MjllZDc3MTM2YWFjZWFmODIifX19";
     public static final String HEAD_ABILITY_SANCTUARY = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMWEzZTFhMDUwZmZkYWUyY2YzNDJmZTM4YzYxZWJhYzdlMDZhYzU4Y2UxYTYwMDNmZTIzZWE4YWU0YjU4YzYwOCJ9fX0=";
 
+    // Placeholders pending final art from the spec; reuse existing textures until replaced
+    public static final String HEAD_NO_PLAYERS_EMPTY = HEAD_INACTIVE;
+    public static final String HEAD_SPIRIT_STAR = HEAD_SPIRIT;
+    public static final String HEAD_ACTIVE_BUFFS = HEAD_EXPERIENCE;
+
     private final ItemStack itemStack;
     private final List<Component> lore = new ArrayList<>();
 

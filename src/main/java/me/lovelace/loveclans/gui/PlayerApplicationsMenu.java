@@ -90,7 +90,7 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
         }
 
         if (combined.isEmpty()) {
-            inventory.setItem(22, ItemBuilder.of(Material.PAPER)
+            inventory.setItem(22, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.player-applications.empty.name", player))
                     .lore(plugin.getMessages().component("gui.player-applications.empty.lore", player))
                     .build());

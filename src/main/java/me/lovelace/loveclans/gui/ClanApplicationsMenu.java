@@ -111,7 +111,7 @@ public final class ClanApplicationsMenu {
         if (combined.isEmpty()) {
             int middleRow = (invSize / 9) / 2;
             int emptySlot = middleRow * 9 + 4;
-            inventory.setItem(emptySlot, ItemBuilder.of(Material.PAPER)
+            inventory.setItem(emptySlot, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.applications.empty.name", player))
                     .lore(plugin.getMessages().component("gui.applications.empty.lore", player))
                     .build());

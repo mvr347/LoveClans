@@ -43,7 +43,7 @@ public final class ClanUpgradesMenu {
         long progress = currentExp - expForCurrent;
         double percent = required > 0 ? (double) progress / required * 100 : 100.0;
 
-        inventory.setItem(4, ItemBuilder.head(ItemBuilder.HEAD_EXP)
+        inventory.setItem(4, ItemBuilder.head(ItemBuilder.HEAD_LEVEL_INFO)
                 .name(plugin.getMessages().component("gui.upgrades.level-info.name", player))
                 .lore(plugin.getMessages().components("gui.upgrades.level-info.lore", Map.of(
                         "level", String.valueOf(clan.level()),

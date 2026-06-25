@@ -43,7 +43,7 @@ public class ClanSpiritMenu implements InventoryHolder {
         long currentExp = clan.spirit().energy();
         boolean maxed = currentLevel >= 10;
 
-        ItemBuilder infoItem = ItemBuilder.head(ItemBuilder.HEAD_SPIRIT)
+        ItemBuilder infoItem = ItemBuilder.head(ItemBuilder.HEAD_SPIRIT_STAR)
                 .name(plugin.getMessages().component("gui.spirit.info.name", Map.of("level", String.valueOf(currentLevel), "name", levelName), player));
         if (maxed) {
             infoItem.lore(plugin.getMessages().component("gui.spirit.info.maximum", player));
@@ -56,7 +56,7 @@ public class ClanSpiritMenu implements InventoryHolder {
         inventory.setItem(13, infoItem.glow(true).build());
 
         // Buffs List
-        ItemBuilder buffsItem = ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
+        ItemBuilder buffsItem = ItemBuilder.head(ItemBuilder.HEAD_ACTIVE_BUFFS)
                 .name(plugin.getMessages().component("gui.spirit.buffs.name", player))
                 .lore(plugin.getMessages().component("gui.spirit.buffs.lore_active", player));
         for (SpiritBuffLevel level : SpiritBuffLevel.values()) {
