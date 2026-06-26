@@ -85,12 +85,12 @@ public final class LoveClansPlugin extends JavaPlugin {
                 registerIntegrations();
 
                 try {
-                    if (Bukkit.getPluginManager().isPluginEnabled("AdvancedClaims")) {
+                    if (Bukkit.getPluginManager().isPluginEnabled("LoveClaims")) {
                         advancedClaimsHook.initialize();
-                        getLogger().info("Успешная интеграция с AdvancedClaimsAPI!");
+                        getLogger().info("Успешная интеграция с LoveClaimsAPI!");
                     }
                 } catch (Throwable t) {
-                    getLogger().warning("Не удалось инициализировать хук AdvancedClaims: " + t.getMessage());
+                    getLogger().warning("Не удалось инициализировать хук LoveClaims: " + t.getMessage());
                 }
 
                 spiritManager.start();

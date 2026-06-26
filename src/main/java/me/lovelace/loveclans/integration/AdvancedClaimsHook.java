@@ -34,15 +34,15 @@ public final class AdvancedClaimsHook {
 
     public void initialize() {
         enabled = plugin.getConfig().getBoolean("integration.advanced-claims.enabled", true)
-                && Bukkit.getPluginManager().isPluginEnabled("AdvancedClaims");
+                && Bukkit.getPluginManager().isPluginEnabled("LoveClaims");
         if (!enabled) {
-            plugin.getLogger().info("AdvancedClaims integration is disabled or plugin is not installed.");
+            plugin.getLogger().info("LoveClaims integration is disabled or plugin is not installed.");
             return;
         }
 
         try {
-            String apiClassName = plugin.getConfig().getString("integration.advanced-claims.api-class", "me.lovelace.advancedclaims.api.AdvancedClaimsAPI");
-            String trustLevelClassName = plugin.getConfig().getString("integration.advanced-claims.trust-level-class", "me.lovelace.advancedclaims.model.TrustLevel");
+            String apiClassName = plugin.getConfig().getString("integration.advanced-claims.api-class", "me.lovelace.loveclaims.api.LoveClaimsAPI");
+            String trustLevelClassName = plugin.getConfig().getString("integration.advanced-claims.trust-level-class", "me.lovelace.loveclaims.model.TrustLevel");
             Class<?> apiClass = Class.forName(apiClassName);
             Method getInstance = apiClass.getMethod(plugin.getConfig().getString("integration.advanced-claims.methods.get-instance", "getInstance"));
             api = getInstance.invoke(null);

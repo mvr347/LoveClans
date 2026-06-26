@@ -532,9 +532,9 @@ succession:
   voted: "<prefix><green>Ваш голос засчитан."
 
 territory:
-  advancedclaims-disabled: "<prefix><red>Интеграция с AdvancedClaims отключена, захват территорий недоступен."
+  advancedclaims-disabled: "<prefix><red>Интеграция с LoveClaims отключена, захват территорий недоступен."
   already-claimed: "<prefix><red>Эта территория уже захвачена другим кланом."
-  already-claimed-by-advancedclaims: "<prefix><red>Эта территория уже защищена через AdvancedClaims."
+  already-claimed-by-advancedclaims: "<prefix><red>Эта территория уже защищена через LoveClaims."
   banner-given: "<prefix><green>Вам выдано знамя захвата."
   banner:
     cannot-drop: "<prefix><red>Вы не можете выбросить это знамя."
