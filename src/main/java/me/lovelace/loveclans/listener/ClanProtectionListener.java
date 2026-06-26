@@ -196,12 +196,15 @@ public class ClanProtectionListener implements Listener {
             return;
         }
 
-        // Check if player is Guildmaster of this clan
-        if (clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.LEADER).orElse(false)) {
+        // Capital management is available to the leader and guardians, matching the menu's own permission rules
+        boolean canManageCapital = clan.member(player.getUniqueId())
+                .map(m -> m.rank() == ClanRank.LEADER || m.rank() == ClanRank.GUARDIAN)
+                .orElse(false);
+        if (canManageCapital) {
             event.setCancelled(true);
             plugin.getGuiManager().openClanCapitalManagementMenu(player, clan);
         } else {
-            plugin.getMessages().send(player, "gui.territories.capital.no-permission"); // "Управление базой доступно только лидеру."
+            plugin.getMessages().send(player, "gui.territories.capital.no-permission");
         }
     }
 

@@ -102,7 +102,7 @@ public final class ClanInfoMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.info.apply.lore", player))
                         .build());
             } else {
-                inventory.setItem(APPLY_SLOT, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
+                inventory.setItem(APPLY_SLOT, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                         .name(plugin.getMessages().component("gui.info.apply-closed.name", player))
                         .lore(plugin.getMessages().component("gui.info.apply-closed.lore", player))
                         .build());

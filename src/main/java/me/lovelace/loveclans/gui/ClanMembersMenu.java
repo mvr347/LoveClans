@@ -87,7 +87,7 @@ public final class ClanMembersMenu {
                 
         if (canInvite) {
             boolean isFull = plugin.getClanManager().isClanFull(clan);
-            ItemBuilder inviteBuilder = isFull ? ItemBuilder.head(ItemBuilder.HEAD_BARRIER) : ItemBuilder.head(ItemBuilder.HEAD_INVITE);
+            ItemBuilder inviteBuilder = isFull ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE) : ItemBuilder.head(ItemBuilder.HEAD_INVITE);
             inviteBuilder.name(plugin.getMessages().component("gui.members.invite.name", player))
                     .lore(plugin.getMessages().component(isFull ? "gui.members.invite.lore-full" : "gui.members.invite.lore", player));
             inventory.setItem(inventorySize - 4, inviteBuilder.build()); // Invite button

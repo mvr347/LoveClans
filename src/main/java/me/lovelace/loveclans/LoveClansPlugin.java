@@ -219,6 +219,10 @@ public final class LoveClansPlugin extends JavaPlugin {
             messages.send(sender, "war.cooldown-active", Map.of("seconds", String.valueOf(cooldown.remainingSeconds())));
             return;
         }
+        if (root instanceof me.lovelace.loveclans.manager.SpiritAbilityCooldownException cooldown) {
+            messages.send(sender, "gui.spirit.ability.cooldown", Map.of("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(cooldown.remainingMillis())));
+            return;
+        }
         String key = root.getMessage();
         if (key != null && key.contains(".")) {
             Map<String, String> placeholders = new HashMap<>();
