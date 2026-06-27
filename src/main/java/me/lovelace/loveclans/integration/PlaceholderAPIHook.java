@@ -57,6 +57,7 @@ public final class PlaceholderAPIHook extends PlaceholderExpansion {
             case "name" -> clan.name();
             case "tag" -> clan.tag();
             case "colored_tag" -> clan.coloredTag();
+            case "colored_name" -> clan.coloredName();
             case "description" -> clan.description();
             case "level" -> String.valueOf(clan.level());
             case "experience", "xp" -> String.valueOf(clan.experience());

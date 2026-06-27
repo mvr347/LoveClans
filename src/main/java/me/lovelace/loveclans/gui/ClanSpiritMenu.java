@@ -87,12 +87,6 @@ public class ClanSpiritMenu implements InventoryHolder {
         }
         inventory.setItem(32, abilityItem.build());
 
-        // History
-        inventory.setItem(40, ItemBuilder.head(ItemBuilder.HEAD_SPIRIT_HISTORY)
-                .name(plugin.getMessages().component("gui.spirit.history.name", player))
-                .lore(plugin.getMessages().component("gui.spirit.history.lore", player))
-                .build());
-
         // Top Contributors
         List<ClanMember> topContributors = clan.members().values().stream()
                 .sorted(Comparator.comparingInt(ClanMember::contribution).reversed())
@@ -113,10 +107,10 @@ public class ClanSpiritMenu implements InventoryHolder {
                 rank++;
             }
         }
-        inventory.setItem(48, topItem.build());
+        inventory.setItem(40, topItem.build());
 
         // Back button
-        inventory.setItem(50, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(49, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
 
@@ -124,15 +118,8 @@ public class ClanSpiritMenu implements InventoryHolder {
     }
 
     public void handleInventoryClick(Player player, int slot) {
-        if (slot == 50) {
+        if (slot == 49) {
             plugin.getGuiManager().openMain(player, clan);
-            return;
-        }
-        if (slot == 40) {
-            plugin.getSpiritManager().getHistoryAsync(clan.id(), 27)
-                    .thenAccept(entries -> plugin.runSync(() ->
-                            new ClanSpiritHistoryMenu(plugin, player, clan, entries).open()))
-                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
             return;
         }
         if (slot == 32) {

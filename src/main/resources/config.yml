@@ -23,6 +23,7 @@ clans:
     max-length: 10
   creation-cooldown-seconds: 86400
   creation-cost: 10000.0
+  rejoin-cooldown-seconds: 3600
   default-tag-color: "<gold>"
   # dye-color — имя org.bukkit.DyeColor, используется для окраски щитов в цвет клана (см. ShieldColorManager).
   # Указано явно, а не выведено из material, так как *_TERRACOTTA не соответствует напрямую DyeColor.
@@ -74,6 +75,8 @@ upgrades:
     max-level: 5
 
 mechanics:
+  afk:
+    threshold-seconds: 120
   spirit:
     enabled: true
     tick-seconds: 15

@@ -83,7 +83,7 @@ public final class ClanDiplomacyMenu {
             if (sourceClan.relationTo(targetClan.id()) == DiplomacyRelation.ALLY) {
                 plugin.getClanManager().setDiplomacyAsync(sourceClan, targetClan, DiplomacyRelation.NEUTRAL, player.getUniqueId())
                         .thenAccept(updated -> plugin.runSync(() -> {
-                            plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", targetClan.tag(), "relation", "NEUTRAL"));
+                            plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "relation", "NEUTRAL"));
                             open(player, updated, targetClan);
                         }))
                         .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
@@ -92,25 +92,25 @@ public final class ClanDiplomacyMenu {
             if (plugin.getClanManager().hasPendingAllianceFrom(targetClan.id(), sourceClan.id())) {
                 plugin.getClanManager().acceptAllianceAsync(sourceClan, targetClan, player.getUniqueId())
                         .thenRun(() -> plugin.runSync(() -> {
-                            plugin.getMessages().send(player, "diplomacy.alliance-accepted", Map.of("tag", targetClan.tag()));
+                            plugin.getMessages().send(player, "diplomacy.alliance-accepted", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()));
                             plugin.getClanManager().getOnlineLeader(targetClan).ifPresent(leader ->
-                                    plugin.getMessages().send(leader, "diplomacy.alliance-accepted-by", Map.of("tag", sourceClan.tag())));
+                                    plugin.getMessages().send(leader, "diplomacy.alliance-accepted-by", Map.of("tag", sourceClan.tag(), "color", sourceClan.tagColor())));
                             open(player, sourceClan, targetClan);
                         }))
                         .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
                 return;
             }
             plugin.getClanManager().addAllianceRequest(sourceClan.id(), targetClan.id());
-            plugin.getMessages().send(player, "diplomacy.alliance-sent", Map.of("tag", targetClan.tag()));
+            plugin.getMessages().send(player, "diplomacy.alliance-sent", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()));
             plugin.getClanManager().getOnlineLeader(targetClan).ifPresent(leader ->
-                    plugin.getMessages().sendClickableAlliance(leader, sourceClan.tag()));
+                    plugin.getMessages().sendClickableAlliance(leader, sourceClan.tag(), sourceClan.tagColor()));
             open(player, sourceClan, targetClan);
             return;
         }
 
         plugin.getClanManager().setDiplomacyAsync(sourceClan, targetClan, relation, player.getUniqueId())
                 .thenAccept(updated -> plugin.runSync(() -> {
-                    plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", targetClan.tag(), "relation", relation.name()));
+                    plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "relation", relation.name()));
                     open(player, updated, targetClan);
                 }))
                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });

@@ -41,7 +41,7 @@ public final class ClanMainMenu implements InventoryHolder {
 
         // Row 0 — clan info (center)
         inventory.setItem(4, ItemBuilder.of(clan.emblem())
-                .name(plugin.getMessages().component("gui.main.info.name", Map.of("clan", clan.name()), player))
+                .name(plugin.getMessages().component("gui.main.info.name", Map.of("clan", clan.name(), "color", clan.tagColor()), player))
                 .lore(plugin.getMessages().component("gui.main.info.tag",
                         Map.of("tag", clan.tag()), player))
                 .lore(plugin.getMessages().component("gui.main.info.level",

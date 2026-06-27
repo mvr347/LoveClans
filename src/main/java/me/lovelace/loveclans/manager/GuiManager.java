@@ -20,7 +20,6 @@ import me.lovelace.loveclans.gui.ClanRankPermissionsMenu;
 import me.lovelace.loveclans.gui.ClanRoleSettingsMenu;
 import me.lovelace.loveclans.gui.ClanSettingsMenu;
 import me.lovelace.loveclans.gui.ClanSpiritAbilityMenu;
-import me.lovelace.loveclans.gui.ClanSpiritHistoryMenu;
 import me.lovelace.loveclans.gui.ClanSpiritMenu;
 import me.lovelace.loveclans.gui.ClanTerritoriesMenu;
 import me.lovelace.loveclans.gui.ClanTerritoriesSelectionGui;
@@ -228,13 +227,6 @@ public class GuiManager implements Listener {
             if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
             event.setCancelled(true);
             spiritMenu.handleInventoryClick(player, event.getRawSlot());
-            return;
-        }
-
-        if (holder instanceof ClanSpiritHistoryMenu spiritHistoryMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
-            event.setCancelled(true);
-            spiritHistoryMenu.handleInventoryClick(player, event.getRawSlot());
             return;
         }
 

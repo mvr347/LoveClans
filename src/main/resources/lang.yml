@@ -21,19 +21,19 @@ general:
   chat-input-cancelled: "<prefix><yellow>Ввод отменён."
 
 admin:
-  diplo-updated: "<prefix><green>Отношения между <gold><clan1></gold> и <gold><clan2></gold> изменены на <yellow><relation></yellow>."
-  disbanded: "<prefix><green>Клан <gold><tag></gold> был распущен администратором."
-  exp-updated: "<prefix><green>Опыт клана <gold><tag></gold> обновлён."
-  points-updated: "<prefix><green>Очки улучшений клана <gold><tag></gold> обновлены."
-  war-ended: "<prefix><green>Война между <gold><clan1></gold> и <gold><clan2></gold> завершена администратором."
-  war-started: "<prefix><green>Война между <gold><clan1></gold> и <gold><clan2></gold> начата администратором."
+  diplo-updated: "<prefix><green>Отношения между <color1><clan1></color1> и <color2><clan2></color2> изменены на <yellow><relation></yellow>."
+  disbanded: "<prefix><green>Клан <color><tag></color> был распущен администратором."
+  exp-updated: "<prefix><green>Опыт клана <color><tag></color> обновлён."
+  points-updated: "<prefix><green>Очки улучшений клана <color><tag></color> обновлены."
+  war-ended: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> завершена администратором."
+  war-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> начата администратором."
 
 clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
   already-applied: "<prefix><red>Вы уже подали заявку в этот клан."
   application-not-found: "<prefix><red>Заявка не найдена."
-  application-rejected: "<prefix><red>Ваша заявка в клан <gold><tag></gold> была отклонена."
-  applied: "<prefix><green>Вы подали заявку на вступление в клан <gold><tag></gold>."
+  application-rejected: "<prefix><red>Ваша заявка в клан <color><tag></color> была отклонена."
+  applied: "<prefix><green>Вы подали заявку на вступление в клан <color><tag></color>."
   disbanded: "<prefix><yellow>Ваш клан был распущен."
   founder-has-capital-banner: "<prefix><red>У вас уже есть знамя столицы. Сначала установите его или избавьтесь от него."
   home:
@@ -44,12 +44,12 @@ clan:
     no-name: "<gray>(без названия)"
   invalid-name: "<prefix><red>Название клана должно содержать от <min> до <max> символов."
   invalid-tag: "<prefix><red>Тег клана должен содержать от <min> до <max> символов и состоять из букв, цифр и подчёркивания."
-  invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <gold><tag></gold>."
+  invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <color><tag></color>."
   invite-missing: "<prefix><red>Приглашение не найдено."
   invited: "<prefix><green>Игрок <yellow><player></yellow> приглашён в клан."
-  invite-received: "<prefix><gold><tag></gold> приглашает вас присоединиться к клану!"
-  application-received: "<prefix><yellow><player></yellow> подал заявку на вступление в клан <gold><tag></gold>."
-  joined: "<prefix><green>Вы вступили в клан <gold><tag></gold>!"
+  invite-received: "<prefix><color><tag></color> приглашает вас присоединиться к клану!"
+  application-received: "<prefix><yellow><player></yellow> подал заявку на вступление в клан <color><tag></color>."
+  joined: "<prefix><green>Вы вступили в клан <color><tag></color>!"
   joined-broadcast: "<prefix><yellow><player></yellow> вступил в клан!"
   kicked: "<prefix><yellow>Игрок <player> был исключён из клана."
   leadership-transferred-broadcast: "<prefix><gold><player></gold> теперь новый глава клана!"
@@ -63,6 +63,7 @@ clan:
   rank-changed: "<prefix><green>Ранг игрока <yellow><player></yellow> изменён на <gold><rank></gold>."
   rank-changed-broadcast: "<prefix><yellow><player></yellow> теперь имеет ранг <gold><rank></gold>."
   rank-too-low: "<prefix><red>Ваш ранг в клане слишком низок для этого действия."
+  rejoin-cooldown: "<prefix><red>Вы не можете повторно вступить в этот клан так скоро после выхода."
   tag-exists: "<prefix><red>Клан с таким тегом уже существует."
   transfer-requires-capital: "<prefix><red>Нельзя передать лидерство — у клана не установлена столица."
   help:
@@ -76,6 +77,7 @@ clan:
     in-clan: "<gray>Используйте /clan menu, чтобы открыть меню вашего клана."
     invite: "<gray>/clan invite <player> <white>- пригласить игрока в клан"
     kick: "<gray>/clan kick <player> <white>- исключить игрока из клана"
+    leader: "<gray>Используйте /clan menu, чтобы открыть меню вашего клана. Как глава, вам также доступны /clan invite, /clan kick, /clan rank, /clan war, /clan disband."
     not-in-clan: "<gray>Используйте /clan create <tag> <name>, чтобы создать клан."
     rank: "<gray>/clan rank <player> <rank> <white>- изменить ранг участника"
     ritual: "<gray>/clan ritual <type> <white>- провести ритуал клана"
@@ -83,16 +85,16 @@ clan:
     war: "<gray>/clan war <start|peace> <tag> <white>- управление войной клана"
 
 diplomacy:
-  alliance-accepted: "<prefix><green>Вы заключили союз с кланом <gold><tag></gold>."
-  alliance-accepted-by: "<prefix><green>Клан <gold><tag></gold> принял ваше предложение о союзе."
-  alliance-declined: "<prefix><yellow>Вы отклонили предложение о союзе от клана <gold><tag></gold>."
-  alliance-declined-by: "<prefix><yellow>Клан <gold><tag></gold> отклонил ваше предложение о союзе."
-  alliance-request: "<prefix><gold><tag></gold> предлагает заключить союз!"
-  alliance-sent: "<prefix><green>Предложение о союзе отправлено клану <gold><tag></gold>."
+  alliance-accepted: "<prefix><green>Вы заключили союз с кланом <color><tag></color>."
+  alliance-accepted-by: "<prefix><green>Клан <color><tag></color> принял ваше предложение о союзе."
+  alliance-declined: "<prefix><yellow>Вы отклонили предложение о союзе от клана <color><tag></color>."
+  alliance-declined-by: "<prefix><yellow>Клан <color><tag></color> отклонил ваше предложение о союзе."
+  alliance-request: "<prefix><color><tag></color> предлагает заключить союз!"
+  alliance-sent: "<prefix><green>Предложение о союзе отправлено клану <color><tag></color>."
   no-other-clans: "<prefix><gray>Других кланов пока не существует."
-  no-pending-request: "<prefix><red>Нет ожидающих запросов от клана <gold><tag></gold>."
+  no-pending-request: "<prefix><red>Нет ожидающих запросов от клана <color><tag></color>."
   requires-home: "<prefix><red>Для этого действия у вашего клана должен быть установлен дом."
-  updated: "<prefix><green>Отношения с кланом <gold><tag></gold> изменены на <yellow><relation></yellow>."
+  updated: "<prefix><green>Отношения с кланом <color><tag></color> изменены на <yellow><relation></yellow>."
 
 gui:
   accept: "<green>[Принять]"
@@ -198,7 +200,7 @@ gui:
       lore: "<gray>Нажмите, чтобы начать создание клана."
     prompt-name: "<prefix><yellow>Введите название клана в чат."
     prompt-tag: "<prefix><yellow>Введите тег клана в чат."
-    success: "<prefix><green>Клан <gold><tag></gold> (<name>) успешно создан!"
+    success: "<prefix><green>Клан <color><tag></color> (<name>) успешно создан!"
     name:
       button: "<gold>Название клана"
       lore: "<gray>Текущее: <white><value></white>"
@@ -235,11 +237,11 @@ gui:
   diplomacy-select:
     title: "<gold>Выберите клан"
     clan-item:
-      name: "<color><tag> <white><name>"
+      name: "<color><name> <white>[<tag>]"
       relation: "<gray>Отношения: <white><relation>"
   info:
-    title: "<color><tag> <white><name>"
-    name: "<color><tag> <white><name>"
+    title: "<color><name> <white>[<tag>]"
+    name: "<color><name> <white>[<tag>]"
     level: "<gray>Уровень: <white><level>"
     members: "<gray>Участников: <white><current>/<max>"
     leader: "<gray>Глава: <white><player>"
@@ -259,7 +261,7 @@ gui:
   main:
     title: "<color><clan> <white>- Меню клана"
     info:
-      name: "<gold><clan>"
+      name: "<color><clan>"
       tag: "<gray>Тег: <white><tag>"
       level: "<gray>Уровень: <white><level>"
       members: "<gray>Участников: <white><current>/<max>"
@@ -334,17 +336,17 @@ gui:
   player-applications:
     title: "<gold>Мои заявки и приглашения"
     application-item:
-      name: "<color><tag> <white><name>"
+      name: "<color><name> <white>[<tag>]"
       lore: "<gray>ЛКМ - отозвать заявку"
     invite-item:
-      name: "<color><tag> <white><name>"
+      name: "<color><name> <white>[<tag>]"
       left-click-accept: "<green>ЛКМ - принять приглашение"
       right-click-decline: "<red>ПКМ - отклонить приглашение"
     empty:
       name: "<gray>Пусто"
       lore: "<gray>У вас нет активных заявок или приглашений."
     cancelled: "<prefix><yellow>Заявка отозвана."
-    invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <gold><tag></gold>."
+    invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <color><tag></color>."
   rank-permissions:
     title: "<gold>Права ранга <white><rank>"
     enabled: "<green>Включено"
@@ -407,8 +409,8 @@ gui:
       progress: "<gray><bar>"
       maximum: "<gold>МАКСИМУМ"
     buffs:
-      name: "<gold>Активные бафы"
-      lore_active: "<gray>Бафы духа активны для участников клана."
+      name: "<gold>Постоянные бонусы"
+      lore_active: "<gray>Постоянные бонусы духа активны для участников клана."
       entry:
         unlocked: "<green><level></green> <white><name> <gray>- <description>"
         locked: "<red><level></red> <gray><name> - <description>"
@@ -429,16 +431,6 @@ gui:
         click-to-select: "<gray>ЛКМ - выбрать"
         on-cooldown: "<red>Недоступно: смена через <white><time></white>"
       success: "<prefix><green>Выбрана уникальная способность духа: <white><name>."
-    history:
-      name: "<gold>История"
-      lore: "<gray>История призывов духа клана."
-    history-menu:
-      title: "<gray>История духа <color><tag>"
-      entry:
-        name: "<yellow><action>"
-        amount: "<gray>Изменение: <white><amount>"
-        date: "<gray>Дата: <white><date>"
-      empty: "<gray>История пуста."
     top:
       name: "<gold>Топ участников"
       lore: "<gray>Рейтинг участников клана по вкладу."
@@ -575,7 +567,7 @@ territory:
   claim-location-mismatch: "<prefix><red>Вы должны находиться в том же месте, где начали захват."
   claim-no-pending: "<prefix><red>У вас нет активного запроса на захват территории."
   claimed: "<prefix><green>Территория успешно захвачена."
-  claimed-success: "<prefix><green>Клан <gold><clan></gold> захватил территорию <white><tag></white>."
+  claimed-success: "<prefix><green>Клан <color><clan></color> захватил территорию <white><tag></white>."
   invalid-world: "<prefix><red>В этом мире захват территорий запрещён."
   limit-reached: "<prefix><red>Достигнут лимит территорий для вашего клана."
   not-claimed: "<prefix><red>Эта территория не захвачена вашим кланом."
@@ -593,7 +585,7 @@ war:
   cannot-claim: "<prefix><red>Нельзя захватывать территории во время войны."
   cannot-declare-on-ally: "<prefix><red>Нельзя объявить войну союзному клану."
   cannot-unclaim: "<prefix><red>Нельзя снимать захват территории во время войны."
-  compass-given: "<prefix><green>Вам выдан боевой компас для войны с кланом <gold><tag></gold>."
+  compass-given: "<prefix><green>Вам выдан боевой компас для войны с кланом <color><tag></color>."
   compass-removed: "<prefix><yellow>Боевой компас был изъят."
   cooldown-active: "<prefix><red>Нельзя объявить войну этому клану ещё <white><seconds></white> сек."
   defender-no-online-leader-or-guardian: "<prefix><red>У клана-защитника нет онлайн главы или хранителя."
@@ -601,5 +593,6 @@ war:
   not-at-war: "<prefix><red>Кланы не находятся в состоянии войны."
   not-enough-members: "<prefix><red>Недостаточно участников онлайн для начала войны (нужно минимум 3 с каждой стороны)."
   not-found: "<prefix><red>Война не найдена."
-  peace: "<prefix><green>Заключён мир с кланом <gold><tag></gold>."
+  peace: "<prefix><green>Заключён мир с кланом <color><tag></color>."
+  peace-confirm-prompt: "<prefix><yellow>Вы уверены, что хотите заключить мир с кланом <color><tag></color>?"
   started: "<prefix><gold>Война между <white><attacker></white> и <white><defender></white> началась!"
