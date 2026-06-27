@@ -78,8 +78,11 @@ public class ClanSpiritMenu implements InventoryHolder {
             abilityItem.lore(plugin.getMessages().component("gui.spirit.ability.unlocked", player))
                     .glow(true);
         } else {
-            abilityItem.lore(plugin.getMessages().component("gui.spirit.ability.chosen",
-                            Map.of("name", chosenAbility.displayName(), "description", chosenAbility.description()), player))
+            // Заголовок "Выбрана: <название>" одной строкой, а само описание — несколькими
+            // строками с подсветкой баффов (см. AbilityLoreFormatter), как в меню выбора способности.
+            abilityItem.lore(plugin.getMessages().component("gui.spirit.ability.chosen-name",
+                            Map.of("name", chosenAbility.displayName()), player))
+                    .lore(me.lovelace.loveclans.util.AbilityLoreFormatter.format(chosenAbility.description()))
                     .glow(true);
         }
         inventory.setItem(32, abilityItem.build());

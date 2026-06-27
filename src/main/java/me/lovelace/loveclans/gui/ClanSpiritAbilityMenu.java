@@ -3,6 +3,7 @@ package me.lovelace.loveclans.gui;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
+import me.lovelace.loveclans.util.AbilityLoreFormatter;
 import me.lovelace.loveclans.util.ItemBuilder;
 import me.lovelace.loveclans.util.TimeUtil;
 import net.kyori.adventure.text.Component;
@@ -57,8 +58,9 @@ public final class ClanSpiritAbilityMenu implements InventoryHolder {
             ItemBuilder builder = ItemBuilder.head(lockedByCooldown ? ItemBuilder.HEAD_INACTIVE : headFor(ability))
                     .name(plugin.getMessages().component("gui.spirit.ability-menu.item.name",
                             Map.of("name", ability.displayName()), player))
-                    .lore(plugin.getMessages().component("gui.spirit.ability-menu.item.description",
-                            Map.of("description", ability.description()), player));
+                    // Многострочное описание с подсветкой баффов: зелёный — позитивный эффект,
+                    // жёлтый — условие/порог, красный — эффект на противника.
+                    .lore(AbilityLoreFormatter.format(ability.description()));
 
             if (selected) {
                 builder.lore(plugin.getMessages().component("gui.spirit.ability-menu.item.selected", player)).glow(true);

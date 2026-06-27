@@ -2,7 +2,6 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
-import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
@@ -90,9 +89,7 @@ public class ClanOtherTerritoriesMenu implements InventoryHolder {
     }
 
     public void handleInventoryClick(Player clicker, int slot) {
-        boolean canUnclaim = clan.member(clicker.getUniqueId())
-                .map(member -> member.rank() == ClanRank.LEADER || member.rank() == ClanRank.GUARDIAN)
-                .orElse(false);
+        boolean canUnclaim = clan.hasPermission(clicker.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.CLAIM);
 
         if (slot == 49) { // Back button
             plugin.getGuiManager().openClanTerritoriesMenu(clicker, clan);
@@ -129,10 +126,33 @@ public class ClanOtherTerritoriesMenu implements InventoryHolder {
                                 return null;
                             });
                 } else {
-                    plugin.getMessages().send(clicker, "territory.unclaim.no-permission");
+                    // Без права CLAIM снять захват нельзя — вместо этого телепортируем
+                    // игрока на территорию, чтобы список оставался полезным для просмотра.
+                    teleportToTerritory(clicker, clickedTerritory);
                 }
             }
         }
+    }
+
+    // Телепортирует игрока в центр чанка территории на безопасную высоту —
+    // используется для игроков без права CLAIM, которым доступен только просмотр списка.
+    private void teleportToTerritory(Player clicker, ClanTerritory territory) {
+        org.bukkit.World world = Bukkit.getWorld(territory.world());
+        if (world == null) {
+            plugin.getMessages().send(clicker, "territory.world-not-found");
+            return;
+        }
+        int centerX = (territory.minX() + territory.maxX()) / 2;
+        int centerZ = (territory.minZ() + territory.maxZ()) / 2;
+        int safeY = world.getHighestBlockYAt(centerX, centerZ) + 1;
+        org.bukkit.Location location = new org.bukkit.Location(world, centerX + 0.5, safeY, centerZ + 0.5);
+        clicker.closeInventory();
+        clicker.teleportAsync(location)
+                .thenRun(() -> plugin.getMessages().send(clicker, "territory.teleported"))
+                .exceptionally(throwable -> {
+                    plugin.sendOperationError(clicker, throwable);
+                    return null;
+                });
     }
 
     @Override

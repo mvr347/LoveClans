@@ -44,6 +44,24 @@ public final class AdvancedClaimsHook {
             String apiClassName = plugin.getConfig().getString("integration.advanced-claims.api-class", "me.lovelace.loveclaims.api.LoveClaimsAPI");
             String trustLevelClassName = plugin.getConfig().getString("integration.advanced-claims.trust-level-class", "me.lovelace.loveclaims.model.TrustLevel");
             Class<?> apiClass = Class.forName(apiClassName);
+
+            // Защита от дурачков: LoveClaims может быть в стадии onEnable и ещё не успеть
+            // вызвать LoveClaimsAPI.init(...) к моменту нашей инициализации (порядок softdepend
+            // гарантирует только то, что плагин включён, а не то, что его API готов).
+            // Если у API есть метод isInitialized(), сначала проверяем его, чтобы не дёргать
+            // getInstance() и не ловить IllegalStateException зря.
+            try {
+                Method isInitialized = apiClass.getMethod("isInitialized");
+                Object result = isInitialized.invoke(null);
+                if (result instanceof Boolean ready && !ready) {
+                    enabled = false;
+                    plugin.getLogger().warning("LoveClaimsAPI ещё не инициализирован (плагин включён, но API не готов). Интеграция отключена для этого запуска.");
+                    return;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // У старых версий API метода isInitialized() может не быть — просто продолжаем.
+            }
+
             Method getInstance = apiClass.getMethod(plugin.getConfig().getString("integration.advanced-claims.methods.get-instance", "getInstance"));
             api = getInstance.invoke(null);
             trustLevelClass = Class.forName(trustLevelClassName);
@@ -53,9 +71,27 @@ public final class AdvancedClaimsHook {
             hideBorderMethod = apiClass.getMethod("hideBorder", Player.class);
 
             plugin.getLogger().info("AdvancedClaimsAPI integration enabled.");
+        } catch (InvocationTargetException exception) {
+            // LoveClaimsAPI.getInstance() бросает IllegalStateException("LoveClaimsAPI not initialized!"),
+            // если API инициализируется позже нашего onEnable. Это не критическая ошибка —
+            // просто отключаем интеграцию вместо краша сервера.
+            enabled = false;
+            api = null;
+            Throwable cause = exception.getCause();
+            if (cause instanceof IllegalStateException) {
+                plugin.getLogger().warning("LoveClaimsAPI не инициализирован: " + cause.getMessage() + ". Интеграция с LoveClaims отключена.");
+            } else {
+                plugin.getLogger().log(Level.WARNING, "AdvancedClaims found, but API call failed during initialization.", exception);
+            }
         } catch (ReflectiveOperationException exception) {
             enabled = false;
+            api = null;
             plugin.getLogger().log(Level.WARNING, "AdvancedClaims found, but API reflection failed.", exception);
+        } catch (IllegalStateException exception) {
+            // На случай, если будущая версия API будет вызываться без обёртки reflection.
+            enabled = false;
+            api = null;
+            plugin.getLogger().warning("LoveClaimsAPI не инициализирован: " + exception.getMessage() + ". Интеграция с LoveClaims отключена.");
         }
     }
 

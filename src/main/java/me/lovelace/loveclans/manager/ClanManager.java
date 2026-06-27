@@ -227,6 +227,17 @@ public final class ClanManager {
                 .findFirst();
     }
 
+    // Возвращает всех онлайн-участников клана, у которых есть указанное право
+    // (например, INVITE) — используется для рассылки уведомлений о заявках в клан.
+    public List<Player> getOnlineMembersWithPermission(Clan clan, ClanPermission permission) {
+        if (clan == null) return List.of();
+        return clan.members().values().stream()
+                .filter(member -> clan.getPermission(member.rank(), permission))
+                .map(member -> Bukkit.getPlayer(member.playerId()))
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
     public ItemStack getClanHomeBanner(Clan clan) {
         if (clan == null) return new ItemStack(Material.AIR);
         return clanItemFactory.createCapitalBanner(clan.id(), clan.name());
@@ -520,6 +531,11 @@ public final class ClanManager {
         return plugin.supplySync(() -> {
             if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
                 throw new IllegalStateException("general.no-permission");
+            }
+            // Передача лидерства запрещена, если у клана ещё не установлена столица —
+            // без столицы клан считается не до конца сформированным.
+            if (clan.getCapitalTerritory().isEmpty()) {
+                throw new IllegalStateException("clan.transfer-requires-capital");
             }
             clan.member(newLeaderId).orElseThrow(() -> new IllegalStateException("clan.not-in-clan"));
             clan.setRank(actorId, ClanRank.GUARDIAN);

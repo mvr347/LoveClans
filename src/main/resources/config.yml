@@ -24,23 +24,25 @@ clans:
   creation-cooldown-seconds: 86400
   creation-cost: 10000.0
   default-tag-color: "<gold>"
+  # dye-color — имя org.bukkit.DyeColor, используется для окраски щитов в цвет клана (см. ShieldColorManager).
+  # Указано явно, а не выведено из material, так как *_TERRACOTTA не соответствует напрямую DyeColor.
   available-colors:
-    white: { tag: "<white>", material: WHITE_WOOL, name: "Белый" }
-    gray: { tag: "<gray>", material: GRAY_WOOL, name: "Серый" }
-    dark_gray: { tag: "<dark_gray>", material: GRAY_TERRACOTTA, name: "Тёмно-серый" }
-    black: { tag: "<black>", material: BLACK_WOOL, name: "Чёрный" }
-    red: { tag: "<red>", material: RED_WOOL, name: "Красный" }
-    dark_red: { tag: "<dark_red>", material: RED_TERRACOTTA, name: "Тёмно-красный" }
-    gold: { tag: "<gold>", material: ORANGE_WOOL, name: "Золотой" }
-    yellow: { tag: "<yellow>", material: YELLOW_WOOL, name: "Жёлтый" }
-    green: { tag: "<green>", material: LIME_WOOL, name: "Зелёный" }
-    dark_green: { tag: "<dark_green>", material: GREEN_WOOL, name: "Тёмно-зелёный" }
-    aqua: { tag: "<aqua>", material: LIGHT_BLUE_WOOL, name: "Голубой" }
-    dark_aqua: { tag: "<dark_aqua>", material: CYAN_WOOL, name: "Бирюзовый" }
-    blue: { tag: "<blue>", material: BLUE_WOOL, name: "Синий" }
-    dark_blue: { tag: "<dark_blue>", material: BLUE_TERRACOTTA, name: "Тёмно-синий" }
-    light_purple: { tag: "<light_purple>", material: MAGENTA_WOOL, name: "Розовый" }
-    dark_purple: { tag: "<dark_purple>", material: PURPLE_WOOL, name: "Фиолетовый" }
+    white: { tag: "<white>", material: WHITE_WOOL, name: "Белый", dye-color: WHITE }
+    gray: { tag: "<gray>", material: GRAY_WOOL, name: "Серый", dye-color: LIGHT_GRAY }
+    dark_gray: { tag: "<dark_gray>", material: GRAY_TERRACOTTA, name: "Тёмно-серый", dye-color: GRAY }
+    black: { tag: "<black>", material: BLACK_WOOL, name: "Чёрный", dye-color: BLACK }
+    red: { tag: "<red>", material: RED_WOOL, name: "Красный", dye-color: RED }
+    dark_red: { tag: "<dark_red>", material: RED_TERRACOTTA, name: "Тёмно-красный", dye-color: RED }
+    gold: { tag: "<gold>", material: ORANGE_WOOL, name: "Золотой", dye-color: ORANGE }
+    yellow: { tag: "<yellow>", material: YELLOW_WOOL, name: "Жёлтый", dye-color: YELLOW }
+    green: { tag: "<green>", material: LIME_WOOL, name: "Зелёный", dye-color: LIME }
+    dark_green: { tag: "<dark_green>", material: GREEN_WOOL, name: "Тёмно-зелёный", dye-color: GREEN }
+    aqua: { tag: "<aqua>", material: LIGHT_BLUE_WOOL, name: "Голубой", dye-color: LIGHT_BLUE }
+    dark_aqua: { tag: "<dark_aqua>", material: CYAN_WOOL, name: "Бирюзовый", dye-color: CYAN }
+    blue: { tag: "<blue>", material: BLUE_WOOL, name: "Синий", dye-color: BLUE }
+    dark_blue: { tag: "<dark_blue>", material: BLUE_TERRACOTTA, name: "Тёмно-синий", dye-color: BLUE }
+    light_purple: { tag: "<light_purple>", material: MAGENTA_WOOL, name: "Розовый", dye-color: MAGENTA }
+    dark_purple: { tag: "<dark_purple>", material: PURPLE_WOOL, name: "Фиолетовый", dye-color: PURPLE }
   default-emblem: WHITE_BANNER
   invite-expire-seconds: 120
   friendly-fire: false

@@ -54,16 +54,28 @@ public final class ClanMemberDetailMenu {
         boolean isLeader = clan.member(player.getUniqueId())
                 .map(m -> m.rank() == ClanRank.LEADER)
                 .orElse(false);
+        boolean isSelf = member.playerId().equals(player.getUniqueId());
 
-        if (isLeader && member.rank() != ClanRank.LEADER) {
-            inventory.setItem(12, item(ItemBuilder.HEAD_EXPAND, "gui.member-detail.transfer.name", "gui.member-detail.transfer.lore", player, targetId));
+        // Слоты 11/13/15 — передача лидерства/повышение/понижение. Кнопки отображаются всегда
+        // (не пропадают), но становятся неактивными (серый череп + причина в lore), если действие
+        // сейчас недоступно — так игрок видит весь набор возможностей, а не гадает, почему кнопки нет.
+        boolean canTransfer = isLeader && !isSelf;
+        inventory.setItem(11, canTransfer
+                ? item(ItemBuilder.HEAD_EXPAND, "gui.member-detail.transfer.name", "gui.member-detail.transfer.lore", player, targetId)
+                : inactiveItem("gui.member-detail.transfer.name",
+                        isSelf ? "gui.member-detail.transfer.disabled-self" : "gui.member-detail.transfer.disabled-not-leader", player));
 
-            if (member.rank().nextRank() != null) {
-                inventory.setItem(14, item(ItemBuilder.HEAD_INFO, "gui.member-detail.promote.name", "gui.member-detail.promote.lore", player, targetId));
-            }
-            if (member.rank().previousRank() != null) {
-                inventory.setItem(15, item(ItemBuilder.HEAD_BACK, "gui.member-detail.demote.name", "gui.member-detail.demote.lore", player, targetId));
-            }
+        boolean canPromote = !isSelf && member.rank().nextRank() != null && member.rank().nextRank() != ClanRank.LEADER;
+        inventory.setItem(13, canPromote
+                ? item(ItemBuilder.HEAD_INFO, "gui.member-detail.promote.name", "gui.member-detail.promote.lore", player, targetId)
+                : inactiveItem("gui.member-detail.promote.name", "gui.member-detail.promote.disabled-max-rank", player));
+
+        boolean canDemote = !isSelf && member.rank().previousRank() != null;
+        inventory.setItem(15, canDemote
+                ? item(ItemBuilder.HEAD_BACK, "gui.member-detail.demote.name", "gui.member-detail.demote.lore", player, targetId)
+                : inactiveItem("gui.member-detail.demote.name", "gui.member-detail.demote.disabled-min-rank", player));
+
+        if (!isSelf && member.rank() != ClanRank.LEADER) {
             inventory.setItem(16, item(ItemBuilder.HEAD_BARRIER, "gui.member-detail.kick.name", "gui.member-detail.kick.lore", player, targetId));
         }
 
@@ -81,6 +93,15 @@ public final class ClanMemberDetailMenu {
         builder.mutate(meta -> meta.getPersistentDataContainer()
                 .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, targetId.toString()));
         return builder.build();
+    }
+
+    // Неактивная кнопка: серая голова, без PDC-тэга — клик по ней не обрабатывается
+    // (handleInventoryClick игнорирует слоты без распознанного targetId/действия).
+    private org.bukkit.inventory.ItemStack inactiveItem(String nameKey, String reasonKey, Player player) {
+        return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                .name(plugin.getMessages().component(nameKey, player))
+                .lore(plugin.getMessages().component(reasonKey, player))
+                .build();
     }
 
     public void handleInventoryClick(Player player, Clan clan, int slot, org.bukkit.inventory.ItemStack clickedItem) {
@@ -105,9 +126,9 @@ public final class ClanMemberDetailMenu {
         ClanRank targetRank = targetMemberOpt.get().rank();
 
         switch (slot) {
-            case 14 -> {
+            case 13 -> {
                 ClanRank newRank = targetRank.nextRank();
-                if (newRank != null) {
+                if (newRank != null && newRank != ClanRank.LEADER) {
                     plugin.getClanManager().setRankAsync(clan, player.getUniqueId(), targetId, newRank)
                             .thenAccept(updated -> plugin.runSync(() -> open(player, updated, targetId)))
                             .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
@@ -130,10 +151,19 @@ public final class ClanMemberDetailMenu {
                         }))
                         .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
             }
-            case 12 -> plugin.getGuiManager().openConfirm(player, clan,
+            case 11 -> plugin.getGuiManager().openConfirm(player, clan,
                     plugin.getMessages().component("gui.confirm.transfer.title", player), Component.empty(),
                     () -> plugin.getClanManager().transferLeadershipAsync(clan, player.getUniqueId(), targetId)
-                            .thenRun(() -> plugin.runSync(() -> plugin.getGuiManager().openMembers(player, clan)))
+                            .thenRun(() -> plugin.runSync(() -> {
+                                plugin.getGuiManager().openMembers(player, clan);
+                                // Если новый лидер сейчас смотрит на главное меню клана (например, с другого
+                                // устройства/окна), его меню нужно перерисовать — иначе кнопка «Покинуть клан»
+                                // останется видна, хотя теперь он лидер и не должен её видеть.
+                                Player newLeader = Bukkit.getPlayer(targetId);
+                                if (newLeader != null) {
+                                    plugin.getGuiManager().refreshMainMenuIfOpen(newLeader, clan);
+                                }
+                            }))
                             .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
                     () -> plugin.runSync(() -> open(player, clan, targetId))
             );

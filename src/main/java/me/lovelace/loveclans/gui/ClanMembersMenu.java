@@ -39,7 +39,9 @@ public final class ClanMembersMenu {
         Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.MEMBERS, clan.id()), inventorySize,
                 plugin.getMessages().component("gui.members-title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
-        fillGlass(inventory);
+        // Стеклом закрываем только верхний и нижний ряд (служебные), а не зону с головами игроков —
+        // там пустые слоты должны оставаться пустыми, без стеклянных панелей вокруг голов.
+        fillGlassExcludingContent(inventory, 9, inventorySize - 9);
 
         boolean canInvite = clan.member(player.getUniqueId())
                 .map(m -> m.rank().atLeast(ClanRank.GUARDIAN))
@@ -140,6 +142,13 @@ public final class ClanMembersMenu {
         try {
             java.util.UUID targetId = java.util.UUID.fromString(playerId);
             if (targetId.equals(player.getUniqueId())) return;
+            // Открываем детальное меню участника только тем, у кого есть право KICK —
+            // именно оно определяет доступ к кику/повышению/понижению в системе прав клана.
+            // Игроки без этого права видят список голов, но не могут их открыть.
+            if (!clan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.KICK)) {
+                plugin.getMessages().send(player, "general.no-permission");
+                return;
+            }
             plugin.getGuiManager().openMemberDetail(player, clan, targetId);
         } catch (IllegalArgumentException ignored) {}
     }
@@ -147,6 +156,24 @@ public final class ClanMembersMenu {
     private void fillGlass(Inventory inventory) {
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             // Only fill empty slots, do not overwrite existing items
+            if (inventory.getItem(slot) == null) {
+                inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
+                        .name(Component.empty())
+                        .build());
+            }
+        }
+    }
+
+    /**
+     * Заполняет инвентарь стеклянными панелями, но пропускает диапазон [contentStart, contentEnd) —
+     * там, где будут размещены головы игроков. Так стекло остаётся только в служебных
+     * верхнем и нижнем рядах, а слоты вокруг голов остаются пустыми (AIR).
+     */
+    private void fillGlassExcludingContent(Inventory inventory, int contentStart, int contentEnd) {
+        for (int slot = 0; slot < inventory.getSize(); slot++) {
+            if (slot >= contentStart && slot < contentEnd) {
+                continue;
+            }
             if (inventory.getItem(slot) == null) {
                 inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
                         .name(Component.empty())

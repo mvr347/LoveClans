@@ -2,7 +2,7 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
-import me.lovelace.loveclans.model.ClanRank;
+import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -44,9 +44,7 @@ public class ClanTerritoriesSelectionGui implements Listener {
             inventory.setItem(i, filler);
         }
 
-        boolean isManagement = clan.hasMember(player.getUniqueId()) &&
-                (clan.member(player.getUniqueId()).get().rank() == ClanRank.LEADER ||
-                        clan.member(player.getUniqueId()).get().rank() == ClanRank.GUARDIAN);
+        boolean isManagement = clan.hasPermission(player.getUniqueId(), ClanPermission.CLAIM);
 
         ItemStack capitalItem;
         if (clan.getCapitalTerritory().isPresent()) {
@@ -145,9 +143,7 @@ public class ClanTerritoriesSelectionGui implements Listener {
 
         int slot = event.getSlot();
 
-        boolean isManagement = clan.hasMember(player.getUniqueId()) &&
-                (clan.member(player.getUniqueId()).get().rank() == ClanRank.LEADER ||
-                        clan.member(player.getUniqueId()).get().rank() == ClanRank.GUARDIAN);
+        boolean isManagement = clan.hasPermission(player.getUniqueId(), ClanPermission.CLAIM);
 
         if (slot == 22) {
             plugin.getGuiManager().openMain(player, clan);
@@ -171,6 +167,10 @@ public class ClanTerritoriesSelectionGui implements Listener {
                         }
                     }
                 }
+            } else if (clan.getCapitalTerritory().isPresent()) {
+                // Без права CLAIM управление недоступно, но столицу можно посетить —
+                // телепортируем к баннеру столицы, если его координаты известны.
+                teleportToTerritory(clan.getCapitalTerritory().get());
             } else {
                 plugin.getMessages().send(player, "gui.territories.capital.no-permission-management");
             }
@@ -188,5 +188,31 @@ public class ClanTerritoriesSelectionGui implements Listener {
         if (event.getInventory().equals(inventory)) {
             HandlerList.unregisterAll(this);
         }
+    }
+
+    // Телепортирует игрока к баннеру территории (если координаты известны), иначе — в центр чанка
+    // на безопасную высоту. Используется как замена управлению для игроков без права CLAIM.
+    private void teleportToTerritory(me.lovelace.loveclans.model.ClanTerritory territory) {
+        org.bukkit.World world = Bukkit.getWorld(territory.world());
+        if (world == null) {
+            plugin.getMessages().send(player, "territory.world-not-found");
+            return;
+        }
+        org.bukkit.Location location;
+        if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
+            location = new org.bukkit.Location(world, territory.bannerX() + 0.5, territory.bannerY() + 1, territory.bannerZ() + 0.5);
+        } else {
+            int centerX = (territory.minX() + territory.maxX()) / 2;
+            int centerZ = (territory.minZ() + territory.maxZ()) / 2;
+            int safeY = world.getHighestBlockYAt(centerX, centerZ) + 1;
+            location = new org.bukkit.Location(world, centerX + 0.5, safeY, centerZ + 0.5);
+        }
+        player.closeInventory();
+        player.teleportAsync(location)
+                .thenRun(() -> plugin.getMessages().send(player, "territory.teleported"))
+                .exceptionally(throwable -> {
+                    plugin.sendOperationError(player, throwable);
+                    return null;
+                });
     }
 }

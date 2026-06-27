@@ -87,6 +87,17 @@ public class GuiManager implements Listener {
         new ClanMainMenu(plugin, clan, player).open();
     }
 
+    // Если у игрока сейчас открыто главное меню клана — перерисовываем его.
+    // Нужно после действий, которые меняют права/ранг на лету (например, передача лидерства),
+    // чтобы кнопки (например, «Покинуть клан») не оставались устаревшими после смены роли.
+    public void refreshMainMenuIfOpen(Player player, Clan clan) {
+        if (player == null || !player.isOnline()) return;
+        InventoryHolder holder = player.getOpenInventory().getTopInventory().getHolder();
+        if (holder instanceof ClanMainMenu mainMenu && mainMenu.clan().id().equals(clan.id())) {
+            openMain(player, clan);
+        }
+    }
+
     public void openMembers(Player player, Clan clan) {
         membersMenu.open(player, clan);
     }

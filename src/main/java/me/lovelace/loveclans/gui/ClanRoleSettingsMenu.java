@@ -33,7 +33,13 @@ public final class ClanRoleSettingsMenu {
         int[] slots = { 11, 13, 15 };
         for (int i = 0; i < ranks.length; i++) {
             ClanRank rank = ranks[i];
-            ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_SETTINGS)
+            String headTexture = switch (rank) {
+                case RECRUIT -> ItemBuilder.HEAD_RANK_RECRUIT;
+                case MEMBER -> ItemBuilder.HEAD_RANK_CLANSMAN;
+                case GUARDIAN -> ItemBuilder.HEAD_RANK_GUARDIAN;
+                default -> ItemBuilder.HEAD_SETTINGS;
+            };
+            ItemBuilder builder = ItemBuilder.head(headTexture)
                     .name(plugin.getMessages().component("gui.role-settings.rank.name", Map.of("rank", rank.displayName()), player))
                     .lore(plugin.getMessages().component("gui.role-settings.rank.lore", player));
             builder.mutate(meta -> meta.getPersistentDataContainer()

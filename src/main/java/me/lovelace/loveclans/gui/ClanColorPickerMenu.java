@@ -17,9 +17,31 @@ import java.util.List;
 import java.util.Map;
 
 public final class ClanColorPickerMenu {
-    private record ColorOption(String tag, Material material, String name) {}
+    private record ColorOption(String tag, String headTexture, String name) {}
 
     private static final int[] COLOR_SLOTS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
+
+    // Жёстко заданный список из 15 цветов с текстурами шерсти для выбора цвета тега клана.
+    // Ключ конфигурации (clans.available-colors.<key>) используется только для получения tag/name,
+    // чтобы не дублировать локализацию названий цветов — текстура головы берётся из этого маппинга.
+    private static final Map<String, String> COLOR_KEY_TO_HEAD_TEXTURE = Map.ofEntries(
+            Map.entry("white", ItemBuilder.HEAD_WOOL_WHITE),
+            Map.entry("gray", ItemBuilder.HEAD_WOOL_GRAY),
+            Map.entry("dark_gray", ItemBuilder.HEAD_WOOL_DARK_GRAY),
+            Map.entry("black", ItemBuilder.HEAD_WOOL_BLACK),
+            Map.entry("red", ItemBuilder.HEAD_WOOL_RED),
+            Map.entry("dark_red", ItemBuilder.HEAD_WOOL_DARK_RED),
+            Map.entry("gold", ItemBuilder.HEAD_WOOL_ORANGE_GOLD),
+            Map.entry("yellow", ItemBuilder.HEAD_WOOL_YELLOW),
+            Map.entry("green", ItemBuilder.HEAD_WOOL_LIME),
+            Map.entry("dark_green", ItemBuilder.HEAD_WOOL_DARK_GREEN),
+            Map.entry("aqua", ItemBuilder.HEAD_WOOL_LIGHT_BLUE),
+            Map.entry("dark_aqua", ItemBuilder.HEAD_WOOL_CYAN),
+            Map.entry("blue", ItemBuilder.HEAD_WOOL_BLUE),
+            Map.entry("dark_blue", ItemBuilder.HEAD_WOOL_DARK_BLUE),
+            Map.entry("light_purple", ItemBuilder.HEAD_WOOL_PINK),
+            Map.entry("dark_purple", ItemBuilder.HEAD_WOOL_PURPLE)
+    );
 
     private final LoveClansPlugin plugin;
 
@@ -38,9 +60,10 @@ public final class ClanColorPickerMenu {
         for (int i = 0; i < Math.min(options.size(), COLOR_SLOTS.length); i++) {
             ColorOption opt = options.get(i);
             boolean current = opt.tag().equals(clan.tagColor());
-            ItemBuilder builder = ItemBuilder.of(opt.material())
+            ItemBuilder builder = ItemBuilder.head(opt.headTexture())
                     .name(plugin.getMessages().component("gui.color-picker.preview",
                             Map.of("preview", opt.tag() + opt.name() + (current ? " ✔" : "")), player));
+            if (current) builder.glow(true);
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, opt.tag()));
             inventory.setItem(COLOR_SLOTS[i], builder.build());
@@ -76,10 +99,9 @@ public final class ClanColorPickerMenu {
         if (section == null) return List.of();
         for (String key : section.getKeys(false)) {
             String tag = section.getString(key + ".tag", "<white>");
-            String matName = section.getString(key + ".material", "WHITE_WOOL");
             String name = section.getString(key + ".name", key);
-            Material material = Material.matchMaterial(matName);
-            list.add(new ColorOption(tag, material != null ? material : Material.WHITE_WOOL, name));
+            String headTexture = COLOR_KEY_TO_HEAD_TEXTURE.getOrDefault(key, ItemBuilder.HEAD_WOOL_WHITE);
+            list.add(new ColorOption(tag, headTexture, name));
         }
         return list;
     }

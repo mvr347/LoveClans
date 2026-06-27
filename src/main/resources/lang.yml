@@ -64,6 +64,7 @@ clan:
   rank-changed-broadcast: "<prefix><yellow><player></yellow> теперь имеет ранг <gold><rank></gold>."
   rank-too-low: "<prefix><red>Ваш ранг в клане слишком низок для этого действия."
   tag-exists: "<prefix><red>Клан с таким тегом уже существует."
+  transfer-requires-capital: "<prefix><red>Нельзя передать лидерство — у клана не установлена столица."
   help:
     accept: "<gray>/clan accept <tag> <white>- принять приглашение в клан"
     admin: "<gray>/clansadmin <reload|delete|setspirit> <white>- административные команды"
@@ -268,18 +269,22 @@ gui:
     territories:
       name: "<gold>Территории"
       lore: "<gray>Управление территориями клана."
+      no-permission-lore: "<red>Нет прав на управление — откроется список для телепортации."
     upgrades:
       name: "<gold>Улучшения"
       lore: "<gray>Улучшить характеристики клана."
+      no-permission-lore: "<red>У вас нет прав для улучшения клана."
     spirit:
       name: "<gold>Дух клана"
       lore: "<gray>Информация о духе-покровителе клана."
     diplomacy:
       name: "<gold>Дипломатия"
       lore: "<gray>Управление отношениями с другими кланами."
+      no-permission-lore: "<red>У вас нет прав на управление дипломатией."
     settings:
       name: "<gold>Настройки"
       lore: "<gray>Настройки клана."
+      no-permission-lore: "<red>У вас нет прав на изменение настроек."
     applications:
       name: "<gold>Заявки"
       lore: "<gray>Ожидающих заявок: <white><count>"
@@ -294,12 +299,16 @@ gui:
     transfer:
       name: "<gold>Передать лидерство"
       lore: "<gray>Сделать этого участника новым главой клана."
+      disabled-self: "<red>Нельзя передать лидерство самому себе."
+      disabled-not-leader: "<red>Только глава клана может передать лидерство."
     promote:
       name: "<green>Повысить"
       lore: "<gray>Повысить ранг участника."
+      disabled-max-rank: "<red>Участник уже имеет максимально возможный ранг."
     demote:
       name: "<red>Понизить"
       lore: "<gray>Понизить ранг участника."
+      disabled-min-rank: "<red>Участник уже имеет минимальный ранг."
     kick:
       name: "<red>Исключить"
       lore: "<gray>Исключить участника из клана."
@@ -409,6 +418,7 @@ gui:
       locked-message: "<prefix><red>Уникальная способность духа разблокируется на 10 уровне."
       unlocked: "<green>Способность не выбрана. Нажмите, чтобы выбрать."
       chosen: "<green>Выбрана: <white><name></white>. <gray><description>"
+      chosen-name: "<green>Выбрана: <white><name></white>"
       cooldown: "<red>Смену способности можно сделать через <white><time></white>."
     ability-menu:
       title: "<gray>Способность духа <color><tag>"

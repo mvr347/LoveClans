@@ -2,6 +2,7 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
@@ -12,6 +13,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
 import java.util.Map;
+import java.util.UUID;
 
 public final class ClanMainMenu implements InventoryHolder {
     private final LoveClansPlugin plugin;
@@ -23,6 +25,10 @@ public final class ClanMainMenu implements InventoryHolder {
         this.plugin = plugin;
         this.clan = clan;
         this.player = player;
+    }
+
+    public Clan clan() {
+        return clan;
     }
 
     public void open() {
@@ -51,30 +57,47 @@ public final class ClanMainMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component("gui.main.members.lore", player))
                 .build());
 
-        inventory.setItem(21, ItemBuilder.head(ItemBuilder.HEAD_DIPLOMACY)
-                .name(plugin.getMessages().component("gui.main.diplomacy.name", player))
-                .lore(plugin.getMessages().component("gui.main.diplomacy.lore", player))
-                .build());
-
+        // Кнопки управления территориями/улучшениями/настройками/дипломатией становятся
+        // неактивными (серый череп), если у игрока нет соответствующего права клана.
+        // Кнопка территорий — особый случай: при отсутствии права на управление
+        // она всё равно открывается, но в режиме просмотра/телепортации (см. handleInventoryClick).
         boolean atWar = plugin.getWarManager().isAtWar(clan.id());
+        UUID clickerId = player.getUniqueId();
+        boolean canManageTerritories = clan.hasPermission(clickerId, ClanPermission.CLAIM);
+        boolean canUpgrade = clan.hasPermission(clickerId, ClanPermission.UPGRADE);
+        boolean canManageSettings = clan.hasPermission(clickerId, ClanPermission.SETTINGS);
+        boolean canManageDiplomacy = clan.hasPermission(clickerId, ClanPermission.DIPLOMACY);
 
-        ItemBuilder territoriesItem = atWar
+        ItemBuilder diplomacyItem = canManageDiplomacy
+                ? ItemBuilder.head(ItemBuilder.HEAD_DIPLOMACY)
+                : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE);
+        diplomacyItem.name(plugin.getMessages().component("gui.main.diplomacy.name", player))
+                .lore(plugin.getMessages().component(canManageDiplomacy ? "gui.main.diplomacy.lore" : "gui.main.diplomacy.no-permission-lore", player));
+        inventory.setItem(21, diplomacyItem.build());
+
+        boolean territoriesInactive = atWar || !canManageTerritories;
+        ItemBuilder territoriesItem = territoriesInactive
                 ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                 : ItemBuilder.head(ItemBuilder.HEAD_TERRITORIES);
         territoriesItem.name(plugin.getMessages().component("gui.main.territories.name", player))
                 .lore(plugin.getMessages().component("gui.main.territories.lore", player));
         if (atWar) {
             territoriesItem.lore(plugin.getMessages().component("gui.capital.war-blocked", player));
+        } else if (!canManageTerritories) {
+            territoriesItem.lore(plugin.getMessages().component("gui.main.territories.no-permission-lore", player));
         }
         inventory.setItem(23, territoriesItem.build());
 
-        ItemBuilder upgradesItem = atWar
+        boolean upgradesInactive = atWar || !canUpgrade;
+        ItemBuilder upgradesItem = upgradesInactive
                 ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                : ItemBuilder.of(Material.ANVIL);
+                : ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE);
         upgradesItem.name(plugin.getMessages().component("gui.main.upgrades.name", player))
                 .lore(plugin.getMessages().component("gui.main.upgrades.lore", player));
         if (atWar) {
             upgradesItem.lore(plugin.getMessages().component("gui.capital.war-blocked", player));
+        } else if (!canUpgrade) {
+            upgradesItem.lore(plugin.getMessages().component("gui.main.upgrades.no-permission-lore", player));
         }
         inventory.setItem(25, upgradesItem.build());
 
@@ -84,10 +107,12 @@ public final class ClanMainMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component("gui.main.spirit.lore", player))
                 .build());
 
-        inventory.setItem(40, ItemBuilder.head(ItemBuilder.HEAD_MAIN_SETTINGS)
-                .name(plugin.getMessages().component("gui.main.settings.name", player))
-                .lore(plugin.getMessages().component("gui.main.settings.lore", player))
-                .build());
+        ItemBuilder settingsItem = canManageSettings
+                ? ItemBuilder.head(ItemBuilder.HEAD_MAIN_SETTINGS)
+                : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE);
+        settingsItem.name(plugin.getMessages().component("gui.main.settings.name", player))
+                .lore(plugin.getMessages().component(canManageSettings ? "gui.main.settings.lore" : "gui.main.settings.no-permission-lore", player));
+        inventory.setItem(40, settingsItem.build());
 
         int applicationsCount = plugin.getClanManager().getClanApplications(clan.id()).size();
         boolean isLeaderOrGuardian = clan.member(player.getUniqueId())
@@ -122,8 +147,16 @@ public final class ClanMainMenu implements InventoryHolder {
     public void handleInventoryClick(Player clicker, int slot) {
         switch (slot) {
             case 19 -> plugin.getGuiManager().openMembers(clicker, clan);
-            case 21 -> plugin.getGuiManager().openDiplomacySelect(clicker, clan);
+            case 21 -> {
+                if (clan.hasPermission(clicker.getUniqueId(), ClanPermission.DIPLOMACY)) {
+                    plugin.getGuiManager().openDiplomacySelect(clicker, clan);
+                } else {
+                    plugin.getMessages().send(clicker, "general.no-permission");
+                }
+            }
             case 23 -> {
+                // Территории — особый случай: даже без права CLAIM меню всё равно открывается,
+                // но в режиме просмотра/телепортации (см. ClanTerritoriesSelectionGui.isManagement).
                 if (plugin.getWarManager().isAtWar(clan.id())) {
                     plugin.getMessages().send(clicker, "gui.capital.war-blocked");
                 } else {
@@ -131,14 +164,22 @@ public final class ClanMainMenu implements InventoryHolder {
                 }
             }
             case 25 -> {
-                if (plugin.getWarManager().isAtWar(clan.id())) {
+                if (!clan.hasPermission(clicker.getUniqueId(), ClanPermission.UPGRADE)) {
+                    plugin.getMessages().send(clicker, "general.no-permission");
+                } else if (plugin.getWarManager().isAtWar(clan.id())) {
                     plugin.getMessages().send(clicker, "gui.capital.war-blocked");
                 } else {
                     plugin.getGuiManager().openUpgrades(clicker, clan);
                 }
             }
             case 38 -> plugin.getGuiManager().openSpiritMenu(clicker, clan);
-            case 40 -> plugin.getGuiManager().openSettings(clicker, clan);
+            case 40 -> {
+                if (clan.hasPermission(clicker.getUniqueId(), ClanPermission.SETTINGS)) {
+                    plugin.getGuiManager().openSettings(clicker, clan);
+                } else {
+                    plugin.getMessages().send(clicker, "general.no-permission");
+                }
+            }
             case 42 -> {
                 boolean canViewApps = clan.member(clicker.getUniqueId())
                         .map(m -> m.rank() == ClanRank.LEADER || m.rank() == ClanRank.GUARDIAN)

@@ -3,6 +3,7 @@ package me.lovelace.loveclans.gui;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
+import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -202,6 +203,12 @@ public final class ClanInfoMenu implements InventoryHolder {
             plugin.getClanManager().applyToClanAsync(clan, player.getUniqueId())
                     .thenRun(() -> plugin.runSync(() -> {
                         plugin.getMessages().send(player, "clan.applied", Map.of("tag", clan.tag()));
+                        // Уведомляем всех онлайн-участников с правом INVITE кликабельным
+                        // сообщением принять/отклонить заявку, чтобы не зависеть только от лидера.
+                        String applicantName = player.getName() != null ? player.getName() : player.getUniqueId().toString();
+                        for (Player recipient : plugin.getClanManager().getOnlineMembersWithPermission(clan, ClanPermission.INVITE)) {
+                            plugin.getMessages().sendClickableApplication(recipient, applicantName, clan.tag());
+                        }
                         player.closeInventory();
                     }))
                     .exceptionally(t -> {

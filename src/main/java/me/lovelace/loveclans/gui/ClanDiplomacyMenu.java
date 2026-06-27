@@ -31,20 +31,25 @@ public final class ClanDiplomacyMenu {
 
         DiplomacyRelation current = sourceClan.relationTo(targetClan.id());
 
-        inventory.setItem(10, ItemBuilder.of(current == DiplomacyRelation.ALLY ? Material.LIME_DYE : Material.GREEN_DYE)
+        // ALLY = дружеские, NEUTRAL = нейтральные, ENEMY = враждебные отношения.
+        // Активное отношение подсвечиваем свечением (glow), а не сменой текстуры головы.
+        ItemBuilder allyItem = ItemBuilder.head(ItemBuilder.HEAD_RELATION_FRIENDLY)
                 .name(plugin.getMessages().component("gui.diplomacy.ally.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.ally.lore", player))
-                .build());
+                .lore(plugin.getMessages().component("gui.diplomacy.ally.lore", player));
+        if (current == DiplomacyRelation.ALLY) allyItem.glow(true);
+        inventory.setItem(10, allyItem.build());
 
-        inventory.setItem(13, ItemBuilder.of(current == DiplomacyRelation.NEUTRAL ? Material.LIME_DYE : Material.YELLOW_DYE)
+        ItemBuilder neutralItem = ItemBuilder.head(ItemBuilder.HEAD_RELATION_NEUTRAL)
                 .name(plugin.getMessages().component("gui.diplomacy.neutral.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.neutral.lore", player))
-                .build());
+                .lore(plugin.getMessages().component("gui.diplomacy.neutral.lore", player));
+        if (current == DiplomacyRelation.NEUTRAL) neutralItem.glow(true);
+        inventory.setItem(13, neutralItem.build());
 
-        inventory.setItem(16, ItemBuilder.of(current == DiplomacyRelation.ENEMY ? Material.LIME_DYE : Material.RED_DYE)
+        ItemBuilder enemyItem = ItemBuilder.head(ItemBuilder.HEAD_RELATION_HOSTILE)
                 .name(plugin.getMessages().component("gui.diplomacy.enemy.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.enemy.lore", player))
-                .build());
+                .lore(plugin.getMessages().component("gui.diplomacy.enemy.lore", player));
+        if (current == DiplomacyRelation.ENEMY) enemyItem.glow(true);
+        inventory.setItem(16, enemyItem.build());
 
         inventory.setItem(22, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.diplomacy.select-other.name", player))

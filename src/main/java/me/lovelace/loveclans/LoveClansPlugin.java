@@ -10,9 +10,11 @@ import me.lovelace.loveclans.listener.ChatInputListener;
 import me.lovelace.loveclans.listener.ClanProtectionListener;
 import me.lovelace.loveclans.listener.CombatListener;
 import me.lovelace.loveclans.listener.PlayerConnectionListener;
+import me.lovelace.loveclans.listener.ShieldColorListener;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.manager.RitualManager;
+import me.lovelace.loveclans.manager.ShieldColorManager;
 import me.lovelace.loveclans.manager.SpiritManager;
 import me.lovelace.loveclans.manager.SuccessionManager;
 import me.lovelace.loveclans.manager.WarManager;
@@ -50,6 +52,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private SpiritManager spiritManager;
     private ArtifactManager artifactManager;
     private GuiManager guiManager;
+    private ShieldColorManager shieldColorManager;
     private AdvancedClaimsHook advancedClaimsHook;
     private ClanProtectionListener clanProtectionListener;
     private BukkitTask heartbeatTask;
@@ -74,6 +77,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         spiritManager = new SpiritManager(this);
         artifactManager = new ArtifactManager(this);
         guiManager = new GuiManager(this);
+        shieldColorManager = new ShieldColorManager(this);
         advancedClaimsHook = new AdvancedClaimsHook(this);
 
         clanManager.loadAsync().thenRunAsync(() -> {
@@ -87,7 +91,21 @@ public final class LoveClansPlugin extends JavaPlugin {
                 try {
                     if (Bukkit.getPluginManager().isPluginEnabled("LoveClaims")) {
                         advancedClaimsHook.initialize();
-                        getLogger().info("Успешная интеграция с LoveClaimsAPI!");
+                        if (advancedClaimsHook.enabled()) {
+                            getLogger().info("Успешная интеграция с LoveClaimsAPI!");
+                        } else {
+                            // LoveClaimsAPI может не успеть инициализироваться к этому моменту
+                            // (асинхронная загрузка приватов внутри LoveClaims). Пробуем ещё раз
+                            // спустя секунду, не блокируя запуск нашего плагина.
+                            Bukkit.getScheduler().runTaskLater(this, () -> {
+                                advancedClaimsHook.initialize();
+                                if (advancedClaimsHook.enabled()) {
+                                    getLogger().info("Успешная интеграция с LoveClaimsAPI (повторная попытка)!");
+                                } else {
+                                    getLogger().warning("LoveClaimsAPI так и не инициализировался — интеграция отключена.");
+                                }
+                            }, 20L * 5L);
+                        }
                     }
                 } catch (Throwable t) {
                     getLogger().warning("Не удалось инициализировать хук LoveClaims: " + t.getMessage());
@@ -183,6 +201,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         return guiManager;
     }
 
+    public ShieldColorManager getShieldColorManager() {
+        return shieldColorManager;
+    }
+
     public AdvancedClaimsHook getAdvancedClaimsHook() {
         return advancedClaimsHook;
     }
@@ -266,6 +288,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new CombatListener(this), this);
         pluginManager.registerEvents(new ArtifactListener(this), this);
         pluginManager.registerEvents(new ChatInputListener(this), this);
+        pluginManager.registerEvents(new ShieldColorListener(this), this);
         pluginManager.registerEvents(spiritManager, this);
     }
 
