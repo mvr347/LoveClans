@@ -102,6 +102,10 @@ public final class Clan {
         return tagColor + tag;
     }
 
+    public String coloredName() {
+        return tagColor + name;
+    }
+
     public String description() {
         return description;
     }

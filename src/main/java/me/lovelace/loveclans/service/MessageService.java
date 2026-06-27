@@ -123,9 +123,9 @@ public final class MessageService {
         audience.sendMessage(component(key, placeholders, player));
     }
 
-    public void sendClickableApplication(Player leader, String applicantName, String clanTag) {
+    public void sendClickableApplication(Player leader, String applicantName, String clanTag, String clanColor) {
         Component msg = component("clan.application-received",
-                Map.of("player", applicantName, "tag", clanTag), leader)
+                Map.of("player", applicantName, "tag", clanTag, "color", clanColor), leader)
                 .append(Component.text(" "))
                 .append(component("gui.accept", leader)
                         .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
@@ -137,9 +137,9 @@ public final class MessageService {
         leader.sendMessage(msg);
     }
 
-    public void sendClickableInvite(Player target, String clanTag) {
+    public void sendClickableInvite(Player target, String clanTag, String clanColor) {
         Component msg = component("clan.invite-received",
-                Map.of("tag", clanTag), target)
+                Map.of("tag", clanTag, "color", clanColor), target)
                 .append(Component.text(" "))
                 .append(component("gui.accept", target)
                         .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan accept " + clanTag)))
@@ -158,9 +158,9 @@ public final class MessageService {
         target.sendMessage(msg);
     }
 
-    public void sendClickableAlliance(Player guildmaster, String sourceClanTag) {
+    public void sendClickableAlliance(Player guildmaster, String sourceClanTag, String sourceClanColor) {
         Component msg = component("diplomacy.alliance-request",
-                Map.of("tag", sourceClanTag), guildmaster)
+                Map.of("tag", sourceClanTag, "color", sourceClanColor), guildmaster)
                 .append(Component.text(" "))
                 .append(component("gui.accept", guildmaster)
                         .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(

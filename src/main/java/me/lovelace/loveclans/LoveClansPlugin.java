@@ -11,6 +11,7 @@ import me.lovelace.loveclans.listener.ClanProtectionListener;
 import me.lovelace.loveclans.listener.CombatListener;
 import me.lovelace.loveclans.listener.PlayerConnectionListener;
 import me.lovelace.loveclans.listener.ShieldColorListener;
+import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.manager.RitualManager;
@@ -53,6 +54,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private RitualManager ritualManager;
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
+    private AfkManager afkManager;
     private ArtifactManager artifactManager;
     private GuiManager guiManager;
     private ShieldColorManager shieldColorManager;
@@ -78,6 +80,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         ritualManager = new RitualManager(this);
         successionManager = new SuccessionManager(this);
         spiritManager = new SpiritManager(this);
+        afkManager = new AfkManager(this);
         artifactManager = new ArtifactManager(this);
         guiManager = new GuiManager(this);
         shieldColorManager = new ShieldColorManager(this);
@@ -214,6 +217,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         return spiritManager;
     }
 
+    public AfkManager getAfkManager() {
+        return afkManager;
+    }
+
     public ArtifactManager getArtifactManager() {
         return artifactManager;
     }
@@ -311,6 +318,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new ChatInputListener(this), this);
         pluginManager.registerEvents(new ShieldColorListener(this), this);
         pluginManager.registerEvents(spiritManager, this);
+        pluginManager.registerEvents(afkManager, this);
     }
 
     private void registerIntegrations() {

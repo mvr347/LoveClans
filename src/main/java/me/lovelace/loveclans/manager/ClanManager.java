@@ -57,6 +57,7 @@ public final class ClanManager {
     private final Map<UUID, List<ClanInvite>> invitesByPlayer = new ConcurrentHashMap<>();
     private final Map<UUID, List<ClanApplication>> applicationsByClan = new ConcurrentHashMap<>();
     private final Map<UUID, PendingClaim> pendingClaims = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<UUID, Long>> rejoinCooldowns = new ConcurrentHashMap<>();
 
     public ClanManager(LoveClansPlugin plugin, ClanStorage storage) {
         this.plugin = plugin;
@@ -423,6 +424,10 @@ public final class ClanManager {
             if (isClanFull(clan)) {
                 throw new IllegalStateException("clan.member-limit-reached");
             }
+            Long cooldownEnd = rejoinCooldowns.getOrDefault(playerId, Map.of()).get(clan.id());
+            if (cooldownEnd != null && cooldownEnd > System.currentTimeMillis()) {
+                throw new IllegalStateException("clan.rejoin-cooldown");
+            }
             clan.addMember(playerId, rank);
             ClanMember member = clan.member(playerId).orElseThrow();
             clanByPlayer.put(playerId, clan.id());
@@ -465,6 +470,11 @@ public final class ClanManager {
             }
             if (target.rank() == ClanRank.LEADER && clan.members().size() > 1) {
                 throw new IllegalStateException("clan.not-leader");
+            }
+            long cooldownSeconds = plugin.getConfig().getLong("clans.rejoin-cooldown-seconds", 3600L);
+            if (cooldownSeconds > 0) {
+                rejoinCooldowns.computeIfAbsent(playerId, ignored -> new ConcurrentHashMap<>())
+                        .put(clan.id(), System.currentTimeMillis() + cooldownSeconds * 1000L);
             }
             clan.removeMember(playerId);
             clanByPlayer.remove(playerId);
@@ -781,7 +791,7 @@ public final class ClanManager {
                 location.getBlock().setType(bannerItem.getType());
                 player.getInventory().removeItem(bannerItem);
                 plugin.getAdvancedClaimsHook().hideClaimBorder(player);
-                plugin.getMessages().send(player, "territory.claimed-success", Map.of("clan", clan.name(), "tag", clan.tag()));
+                plugin.getMessages().send(player, "territory.claimed-success", Map.of("clan", clan.name(), "tag", clan.tag(), "color", clan.tagColor()));
                 addExperienceAsync(clan, plugin.getConfig().getLong("leveling.territory-claim-exp", 150L));
             });
             return savedTerritory;
@@ -929,7 +939,7 @@ public final class ClanManager {
             if (relation == DiplomacyRelation.ALLY) {
                 addAllianceRequest(source.id(), target.id());
                 getOnlineLeader(target).ifPresent(leader ->
-                        plugin.getMessages().sendClickableAlliance(leader, source.tag()));
+                        plugin.getMessages().sendClickableAlliance(leader, source.tag(), source.tagColor()));
                 return source;
             }
             source.setDiplomacy(target.id(), relation);

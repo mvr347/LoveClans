@@ -202,12 +202,12 @@ public final class ClanInfoMenu implements InventoryHolder {
 
             plugin.getClanManager().applyToClanAsync(clan, player.getUniqueId())
                     .thenRun(() -> plugin.runSync(() -> {
-                        plugin.getMessages().send(player, "clan.applied", Map.of("tag", clan.tag()));
+                        plugin.getMessages().send(player, "clan.applied", Map.of("tag", clan.tag(), "color", clan.tagColor()));
                         // Уведомляем всех онлайн-участников с правом INVITE кликабельным
                         // сообщением принять/отклонить заявку, чтобы не зависеть только от лидера.
                         String applicantName = player.getName() != null ? player.getName() : player.getUniqueId().toString();
                         for (Player recipient : plugin.getClanManager().getOnlineMembersWithPermission(clan, ClanPermission.INVITE)) {
-                            plugin.getMessages().sendClickableApplication(recipient, applicantName, clan.tag());
+                            plugin.getMessages().sendClickableApplication(recipient, applicantName, clan.tag(), clan.tagColor());
                         }
                         player.closeInventory();
                     }))

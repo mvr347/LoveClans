@@ -104,8 +104,12 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             switch (sub) {
                 case "help" -> {
                     if (sender instanceof Player player) {
-                        if (plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent()) {
-                            plugin.getMessages().send(player, "clan.help.in-clan");
+                        Optional<Clan> playerClan = plugin.getClanManager().getPlayerClan(player.getUniqueId());
+                        if (playerClan.isPresent()) {
+                            boolean isLeader = playerClan.get().member(player.getUniqueId())
+                                    .map(member -> member.rank() == ClanRank.LEADER)
+                                    .orElse(false);
+                            plugin.getMessages().send(player, isLeader ? "clan.help.leader" : "clan.help.in-clan");
                         } else {
                             plugin.getMessages().send(player, "clan.help.not-in-clan");
                         }
@@ -335,15 +339,15 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Clan sourceClan = plugin.getClanManager().getClanByTag(sourceClanTag)
                 .orElseThrow(() -> new IllegalStateException("war.not-found"));
         if (!plugin.getClanManager().hasPendingAllianceFrom(sourceClan.id(), acceptorClan.id())) {
-            plugin.getMessages().send(player, "diplomacy.no-pending-request", Map.of("tag", sourceClanTag));
+            plugin.getMessages().send(player, "diplomacy.no-pending-request", Map.of("tag", sourceClanTag, "color", sourceClan.tagColor()));
             return;
         }
         plugin.getClanManager().acceptAllianceAsync(acceptorClan, sourceClan, player.getUniqueId())
                 .thenRun(() -> plugin.runSync(() -> {
-                    plugin.getMessages().send(player, "diplomacy.alliance-accepted", Map.of("tag", sourceClanTag));
+                    plugin.getMessages().send(player, "diplomacy.alliance-accepted", Map.of("tag", sourceClanTag, "color", sourceClan.tagColor()));
                     plugin.getClanManager().getOnlineLeader(sourceClan).ifPresent(leader ->
                             plugin.getMessages().send(leader, "diplomacy.alliance-accepted-by",
-                                    Map.of("tag", acceptorClan.tag())));
+                                    Map.of("tag", acceptorClan.tag(), "color", acceptorClan.tagColor())));
                 }))
                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
     }
@@ -357,10 +361,10 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 .orElseThrow(() -> new IllegalStateException("war.not-found"));
         plugin.getClanManager().declineAllianceAsync(declinerClan, sourceClan, player.getUniqueId())
                 .thenRun(() -> plugin.runSync(() -> {
-                    plugin.getMessages().send(player, "diplomacy.alliance-declined", Map.of("tag", sourceClanTag));
+                    plugin.getMessages().send(player, "diplomacy.alliance-declined", Map.of("tag", sourceClanTag, "color", sourceClan.tagColor()));
                     plugin.getClanManager().getOnlineLeader(sourceClan).ifPresent(leader ->
                             plugin.getMessages().send(leader, "diplomacy.alliance-declined-by",
-                                    Map.of("tag", declinerClan.tag())));
+                                    Map.of("tag", declinerClan.tag(), "color", declinerClan.tagColor())));
                 }))
                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
     }
@@ -374,7 +378,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                     .filter(inv -> inv.clanId().equals(clan.id()))
                     .findFirst()
                     .ifPresent(inv -> plugin.getClanManager().removeInvite(player.getUniqueId(), clan.id()));
-            plugin.getMessages().send(player, "clan.invite-declined", Map.of("tag", tag));
+            plugin.getMessages().send(player, "clan.invite-declined", Map.of("tag", tag, "color", clan.tagColor()));
         }, () -> plugin.getMessages().send(player, "clan.not-found"));
     }
 
@@ -388,7 +392,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 .thenAccept(updatedClan -> plugin.runSync(() -> {
                     plugin.getMessages().send(player, "gui.applications.accepted", Map.of("player", applicantName));
                     Player online = Bukkit.getPlayer(applicant.getUniqueId());
-                    if (online != null) plugin.getMessages().send(online, "clan.joined", Map.of("tag", updatedClan.tag()));
+                    if (online != null) plugin.getMessages().send(online, "clan.joined", Map.of("tag", updatedClan.tag(), "color", updatedClan.tagColor()));
                 }))
                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
     }
@@ -404,7 +408,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                     plugin.getMessages().send(player, "gui.applications.rejected", Map.of("player", applicantName));
                     Player online = Bukkit.getPlayer(applicant.getUniqueId());
                     if (online != null) plugin.getMessages().send(online, "clan.application-rejected",
-                            Map.of("tag", clan.tag()));
+                            Map.of("tag", clan.tag(), "color", clan.tagColor()));
                 }))
                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
     }
@@ -445,7 +449,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         plugin.getClanManager().invitePlayerAsync(clan, player.getUniqueId(), target.getUniqueId())
                 .thenAccept(invite -> plugin.runSync(() -> {
                     plugin.getMessages().send(player, "clan.invited", Map.of("player", target.getName()));
-                    plugin.getMessages().sendClickableInvite(target, clan.tag());
+                    plugin.getMessages().sendClickableInvite(target, clan.tag(), clan.tagColor());
                 }))
                 .exceptionally(throwable -> {
                     plugin.runSync(() -> plugin.sendOperationError(player, throwable));
@@ -464,7 +468,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         plugin.getClanManager().acceptInviteAsync(player.getUniqueId(), args[1])
-                .thenAccept(clan -> plugin.runSync(() -> plugin.getMessages().send(player, "clan.joined", Map.of("tag", clan.tag()))))
+                .thenAccept(clan -> plugin.runSync(() -> plugin.getMessages().send(player, "clan.joined", Map.of("tag", clan.tag(), "color", clan.tagColor()))))
                 .exceptionally(throwable -> {
                     plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                     return null;
@@ -719,11 +723,18 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         Clan source = optionalSource.get();
         Clan target = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
-        plugin.getWarManager().peaceAsync(source, target)
-                .exceptionally(throwable -> {
-                    plugin.runSync(() -> plugin.sendOperationError(player, throwable));
-                    return null;
-                });
+        if (!plugin.getWarManager().areAtWar(source.id(), target.id())) {
+            plugin.sendOperationError(player, new IllegalStateException("war.not-at-war"));
+            return;
+        }
+        plugin.getMessages().sendChatConfirmPrompt(player, "war.peace-confirm-prompt",
+                Map.of("tag", target.tag(), "color", target.tagColor()),
+                () -> plugin.getWarManager().peaceAsync(source, target)
+                        .exceptionally(throwable -> {
+                            plugin.runSync(() -> plugin.sendOperationError(player, throwable));
+                            return null;
+                        }),
+                () -> plugin.getMessages().send(player, "general.chat-input-cancelled"));
     }
 
     private void diplomacy(Player player, String[] args, DiplomacyRelation relation) {
@@ -740,7 +751,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Clan source = optionalSource.get();
         Clan target = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
         plugin.getClanManager().setDiplomacyAsync(source, target, relation, player.getUniqueId())
-                .thenAccept(clan -> plugin.runSync(() -> plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", target.tag(), "relation", relation.name()))))
+                .thenAccept(clan -> plugin.runSync(() -> plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", target.tag(), "color", target.tagColor(), "relation", relation.name()))))
                 .exceptionally(throwable -> {
                     plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                     return null;
@@ -835,7 +846,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
              }
              Clan clan = clanOpt.get();
              plugin.getClanManager().disbandClanAsync(clan, null) // null actorId bypasses permission check
-                 .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.disbanded", Map.of("tag", clan.tag()))))
+                 .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.disbanded", Map.of("tag", clan.tag(), "color", clan.tagColor()))))
                  .exceptionally(ex -> {
                      plugin.runSync(() -> plugin.sendOperationError(sender, ex));
                      return null;
@@ -865,14 +876,14 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             
             if (subAction.equals("start")) {
                 plugin.getWarManager().startWarAsync(clan1, clan2, null)
-                    .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.war-started", Map.of("clan1", clan1.tag(), "clan2", clan2.tag()))))
+                    .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.war-started", Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()))))
                     .exceptionally(ex -> {
                         plugin.runSync(() -> plugin.sendOperationError(sender, ex));
                         return null;
                     });
             } else if (subAction.equals("end")) {
                 plugin.getWarManager().peaceAsync(clan1, clan2)
-                    .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.war-ended", Map.of("clan1", clan1.tag(), "clan2", clan2.tag()))))
+                    .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.war-ended", Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()))))
                     .exceptionally(ex -> {
                         plugin.runSync(() -> plugin.sendOperationError(sender, ex));
                         return null;
@@ -912,7 +923,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             }
             
             plugin.getClanManager().setDiplomacyAsync(clan1, clan2, relation, null) // null actorId
-                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.diplo-updated", Map.of("clan1", clan1.tag(), "clan2", clan2.tag(), "relation", relation.name()))))
+                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.diplo-updated", Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor(), "relation", relation.name()))))
                 .exceptionally(ex -> {
                     plugin.runSync(() -> plugin.sendOperationError(sender, ex));
                     return null;
@@ -956,7 +967,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                      plugin.getClanManager().updateClanAsync(clan);
                 }
             }
-            plugin.getMessages().send(sender, "admin.exp-updated", Map.of("tag", clan.tag()));
+            plugin.getMessages().send(sender, "admin.exp-updated", Map.of("tag", clan.tag(), "color", clan.tagColor()));
         } else if (action.equals("points")) {
             switch (subAction) {
                 case "add" -> clan.addUpgradePoints((int) amount);
@@ -964,7 +975,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "set" -> clan.setUpgradePoints((int) amount);
             }
             plugin.getClanManager().updateClanAsync(clan);
-            plugin.getMessages().send(sender, "admin.points-updated", Map.of("tag", clan.tag()));
+            plugin.getMessages().send(sender, "admin.points-updated", Map.of("tag", clan.tag(), "color", clan.tagColor()));
         } else {
              plugin.getMessages().send(sender, "clan.help.admin");
         }

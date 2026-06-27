@@ -155,11 +155,11 @@ public final class WarManager {
 
             for (UUID memberId : sourceClan.members().keySet()) {
                 Player p = Bukkit.getPlayer(memberId);
-                if (p != null) plugin.getMessages().send(p, "war.peace", Map.of("tag", targetClan.tag()));
+                if (p != null) plugin.getMessages().send(p, "war.peace", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()));
             }
             for (UUID memberId : targetClan.members().keySet()) {
                 Player p = Bukkit.getPlayer(memberId);
-                if (p != null) plugin.getMessages().send(p, "war.peace", Map.of("tag", sourceClan.tag()));
+                if (p != null) plugin.getMessages().send(p, "war.peace", Map.of("tag", sourceClan.tag(), "color", sourceClan.tagColor()));
             }
             removeWarCompasses(war);
 
@@ -274,21 +274,21 @@ public final class WarManager {
                 .map(ClanMember::playerId)
                 .map(Bukkit::getPlayer)
                 .filter(Objects::nonNull)
-                .forEach(player -> giveTrackingCompass(player, bannerLocation, defenderClan.tag()));
+                .forEach(player -> giveTrackingCompass(player, bannerLocation, defenderClan));
 
         defenderClan.members().values().stream()
                 .filter(member -> (member.rank() == ClanRank.LEADER || member.rank() == ClanRank.GUARDIAN))
                 .map(ClanMember::playerId)
                 .map(Bukkit::getPlayer)
                 .filter(Objects::nonNull)
-                .forEach(player -> giveTrackingCompass(player, bannerLocation, attackerClan.tag()));
+                .forEach(player -> giveTrackingCompass(player, bannerLocation, attackerClan));
     }
 
-    private void giveTrackingCompass(Player player, Location targetLocation, String enemyClanTag) {
+    private void giveTrackingCompass(Player player, Location targetLocation, Clan enemyClan) {
         ItemStack compass = new ItemStack(Material.COMPASS);
         ItemMeta meta = compass.getItemMeta();
         if (meta != null) {
-            meta.displayName(plugin.getMessages().component("item.war-compass.name", Map.of("tag", enemyClanTag)));
+            meta.displayName(plugin.getMessages().component("item.war-compass.name", Map.of("tag", enemyClan.tag())));
             meta.lore(List.of(plugin.getMessages().component("item.war-compass.lore")));
             compass.setItemMeta(meta);
         }
@@ -300,7 +300,7 @@ public final class WarManager {
         } else {
             player.getInventory().addItem(compass);
         }
-        plugin.getMessages().send(player, "war.compass-given", Map.of("tag", enemyClanTag));
+        plugin.getMessages().send(player, "war.compass-given", Map.of("tag", enemyClan.tag(), "color", enemyClan.tagColor()));
     }
 
     private void removeWarCompasses(ClanWar war) {

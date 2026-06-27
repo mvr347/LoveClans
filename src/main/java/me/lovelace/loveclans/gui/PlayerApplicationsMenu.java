@@ -135,13 +135,13 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
                 if (event.isLeftClick()) {
                     plugin.getClanManager().acceptInviteAsync(player.getUniqueId(), targetClan.tag())
                             .thenAccept(joinedClan -> plugin.runSync(() -> {
-                                plugin.getMessages().send(player, "clan.joined", Map.of("tag", joinedClan.tag()));
+                                plugin.getMessages().send(player, "clan.joined", Map.of("tag", joinedClan.tag(), "color", joinedClan.tagColor()));
                                 player.closeInventory();
                             }))
                             .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
                 } else if (event.isRightClick()) {
                     plugin.getClanManager().removeInvite(player.getUniqueId(), clanId);
-                    plugin.getMessages().send(player, "gui.player-applications.invite-declined", Map.of("tag", targetClan.tag()));
+                    plugin.getMessages().send(player, "gui.player-applications.invite-declined", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()));
                     open();
                 }
             });
