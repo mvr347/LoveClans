@@ -140,7 +140,10 @@ public class ClanProtectionListener implements Listener {
         }
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    // LOWEST: должен сработать раньше AnchorListener LoveClaims (приоритет NORMAL, ignoreCancelled=true),
+    // т.к. баннер территории клана физически совпадает с точкой якоря привата LoveClaims, и иначе
+    // LoveClaims открывает свой GUI привата и отменяет событие до того, как мы успеем открыть меню территории.
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (!event.hasBlock() || event.getClickedBlock() == null || !event.getAction().isRightClick()) {
             return;

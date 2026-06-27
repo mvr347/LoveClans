@@ -717,8 +717,8 @@ public final class ClanManager {
 
         int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 12);
         BoundingBox visualizationBox = new BoundingBox(
-                location.getBlockX() - radius, location.getWorld().getMinHeight(), location.getBlockZ() - radius,
-                location.getBlockX() + radius, location.getWorld().getMaxHeight(), location.getBlockZ() + radius
+                location.getBlockX() - radius, location.getBlockY() - radius, location.getBlockZ() - radius,
+                location.getBlockX() + radius, location.getBlockY() + radius, location.getBlockZ() + radius
         );
 
         PendingClaim pendingClaim = new PendingClaim(player.getUniqueId(), clan, location, bannerType, visualizationBox);

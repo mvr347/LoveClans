@@ -92,8 +92,8 @@ public final class AdvancedClaimsHook {
         if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
             int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 12);
             box = new BoundingBox(
-                    territory.bannerX() - radius, world.getMinHeight(), territory.bannerZ() - radius,
-                    territory.bannerX() + radius, world.getMaxHeight(), territory.bannerZ() + radius
+                    territory.bannerX() - radius, territory.bannerY() - radius, territory.bannerZ() - radius,
+                    territory.bannerX() + radius, territory.bannerY() + radius, territory.bannerZ() + radius
             );
             centerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
         } else {
