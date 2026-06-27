@@ -113,18 +113,8 @@ integration:
     auto-claim-chunk: true
     claim-radius: 12 # Radius for LoveClaims (25x25x25 area)
     border-display-ticks: 100 # Duration in ticks for showing claim border (5 seconds)
-    api-class: "me.lovelace.loveclaims.api.LoveClaimsAPI"
-    trust-level-class: "me.lovelace.loveclaims.model.TrustLevel"
     trust-mapping:
       LEADER: OWNER
       GUARDIAN: BUILD
       MEMBER: CONTAINER
       RECRUIT: CONTAINER
-    # Reflection method candidates are resolved automatically. Keep this block for forks.
-    methods:
-      get-instance: getInstance
-      create-claim: createClaim
-      delete-claim: deleteClaim
-      get-claim-by-id: getClaimById
-      add-player: addPlayerToClaim
-      remove-player: removePlayerFromClaim
