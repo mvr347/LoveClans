@@ -42,6 +42,9 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public final class LoveClansPlugin extends JavaPlugin {
+    private static final int LOVECLAIMS_INIT_RETRY_ATTEMPTS = 6;
+    private static final long LOVECLAIMS_INIT_RETRY_DELAY_TICKS = 20L * 5L;
+
     private DatabaseManager databaseManager;
     private ClanStorage storage;
     private MessageService messages;
@@ -96,15 +99,8 @@ public final class LoveClansPlugin extends JavaPlugin {
                         } else {
                             // LoveClaimsAPI может не успеть инициализироваться к этому моменту
                             // (асинхронная загрузка приватов внутри LoveClaims). Пробуем ещё раз
-                            // спустя секунду, не блокируя запуск нашего плагина.
-                            Bukkit.getScheduler().runTaskLater(this, () -> {
-                                advancedClaimsHook.initialize();
-                                if (advancedClaimsHook.enabled()) {
-                                    getLogger().info("Успешная интеграция с LoveClaimsAPI (повторная попытка)!");
-                                } else {
-                                    getLogger().warning("LoveClaimsAPI так и не инициализировался — интеграция отключена.");
-                                }
-                            }, 20L * 5L);
+                            // несколько раз с задержкой, не блокируя запуск нашего плагина.
+                            retryAdvancedClaimsHook(LOVECLAIMS_INIT_RETRY_ATTEMPTS);
                         }
                     }
                 } catch (Throwable t) {
@@ -139,6 +135,31 @@ public final class LoveClansPlugin extends JavaPlugin {
             Bukkit.getPluginManager().disablePlugin(this);
             return null;
         });
+    }
+
+    /**
+     * Повторяет попытку инициализации хука LoveClaims с задержкой, пока не останется
+     * попыток или LoveClaims не отключится. Нужно потому, что LoveClaimsAPI может
+     * стать готовым позже одного фиксированного ретрая (например, при медленной
+     * загрузке базы данных LoveClaims).
+     */
+    private void retryAdvancedClaimsHook(int attemptsLeft) {
+        if (attemptsLeft <= 0) {
+            getLogger().warning("LoveClaimsAPI так и не инициализировался — интеграция отключена.");
+            return;
+        }
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            if (!Bukkit.getPluginManager().isPluginEnabled("LoveClaims")) {
+                getLogger().warning("LoveClaims был отключён во время инициализации — интеграция отключена.");
+                return;
+            }
+            advancedClaimsHook.initialize();
+            if (advancedClaimsHook.enabled()) {
+                getLogger().info("Успешная интеграция с LoveClaimsAPI (повторная попытка)!");
+            } else {
+                retryAdvancedClaimsHook(attemptsLeft - 1);
+            }
+        }, LOVECLAIMS_INIT_RETRY_DELAY_TICKS);
     }
 
     @Override
