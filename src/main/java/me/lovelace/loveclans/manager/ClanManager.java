@@ -900,7 +900,19 @@ public final class ClanManager {
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("territory.not-claimed"));
 
-            plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
+            if (territory.advancedClaimId() != null) {
+                plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
+            } else if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
+                // advancedClaimId отсутствует (например, если createOrAttachClaim вернул Optional.empty()
+                // при создании территории) — ищем и удаляем приват LoveClaims по локации знамени,
+                // иначе он останется висеть в кэше/БД и заблокирует повторный захват этой точки.
+                World bannerWorld = Bukkit.getWorld(territory.key().world());
+                if (bannerWorld != null) {
+                    Location bannerLoc = new Location(bannerWorld, territory.bannerX(), territory.bannerY(), territory.bannerZ());
+                    plugin.getAdvancedClaimsHook().getClaimAt(bannerLoc)
+                            .ifPresent(claim -> plugin.getAdvancedClaimsHook().deleteClaim(claim.getId()));
+                }
+            }
             clan.removeTerritory(territory.id());
             clanByTerritory.remove(key);
 
@@ -914,6 +926,15 @@ public final class ClanManager {
                         }
                     }
                 });
+            }
+
+            Player actor = Bukkit.getPlayer(actorId);
+            if (actor != null) {
+                String bannerType = territory.isCapital() ? "CAPITAL" : "TERRITORY";
+                ItemStack returnedBanner = clanItemFactory.createBannerByType(bannerType, clan.id(), clan.name());
+                if (actor.getInventory().addItem(returnedBanner).size() > 0) {
+                    actor.getWorld().dropItemNaturally(actor.getLocation(), returnedBanner);
+                }
             }
 
             Bukkit.getPluginManager().callEvent(new ClanUnclaimEvent(clan, territory, actorId));
