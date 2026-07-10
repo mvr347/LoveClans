@@ -303,7 +303,7 @@ public final class ClanManager {
             }
             for (ClanTerritory territory : clan.territories()) {
                 plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
-                clanByTerritory.remove(territory.key());
+                unindexTerritory(territory);
             }
             unindexClan(clan);
             applicationsByClan.remove(clan.id());
@@ -779,7 +779,7 @@ public final class ClanManager {
             return territory.withAdvancedClaimId(claimId);
         }).thenCompose(savedTerritory -> {
             clan.addTerritory(savedTerritory);
-            clanByTerritory.put(key, clan.id());
+            indexTerritory(savedTerritory, clan.id());
 
             if (bannerType.equals("CAPITAL")) {
                 clan.setHomeLocation(location);
@@ -788,7 +788,18 @@ public final class ClanManager {
             return storage.saveTerritoryAsync(savedTerritory).thenApply(v -> savedTerritory);
         }).thenApply(savedTerritory -> {
             plugin.runSync(() -> {
-                location.getBlock().setType(bannerItem.getType());
+                org.bukkit.block.Block placedBlock = location.getBlock();
+                placedBlock.setType(bannerItem.getType());
+                // Переносим клановые NBT-теги (тип баннера + ID клана) на установленный блок.
+                // Без этого блок-баннер не опознаётся как клановый, и меню территории/столицы
+                // не открывается при правом клике (ClanProtectionListener читает PDC блока).
+                org.bukkit.block.BlockState placedState = placedBlock.getState();
+                if (placedState instanceof org.bukkit.block.Banner bannerState) {
+                    org.bukkit.persistence.PersistentDataContainer blockPdc = bannerState.getPersistentDataContainer();
+                    blockPdc.set(ClanItemFactory.BANNER_TYPE_KEY, org.bukkit.persistence.PersistentDataType.STRING, bannerType);
+                    blockPdc.set(ClanItemFactory.CLAN_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING, clan.id().toString());
+                    bannerState.update(true, false);
+                }
                 player.getInventory().removeItem(bannerItem);
                 plugin.getAdvancedClaimsHook().hideClaimBorder(player);
                 plugin.getMessages().send(player, "territory.claimed-success", Map.of("clan", clan.name(), "tag", clan.tag(), "color", clan.tagColor()));
@@ -856,7 +867,7 @@ public final class ClanManager {
 
             plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
             clan.removeTerritory(territory.id());
-            clanByTerritory.remove(territory.key());
+            unindexTerritory(territory);
             clan.setHomeLocation(null);
 
             if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
@@ -895,8 +906,12 @@ public final class ClanManager {
             if (plugin.getWarManager().activeWars().stream().anyMatch(war -> war.involves(clan.id()))) {
                 throw new IllegalStateException("war.cannot-unclaim");
             }
+            // Ищем территорию, любой из чанков которой совпадает с переданным ключом.
+            // Разные вызывающие передают ключ по-разному (чанк баннера, чанк угла области
+            // через territory.key(), либо чанк текущей позиции игрока), поэтому сравнивать
+            // строго по одному t.key() нельзя.
             ClanTerritory territory = clan.territories().stream()
-                    .filter(t -> t.key().equals(key))
+                    .filter(t -> territoryChunks(t).contains(key))
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("territory.not-claimed"));
 
@@ -914,7 +929,7 @@ public final class ClanManager {
                 }
             }
             clan.removeTerritory(territory.id());
-            clanByTerritory.remove(key);
+            unindexTerritory(territory);
 
             if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
@@ -1095,7 +1110,7 @@ public final class ClanManager {
             clanByPlayer.put(playerId, clan.id());
         }
         for (ClanTerritory territory : clan.territories()) {
-            clanByTerritory.put(territory.key(), clan.id());
+            indexTerritory(territory, clan.id());
         }
     }
 
@@ -1107,8 +1122,48 @@ public final class ClanManager {
             clanByPlayer.remove(playerId);
         }
         for (ClanTerritory territory : clan.territories()) {
-            clanByTerritory.remove(territory.key());
+            unindexTerritory(territory);
         }
+    }
+
+    /**
+     * Регистрирует территорию во всех чанках, которые покрывает её область (bounding box).
+     * Территория занимает область ~25x25 (см. claim-radius), которая может пересекать
+     * несколько чанков, поэтому регистрировать её только по одному чанку нельзя — иначе
+     * getClanAt и проверка повторного захвата будут работать лишь на части территории.
+     */
+    private void indexTerritory(ClanTerritory territory, UUID clanId) {
+        if (territory == null || clanId == null) return;
+        for (TerritoryKey key : territoryChunks(territory)) {
+            clanByTerritory.put(key, clanId);
+        }
+    }
+
+    /**
+     * Удаляет территорию из всех чанков, которые она покрывает. Симметрично {@link #indexTerritory}.
+     */
+    private void unindexTerritory(ClanTerritory territory) {
+        if (territory == null) return;
+        for (TerritoryKey key : territoryChunks(territory)) {
+            clanByTerritory.remove(key);
+        }
+    }
+
+    /**
+     * Возвращает список ключей всех чанков, которые пересекает область территории.
+     */
+    private List<TerritoryKey> territoryChunks(ClanTerritory territory) {
+        List<TerritoryKey> keys = new ArrayList<>();
+        int minCX = territory.minX() >> 4;
+        int maxCX = territory.maxX() >> 4;
+        int minCZ = territory.minZ() >> 4;
+        int maxCZ = territory.maxZ() >> 4;
+        for (int cx = minCX; cx <= maxCX; cx++) {
+            for (int cz = minCZ; cz <= maxCZ; cz++) {
+                keys.add(new TerritoryKey(territory.world(), cx, cz));
+            }
+        }
+        return keys;
     }
 
     private void requireRank(Clan clan, UUID playerId, ClanRank minimum) {
