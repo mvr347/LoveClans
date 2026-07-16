@@ -28,12 +28,26 @@ admin:
   war-ended: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> завершена администратором."
   war-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> начата администратором."
 
+bank:
+  disabled: "<prefix><red>Банк клана отключён на этом сервере."
+  empty: "<prefix><gray>Банк клана пуст."
+  header: "<prefix><gold>Содержимое банка клана:"
+  line: "<gray> - <white><item></white>: <yellow><amount></yellow>"
+  invalid-amount: "<prefix><red>Укажите корректное положительное количество."
+  item-not-allowed: "<prefix><red>Этот предмет нельзя вносить в банк клана."
+  insufficient-items: "<prefix><red>Недостаточно предметов для этой операции."
+  deposit-success: "<prefix><green>Внесено <yellow><amount></yellow>× <white><item></white> в банк клана. Баланс: <gold><balance></gold>."
+  withdraw-success: "<prefix><green>Снято <yellow><amount></yellow>× <white><item></white> из банка клана."
+
 clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
   already-applied: "<prefix><red>Вы уже подали заявку в этот клан."
   application-not-found: "<prefix><red>Заявка не найдена."
   application-rejected: "<prefix><red>Ваша заявка в клан <color><tag></color> была отклонена."
   applied: "<prefix><green>Вы подали заявку на вступление в клан <color><tag></color>."
+  creation-cooldown: "<prefix><red>Вы недавно уже создавали клан. Подождите перед созданием нового."
+  creation-economy-unavailable: "<prefix><red>Оплата создания клана временно недоступна (ItemsAdder не найден)."
+  creation-insufficient-funds: "<prefix><red>Недостаточно предметов для оплаты создания клана."
   disbanded: "<prefix><yellow>Ваш клан был распущен."
   founder-has-capital-banner: "<prefix><red>У вас уже есть знамя столицы. Сначала установите его или избавьтесь от него."
   home:

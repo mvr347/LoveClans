@@ -9,6 +9,7 @@ import me.lovelace.loveclans.model.ClanSpirit;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
+import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Bukkit; // Import Bukkit for World access
 import org.bukkit.Location; // Import Location
 import org.bukkit.Material;
@@ -20,12 +21,16 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public final class SqlClanStorage implements ClanStorage {
     private final DatabaseManager database;
@@ -112,6 +117,7 @@ public final class SqlClanStorage implements ClanStorage {
                 loadDiplomacy(connection, clans);
                 loadUpgrades(connection, clans);
                 loadPermissions(connection, clans);
+                loadBank(connection, clans);
                 return new ArrayList<>(clans.values());
             } catch (SQLException exception) {
                 throw new StorageException("Unable to load clans", exception);
@@ -263,10 +269,9 @@ public final class SqlClanStorage implements ClanStorage {
     public CompletableFuture<Void> saveApplicationAsync(ClanApplication application) {
         return CompletableFuture.runAsync(() -> {
             try (Connection connection = database.dataSource().getConnection()) {
-                boolean exists = applicationExists(connection, application.clanId(), application.applicantId());
-                String sql = exists
-                        ? "UPDATE clan_applications SET applied_at = ? WHERE clan_id = ? AND applicant_id = ?"
-                        : "INSERT INTO clan_applications (applied_at, clan_id, applicant_id) VALUES (?, ?, ?)";
+                String sql = upsertSql("clan_applications",
+                        new String[]{"clan_id", "applicant_id"},
+                        new String[]{"applied_at", "clan_id", "applicant_id"});
                 try (PreparedStatement statement = connection.prepareStatement(sql)) {
                     statement.setLong(1, application.appliedAt());
                     statement.setString(2, application.clanId().toString());
@@ -306,6 +311,173 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
+    // --- Lightweight, single-field clan updates ---
+
+    @Override
+    public CompletableFuture<Void> updateClanName(UUID clanId, String name) {
+        return updateClanColumn(clanId, "name", name);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanTag(UUID clanId, String tag) {
+        return updateClanColumn(clanId, "tag", tag);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanTagColor(UUID clanId, String tagColor) {
+        return updateClanColumn(clanId, "tag_color", tagColor);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanEmblem(UUID clanId, Material emblem) {
+        return updateClanColumn(clanId, "emblem_material", emblem.name());
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanOpenStatus(UUID clanId, boolean open) {
+        return updateClanColumn(clanId, "is_open", open ? 1 : 0);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanUpgradePoints(UUID clanId, int upgradePoints) {
+        return updateClanColumn(clanId, "upgrade_points", upgradePoints);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanHomeLocation(UUID clanId, Location homeLocation) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("UPDATE clans SET home_location = ? WHERE id = ?")) {
+                String serialized = serializeLocation(homeLocation);
+                if (serialized == null) {
+                    statement.setNull(1, Types.VARCHAR);
+                } else {
+                    statement.setString(1, serialized);
+                }
+                statement.setString(2, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update home location for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanSpiritAbility(UUID clanId, SpiritAbility ability, long chosenAt) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET spirit_ability = ?, spirit_ability_chosen_at = ? WHERE id = ?")) {
+                if (ability == null) {
+                    statement.setNull(1, Types.VARCHAR);
+                } else {
+                    statement.setString(1, ability.name());
+                }
+                statement.setLong(2, chosenAt);
+                statement.setString(3, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update spirit ability for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanProgression(UUID clanId, int level, long experience, int upgradePoints, int spiritLevel) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET level = ?, experience = ?, upgrade_points = ?, spirit_level = ? WHERE id = ?")) {
+                statement.setInt(1, level);
+                statement.setLong(2, experience);
+                statement.setInt(3, upgradePoints);
+                statement.setInt(4, spiritLevel);
+                statement.setString(5, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update progression for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    private CompletableFuture<Void> updateClanColumn(UUID clanId, String column, Object value) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("UPDATE clans SET " + column + " = ? WHERE id = ?")) {
+                statement.setObject(1, value);
+                statement.setString(2, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update " + column + " for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    // --- Clan bank / treasury ---
+
+    @Override
+    public CompletableFuture<Long> adjustBankAmountAsync(UUID clanId, String itemId, long delta) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection()) {
+                String sql = database.type() == DatabaseType.MYSQL
+                        ? "INSERT INTO clan_bank (clan_id, item_id, amount) VALUES (?, ?, ?) " +
+                          "ON DUPLICATE KEY UPDATE amount = amount + VALUES(amount)"
+                        : "INSERT INTO clan_bank (clan_id, item_id, amount) VALUES (?, ?, ?) " +
+                          "ON CONFLICT(clan_id, item_id) DO UPDATE SET amount = clan_bank.amount + excluded.amount";
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, clanId.toString());
+                    statement.setString(2, itemId);
+                    statement.setLong(3, delta);
+                    statement.executeUpdate();
+                }
+                try (PreparedStatement select = connection.prepareStatement(
+                        "SELECT amount FROM clan_bank WHERE clan_id = ? AND item_id = ?")) {
+                    select.setString(1, clanId.toString());
+                    select.setString(2, itemId);
+                    try (ResultSet result = select.executeQuery()) {
+                        return result.next() ? result.getLong("amount") : 0L;
+                    }
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to adjust bank amount for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Boolean> withdrawBankAmountAsync(UUID clanId, String itemId, long amount) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clan_bank SET amount = amount - ? WHERE clan_id = ? AND item_id = ? AND amount >= ?")) {
+                statement.setLong(1, amount);
+                statement.setString(2, clanId.toString());
+                statement.setString(3, itemId);
+                statement.setLong(4, amount);
+                // Conditioning on "amount >= ?" makes this a single atomic statement: concurrent
+                // withdrawals on the same clan/item can't both succeed and drive the balance negative.
+                return statement.executeUpdate() > 0;
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to withdraw bank amount for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    private void loadBank(Connection connection, Map<UUID, Clan> clans) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_bank");
+             ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                Clan clan = clans.get(UUID.fromString(result.getString("clan_id")));
+                if (clan == null) {
+                    continue;
+                }
+                clan.putBankAmount(result.getString("item_id"), result.getLong("amount"));
+            }
+        } catch (SQLException ignored) {
+            // Table might not exist yet if plugin just updated
+        }
+    }
+
     private void loadMembers(Connection connection, Map<UUID, Clan> clans) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_members");
              ResultSet result = statement.executeQuery()) {
@@ -319,7 +491,7 @@ public final class SqlClanStorage implements ClanStorage {
                 try {
                     contribution = result.getInt("contribution");
                 } catch (SQLException ignored) {}
-                
+
                 clan.putMember(new ClanMember(
                         UUID.fromString(result.getString("player_id")),
                         rank,
@@ -413,29 +585,13 @@ public final class SqlClanStorage implements ClanStorage {
     }
 
     private void saveClan(Connection connection, Clan clan) throws SQLException {
-        boolean exists = exists(connection, "clans", "id", clan.id().toString());
-        
-        // try (java.sql.Statement s = connection.createStatement()) {
-        //     s.executeUpdate("ALTER TABLE clans ADD COLUMN upgrade_points INT NOT NULL DEFAULT 0");
-        // } catch (SQLException ignored) {}
-        
-        // try (java.sql.Statement s = connection.createStatement()) {
-        //     s.executeUpdate("ALTER TABLE clans ADD COLUMN home_location VARCHAR(255)");
-        // } catch (SQLException ignored) {}
-
-        String sql = exists
-                ? """
-                  UPDATE clans SET name = ?, tag = ?, tag_color = ?, description = ?, emblem_material = ?,
-                  level = ?, experience = ?, upgrade_points = ?, chest_rows = ?, spirit_level = ?, spirit_energy = ?,
-                  spirit_awakened_until = ?, spirit_online_time = ?, spirit_last_decay = ?, spirit_ability = ?, spirit_ability_chosen_at = ?, created_at = ?, is_open = ?,
-                  home_location = ? WHERE id = ?
-                  """
-                : """
-                  INSERT INTO clans (name, tag, tag_color, description, emblem_material, level, experience, upgrade_points,
-                  chest_rows, spirit_level, spirit_energy, spirit_awakened_until, spirit_online_time, spirit_last_decay, spirit_ability, spirit_ability_chosen_at,
-                  created_at, is_open, home_location, id)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                  """;
+        String[] columns = {
+                "name", "tag", "tag_color", "description", "emblem_material",
+                "level", "experience", "upgrade_points", "chest_rows", "spirit_level", "spirit_energy",
+                "spirit_awakened_until", "spirit_online_time", "spirit_last_decay", "spirit_ability",
+                "spirit_ability_chosen_at", "created_at", "is_open", "home_location", "id"
+        };
+        String sql = upsertSql("clans", new String[]{"id"}, columns);
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int paramIndex = 1;
             statement.setString(paramIndex++, clan.name());
@@ -472,15 +628,8 @@ public final class SqlClanStorage implements ClanStorage {
     }
 
     private void saveMember(Connection connection, UUID clanId, ClanMember member) throws SQLException {
-        boolean exists = memberExists(connection, clanId, member.playerId());
-        
-        // try (java.sql.Statement s = connection.createStatement()) {
-        //     s.executeUpdate("ALTER TABLE clan_members ADD COLUMN contribution INT NOT NULL DEFAULT 0");
-        // } catch (SQLException ignored) {}
-        
-        String sql = exists
-                ? "UPDATE clan_members SET rank = ?, joined_at = ?, last_seen = ?, contribution = ? WHERE clan_id = ? AND player_id = ?"
-                : "INSERT INTO clan_members (rank, joined_at, last_seen, contribution, clan_id, player_id) VALUES (?, ?, ?, ?, ?, ?)";
+        String[] columns = {"rank", "joined_at", "last_seen", "contribution", "clan_id", "player_id"};
+        String sql = upsertSql("clan_members", new String[]{"clan_id", "player_id"}, columns);
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, member.rank().name());
             statement.setLong(2, member.joinedAt());
@@ -493,32 +642,15 @@ public final class SqlClanStorage implements ClanStorage {
     }
 
     private void saveTerritory(Connection connection, ClanTerritory territory) throws SQLException {
-        boolean exists = territoryExists(connection, territory.id());
-
-        // try (java.sql.Statement s = connection.createStatement()) {
-        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_x INT");
-        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_y INT");
-        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN banner_z INT");
-        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN name VARCHAR(64)");
-        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN pvp TINYINT DEFAULT 0");
-        //      s.executeUpdate("ALTER TABLE clan_territories ADD COLUMN is_capital TINYINT DEFAULT 0");
-        // } catch (SQLException ignored) {}
-
-        String sql = exists
-                ? """
-                  UPDATE clan_territories SET clan_id = ?, world = ?, min_x = ?, min_y = ?, min_z = ?, max_x = ?, max_y = ?, max_z = ?, 
-                  advanced_claim_id = ?, claimed_by = ?, claimed_at = ?, banner_x = ?, banner_y = ?, banner_z = ?, name = ?, pvp = ?, is_capital = ?
-                  WHERE id = ?
-                  """
-                : """
-                  INSERT INTO clan_territories (id, clan_id, world, min_x, min_y, min_z, max_x, max_y, max_z, advanced_claim_id, claimed_by, claimed_at, banner_x, banner_y, banner_z, name, pvp, is_capital)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                  """;
+        String[] columns = {
+                "id", "clan_id", "world", "min_x", "min_y", "min_z", "max_x", "max_y", "max_z",
+                "advanced_claim_id", "claimed_by", "claimed_at", "banner_x", "banner_y", "banner_z",
+                "name", "pvp", "is_capital"
+        };
+        String sql = upsertSql("clan_territories", new String[]{"id"}, columns);
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             int paramIndex = 1;
-            if (!exists) { // For INSERT, id is the first parameter
-                statement.setString(paramIndex++, territory.id().toString());
-            }
+            statement.setString(paramIndex++, territory.id().toString());
             statement.setString(paramIndex++, territory.clanId().toString());
             statement.setString(paramIndex++, territory.world());
             statement.setInt(paramIndex++, territory.minX());
@@ -542,20 +674,14 @@ public final class SqlClanStorage implements ClanStorage {
             if (territory.name() == null) statement.setNull(paramIndex++, Types.VARCHAR); else statement.setString(paramIndex++, territory.name());
             statement.setInt(paramIndex++, territory.pvp() ? 1 : 0);
             statement.setInt(paramIndex++, territory.isCapital() ? 1 : 0);
-            
-            if (exists) { // For UPDATE, id is the last parameter (WHERE clause)
-                statement.setString(paramIndex++, territory.id().toString());
-            }
-            
+
             statement.executeUpdate();
         }
     }
 
     private void saveDiplomacy(Connection connection, UUID sourceClanId, UUID targetClanId, DiplomacyRelation relation) throws SQLException {
-        boolean exists = diplomacyExists(connection, sourceClanId, targetClanId);
-        String sql = exists
-                ? "UPDATE clan_diplomacy SET relation = ?, updated_at = ? WHERE source_clan_id = ? AND target_clan_id = ?"
-                : "INSERT INTO clan_diplomacy (relation, updated_at, source_clan_id, target_clan_id) VALUES (?, ?, ?, ?)";
+        String[] columns = {"relation", "updated_at", "source_clan_id", "target_clan_id"};
+        String sql = upsertSql("clan_diplomacy", new String[]{"source_clan_id", "target_clan_id"}, columns);
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, relation.name());
             statement.setLong(2, System.currentTimeMillis());
@@ -566,10 +692,8 @@ public final class SqlClanStorage implements ClanStorage {
     }
 
     private void saveUpgrade(Connection connection, UUID clanId, ClanUpgrade upgrade, int level) throws SQLException {
-        boolean exists = upgradeExists(connection, clanId, upgrade);
-        String sql = exists
-                ? "UPDATE clan_upgrades SET upgrade_level = ? WHERE clan_id = ? AND upgrade_name = ?"
-                : "INSERT INTO clan_upgrades (upgrade_level, clan_id, upgrade_name) VALUES (?, ?, ?)";
+        String[] columns = {"upgrade_level", "clan_id", "upgrade_name"};
+        String sql = upsertSql("clan_upgrades", new String[]{"clan_id", "upgrade_name"}, columns);
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setInt(1, level);
             statement.setString(2, clanId.toString());
@@ -605,62 +729,42 @@ public final class SqlClanStorage implements ClanStorage {
         }
     }
 
-    private boolean memberExists(Connection connection, UUID clanId, UUID playerId) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM clan_members WHERE clan_id = ? AND player_id = ?")) {
-            statement.setString(1, clanId.toString());
-            statement.setString(2, playerId.toString());
-            try (ResultSet result = statement.executeQuery()) {
-                return result.next();
-            }
-        }
-    }
+    /**
+     * Builds an atomic {@code INSERT ... ON CONFLICT/DUPLICATE KEY UPDATE} statement, replacing
+     * the previous non-atomic "SELECT exists then INSERT/UPDATE" pattern. Two concurrent saves for
+     * the same row (e.g. two members of the same clan changing settings at once, across the
+     * connection pool) could previously interleave between the exists-check and the branch taken,
+     * silently losing an update; a single upsert statement removes that window entirely.
+     *
+     * @param table            target table name
+     * @param conflictColumns  columns making up the row's natural key (used in SQLite's
+     *                         {@code ON CONFLICT(...)} clause; ignored for MySQL, which resolves
+     *                         the conflicting unique/primary key implicitly)
+     * @param columns          all columns being inserted, in the order values will be bound
+     */
+    private String upsertSql(String table, String[] conflictColumns, String[] columns) {
+        String columnList = String.join(", ", columns);
+        String placeholders = String.join(", ", Collections.nCopies(columns.length, "?"));
+        List<String> conflictList = Arrays.asList(conflictColumns);
+        List<String> updateColumns = Arrays.stream(columns)
+                .filter(column -> !conflictList.contains(column))
+                .collect(Collectors.toList());
 
-    private boolean territoryExists(Connection connection, UUID territoryId) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM clan_territories WHERE id = ?")) {
-            statement.setString(1, territoryId.toString());
-            try (ResultSet result = statement.executeQuery()) {
-                return result.next();
-            }
-        }
-    }
+        StringBuilder sql = new StringBuilder("INSERT INTO ").append(table)
+                .append(" (").append(columnList).append(") VALUES (").append(placeholders).append(") ");
 
-    private boolean diplomacyExists(Connection connection, UUID sourceClanId, UUID targetClanId) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM clan_diplomacy WHERE source_clan_id = ? AND target_clan_id = ?")) {
-            statement.setString(1, sourceClanId.toString());
-            statement.setString(2, targetClanId.toString());
-            try (ResultSet result = statement.executeQuery()) {
-                return result.next();
-            }
+        if (database.type() == DatabaseType.MYSQL) {
+            String updates = updateColumns.stream()
+                    .map(column -> column + " = VALUES(" + column + ")")
+                    .collect(Collectors.joining(", "));
+            sql.append("ON DUPLICATE KEY UPDATE ").append(updates);
+        } else {
+            String updates = updateColumns.stream()
+                    .map(column -> column + " = excluded." + column)
+                    .collect(Collectors.joining(", "));
+            sql.append("ON CONFLICT(").append(String.join(", ", conflictColumns)).append(") DO UPDATE SET ").append(updates);
         }
-    }
-
-    private boolean upgradeExists(Connection connection, UUID clanId, ClanUpgrade upgrade) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM clan_upgrades WHERE clan_id = ? AND upgrade_name = ?")) {
-            statement.setString(1, clanId.toString());
-            statement.setString(2, upgrade.name());
-            try (ResultSet result = statement.executeQuery()) {
-                return result.next();
-            }
-        }
-    }
-
-    private boolean applicationExists(Connection connection, UUID clanId, UUID applicantId) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM clan_applications WHERE clan_id = ? AND applicant_id = ?")) {
-            statement.setString(1, clanId.toString());
-            statement.setString(2, applicantId.toString());
-            try (ResultSet result = statement.executeQuery()) {
-                return result.next();
-            }
-        }
-    }
-
-    private boolean exists(Connection connection, String table, String column, String value) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT 1 FROM " + table + " WHERE " + column + " = ?")) {
-            statement.setString(1, value);
-            try (ResultSet result = statement.executeQuery()) {
-                return result.next();
-            }
-        }
+        return sql.toString();
     }
 
     // Helper methods for Location serialization/deserialization

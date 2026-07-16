@@ -7,6 +7,7 @@ description: Full-featured clans, guild wars, territories and LoveClaims integra
 softdepend:
   - LoveClaims
   - PlaceholderAPI
+  - ItemsAdder
 
 commands:
   loveclan:
@@ -67,6 +68,8 @@ permissions:
     default: op
   loveclans.home:
     default: true
+  loveclans.bank:
+    default: true
   # Deprecated nodes kept for backward compatibility with existing permission
   # setups configured before the LoveClans rebrand. New installs should use
   # the loveclans.* nodes above; these are checked as a fallback in code.
@@ -109,4 +112,6 @@ permissions:
   clans.admin:
     default: op
   clans.home:
+    default: true
+  clans.bank:
     default: true

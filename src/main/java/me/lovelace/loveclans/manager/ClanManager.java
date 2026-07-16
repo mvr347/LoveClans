@@ -58,6 +58,8 @@ public final class ClanManager {
     private final Map<UUID, List<ClanApplication>> applicationsByClan = new ConcurrentHashMap<>();
     private final Map<UUID, PendingClaim> pendingClaims = new ConcurrentHashMap<>();
     private final Map<UUID, Map<UUID, Long>> rejoinCooldowns = new ConcurrentHashMap<>();
+    // Отметки времени последнего создания клана каждым игроком, для clans.creation-cooldown-seconds.
+    private final Map<UUID, Long> creationCooldowns = new ConcurrentHashMap<>();
 
     public ClanManager(LoveClansPlugin plugin, ClanStorage storage) {
         this.plugin = plugin;
@@ -257,9 +259,39 @@ public final class ClanManager {
                 throw new IllegalStateException("clan.tag-exists");
             }
 
+            long cooldownSeconds = plugin.getConfig().getLong("clans.creation-cooldown-seconds", 0L);
+            if (cooldownSeconds > 0) {
+                Long lastCreatedAt = creationCooldowns.get(founderId);
+                if (lastCreatedAt != null) {
+                    long remaining = (lastCreatedAt + cooldownSeconds * 1000L) - System.currentTimeMillis();
+                    if (remaining > 0) {
+                        throw new IllegalStateException("clan.creation-cooldown");
+                    }
+                }
+            }
+
             Player founder = Bukkit.getPlayer(founderId);
             if (founder != null && clanItemFactory.hasExistingBanner(founder, "CAPITAL", null)) {
                 throw new IllegalStateException("clan.founder-has-capital-banner");
+            }
+
+            // Плата за создание клана взимается в кастомных предметах ItemsAdder (на сервере нет
+            // экономики Vault, и добавлять её не нужно). Если creation-cost-item не задан, плата
+            // отключена. Проверяем наличие средств до создания клана, списываем — уже после успешного
+            // создания, чтобы не забирать предметы при отмене события/ошибке.
+            long creationCost = plugin.getConfig().getLong("clans.creation-cost", 0L);
+            String creationCostItem = plugin.getConfig().getString("clans.creation-cost-item", "");
+            boolean chargeCreationCost = creationCost > 0 && creationCostItem != null && !creationCostItem.isBlank();
+            if (chargeCreationCost) {
+                if (founder == null) {
+                    throw new IllegalStateException("general.players-only");
+                }
+                if (!plugin.getItemsAdderEconomyService().isAvailable()) {
+                    throw new IllegalStateException("clan.creation-economy-unavailable");
+                }
+                if (!plugin.getItemsAdderEconomyService().hasItem(founder, creationCostItem, creationCost)) {
+                    throw new IllegalStateException("clan.creation-insufficient-funds");
+                }
             }
 
             Material emblem = Material.matchMaterial(plugin.getConfig().getString("clans.default-emblem", "WHITE_BANNER"));
@@ -274,6 +306,13 @@ public final class ClanManager {
                 throw new IllegalStateException("general.error");
             }
             indexClan(clan);
+
+            if (chargeCreationCost) {
+                plugin.getItemsAdderEconomyService().withdraw(founder, creationCostItem, creationCost);
+            }
+            if (cooldownSeconds > 0) {
+                creationCooldowns.put(founderId, System.currentTimeMillis());
+            }
 
             if (founder != null) {
                 founder.getInventory().addItem(clanItemFactory.createCapitalBanner(clan.id(), clan.name()));
@@ -586,7 +625,7 @@ public final class ClanManager {
             }
             clan.setTagColor(colorTag);
             return clan;
-        }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
+        }).thenCompose(updatedClan -> storage.updateClanTagColor(updatedClan.id(), updatedClan.tagColor()).thenApply(ignored -> updatedClan));
     }
 
     public CompletableFuture<Clan> renameClanAsync(Clan clan, UUID actorId, String newName) {
@@ -599,7 +638,7 @@ public final class ClanManager {
             validateName(newName);
             clan.setName(newName);
             return clan;
-        }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
+        }).thenCompose(updatedClan -> storage.updateClanName(updatedClan.id(), updatedClan.name()).thenApply(ignored -> updatedClan));
     }
 
     public CompletableFuture<Clan> changeClanTagAsync(Clan clan, UUID actorId, String newTag) {
@@ -619,7 +658,7 @@ public final class ClanManager {
             clanByTag.remove(oldTag);
             clanByTag.put(normalizeTag(clan.tag()), clan.id());
             return clan;
-        }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
+        }).thenCompose(updatedClan -> storage.updateClanTag(updatedClan.id(), updatedClan.tag()).thenApply(ignored -> updatedClan));
     }
 
     public CompletableFuture<Clan> changeClanEmblemAsync(Clan clan, UUID actorId, Material newEmblem) {
@@ -649,7 +688,7 @@ public final class ClanManager {
             });
 
             return clan;
-        }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
+        }).thenCompose(updatedClan -> storage.updateClanEmblem(updatedClan.id(), updatedClan.emblem()).thenApply(ignored -> updatedClan));
     }
 
     public CompletableFuture<Clan> setClanOpenStatusAsync(Clan clan, UUID actorId, boolean open) {
@@ -661,7 +700,7 @@ public final class ClanManager {
             }
             clan.setOpen(open);
             return clan;
-        }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
+        }).thenCompose(updatedClan -> storage.updateClanOpenStatus(updatedClan.id(), updatedClan.isOpen()).thenApply(ignored -> updatedClan));
     }
 
     public CompletableFuture<ClanTerritory> updateTerritoryAsync(Clan clan, ClanTerritory territory) {
@@ -783,7 +822,7 @@ public final class ClanManager {
 
             if (bannerType.equals("CAPITAL")) {
                 clan.setHomeLocation(location);
-                return storage.saveClanAsync(clan).thenCompose(v -> storage.saveTerritoryAsync(savedTerritory)).thenApply(v -> savedTerritory);
+                return storage.updateClanHomeLocation(clan.id(), location).thenCompose(v -> storage.saveTerritoryAsync(savedTerritory)).thenApply(v -> savedTerritory);
             }
             return storage.saveTerritoryAsync(savedTerritory).thenApply(v -> savedTerritory);
         }).thenApply(savedTerritory -> {
@@ -844,7 +883,7 @@ public final class ClanManager {
             }
             clan.setHomeLocation(location);
             return clan;
-        }).thenCompose(c -> storage.saveClanAsync(c).thenApply(ignored -> c));
+        }).thenCompose(c -> storage.updateClanHomeLocation(c.id(), location).thenApply(ignored -> c));
     }
 
     public CompletableFuture<Void> relocateCapitalTerritoryAsync(Clan clan, UUID actorId) {
@@ -893,7 +932,7 @@ public final class ClanManager {
             Bukkit.getPluginManager().callEvent(new ClanUnclaimEvent(clan, territory, actorId));
             return territory;
         }).thenCompose(territory -> storage.deleteTerritoryAsync(territory.id())
-                .thenCompose(v -> storage.saveClanAsync(clan)).thenApply(v -> null));
+                .thenCompose(v -> storage.updateClanHomeLocation(clan.id(), null)).thenApply(v -> null));
     }
 
     public CompletableFuture<Void> unclaimTerritoryAsync(Clan clan, TerritoryKey key, UUID actorId) {
@@ -998,8 +1037,88 @@ public final class ClanManager {
                 oldLevel = clan.level();
             }
             return clan;
-        }).thenCompose(c -> storage.saveClanAsync(c).thenApply(ignored -> c))
+        }).thenCompose(c -> storage.updateClanProgression(c.id(), c.level(), c.experience(), c.upgradePoints(), c.spirit().level()).thenApply(ignored -> c))
                 .thenCompose(c -> plugin.runSync(() -> plugin.getSpiritManager().addSpiritExperience(c, Math.max(0L, amount / 4), "Опыт клана")).thenApply(ignored -> c));
+    }
+
+    // --- Clan bank / treasury (ItemsAdder-backed) ---
+
+    /**
+     * Deposits {@code amount} of the given ItemsAdder item from the player's inventory into
+     * their clan's bank. Unlike money, ItemsAdder items must be physically removed from the
+     * player, so this is guarded by an explicit inventory check before anything is persisted.
+     */
+    public CompletableFuture<Long> depositToBankAsync(Clan clan, UUID actorId, Player player, String itemId, long amount) {
+        if (clan == null || actorId == null || player == null || itemId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor, player and item ID cannot be null."));
+        return plugin.supplySync(() -> {
+            if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
+                throw new IllegalStateException("general.no-permission");
+            }
+            if (amount <= 0) {
+                throw new IllegalStateException("bank.invalid-amount");
+            }
+            requireBankEnabled();
+            requireAllowedBankItem(itemId);
+            if (!plugin.getItemsAdderEconomyService().isAvailable()) {
+                throw new IllegalStateException("clan.creation-economy-unavailable");
+            }
+            if (!plugin.getItemsAdderEconomyService().hasItem(player, itemId, amount)) {
+                throw new IllegalStateException("bank.insufficient-items");
+            }
+            plugin.getItemsAdderEconomyService().withdraw(player, itemId, amount);
+            return null;
+        }).thenCompose(ignored -> storage.adjustBankAmountAsync(clan.id(), itemId, amount)
+                .thenApply(newBalance -> {
+                    clan.putBankAmount(itemId, newBalance);
+                    return newBalance;
+                }));
+    }
+
+    /**
+     * Withdraws {@code amount} of the given ItemsAdder item from the clan's bank and gives it to
+     * the player. The storage-level decrement is atomic (conditioned on sufficient balance), so
+     * two concurrent withdrawals from different clan members can't overdraw the bank.
+     */
+    public CompletableFuture<Void> withdrawFromBankAsync(Clan clan, UUID actorId, Player player, String itemId, long amount) {
+        if (clan == null || actorId == null || player == null || itemId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor, player and item ID cannot be null."));
+        return plugin.supplySync(() -> {
+            if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
+                throw new IllegalStateException("general.no-permission");
+            }
+            if (amount <= 0) {
+                throw new IllegalStateException("bank.invalid-amount");
+            }
+            requireBankEnabled();
+            requireAllowedBankItem(itemId);
+            if (!plugin.getItemsAdderEconomyService().isAvailable()) {
+                throw new IllegalStateException("clan.creation-economy-unavailable");
+            }
+            return null;
+        }).thenCompose(ignored -> storage.withdrawBankAmountAsync(clan.id(), itemId, amount)).thenCompose(success -> {
+            if (!Boolean.TRUE.equals(success)) {
+                return CompletableFuture.failedFuture(new IllegalStateException("bank.insufficient-items"));
+            }
+            return plugin.supplySync(() -> {
+                clan.addBankAmount(itemId, -amount);
+                plugin.getItemsAdderEconomyService().give(player, itemId, amount);
+                return null;
+            });
+        });
+    }
+
+    private void requireBankEnabled() {
+        if (!plugin.getConfig().getBoolean("clans.bank.enabled", true)) {
+            throw new IllegalStateException("bank.disabled");
+        }
+    }
+
+    private void requireAllowedBankItem(String itemId) {
+        List<String> allowed = plugin.getConfig().getStringList("clans.bank.allowed-items");
+        if (!allowed.contains(itemId)) {
+            throw new IllegalStateException("bank.item-not-allowed");
+        }
     }
 
     public CompletableFuture<Clan> updateClanAsync(Clan clan) {
@@ -1060,7 +1179,9 @@ public final class ClanManager {
             clan.setUpgradeLevel(upgrade, clan.upgradeLevel(upgrade) + 1);
             clan.removeUpgradePoints(1);
             return clan;
-        }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
+        }).thenCompose(updatedClan -> storage.saveUpgradeAsync(updatedClan.id(), upgrade, updatedClan.upgradeLevel(upgrade))
+                .thenCompose(ignored -> storage.updateClanUpgradePoints(updatedClan.id(), updatedClan.upgradePoints()))
+                .thenApply(ignored -> updatedClan));
     }
 
     public CompletableFuture<Clan> chooseSpiritAbilityAsync(Clan clan, UUID actorId, me.lovelace.loveclans.model.spirit.SpiritAbility ability) {
@@ -1083,7 +1204,8 @@ public final class ClanManager {
             }
             clan.setSpirit(clan.spirit().withAbility(ability, now));
             return clan;
-        }).thenCompose(updatedClan -> storage.saveClanAsync(updatedClan).thenApply(ignored -> updatedClan));
+        }).thenCompose(updatedClan -> storage.updateClanSpiritAbility(updatedClan.id(), updatedClan.spirit().ability(), updatedClan.spirit().abilityChosenAt())
+                .thenApply(ignored -> updatedClan));
     }
 
     public long experienceForLevel(int level) {
@@ -1184,10 +1306,15 @@ public final class ClanManager {
         }
     }
 
+    // Название клана рендерится напрямую (без экранирования) через PlaceholderAPIHook для других
+    // плагинов, поэтому, как и тег, оно должно проходить проверку по белому списку символов —
+    // иначе игрок сможет внедрить MiniMessage/легаси цветовые коды или управляющие последовательности
+    // в чужой чат/скорборд через placeholder clans_name.
     private void validateName(String name) {
         int min = plugin.getConfig().getInt("clans.name.min-length", 4);
         int max = plugin.getConfig().getInt("clans.name.max-length", 10);
-        if (name == null || name.length() < min || name.length() > max) {
+        String pattern = plugin.getConfig().getString("clans.name.pattern", "^[\\p{L}\\p{N} _-]+$");
+        if (name == null || name.length() < min || name.length() > max || !Pattern.compile(pattern).matcher(name).matches()) {
             throw new IllegalStateException("clan.invalid-name");
         }
     }

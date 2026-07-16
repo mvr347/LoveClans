@@ -7,5 +7,6 @@ public enum ClanPermission {
     CLAIM,
     UPGRADE,
     SETTINGS,
-    DIPLOMACY
+    DIPLOMACY,
+    BANK
 }
