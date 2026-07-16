@@ -34,6 +34,8 @@ public final class Clan {
     private final Map<UUID, DiplomacyRelation> diplomacy = new ConcurrentHashMap<>();
     private final Map<ClanUpgrade, Integer> upgrades = new ConcurrentHashMap<>();
     private final Map<ClanRank, Set<ClanPermission>> permissions = new ConcurrentHashMap<>();
+    // Казна клана: ItemsAdder namespaced ID -> количество предмета, хранящееся в банке клана.
+    private final Map<String, Long> bank = new ConcurrentHashMap<>();
 
     public Clan(UUID id,
                 String name,
@@ -335,5 +337,30 @@ public final class Clan {
     // New setter for homeLocation
     public void setHomeLocation(Location homeLocation) {
         this.homeLocation = homeLocation;
+    }
+
+    // --- Clan bank / treasury (ItemsAdder-backed) ---
+
+    public Map<String, Long> bankContents() {
+        return Collections.unmodifiableMap(bank);
+    }
+
+    public long bankAmount(String itemId) {
+        return bank.getOrDefault(itemId, 0L);
+    }
+
+    /** Used when loading bank rows from storage; does not touch persisted state itself. */
+    public void putBankAmount(String itemId, long amount) {
+        if (amount <= 0) {
+            bank.remove(itemId);
+        } else {
+            bank.put(itemId, amount);
+        }
+    }
+
+    public long addBankAmount(String itemId, long delta) {
+        long updated = Math.max(0L, bankAmount(itemId) + delta);
+        putBankAmount(itemId, updated);
+        return updated;
     }
 }

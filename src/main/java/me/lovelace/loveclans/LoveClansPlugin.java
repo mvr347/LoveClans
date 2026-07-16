@@ -2,6 +2,7 @@ package me.lovelace.loveclans;
 
 import me.lovelace.loveclans.api.LoveClansAPI;
 import me.lovelace.loveclans.command.ClanCommand;
+import me.lovelace.loveclans.economy.ItemsAdderEconomyService;
 import me.lovelace.loveclans.manager.GuiManager;
 import me.lovelace.loveclans.integration.AdvancedClaimsHook;
 import me.lovelace.loveclans.integration.PlaceholderAPIHook;
@@ -59,6 +60,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private GuiManager guiManager;
     private ShieldColorManager shieldColorManager;
     private AdvancedClaimsHook advancedClaimsHook;
+    private ItemsAdderEconomyService itemsAdderEconomyService;
     private ClanProtectionListener clanProtectionListener;
     private BukkitTask heartbeatTask;
     // private BukkitTask glowingEffectTask; // Temporarily disabled
@@ -85,6 +87,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         guiManager = new GuiManager(this);
         shieldColorManager = new ShieldColorManager(this);
         advancedClaimsHook = new AdvancedClaimsHook(this);
+        itemsAdderEconomyService = new ItemsAdderEconomyService();
 
         clanManager.loadAsync().thenRunAsync(() -> {
             runSync(() -> {
@@ -235,6 +238,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public AdvancedClaimsHook getAdvancedClaimsHook() {
         return advancedClaimsHook;
+    }
+
+    public ItemsAdderEconomyService getItemsAdderEconomyService() {
+        return itemsAdderEconomyService;
     }
 
     public CompletableFuture<Void> runSync(Runnable runnable) {

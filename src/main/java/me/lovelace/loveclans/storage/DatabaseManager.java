@@ -210,6 +210,16 @@ public final class DatabaseManager implements AutoCloseable {
                     """);
 
 
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_bank (
+                        clan_id VARCHAR(36) NOT NULL,
+                        item_id VARCHAR(128) NOT NULL,
+                        amount BIGINT NOT NULL DEFAULT 0,
+                        PRIMARY KEY (clan_id, item_id),
+                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
+                    )
+                    """);
+
             // History for Clan Spirit
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_spirit_history (

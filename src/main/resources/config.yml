@@ -21,8 +21,19 @@ clans:
   name:
     min-length: 4
     max-length: 10
+    # pattern — белый список символов для названия клана. Название рендерится без экранирования
+    # через PlaceholderAPI (см. PlaceholderAPIHook), поэтому запрещаем управляющие символы и
+    # последовательности, которые можно использовать для инъекции MiniMessage/легаси цветовых кодов
+    # (символы "<", ">", "&", "§"). Буквы разрешены в широком unicode-диапазоне (кириллица и т.д.),
+    # также разрешены пробелы, цифры, дефис и подчёркивание.
+    pattern: "^[\\p{L}\\p{N} _-]+$"
   creation-cooldown-seconds: 86400
-  creation-cost: 10000.0
+  # creation-cost — количество предмета creation-cost-item, списываемое с игрока при создании клана.
+  # Экономика ItemsAdder, а не Vault: на сервере нет плагина-экономики, и добавлять его не нужно.
+  creation-cost: 10000
+  # creation-cost-item — ItemsAdder ID предмета (namespace:id), которым оплачивается создание клана.
+  # Если оставить пустым, плата за создание не взимается (штраф отключён), даже если creation-cost > 0.
+  creation-cost-item: ""
   rejoin-cooldown-seconds: 3600
   default-tag-color: "<gold>"
   # dye-color — имя org.bukkit.DyeColor, используется для окраски щитов в цвет клана (см. ShieldColorManager).
@@ -47,6 +58,13 @@ clans:
   default-emblem: WHITE_BANNER
   invite-expire-seconds: 120
   friendly-fire: false
+  # Казна клана (банк) — хранилище на основе кастомных предметов ItemsAdder, отдельное от
+  # физического общего сундука клана. Пополняется/снимается командами /clan bank deposit|withdraw.
+  bank:
+    enabled: true
+    # allowed-items — список ItemsAdder ID (namespace:id) предметов, которые можно вносить/снимать
+    # из казны клана. Предметы, отсутствующие в этом списке, банк не принимает.
+    allowed-items: []
 
 limits:
   max-level: 20
