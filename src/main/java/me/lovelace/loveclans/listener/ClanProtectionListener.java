@@ -36,6 +36,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -291,8 +292,8 @@ public class ClanProtectionListener implements Listener {
         // attacker a tagged captured-banner item that starts the capitulation countdown.
         event.setCancelled(true);
 
-        int requiredHits = Math.max(1, plugin.getConfig().getInt("war.banner-break-hits", 5));
-        long resetMs = Math.max(1, plugin.getConfig().getLong("war.banner-break-progress-reset-seconds", 15)) * 1000L;
+        int requiredHits = warManager.bannerBreakHitsRequired();
+        long resetMs = warManager.bannerBreakResetMillis();
         int hits = warManager.registerBannerHit(war.id(), resetMs);
         if (hits < requiredHits) {
             plugin.getMessages().sendActionBar(player, "war.banner.progress",
@@ -334,14 +335,21 @@ public class ClanProtectionListener implements Listener {
     }
 
     private void glowEnemiesInTerritory(Clan territoryOwner, Clan enemyClan) {
+        List<Player> onlineEnemies = enemyClan.members().keySet().stream()
+                .map(Bukkit::getPlayer)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (onlineEnemies.isEmpty()) {
+            return;
+        }
+
         for (ClanTerritory territory : territoryOwner.territories()) {
             World world = Bukkit.getWorld(territory.world());
             if (world == null) {
                 continue;
             }
-            for (UUID memberId : enemyClan.members().keySet()) {
-                Player enemy = Bukkit.getPlayer(memberId);
-                if (enemy == null || !enemy.getWorld().equals(world)) {
+            for (Player enemy : onlineEnemies) {
+                if (!enemy.getWorld().equals(world)) {
                     continue;
                 }
                 if (territory.boundingBox().contains(enemy.getLocation().toVector())) {
@@ -385,6 +393,8 @@ public class ClanProtectionListener implements Listener {
         Item item = event.getItemDrop();
         ItemStack itemStack = item.getItemStack();
 
+        // isClanBanner also matches a captured war banner - intentionally: a carrier can't
+        // voluntarily drop it to dodge losing it, only death/logout/war-end takes it away.
         if (isClanBanner(itemStack)) {
             event.setCancelled(true);
             plugin.getMessages().send(event.getPlayer(), "territory.banner.cannot-drop");

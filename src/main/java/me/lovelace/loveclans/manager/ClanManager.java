@@ -340,6 +340,9 @@ public final class ClanManager {
                     player.closeInventory();
                 }
             }
+            // Must run before unindexClan: it still needs to resolve this clan (and messages
+            // its war opponents) while it's a member of ClanManager's lookup maps.
+            plugin.getWarManager().endActiveWarsInvolvingClan(clan.id());
             for (ClanTerritory territory : clan.territories()) {
                 plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
                 unindexTerritory(territory);
@@ -639,10 +642,10 @@ public final class ClanManager {
             clan.setName(newName);
             return clan;
         }).thenCompose(updatedClan -> storage.updateClanName(updatedClan.id(), updatedClan.name()).thenApply(ignored -> updatedClan))
-                .thenApply(updatedClan -> {
-                    plugin.getAdvancedClaimsHook().updateClanOwnerDisplayName(updatedClan);
-                    return updatedClan;
-                });
+                // storage.updateClanName completes on the DB executor thread, not the main
+                // thread - hop back via runSync before touching the LoveClaims integration.
+                .thenCompose(updatedClan -> plugin.runSync(() -> plugin.getAdvancedClaimsHook().updateClanOwnerDisplayName(updatedClan))
+                        .thenApply(ignored -> updatedClan));
     }
 
     public CompletableFuture<Clan> changeClanTagAsync(Clan clan, UUID actorId, String newTag) {
@@ -663,10 +666,10 @@ public final class ClanManager {
             clanByTag.put(normalizeTag(clan.tag()), clan.id());
             return clan;
         }).thenCompose(updatedClan -> storage.updateClanTag(updatedClan.id(), updatedClan.tag()).thenApply(ignored -> updatedClan))
-                .thenApply(updatedClan -> {
-                    plugin.getAdvancedClaimsHook().updateClanOwnerDisplayName(updatedClan);
-                    return updatedClan;
-                });
+                // storage.updateClanTag completes on the DB executor thread, not the main
+                // thread - hop back via runSync before touching the LoveClaims integration.
+                .thenCompose(updatedClan -> plugin.runSync(() -> plugin.getAdvancedClaimsHook().updateClanOwnerDisplayName(updatedClan))
+                        .thenApply(ignored -> updatedClan));
     }
 
     public CompletableFuture<Clan> changeClanEmblemAsync(Clan clan, UUID actorId, Material newEmblem) {

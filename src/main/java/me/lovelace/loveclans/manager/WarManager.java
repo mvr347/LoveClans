@@ -38,9 +38,11 @@ public final class WarManager {
     private final LoveClansPlugin plugin;
     private final Map<UUID, ClanWar> activeWars = new ConcurrentHashMap<>();
     private final Map<AbstractMap.SimpleImmutableEntry<UUID, UUID>, Long> warCooldowns = new ConcurrentHashMap<>();
-    // Прогресс "прочности" знамени во время войны: сколько ударов подряд уже нанесено.
-    private final Map<UUID, Integer> bannerHits = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> bannerLastHitAt = new ConcurrentHashMap<>();
+    // Прогресс "прочности" знамени во время войны: сколько ударов подряд уже нанесено и когда был
+    // последний удар. Один record на войну вместо двух параллельных карт - чтобы оба значения
+    // всегда обновлялись/удалялись вместе и не могли разойтись.
+    private record BannerProgress(int hits, long lastHitAt) {}
+    private final Map<UUID, BannerProgress> bannerProgress = new ConcurrentHashMap<>();
 
     public WarManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -64,6 +66,11 @@ public final class WarManager {
                 : new AbstractMap.SimpleImmutableEntry<>(clan2, clan1);
     }
 
+    private boolean isTerritoryAlreadyContested(UUID defenderClanId, TerritoryKey territoryKey) {
+        return activeWars.values().stream().anyMatch(w ->
+                w.defenderClanId().equals(defenderClanId) && territoryKey.equals(w.contestedTerritory()));
+    }
+
     public CompletableFuture<ClanWar> startWarAsync(Clan attacker, Clan defender, TerritoryKey territory) {
         return plugin.supplySync(() -> {
             if (activeWars.size() >= 3) {
@@ -74,6 +81,13 @@ public final class WarManager {
             }
             if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
                 throw new IllegalStateException("war.cannot-declare-on-ally");
+            }
+            // Two different attackers contesting the same defender territory would share one
+            // siege flag on the defender's claim; whichever war ends first would incorrectly
+            // lift siege mode while the other is still active. Simplest correct fix: only one
+            // war may contest a given territory at a time.
+            if (territory != null && isTerritoryAlreadyContested(defender.id(), territory)) {
+                throw new IllegalStateException("war.territory-already-contested");
             }
 
             AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = getWarPairKey(attacker.id(), defender.id());
@@ -139,8 +153,11 @@ public final class WarManager {
                                 return null;
                             }));
                     if (war.capturedBannerBy() != null) {
+                        // null actorId: this is a forced system disband (the attacker who captured
+                        // the banner is not a member of the defender clan, so passing their UUID
+                        // as actorId would always fail Clan#hasPermission and silently no-op).
                         plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(defender ->
-                                plugin.getClanManager().disbandClanAsync(defender, war.capturedBannerBy()).exceptionally(t -> {
+                                plugin.getClanManager().disbandClanAsync(defender, null).exceptionally(t -> {
                                     plugin.getLogger().warning("Failed to disband clan " + defender.id() + " after war loss: " + t.getMessage());
                                     return null;
                                 }));
@@ -155,8 +172,7 @@ public final class WarManager {
                 announceWarEnd(war, result);
                 confiscateWarItems(war);
                 endSiege(war);
-                bannerHits.remove(war.id());
-                bannerLastHitAt.remove(war.id());
+                resetBannerHits(war.id());
             }
             return null;
         });
@@ -185,8 +201,7 @@ public final class WarManager {
             announceWarEnd(war, WarResult.DRAW);
             confiscateWarItems(war);
             endSiege(war);
-            bannerHits.remove(war.id());
-            bannerLastHitAt.remove(war.id());
+            resetBannerHits(war.id());
 
             return null;
         });
@@ -283,19 +298,24 @@ public final class WarManager {
      */
     public int registerBannerHit(UUID warId, long resetMs) {
         long now = System.currentTimeMillis();
-        Long lastHit = bannerLastHitAt.get(warId);
-        if (lastHit == null || now - lastHit > resetMs) {
-            bannerHits.put(warId, 1);
-        } else {
-            bannerHits.merge(warId, 1, Integer::sum);
-        }
-        bannerLastHitAt.put(warId, now);
-        return bannerHits.getOrDefault(warId, 1);
+        BannerProgress previous = bannerProgress.get(warId);
+        int hits = (previous == null || now - previous.lastHitAt() > resetMs) ? 1 : previous.hits() + 1;
+        bannerProgress.put(warId, new BannerProgress(hits, now));
+        return hits;
     }
 
     public void resetBannerHits(UUID warId) {
-        bannerHits.remove(warId);
-        bannerLastHitAt.remove(warId);
+        bannerProgress.remove(warId);
+    }
+
+    /** Сколько ударов подряд нужно нанести по знамени территории, прежде чем оно сломается. */
+    public int bannerBreakHitsRequired() {
+        return Math.max(1, plugin.getConfig().getInt("war.banner-break-hits", 5));
+    }
+
+    /** Через сколько мс без ударов прогресс поломки знамени сбрасывается. */
+    public long bannerBreakResetMillis() {
+        return Math.max(1, plugin.getConfig().getLong("war.banner-break-progress-reset-seconds", 15)) * 1000L;
     }
 
     /**
@@ -304,16 +324,40 @@ public final class WarManager {
      */
     public void startBannerCapture(ClanWar war, UUID carrierId) {
         activeWars.put(war.id(), war.withBannerCapture(carrierId, System.currentTimeMillis()));
-        notifyBannerBroken(war, carrierId);
+        notifyBannerBroken(war);
     }
 
     public void purgeClan(UUID clanId) {
         warCooldowns.keySet().removeIf(pair -> pair.getKey().equals(clanId) || pair.getValue().equals(clanId));
     }
 
+    /**
+     * Немедленно завершает все активные войны с участием этого клана. Нужно вызывать при
+     * расформировании клана (добровольном или как следствие захвата знамени) - иначе война и
+     * осадный режим на территории противника остаются висеть на клане, которого больше нет,
+     * до истечения таймера войны. Должен вызываться до того, как клан будет удалён из
+     * ClanManager (иначе getClanById для второй стороны войны ещё найдётся, а для этого клана -
+     * уже нет).
+     */
+    public void endActiveWarsInvolvingClan(UUID clanId) {
+        for (ClanWar war : activeWars()) {
+            if (!war.involves(clanId)) {
+                continue;
+            }
+            activeWars.remove(war.id());
+            UUID otherClanId = war.attackerClanId().equals(clanId) ? war.defenderClanId() : war.attackerClanId();
+            plugin.getClanManager().getClanById(otherClanId).ifPresent(otherClan ->
+                    onlineMembers(otherClan).forEach(player -> plugin.getMessages().send(player, "war.ended-by-disband")));
+            confiscateWarItems(war);
+            endSiege(war);
+            resetBannerHits(war.id());
+        }
+    }
+
     public void tick() {
         long now = System.currentTimeMillis();
-        warCooldowns.entrySet().removeIf(entry -> now - entry.getValue() >= warCooldownDuration().toMillis());
+        long cooldownMillis = warCooldownDuration().toMillis();
+        warCooldowns.entrySet().removeIf(entry -> now - entry.getValue() >= cooldownMillis);
 
         for (ClanWar war : activeWars.values()) {
             if (war.capturedBannerBy() != null) {
@@ -399,10 +443,11 @@ public final class WarManager {
 
         player.setCompassTarget(targetLocation);
 
-        if (player.getInventory().firstEmpty() == -1) {
-            player.getInventory().setItem(0, compass);
-        } else {
-            player.getInventory().addItem(compass);
+        // Never overwrite an occupied slot (e.g. slot 0) - a full inventory drops the compass
+        // at the player's feet instead of destroying whatever item was already there.
+        Map<Integer, ItemStack> overflow = player.getInventory().addItem(compass);
+        for (ItemStack leftover : overflow.values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), leftover);
         }
         plugin.getMessages().send(player, "war.compass-given", Map.of("tag", enemyClan.tag(), "color", enemyClan.tagColor()));
     }
@@ -477,14 +522,24 @@ public final class WarManager {
         });
     }
 
-    private void announceWarEnd(ClanWar war, WarResult result) {
+    private record WarClans(Clan attacker, Clan defender) {}
+
+    private Optional<WarClans> resolveWarClans(ClanWar war) {
         Optional<Clan> attackerOpt = plugin.getClanManager().getClanById(war.attackerClanId());
         Optional<Clan> defenderOpt = plugin.getClanManager().getClanById(war.defenderClanId());
         if (attackerOpt.isEmpty() || defenderOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new WarClans(attackerOpt.get(), defenderOpt.get()));
+    }
+
+    private void announceWarEnd(ClanWar war, WarResult result) {
+        Optional<WarClans> warClansOpt = resolveWarClans(war);
+        if (warClansOpt.isEmpty()) {
             return;
         }
-        Clan attacker = attackerOpt.get();
-        Clan defender = defenderOpt.get();
+        Clan attacker = warClansOpt.get().attacker();
+        Clan defender = warClansOpt.get().defender();
 
         if (result == WarResult.DRAW) {
             onlineMembers(attacker).forEach(player -> {
@@ -515,14 +570,13 @@ public final class WarManager {
         });
     }
 
-    private void notifyBannerBroken(ClanWar war, UUID carrierId) {
-        Optional<Clan> attackerOpt = plugin.getClanManager().getClanById(war.attackerClanId());
-        Optional<Clan> defenderOpt = plugin.getClanManager().getClanById(war.defenderClanId());
-        if (attackerOpt.isEmpty() || defenderOpt.isEmpty()) {
+    private void notifyBannerBroken(ClanWar war) {
+        Optional<WarClans> warClansOpt = resolveWarClans(war);
+        if (warClansOpt.isEmpty()) {
             return;
         }
-        Clan attacker = attackerOpt.get();
-        Clan defender = defenderOpt.get();
+        Clan attacker = warClansOpt.get().attacker();
+        Clan defender = warClansOpt.get().defender();
 
         onlineMembers(defender).forEach(player -> {
             plugin.getMessages().sendTitle(player, "war.banner.broken-defender-title", "war.banner.broken-defender-subtitle",
@@ -544,13 +598,12 @@ public final class WarManager {
     }
 
     private void broadcastCapitulationCountdown(ClanWar war, long remainingMs) {
-        String time = formatDuration(remainingMs);
-        Optional<Clan> attackerOpt = plugin.getClanManager().getClanById(war.attackerClanId());
-        Optional<Clan> defenderOpt = plugin.getClanManager().getClanById(war.defenderClanId());
-        if (attackerOpt.isEmpty() || defenderOpt.isEmpty()) {
+        Optional<WarClans> warClansOpt = resolveWarClans(war);
+        if (warClansOpt.isEmpty()) {
             return;
         }
-        Clan defender = defenderOpt.get();
+        Clan defender = warClansOpt.get().defender();
+        String time = formatDuration(remainingMs);
 
         Player carrier = Bukkit.getPlayer(war.capturedBannerBy());
         String carrierName = carrier != null ? carrier.getName() : "?";
@@ -558,10 +611,10 @@ public final class WarManager {
             carrier.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.GLOWING, 40, 0, false, false, false));
         }
 
-        onlineMembers(defenderOpt.get()).forEach(player ->
+        onlineMembers(warClansOpt.get().defender()).forEach(player ->
                 plugin.getMessages().sendActionBar(player, "war.banner.capitulation-actionbar-defender",
                         Map.of("time", time, "player", carrierName)));
-        onlineMembers(attackerOpt.get()).forEach(player ->
+        onlineMembers(warClansOpt.get().attacker()).forEach(player ->
                 plugin.getMessages().sendActionBar(player, "war.banner.capitulation-actionbar-attacker",
                         Map.of("time", time, "tag", defender.tag(), "color", defender.tagColor())));
     }

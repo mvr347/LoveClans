@@ -579,7 +579,7 @@ territory:
     not-contested: "<prefix><red>Это знамя нельзя тронуть - война сейчас идёт не за эту территорию."
     cannot-break-peace: "<prefix><red>Нельзя ломать знамя территории в мирное время."
   capital:
-    cannot-break-bearing-block: "<prefix><red>Невозможно сломать блок, удерживающий знамя столицы."
+    cannot-break-bearing-block: "<prefix><red>Невозможно сломать блок, удерживающий знамя."
     cannot-break-peace: "<prefix><red>Нельзя ломать столицу в мирное время."
     not-found: "<prefix><red>Столица клана не найдена."
   claim-cancelled: "<prefix><yellow>Захват территории отменён."
@@ -613,6 +613,8 @@ war:
   defender-no-online-leader-or-guardian: "<prefix><red>У клана-защитника нет онлайн главы или хранителя."
   max-wars-reached: "<prefix><red>Достигнут лимит одновременных войн."
   must-be-in-enemy-territory: "<prefix><red>Чтобы объявить войну за территорию, нужно находиться на ней."
+  territory-already-contested: "<prefix><red>Эта территория уже оспаривается в другой войне."
+  ended-by-disband: "<prefix><yellow>Война окончена - клан противника был расформирован."
   not-at-war: "<prefix><red>Кланы не находятся в состоянии войны."
   not-enough-members: "<prefix><red>Недостаточно участников онлайн для начала войны (нужно минимум 3 с каждой стороны)."
   not-found: "<prefix><red>Война не найдена."
