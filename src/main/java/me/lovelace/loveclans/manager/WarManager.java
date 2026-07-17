@@ -249,8 +249,43 @@ public final class WarManager {
         ClanWar war = activeWars.get(warId);
         if (war != null) {
             activeWars.put(warId, war.withBannerCapture(null, 0));
+            restoreBannerBlock(war);
             announceCaptureReset(war);
         }
+    }
+
+    /**
+     * Ставит знамя оспариваемой территории обратно, если его сломал захвативший игрок, но не
+     * удержал (умер/вышел до истечения таймера капитуляции). Без этого блок навсегда остаётся
+     * воздухом после первого сброса - сломать (и тем самым перезапустить захват) будет уже нечего,
+     * и оставшаяся часть войны молча деградирует до победы по очкам/таймеру.
+     */
+    private void restoreBannerBlock(ClanWar war) {
+        Optional<ClanTerritory> territoryOpt = resolveContestedTerritory(war);
+        if (territoryOpt.isEmpty()) {
+            return;
+        }
+        ClanTerritory territory = territoryOpt.get();
+        if (territory.bannerX() == null || territory.bannerY() == null || territory.bannerZ() == null) {
+            return;
+        }
+        org.bukkit.World world = Bukkit.getWorld(territory.key().world());
+        if (world == null) {
+            return;
+        }
+        org.bukkit.block.Block block = world.getBlockAt(territory.bannerX(), territory.bannerY(), territory.bannerZ());
+        if (block.getType() != Material.AIR) {
+            return; // Not broken (or already restored) - nothing to do.
+        }
+        plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(defender -> {
+            block.setType(defender.emblem());
+            if (block.getState() instanceof org.bukkit.block.Banner bannerState) {
+                bannerState.getPersistentDataContainer().set(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING,
+                        territory.isCapital() ? "CAPITAL" : "TERRITORY");
+                bannerState.getPersistentDataContainer().set(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING, defender.id().toString());
+                bannerState.update(true);
+            }
+        });
     }
 
     /**
