@@ -373,6 +373,7 @@ gui:
       upgrade: "<gold>Улучшения клана"
       settings: "<gold>Настройки клана"
       diplomacy: "<gold>Дипломатия"
+      bank: "<gold>Управление банком клана"
   role-settings:
     title: "<gold>Управление рангами"
     rank:
@@ -535,6 +536,11 @@ item:
   war-compass:
     name: "<gold>Боевой компас <white><tag>"
     lore: "<gray>Указывает направление к territории противника во время войны."
+  captured-banner:
+    name: "<red>Захваченное знамя <white><clan>"
+    lore:
+      - "<gray>Знамя территории клана <white><clan>"
+      - "<gray>Удерживайте его, чтобы захватить территорию."
 
 quest:
   reward:
@@ -570,8 +576,10 @@ territory:
     cannot-drop: "<prefix><red>Вы не можете выбросить это знамя."
     invalid-clan: "<prefix><red>Это знамя принадлежит клану, которого больше не существует."
     not-your-clan: "<prefix><red>Это знамя принадлежит другому клану."
+    not-contested: "<prefix><red>Это знамя нельзя тронуть - война сейчас идёт не за эту территорию."
+    cannot-break-peace: "<prefix><red>Нельзя ломать знамя территории в мирное время."
   capital:
-    cannot-break-bearing-block: "<prefix><red>Невозможно сломать блок, удерживающий знамя столицы."
+    cannot-break-bearing-block: "<prefix><red>Невозможно сломать блок, удерживающий знамя."
     cannot-break-peace: "<prefix><red>Нельзя ломать столицу в мирное время."
     not-found: "<prefix><red>Столица клана не найдена."
   claim-cancelled: "<prefix><yellow>Захват территории отменён."
@@ -595,7 +603,7 @@ territory:
 
 war:
   already-at-war: "<prefix><red>Ваш клан уже находится в состоянии войны с этим кланом."
-  banner-dropped: "<prefix><yellow>Боевой компас был выброшен, так как война окончена."
+  banner-dropped: "<prefix><yellow>Вы потеряли захваченное знамя."
   cannot-claim: "<prefix><red>Нельзя захватывать территории во время войны."
   cannot-declare-on-ally: "<prefix><red>Нельзя объявить войну союзному клану."
   cannot-unclaim: "<prefix><red>Нельзя снимать захват территории во время войны."
@@ -604,9 +612,34 @@ war:
   cooldown-active: "<prefix><red>Нельзя объявить войну этому клану ещё <white><seconds></white> сек."
   defender-no-online-leader-or-guardian: "<prefix><red>У клана-защитника нет онлайн главы или хранителя."
   max-wars-reached: "<prefix><red>Достигнут лимит одновременных войн."
+  must-be-in-enemy-territory: "<prefix><red>Чтобы объявить войну за территорию, нужно находиться на ней."
+  territory-already-contested: "<prefix><red>Эта территория уже оспаривается в другой войне."
+  ended-by-disband: "<prefix><yellow>Война окончена - клан противника был расформирован."
   not-at-war: "<prefix><red>Кланы не находятся в состоянии войны."
   not-enough-members: "<prefix><red>Недостаточно участников онлайн для начала войны (нужно минимум 3 с каждой стороны)."
   not-found: "<prefix><red>Война не найдена."
   peace: "<prefix><green>Заключён мир с кланом <color><tag></color>."
   peace-confirm-prompt: "<prefix><yellow>Вы уверены, что хотите заключить мир с кланом <color><tag></color>?"
   started: "<prefix><gold>Война между <white><attacker></white> и <white><defender></white> началась!"
+  banner:
+    progress: "<red>Знамя повреждено: <white><hits></white>/<white><required></white>"
+    broken-defender-title: "<red><bold>Ваш баннер сломали!"
+    broken-defender-subtitle: "<gray>Клан <color><tag></color> захватывает вашу территорию"
+    broken-attacker-title: "<green><bold>Вражеское знамя повержено!"
+    broken-attacker-subtitle: "<gray>Удерживайте территорию до капитуляции клана <color><tag></color>"
+    capitulation-actionbar-defender: "<red>До капитуляции вашего клана: <white><time></white> <gray>(верните знамя, убив <player>)"
+    capitulation-actionbar-attacker: "<green>До капитуляции клана <color><tag></color>: <white><time></white>"
+    capture-reset: "<prefix><yellow>Захват знамени сорван - вражеский носитель потерял его."
+    confiscated: "<prefix><yellow>Захваченное вражеское знамя изъято."
+  start:
+    attacker-title: "<gold><bold>Война объявлена!"
+    attacker-subtitle: "<gray>Вы объявили войну клану <color><tag></color>"
+    defender-title: "<red><bold>На вас напали!"
+    defender-subtitle: "<gray>Клан <color><tag></color> объявил вам войну"
+  end:
+    victory-title: "<green><bold>Победа!"
+    victory-subtitle: "<gray>Ваш клан одержал победу над <color><tag></color>"
+    defeat-title: "<red><bold>Поражение"
+    defeat-subtitle: "<gray>Ваш клан проиграл войну клану <color><tag></color>"
+    draw-title: "<yellow><bold>Ничья"
+    draw-subtitle: "<gray>Война с кланом <color><tag></color> окончилась вничью"

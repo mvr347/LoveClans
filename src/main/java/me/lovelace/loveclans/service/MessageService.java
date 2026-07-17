@@ -6,10 +6,14 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+
+import java.time.Duration;
 
 import java.io.File;
 import java.io.InputStream;
@@ -194,6 +198,25 @@ public final class MessageService {
                 sendChatConfirmPrompt(player, promptKey, placeholders, onConfirm, onCancel);
             }
         });
+    }
+
+    /**
+     * Shows a title/subtitle to a player, both resolved from lang.yml. Pass null for
+     * subtitleKey to show a title-only prompt.
+     */
+    public void sendTitle(Player player, String titleKey, String subtitleKey, Map<String, String> placeholders) {
+        Component titleComponent = component(titleKey, placeholders, player);
+        Component subtitleComponent = subtitleKey != null ? component(subtitleKey, placeholders, player) : Component.empty();
+        player.showTitle(Title.title(titleComponent, subtitleComponent,
+                Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(3000), Duration.ofMillis(500))));
+    }
+
+    public void sendActionBar(Player player, String key, Map<String, String> placeholders) {
+        player.sendActionBar(component(key, placeholders, player));
+    }
+
+    public void playSound(Player player, Sound sound, float volume, float pitch) {
+        player.playSound(player.getLocation(), sound, volume, pitch);
     }
 
     public String formatDate(long timestamp) {

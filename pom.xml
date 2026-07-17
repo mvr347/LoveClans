@@ -108,6 +108,12 @@
             <version>a72a0987ed</version>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>com.github.mvr347</groupId>
+            <artifactId>LoveTrades</artifactId>
+            <version>6c6209b3cb</version>
+            <scope>provided</scope>
+        </dependency>
 
         <!-- ItemsAdder API - soft dependency, used to charge clan creation cost and
              back the clan bank/treasury with custom items -->

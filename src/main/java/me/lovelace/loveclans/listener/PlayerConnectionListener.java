@@ -1,9 +1,7 @@
 package me.lovelace.loveclans.listener;
 
 import me.lovelace.loveclans.LoveClansPlugin;
-import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.war.ClanWar;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -11,7 +9,6 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.Optional;
 import java.util.UUID;
 
 public final class PlayerConnectionListener implements Listener {
@@ -37,20 +34,20 @@ public final class PlayerConnectionListener implements Listener {
 
         plugin.getGuiManager().clearPlayerCache(playerId);
 
-        Optional<Clan> clanOpt = plugin.getClanManager().getPlayerClan(playerId);
-        if (clanOpt.isPresent()) {
-            for (ClanWar war : plugin.getWarManager().activeWars()) {
-                if (war.capturedBannerBy() != null && war.capturedBannerBy().equals(playerId)) {
-                    plugin.getWarManager().resetBannerCapture(war.id());
-                    for (int i = 0; i < player.getInventory().getSize(); i++) {
-                        ItemStack item = player.getInventory().getItem(i);
-                        if (item != null && item.getType().name().endsWith("_BANNER")) {
-                            player.getInventory().setItem(i, null);
-                        }
+        // Deliberately not gated on the player still being in a clan: they may have been
+        // kicked/left while carrying a captured banner (see CombatListener.onDeath for the
+        // matching death-path fix).
+        for (ClanWar war : plugin.getWarManager().activeWars()) {
+            if (war.capturedBannerBy() != null && war.capturedBannerBy().equals(playerId)) {
+                plugin.getWarManager().resetBannerCapture(war.id());
+                for (int i = 0; i < player.getInventory().getSize(); i++) {
+                    ItemStack item = player.getInventory().getItem(i);
+                    if (plugin.getClanManager().getClanItemFactory().isCapturedBanner(item, war.id())) {
+                        player.getInventory().setItem(i, null);
                     }
-                    plugin.getMessages().send(player, "war.banner-dropped");
-                    break;
                 }
+                plugin.getMessages().send(player, "war.banner-dropped");
+                break;
             }
         }
     }

@@ -49,6 +49,7 @@ public final class ClanRankPermissionsMenu {
                 case UPGRADE -> ItemBuilder.HEAD_EXPERIENCE;
                 case SETTINGS -> ItemBuilder.HEAD_MAIN_SETTINGS;
                 case DIPLOMACY -> ItemBuilder.HEAD_DIPLOMACY;
+                case BANK -> ItemBuilder.HEAD_EXPAND;
             };
             ItemBuilder builder = ItemBuilder.head(headTexture)
                     .name(plugin.getMessages().component("gui.rank-permissions.permission." + permission.name().toLowerCase(), player))

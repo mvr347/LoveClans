@@ -63,7 +63,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private ItemsAdderEconomyService itemsAdderEconomyService;
     private ClanProtectionListener clanProtectionListener;
     private BukkitTask heartbeatTask;
-    // private BukkitTask glowingEffectTask; // Temporarily disabled
+    private BukkitTask warTickTask;
     private final Map<UUID, BiConsumer<String, Boolean>> chatInputListeners = new ConcurrentHashMap<>();
 
     @Override
@@ -118,22 +118,29 @@ public final class LoveClansPlugin extends JavaPlugin {
 
                 heartbeatTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
                     try {
-                        warManager.tick();
-                    } catch (Throwable t) {
-                        getLogger().log(java.util.logging.Level.SEVERE, "War tick failed", t);
-                    }
-                    try {
                         ritualManager.tick();
                     } catch (Throwable t) {
                         getLogger().log(java.util.logging.Level.SEVERE, "Ritual tick failed", t);
                     }
                 }, 20L * 60L, 20L * 60L);
 
-                // glowingEffectTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
-                //     if (clanProtectionListener != null) {
-                //         clanProtectionListener.updateGlowingPlayers();
-                //     }
-                // }, 20L, 20L); // Temporarily disabled
+                // Войны тикают раз в секунду (а не раз в минуту, как ritualManager) - иначе
+                // отсчёт до капитуляции и подсветка врагов на территории обновлялись бы слишком
+                // редко, чтобы выглядеть как живой таймер/эффект.
+                warTickTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        warManager.tick();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "War tick failed", t);
+                    }
+                    try {
+                        if (clanProtectionListener != null) {
+                            clanProtectionListener.updateGlowingPlayers();
+                        }
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Glow update failed", t);
+                    }
+                }, 20L, 20L);
             });
         }).exceptionally(throwable -> {
             getLogger().severe("КРИТИЧЕСКАЯ ОШИБКА ЗАГРУЗКИ ПЛАГИНА: " + throwable.getMessage());
@@ -173,9 +180,9 @@ public final class LoveClansPlugin extends JavaPlugin {
         if (heartbeatTask != null) {
             heartbeatTask.cancel();
         }
-        // if (glowingEffectTask != null) {
-        //     glowingEffectTask.cancel();
-        // } // Temporarily disabled
+        if (warTickTask != null) {
+            warTickTask.cancel();
+        }
         if (spiritManager != null) {
             spiritManager.stop();
         }
@@ -332,6 +339,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             new PlaceholderAPIHook(this).register();
             getLogger().info("PlaceholderAPI expansion registered.");
+        }
+        if (Bukkit.getPluginManager().isPluginEnabled("LoveTrades")) {
+            new me.lovelace.loveclans.integration.LoveTradesHook(this).initialize();
+            getLogger().info("Клановая интеграция с LoveTrades подключена (враги не торгуют, союзники получают скидку).");
         }
     }
 

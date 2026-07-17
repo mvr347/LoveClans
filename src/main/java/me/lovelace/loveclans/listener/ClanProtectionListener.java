@@ -7,8 +7,12 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.TerritoryKey;
+import me.lovelace.loveclans.model.war.ClanWar;
 import me.lovelace.loveclans.util.ClanItemFactory;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
@@ -29,7 +33,11 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -213,32 +221,25 @@ public class ClanProtectionListener implements Listener {
         Block brokenBlock = event.getBlock();
         Player player = event.getPlayer();
 
-        // First, check for protection of the bearing block
+        // The bearing block is always protected, even during a siege: letting it break would pop
+        // the banner above via block-physics instead of a BlockBreakEvent on the banner itself,
+        // which would skip the hit-toughness counter and the capture flow entirely. Attackers
+        // must break the banner block directly.
         Block blockAbove = brokenBlock.getRelative(BlockFace.UP);
         if (blockAbove.getType().toString().endsWith("_BANNER")) {
             Optional<PersistentDataContainer> blockAbovePdcOpt = getPDCFromBlock(blockAbove);
             if (blockAbovePdcOpt.isPresent()) {
                 PersistentDataContainer pdcAbove = blockAbovePdcOpt.get();
-
-                String bannerTypeAbove = pdcAbove.get(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING);
                 String clanIdStringAbove = pdcAbove.get(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING);
 
-                if ("CAPITAL".equals(bannerTypeAbove) && clanIdStringAbove != null) {
-                    UUID clanId = UUID.fromString(clanIdStringAbove);
-                    // Check if the clan is currently at war
-                    if (warManager.isAtWar(clanId)) {
-                        // During war, bearing block can be broken
-                        return;
-                    } else {
-                        plugin.getMessages().send(player, "territory.capital.cannot-break-bearing-block"); // "<red>Нельзя сломать блок под Баннером Столицы!"
-                        event.setCancelled(true);
-                        return;
-                    }
+                if (clanIdStringAbove != null) {
+                    plugin.getMessages().send(player, "territory.capital.cannot-break-bearing-block");
+                    event.setCancelled(true);
+                    return;
                 }
             }
         }
 
-        // Now, check if the broken block itself is a Capital Banner
         if (!brokenBlock.getType().toString().endsWith("_BANNER")) {
             return; // Not a banner
         }
@@ -252,18 +253,109 @@ public class ClanProtectionListener implements Listener {
         String bannerType = pdc.get(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING);
         String clanIdString = pdc.get(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING);
 
-        if (!"CAPITAL".equals(bannerType) || clanIdString == null) {
-            return; // Not a Capital Banner
+        if (bannerType == null || clanIdString == null) {
+            return; // Not a clan banner
         }
 
         UUID clanId = UUID.fromString(clanIdString);
+        Optional<Clan> clanOpt = clanManager.getClanById(clanId);
+        if (clanOpt.isEmpty()) {
+            return;
+        }
+        Clan clan = clanOpt.get();
 
-        if (warManager.isAtWar(clanId)) {
-            // During war, Capital Banner can be broken
-            // TODO: Add logic for war consequences (e.g., clan loses capital, etc.)
-        } else {
-            plugin.getMessages().send(player, "territory.capital.cannot-break-peace"); // "<red>Нельзя разрушить Баннер Столицы в мирное время!"
+        Optional<ClanWar> warOpt = warManager.findWarByContestedBannerLocation(clanId, brokenBlock.getLocation());
+        if (warOpt.isEmpty()) {
+            // Not the banner actually being contested right now (or the clan isn't in a war
+            // over it at all) - protect it same as in peacetime.
+            if (warManager.isAtWar(clanId)) {
+                plugin.getMessages().send(player, "territory.banner.not-contested");
+            } else {
+                plugin.getMessages().send(player, "CAPITAL".equals(bannerType)
+                        ? "territory.capital.cannot-break-peace"
+                        : "territory.banner.cannot-break-peace");
+            }
             event.setCancelled(true);
+            return;
+        }
+
+        ClanWar war = warOpt.get();
+        Optional<Clan> breakerClanOpt = clanManager.getPlayerClan(player.getUniqueId());
+        if (breakerClanOpt.isEmpty() || !breakerClanOpt.get().id().equals(war.attackerClanId())) {
+            plugin.getMessages().send(player, "territory.banner.not-your-clan");
+            event.setCancelled(true);
+            return;
+        }
+
+        // We fully take over the outcome from here: either chip away at the banner's
+        // toughness, or (once enough hits land) manually replace the block and hand the
+        // attacker a tagged captured-banner item that starts the capitulation countdown.
+        event.setCancelled(true);
+
+        int requiredHits = warManager.bannerBreakHitsRequired();
+        long resetMs = warManager.bannerBreakResetMillis();
+        int hits = warManager.registerBannerHit(war.id(), resetMs);
+        if (hits < requiredHits) {
+            plugin.getMessages().sendActionBar(player, "war.banner.progress",
+                    Map.of("hits", String.valueOf(hits), "required", String.valueOf(requiredHits)));
+            player.playSound(player.getLocation(), Sound.ITEM_SHIELD_BLOCK, 1f, 0.8f);
+            return;
+        }
+
+        warManager.resetBannerHits(war.id());
+        brokenBlock.setType(Material.AIR);
+        ItemStack capturedBanner = plugin.getClanManager().getClanItemFactory().createCapturedBanner(war.id(), clan.id(), clan.name());
+        giveItemBack(player, capturedBanner);
+        warManager.startBannerCapture(war, player.getUniqueId());
+    }
+
+    /**
+     * Подсвечивает эффектом Glowing вражеских (по активным войнам) игроков, находящихся на
+     * территории клана, с которым они воюют, а также игрока, несущего захваченное знамя.
+     * Эффект перевыдаётся коротким импульсом на каждый тик этого метода (см. LoveClansPlugin),
+     * поэтому сам угасает вскоре после того, как игрок покидает территорию/война заканчивается.
+     */
+    public void updateGlowingPlayers() {
+        for (ClanWar war : warManager.activeWars()) {
+            Optional<Clan> attackerOpt = clanManager.getClanById(war.attackerClanId());
+            Optional<Clan> defenderOpt = clanManager.getClanById(war.defenderClanId());
+            if (attackerOpt.isEmpty() || defenderOpt.isEmpty()) {
+                continue;
+            }
+            glowEnemiesInTerritory(defenderOpt.get(), attackerOpt.get());
+            glowEnemiesInTerritory(attackerOpt.get(), defenderOpt.get());
+
+            if (war.capturedBannerBy() != null) {
+                Player carrier = Bukkit.getPlayer(war.capturedBannerBy());
+                if (carrier != null) {
+                    carrier.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 40, 0, false, false, false));
+                }
+            }
+        }
+    }
+
+    private void glowEnemiesInTerritory(Clan territoryOwner, Clan enemyClan) {
+        List<Player> onlineEnemies = enemyClan.members().keySet().stream()
+                .map(Bukkit::getPlayer)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (onlineEnemies.isEmpty()) {
+            return;
+        }
+
+        for (ClanTerritory territory : territoryOwner.territories()) {
+            World world = Bukkit.getWorld(territory.world());
+            if (world == null) {
+                continue;
+            }
+            for (Player enemy : onlineEnemies) {
+                if (!enemy.getWorld().equals(world)) {
+                    continue;
+                }
+                if (territory.boundingBox().contains(enemy.getLocation().toVector())) {
+                    enemy.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 40, 0, false, false, false));
+                }
+            }
         }
     }
 
@@ -301,6 +393,8 @@ public class ClanProtectionListener implements Listener {
         Item item = event.getItemDrop();
         ItemStack itemStack = item.getItemStack();
 
+        // isClanBanner also matches a captured war banner - intentionally: a carrier can't
+        // voluntarily drop it to dodge losing it, only death/logout/war-end takes it away.
         if (isClanBanner(itemStack)) {
             event.setCancelled(true);
             plugin.getMessages().send(event.getPlayer(), "territory.banner.cannot-drop");
@@ -310,7 +404,10 @@ public class ClanProtectionListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL)
     public void onPlayerDeath(PlayerDeathEvent event) {
         for (ItemStack item : event.getDrops()) {
-            if (isClanBanner(item)) {
+            // A captured war banner is battle loot, not a personal clan banner - it must not
+            // survive death via itemsToKeep (CombatListener already strips it from the drops
+            // entirely and resets the capture when its carrier dies).
+            if (isClanBanner(item) && !item.getItemMeta().getPersistentDataContainer().has(ClanItemFactory.CAPTURED_BANNER_WAR_KEY, PersistentDataType.STRING)) {
                 event.getItemsToKeep().add(item);
             }
         }

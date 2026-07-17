@@ -44,20 +44,20 @@ public final class CombatListener implements Listener {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
         
-        // Handle banner drop on death
-        Optional<Clan> victimClanOpt = plugin.getClanManager().getPlayerClan(victim.getUniqueId());
-        if (victimClanOpt.isPresent()) {
-            for (ClanWar war : plugin.getWarManager().activeWars()) {
-                if (war.capturedBannerBy() != null && war.capturedBannerBy().equals(victim.getUniqueId())) {
-                    plugin.getWarManager().resetBannerCapture(war.id());
-                    // Remove banner from drops
-                    event.getDrops().removeIf(item -> item != null && item.getType().name().endsWith("_BANNER"));
-                    plugin.getMessages().send(victim, "war.banner-dropped");
-                    break;
-                }
+        // Handle banner drop on death. Deliberately not gated on the victim still being in a
+        // clan: they may have been kicked/left while carrying a captured banner, and the war's
+        // capturedBannerBy() would otherwise keep pointing at them with no way to clear it.
+        for (ClanWar war : plugin.getWarManager().activeWars()) {
+            if (war.capturedBannerBy() != null && war.capturedBannerBy().equals(victim.getUniqueId())) {
+                plugin.getWarManager().resetBannerCapture(war.id());
+                // Remove only the captured banner tagged with this war, not any other banner
+                // (e.g. a decorative one) the victim might be carrying.
+                event.getDrops().removeIf(item -> plugin.getClanManager().getClanItemFactory().isCapturedBanner(item, war.id()));
+                plugin.getMessages().send(victim, "war.banner-dropped");
+                break;
             }
         }
-        
+
         if (killer == null) {
             return;
         }

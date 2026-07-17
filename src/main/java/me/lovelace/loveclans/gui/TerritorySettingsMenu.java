@@ -36,20 +36,20 @@ public class TerritorySettingsMenu implements InventoryHolder {
         }
 
         // Rename Private
-        inventory.setItem(10, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTY3ZDgxM2FlN2ZmZTViZTk1MWE0ZjQxZjJhYTYxOWE1ZTM4OTRlODVlYTVkNDk4NmY4NDk0OWM2M2Q3NjcyZSJ9fX0=")
+        inventory.setItem(11, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTY3ZDgxM2FlN2ZmZTViZTk1MWE0ZjQxZjJhYTYxOWE1ZTM4OTRlODVlYTVkNDk4NmY4NDk0OWM2M2Q3NjcyZSJ9fX0=")
                 .name(plugin.getMessages().component("gui.territory-settings.rename-private.name", player))
                 .lore(plugin.getMessages().component("gui.territory-settings.rename-private.lore", player))
                 .build());
 
         // Toggle PvP
         boolean pvpEnabled = territory.pvp();
-        inventory.setItem(12, ItemBuilder.head(ItemBuilder.HEAD_DISBAND) // Reusing icon for now
+        inventory.setItem(13, ItemBuilder.head(ItemBuilder.HEAD_DISBAND) // Reusing icon for now
                 .name(plugin.getMessages().component("gui.territory-settings.pvp.name", player))
                 .lore(plugin.getMessages().component("gui.territory-settings.pvp.lore", Map.of("status", pvpEnabled ? "Включено" : "Выключено"), player))
                 .build());
 
         // Disband Private button
-        inventory.setItem(14, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
+        inventory.setItem(15, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
                 .name(plugin.getMessages().component("gui.territory-settings.disband-private.name", player))
                 .lore(plugin.getMessages().component("gui.territory-settings.disband-private.lore", player))
                 .build());
@@ -74,7 +74,7 @@ public class TerritorySettingsMenu implements InventoryHolder {
             return;
         }
 
-        if (slot == 10) { // Rename Private
+        if (slot == 11) { // Rename Private
             player.closeInventory();
             plugin.getMessages().send(player, "gui.territory-settings.rename.prompt");
             plugin.expectChatInput(player.getUniqueId(), (newName, cancelled) -> {
@@ -88,13 +88,13 @@ public class TerritorySettingsMenu implements InventoryHolder {
                     new TerritorySettingsMenu(plugin, clan, updated).open(player);
                 }));
             });
-        } else if (slot == 12) { // Toggle PvP
+        } else if (slot == 13) { // Toggle PvP
             ClanTerritory updated = territory.withPvp(!territory.pvp());
             plugin.getClanManager().updateTerritoryAsync(clan, updated).thenRun(() -> plugin.runSync(() -> {
                 plugin.getMessages().send(player, "gui.territory-settings.pvp.success");
                 new TerritorySettingsMenu(plugin, clan, updated).open(player);
             }));
-        } else if (slot == 14) { // Disband Private
+        } else if (slot == 15) { // Disband Private
             player.closeInventory();
             plugin.getClanManager().unclaimTerritoryAsync(clan, territory.key(), player.getUniqueId())
                     .thenAccept(v -> plugin.runSync(() -> {

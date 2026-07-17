@@ -108,7 +108,7 @@ public final class AdvancedClaimsHook {
         // The owner is the clan's UUID, not the leader's.
         Claim claim;
         try {
-            claim = api.createClanClaim(world, box, clan.id(), centerLoc);
+            claim = api.createClanClaim(world, box, clan.id(), centerLoc, clanOwnerDisplayName(clan));
         } catch (RuntimeException exception) {
             plugin.getLogger().log(Level.WARNING, "AdvancedClaims call failed for createClanClaim: " + exception.getMessage(), exception);
             return Optional.empty();
@@ -120,6 +120,30 @@ public final class AdvancedClaimsHook {
         UUID claimId = claim.getId();
         syncClanTrust(clan, territory.withAdvancedClaimId(claimId));
         return Optional.of(claimId);
+    }
+
+    /**
+     * Отображаемое имя владельца территории для LoveClaims (надпись "владелец: ..." при входе
+     * на территорию) - тег клана в его цвете плюс название.
+     */
+    private String clanOwnerDisplayName(Clan clan) {
+        return clan.tagColor() + "[" + clan.tag() + "] " + clan.name();
+    }
+
+    /**
+     * Обновляет отображаемое имя клана-владельца во всех его приватах LoveClaims. Нужно вызывать
+     * при переименовании клана или смене тега, иначе надпись при входе на территорию останется
+     * старой до следующего пересоздания привата.
+     */
+    public void updateClanOwnerDisplayName(Clan clan) {
+        if (!enabled()) {
+            return;
+        }
+        try {
+            api.updateClanClaimOwnerName(clan.id(), clanOwnerDisplayName(clan));
+        } catch (RuntimeException exception) {
+            plugin.getLogger().log(Level.WARNING, "AdvancedClaims call failed for updateClanClaimOwnerName: " + exception.getMessage(), exception);
+        }
     }
 
     public void deleteClaim(UUID claimId) {
@@ -275,6 +299,23 @@ public final class AdvancedClaimsHook {
         } catch (IllegalArgumentException e) {
             plugin.getLogger().log(Level.WARNING, "Invalid TrustLevel mapping for ClanRank " + rank.name() + ": " + configured + ". Defaulting to " + defaultTrustLevel + ".", e);
             return defaultTrustLevel;
+        }
+    }
+
+    /**
+     * Включает/выключает режим осады у привата LoveClaims, привязанного к территории клана.
+     * Пока приват в осаде, LoveClaims сам запрещает вражескому клану строить/телепортироваться/
+     * взаимодействовать на этой территории и разрешает ломать только знамя (см. ProtectionListener
+     * и AnchorListener в LoveClaims). Вызывается при начале и окончании войны за территорию.
+     */
+    public void setSiegeMode(UUID claimId, boolean active) {
+        if (!enabled() || claimId == null) {
+            return;
+        }
+        try {
+            api.setSiegeMode(claimId, active);
+        } catch (RuntimeException exception) {
+            plugin.getLogger().log(Level.WARNING, "AdvancedClaims call failed for setSiegeMode: " + exception.getMessage(), exception);
         }
     }
 

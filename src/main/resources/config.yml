@@ -128,6 +128,18 @@ mechanics:
   artifacts:
     war-horn-cooldown-seconds: 300
 
+war:
+  duration-minutes: 30
+  cooldown-hours: 24
+  # Сколько времени вражеский клан должен непрерывно удерживать сломанное знамя территории,
+  # прежде чем клан-защитник автоматически проигрывает войну и распускается.
+  banner-capture-minutes: 3
+  # Сколько ударов подряд нужно нанести по вражескому знамени, прежде чем оно сломается
+  # (знамя больше не ломается с одного удара во время войны).
+  banner-break-hits: 5
+  # Если по знамени не бьют дольше этого времени, прогресс поломки сбрасывается.
+  banner-break-progress-reset-seconds: 15
+
 integration:
   advanced-claims:
     enabled: true
