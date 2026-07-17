@@ -638,7 +638,11 @@ public final class ClanManager {
             validateName(newName);
             clan.setName(newName);
             return clan;
-        }).thenCompose(updatedClan -> storage.updateClanName(updatedClan.id(), updatedClan.name()).thenApply(ignored -> updatedClan));
+        }).thenCompose(updatedClan -> storage.updateClanName(updatedClan.id(), updatedClan.name()).thenApply(ignored -> updatedClan))
+                .thenApply(updatedClan -> {
+                    plugin.getAdvancedClaimsHook().updateClanOwnerDisplayName(updatedClan);
+                    return updatedClan;
+                });
     }
 
     public CompletableFuture<Clan> changeClanTagAsync(Clan clan, UUID actorId, String newTag) {
@@ -658,7 +662,11 @@ public final class ClanManager {
             clanByTag.remove(oldTag);
             clanByTag.put(normalizeTag(clan.tag()), clan.id());
             return clan;
-        }).thenCompose(updatedClan -> storage.updateClanTag(updatedClan.id(), updatedClan.tag()).thenApply(ignored -> updatedClan));
+        }).thenCompose(updatedClan -> storage.updateClanTag(updatedClan.id(), updatedClan.tag()).thenApply(ignored -> updatedClan))
+                .thenApply(updatedClan -> {
+                    plugin.getAdvancedClaimsHook().updateClanOwnerDisplayName(updatedClan);
+                    return updatedClan;
+                });
     }
 
     public CompletableFuture<Clan> changeClanEmblemAsync(Clan clan, UUID actorId, Material newEmblem) {

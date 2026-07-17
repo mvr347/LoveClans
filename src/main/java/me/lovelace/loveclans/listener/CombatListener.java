@@ -50,8 +50,9 @@ public final class CombatListener implements Listener {
             for (ClanWar war : plugin.getWarManager().activeWars()) {
                 if (war.capturedBannerBy() != null && war.capturedBannerBy().equals(victim.getUniqueId())) {
                     plugin.getWarManager().resetBannerCapture(war.id());
-                    // Remove banner from drops
-                    event.getDrops().removeIf(item -> item != null && item.getType().name().endsWith("_BANNER"));
+                    // Remove only the captured banner tagged with this war, not any other banner
+                    // (e.g. a decorative one) the victim might be carrying.
+                    event.getDrops().removeIf(item -> plugin.getClanManager().getClanItemFactory().isCapturedBanner(item, war.id()));
                     plugin.getMessages().send(victim, "war.banner-dropped");
                     break;
                 }

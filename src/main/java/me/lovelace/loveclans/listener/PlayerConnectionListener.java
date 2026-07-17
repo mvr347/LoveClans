@@ -44,7 +44,7 @@ public final class PlayerConnectionListener implements Listener {
                     plugin.getWarManager().resetBannerCapture(war.id());
                     for (int i = 0; i < player.getInventory().getSize(); i++) {
                         ItemStack item = player.getInventory().getItem(i);
-                        if (item != null && item.getType().name().endsWith("_BANNER")) {
+                        if (plugin.getClanManager().getClanItemFactory().isCapturedBanner(item, war.id())) {
                             player.getInventory().setItem(i, null);
                         }
                     }

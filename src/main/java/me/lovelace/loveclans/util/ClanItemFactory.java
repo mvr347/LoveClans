@@ -19,6 +19,12 @@ public final class ClanItemFactory {
     private final LoveClansPlugin plugin;
     public static final NamespacedKey BANNER_TYPE_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "banner_type");
     public static final NamespacedKey CLAN_ID_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "clan_id");
+    // Помечает боевой компас войны идентификатором войны, для которой он выдан - используется,
+    // чтобы надёжно находить и изымать компас у игрока (независимо от локали отображаемого имени).
+    public static final NamespacedKey WAR_COMPASS_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "war_compass_war_id");
+    // Помечает знамя, захваченное (сломанное и поднятое) вражеским игроком во время войны,
+    // идентификатором этой войны - чтобы его можно было изъять при завершении войны.
+    public static final NamespacedKey CAPTURED_BANNER_WAR_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "captured_banner_war_id");
 
     public ClanItemFactory(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -76,6 +82,44 @@ public final class ClanItemFactory {
             banner.setItemMeta(meta);
         }
         return banner;
+    }
+
+    /**
+     * Creates a captured war banner ItemStack - given to the player who breaks a defending
+     * clan's contested territory banner during a war. Tagged with the war id so it can be
+     * reliably found and confiscated when the war ends (peace, timeout, victory or defeat).
+     *
+     * @param warId The UUID of the war during which the banner was captured.
+     * @param defenderClanId The UUID of the clan that owned the banner.
+     * @param defenderClanName The name of the clan that owned the banner.
+     * @return The ItemStack representing the captured banner.
+     */
+    public ItemStack createCapturedBanner(UUID warId, UUID defenderClanId, String defenderClanName) {
+        ItemStack banner = new ItemStack(Material.RED_BANNER);
+        ItemMeta meta = banner.getItemMeta();
+        if (meta != null) {
+            PersistentDataContainer pdc = meta.getPersistentDataContainer();
+            pdc.set(BANNER_TYPE_KEY, PersistentDataType.STRING, "TERRITORY");
+            pdc.set(CLAN_ID_KEY, PersistentDataType.STRING, defenderClanId.toString());
+            pdc.set(CAPTURED_BANNER_WAR_KEY, PersistentDataType.STRING, warId.toString());
+
+            meta.displayName(plugin.getMessages().component("item.captured-banner.name", Map.of("clan", defenderClanName), null));
+            meta.lore(plugin.getMessages().components("item.captured-banner.lore", null));
+            banner.setItemMeta(meta);
+        }
+        return banner;
+    }
+
+    /**
+     * Checks whether an item is the captured war banner belonging to the given war.
+     */
+    public boolean isCapturedBanner(ItemStack item, UUID warId) {
+        if (item == null || !item.hasItemMeta()) {
+            return false;
+        }
+        PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
+        String taggedWarId = pdc.get(CAPTURED_BANNER_WAR_KEY, PersistentDataType.STRING);
+        return taggedWarId != null && taggedWarId.equals(warId.toString());
     }
 
     /**

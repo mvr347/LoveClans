@@ -761,8 +761,18 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         Clan attacker = optionalAttacker.get();
         Clan defender = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
-        plugin.getWarManager().startWarAsync(attacker, defender, TerritoryKey.fromLocation(player.getLocation()))
-                .thenAccept(war -> plugin.runSync(() -> plugin.getMessages().send(player, "war.started", Map.of("attacker", attacker.tag(), "defender", defender.tag()))))
+
+        // Оспариваемая территория должна принадлежать защитнику - иначе объявление войны "за"
+        // случайный чанк, где стоит атакующий, ни на что не влияет (компас/захват знамени не
+        // находят подходящую территорию и молча ничего не выдают игрокам).
+        TerritoryKey territoryKey = TerritoryKey.fromLocation(player.getLocation());
+        boolean withinDefenderTerritory = defender.territories().stream().anyMatch(t -> t.key().equals(territoryKey));
+        if (!withinDefenderTerritory) {
+            plugin.sendOperationError(player, new IllegalStateException("war.must-be-in-enemy-territory"));
+            return;
+        }
+
+        plugin.getWarManager().startWarAsync(attacker, defender, territoryKey)
                 .exceptionally(throwable -> {
                     plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                     return null;
