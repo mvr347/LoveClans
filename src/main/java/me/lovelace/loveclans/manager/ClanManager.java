@@ -628,7 +628,18 @@ public final class ClanManager {
             }
             clan.setTagColor(colorTag);
             return clan;
-        }).thenCompose(updatedClan -> storage.updateClanTagColor(updatedClan.id(), updatedClan.tagColor()).thenApply(ignored -> updatedClan));
+        }).thenCompose(updatedClan -> storage.updateClanTagColor(updatedClan.id(), updatedClan.tagColor()).thenApply(ignored -> updatedClan))
+                .thenCompose(this::refreshClanClaimOwnerName);
+    }
+
+    /**
+     * Обновляет отображаемое имя клана-владельца в LoveClaims после любого изменения, влияющего
+     * на него (имя, тег, цвет тега). storage.updateClan* завершается на потоке экзекьютора БД,
+     * а не на основном - поэтому здесь явный переход через runSync перед обращением к интеграции.
+     */
+    private CompletableFuture<Clan> refreshClanClaimOwnerName(Clan updatedClan) {
+        return plugin.runSync(() -> plugin.getAdvancedClaimsHook().updateClanOwnerDisplayName(updatedClan))
+                .thenApply(ignored -> updatedClan);
     }
 
     public CompletableFuture<Clan> renameClanAsync(Clan clan, UUID actorId, String newName) {
@@ -642,10 +653,7 @@ public final class ClanManager {
             clan.setName(newName);
             return clan;
         }).thenCompose(updatedClan -> storage.updateClanName(updatedClan.id(), updatedClan.name()).thenApply(ignored -> updatedClan))
-                // storage.updateClanName completes on the DB executor thread, not the main
-                // thread - hop back via runSync before touching the LoveClaims integration.
-                .thenCompose(updatedClan -> plugin.runSync(() -> plugin.getAdvancedClaimsHook().updateClanOwnerDisplayName(updatedClan))
-                        .thenApply(ignored -> updatedClan));
+                .thenCompose(this::refreshClanClaimOwnerName);
     }
 
     public CompletableFuture<Clan> changeClanTagAsync(Clan clan, UUID actorId, String newTag) {
@@ -666,10 +674,7 @@ public final class ClanManager {
             clanByTag.put(normalizeTag(clan.tag()), clan.id());
             return clan;
         }).thenCompose(updatedClan -> storage.updateClanTag(updatedClan.id(), updatedClan.tag()).thenApply(ignored -> updatedClan))
-                // storage.updateClanTag completes on the DB executor thread, not the main
-                // thread - hop back via runSync before touching the LoveClaims integration.
-                .thenCompose(updatedClan -> plugin.runSync(() -> plugin.getAdvancedClaimsHook().updateClanOwnerDisplayName(updatedClan))
-                        .thenApply(ignored -> updatedClan));
+                .thenCompose(this::refreshClanClaimOwnerName);
     }
 
     public CompletableFuture<Clan> changeClanEmblemAsync(Clan clan, UUID actorId, Material newEmblem) {

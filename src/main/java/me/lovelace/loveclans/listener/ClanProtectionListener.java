@@ -328,10 +328,15 @@ public class ClanProtectionListener implements Listener {
             if (war.capturedBannerBy() != null) {
                 Player carrier = Bukkit.getPlayer(war.capturedBannerBy());
                 if (carrier != null) {
-                    carrier.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 40, 0, false, false, false));
+                    applyGlowPulse(carrier);
                 }
             }
         }
+    }
+
+    /** One tick's worth of Glowing - reapplied every second by whichever check still matches, so it fades soon after it stops. */
+    private void applyGlowPulse(Player player) {
+        player.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 40, 0, false, false, false));
     }
 
     private void glowEnemiesInTerritory(Clan territoryOwner, Clan enemyClan) {
@@ -353,7 +358,7 @@ public class ClanProtectionListener implements Listener {
                     continue;
                 }
                 if (territory.boundingBox().contains(enemy.getLocation().toVector())) {
-                    enemy.addPotionEffect(new PotionEffect(PotionEffectType.GLOWING, 40, 0, false, false, false));
+                    applyGlowPulse(enemy);
                 }
             }
         }

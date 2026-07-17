@@ -177,6 +177,14 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        // Drop the cross-plugin callback so LoveTrades doesn't keep calling into a disabled
+        // plugin's ClanManager/WarManager if LoveClans is reloaded without a full server restart.
+        if (Bukkit.getPluginManager().isPluginEnabled("LoveTrades")) {
+            org.bukkit.plugin.Plugin loveTradesPlugin = Bukkit.getPluginManager().getPlugin("LoveTrades");
+            if (loveTradesPlugin instanceof me.lovelace.loveTrades.LoveTrades loveTrades) {
+                loveTrades.setClanIntegration(null);
+            }
+        }
         if (heartbeatTask != null) {
             heartbeatTask.cancel();
         }
