@@ -6,6 +6,7 @@ authors: [ lovelace ]
 description: Full-featured clans, guild wars, territories and LoveClaims integration.
 softdepend:
   - LoveClaims
+  - LoveTrades
   - PlaceholderAPI
   - ItemsAdder
 

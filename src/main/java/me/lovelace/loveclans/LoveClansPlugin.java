@@ -340,6 +340,10 @@ public final class LoveClansPlugin extends JavaPlugin {
             new PlaceholderAPIHook(this).register();
             getLogger().info("PlaceholderAPI expansion registered.");
         }
+        if (Bukkit.getPluginManager().isPluginEnabled("LoveTrades")) {
+            new me.lovelace.loveclans.integration.LoveTradesHook(this).initialize();
+            getLogger().info("Клановая интеграция с LoveTrades подключена (враги не торгуют, союзники получают скидку).");
+        }
     }
 
     private Throwable unwrap(Throwable throwable) {
