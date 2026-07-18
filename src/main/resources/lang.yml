@@ -643,3 +643,5 @@ war:
     defeat-subtitle: "<gray>Ваш клан проиграл войну клану <color><tag></color>"
     draw-title: "<yellow><bold>Ничья"
     draw-subtitle: "<gray>Война с кланом <color><tag></color> окончилась вничью"
+    cancelled-title: "<yellow><bold>Война окончена"
+    cancelled-subtitle: "<gray>Клан <color><tag></color> был расформирован"

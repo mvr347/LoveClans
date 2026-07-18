@@ -20,7 +20,6 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.time.Duration;
@@ -145,6 +144,17 @@ public final class WarManager {
             ClanWar war = activeWars.remove(warId);
             if (war != null) {
                 Bukkit.getPluginManager().callEvent(new ClanWarEndEvent(war.withState(WarState.FINISHED), result));
+
+                // Notifications/cleanup must run BEFORE any disband below: disbandClanAsync runs
+                // synchronously (already on the main thread) and unindexes the defender clan, so
+                // if it ran first, announceWarEnd/confiscateWarItems/endSiege would find the
+                // defender already gone and silently skip the victory/defeat titles and the
+                // defender's compass confiscation for this exact war.
+                announceWarEnd(war, result);
+                confiscateWarItems(war);
+                endSiege(war);
+                resetBannerHits(war.id());
+
                 long reward = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
                 if (result == WarResult.ATTACKER_WIN) {
                     plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(clan ->
@@ -169,10 +179,6 @@ public final class WarManager {
                                 return null;
                             }));
                 }
-                announceWarEnd(war, result);
-                confiscateWarItems(war);
-                endSiege(war);
-                resetBannerHits(war.id());
             }
             return null;
         });
@@ -243,8 +249,43 @@ public final class WarManager {
         ClanWar war = activeWars.get(warId);
         if (war != null) {
             activeWars.put(warId, war.withBannerCapture(null, 0));
+            restoreBannerBlock(war);
             announceCaptureReset(war);
         }
+    }
+
+    /**
+     * Ставит знамя оспариваемой территории обратно, если его сломал захвативший игрок, но не
+     * удержал (умер/вышел до истечения таймера капитуляции). Без этого блок навсегда остаётся
+     * воздухом после первого сброса - сломать (и тем самым перезапустить захват) будет уже нечего,
+     * и оставшаяся часть войны молча деградирует до победы по очкам/таймеру.
+     */
+    private void restoreBannerBlock(ClanWar war) {
+        Optional<ClanTerritory> territoryOpt = resolveContestedTerritory(war);
+        if (territoryOpt.isEmpty()) {
+            return;
+        }
+        ClanTerritory territory = territoryOpt.get();
+        if (territory.bannerX() == null || territory.bannerY() == null || territory.bannerZ() == null) {
+            return;
+        }
+        org.bukkit.World world = Bukkit.getWorld(territory.key().world());
+        if (world == null) {
+            return;
+        }
+        org.bukkit.block.Block block = world.getBlockAt(territory.bannerX(), territory.bannerY(), territory.bannerZ());
+        if (block.getType() != Material.AIR) {
+            return; // Not broken (or already restored) - nothing to do.
+        }
+        plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(defender -> {
+            block.setType(defender.emblem());
+            if (block.getState() instanceof org.bukkit.block.Banner bannerState) {
+                bannerState.getPersistentDataContainer().set(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING,
+                        territory.isCapital() ? "CAPITAL" : "TERRITORY");
+                bannerState.getPersistentDataContainer().set(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING, defender.id().toString());
+                bannerState.update(true);
+            }
+        });
     }
 
     /**
@@ -345,9 +386,22 @@ public final class WarManager {
                 continue;
             }
             activeWars.remove(war.id());
-            UUID otherClanId = war.attackerClanId().equals(clanId) ? war.defenderClanId() : war.attackerClanId();
-            plugin.getClanManager().getClanById(otherClanId).ifPresent(otherClan ->
-                    onlineMembers(otherClan).forEach(player -> plugin.getMessages().send(player, "war.ended-by-disband")));
+            // Fire the same event and run the same cleanup/reward as every other war-end path
+            // (endWarAsync, peaceAsync) so third-party listeners and the surviving clan see
+            // consistent behaviour regardless of why the war ended.
+            Bukkit.getPluginManager().callEvent(new ClanWarEndEvent(war.withState(WarState.FINISHED), WarResult.CANCELLED));
+
+            UUID survivorClanId = war.attackerClanId().equals(clanId) ? war.defenderClanId() : war.attackerClanId();
+            plugin.getClanManager().getClanById(survivorClanId).ifPresent(survivor -> {
+                onlineMembers(survivor).forEach(player -> plugin.getMessages().send(player, "war.ended-by-disband"));
+                long reward = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
+                plugin.getClanManager().addExperienceAsync(survivor, reward).exceptionally(t -> {
+                    plugin.getLogger().warning("Failed to award war experience to clan " + survivor.id() + ": " + t.getMessage());
+                    return null;
+                });
+            });
+
+            announceWarEnd(war, WarResult.CANCELLED);
             confiscateWarItems(war);
             endSiege(war);
             resetBannerHits(war.id());
@@ -541,14 +595,16 @@ public final class WarManager {
         Clan attacker = warClansOpt.get().attacker();
         Clan defender = warClansOpt.get().defender();
 
-        if (result == WarResult.DRAW) {
+        if (result == WarResult.DRAW || result == WarResult.CANCELLED) {
+            String titleKey = result == WarResult.CANCELLED ? "war.end.cancelled-title" : "war.end.draw-title";
+            String subtitleKey = result == WarResult.CANCELLED ? "war.end.cancelled-subtitle" : "war.end.draw-subtitle";
             onlineMembers(attacker).forEach(player -> {
-                plugin.getMessages().sendTitle(player, "war.end.draw-title", "war.end.draw-subtitle",
+                plugin.getMessages().sendTitle(player, titleKey, subtitleKey,
                         Map.of("tag", defender.tag(), "color", defender.tagColor()));
                 plugin.getMessages().playSound(player, Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 1f);
             });
             onlineMembers(defender).forEach(player -> {
-                plugin.getMessages().sendTitle(player, "war.end.draw-title", "war.end.draw-subtitle",
+                plugin.getMessages().sendTitle(player, titleKey, subtitleKey,
                         Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
                 plugin.getMessages().playSound(player, Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 1f);
             });
@@ -591,10 +647,10 @@ public final class WarManager {
     }
 
     private void announceCaptureReset(ClanWar war) {
-        plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(attacker ->
-                onlineMembers(attacker).forEach(player -> plugin.getMessages().send(player, "war.banner.capture-reset")));
-        plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(defender ->
-                onlineMembers(defender).forEach(player -> plugin.getMessages().send(player, "war.banner.capture-reset")));
+        resolveWarClans(war).ifPresent(warClans -> {
+            onlineMembers(warClans.attacker()).forEach(player -> plugin.getMessages().send(player, "war.banner.capture-reset"));
+            onlineMembers(warClans.defender()).forEach(player -> plugin.getMessages().send(player, "war.banner.capture-reset"));
+        });
     }
 
     private void broadcastCapitulationCountdown(ClanWar war, long remainingMs) {
@@ -605,11 +661,10 @@ public final class WarManager {
         Clan defender = warClansOpt.get().defender();
         String time = formatDuration(remainingMs);
 
+        // Glowing the carrier is handled once per tick by ClanProtectionListener.updateGlowingPlayers()
+        // (called from the same scheduled task, right after WarManager#tick()) - not duplicated here.
         Player carrier = Bukkit.getPlayer(war.capturedBannerBy());
         String carrierName = carrier != null ? carrier.getName() : "?";
-        if (carrier != null) {
-            carrier.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.GLOWING, 40, 0, false, false, false));
-        }
 
         onlineMembers(warClansOpt.get().defender()).forEach(player ->
                 plugin.getMessages().sendActionBar(player, "war.banner.capitulation-actionbar-defender",

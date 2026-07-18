@@ -124,10 +124,11 @@ public final class AdvancedClaimsHook {
 
     /**
      * Отображаемое имя владельца территории для LoveClaims (надпись "владелец: ..." при входе
-     * на территорию) - тег клана в его цвете плюс название.
+     * на территорию) - название клана плюс его тег в цвете, в том же формате "<name> [<tag>]",
+     * что используется во всех остальных местах плагина (см. Clan#coloredTag()).
      */
     private String clanOwnerDisplayName(Clan clan) {
-        return clan.tagColor() + "[" + clan.tag() + "] " + clan.name();
+        return clan.name() + " [" + clan.coloredTag() + "]";
     }
 
     /**

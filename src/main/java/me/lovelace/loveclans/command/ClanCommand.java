@@ -5,6 +5,7 @@ import me.lovelace.loveclans.api.events.ClanDiplomacyChangeEvent;
 import me.lovelace.loveclans.gui.*;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanRank;
+import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.model.artifact.ArtifactType;
@@ -765,14 +766,27 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         // Оспариваемая территория должна принадлежать защитнику - иначе объявление войны "за"
         // случайный чанк, где стоит атакующий, ни на что не влияет (компас/захват знамени не
         // находят подходящую территорию и молча ничего не выдают игрокам).
-        TerritoryKey territoryKey = TerritoryKey.fromLocation(player.getLocation());
+        //
+        // Важно: находим территорию по фактическому bounding box'у (territory.boundingBox()),
+        // а не по TerritoryKey.fromLocation(player.getLocation()). Территория может занимать
+        // несколько чанков (integration.advanced-claims.claim-radius по умолчанию 12 => ~25x25
+        // блоков), а ClanTerritory#key() всегда фиксирован на чанке МИНИМАЛЬНОГО угла территории.
+        // Если бы мы просто брали чанк игрока, WarManager.resolveContestedTerritory (сверяющий
+        // territory.key() с contestedTerritory) не нашёл бы территорию всякий раз, когда игрок
+        // стоит не в том самом угловом чанке - хотя formально он внутри defender'а по getClanAt.
         boolean withinDefenderTerritory = plugin.getClanManager().getClanAt(player.getLocation())
                 .map(owner -> owner.id().equals(defender.id()))
                 .orElse(false);
-        if (!withinDefenderTerritory) {
+        Optional<ClanTerritory> contestedTerritory = withinDefenderTerritory
+                ? defender.territories().stream()
+                        .filter(t -> t.boundingBox().contains(player.getLocation().toVector()))
+                        .findFirst()
+                : Optional.empty();
+        if (contestedTerritory.isEmpty()) {
             plugin.sendOperationError(player, new IllegalStateException("war.must-be-in-enemy-territory"));
             return;
         }
+        TerritoryKey territoryKey = contestedTerritory.get().key();
 
         plugin.getWarManager().startWarAsync(attacker, defender, territoryKey)
                 .thenAccept(war -> plugin.runSync(() -> plugin.getMessages().send(player, "war.started",
