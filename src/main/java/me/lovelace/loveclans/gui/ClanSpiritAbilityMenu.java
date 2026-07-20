@@ -74,15 +74,22 @@ public final class ClanSpiritAbilityMenu implements InventoryHolder {
             inventory.setItem(ABILITY_SLOTS[i], builder.build());
         }
 
-        inventory.setItem(22, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(26, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
     }
 
     public void handleInventoryClick(Player clicker, int slot) {
-        if (slot == 22) {
+        if (slot == 26) {
+            clicker.closeInventory();
+            return;
+        }
+        if (slot == 25) {
             plugin.getGuiManager().openSpiritMenu(clicker, clan);
             return;
         }

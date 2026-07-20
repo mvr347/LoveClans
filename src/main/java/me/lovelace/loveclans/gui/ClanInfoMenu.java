@@ -35,6 +35,7 @@ public final class ClanInfoMenu implements InventoryHolder {
     private int currentPage;
     private int totalPages;
     private int backSlot;
+    private int closeSlot;
     private int prevSlot = -1;
     private int nextSlot = -1;
 
@@ -131,9 +132,11 @@ public final class ClanInfoMenu implements InventoryHolder {
 
         int rowCursor = 2 + contentRows;
         if (paginated) {
+            // Whenever paginated, contentRows is fixed at MAX_CONTENT_ROWS-1, so this row always
+            // lands on slots 36-44 — the standard Prev/Next pagination slots for a full 54-slot menu.
             int paginationRowStart = rowCursor * 9;
             if (currentPage > 0) {
-                prevSlot = paginationRowStart + 2;
+                prevSlot = paginationRowStart;
                 inventory.setItem(prevSlot, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
                         .name(plugin.getMessages().component("gui.previous-page", player)).build());
             } else {
@@ -144,21 +147,24 @@ public final class ClanInfoMenu implements InventoryHolder {
                             Map.of("page", String.valueOf(currentPage + 1), "max", String.valueOf(totalPages)), player))
                     .build());
             if (currentPage < totalPages - 1) {
-                nextSlot = paginationRowStart + 6;
+                nextSlot = paginationRowStart + 8;
                 inventory.setItem(nextSlot, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
                         .name(plugin.getMessages().component("gui.next-page", player)).build());
             } else {
                 nextSlot = -1;
             }
-            rowCursor++;
         } else {
             prevSlot = -1;
             nextSlot = -1;
         }
 
-        backSlot = rowCursor * 9 + 4;
+        backSlot = size - 2;
+        closeSlot = size - 1;
         inventory.setItem(backSlot, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(closeSlot, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
@@ -181,6 +187,10 @@ public final class ClanInfoMenu implements InventoryHolder {
     }
 
     public void handleInventoryClick(int slot) {
+        if (slot == closeSlot) {
+            player.closeInventory();
+            return;
+        }
         if (slot == backSlot) {
             new ClanListMenu(plugin, player).open();
             return;

@@ -26,6 +26,13 @@ public class ClanOtherTerritoriesMenu implements InventoryHolder {
     private int page = 0;
     private final List<ClanTerritory> otherTerritories;
     private static final int ITEMS_PER_PAGE = 28; // 4 rows of 7 slots (excluding borders)
+    // Framed content grid — columns 0 and 8 of each row stay reserved for the border/pagination.
+    private static final int[] CONTENT_SLOTS = {
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34,
+            37, 38, 39, 40, 41, 42, 43
+    };
 
     public ClanOtherTerritoriesMenu(LoveClansPlugin plugin, Clan clan, Player player) {
         this.plugin = plugin;
@@ -49,7 +56,6 @@ public class ClanOtherTerritoriesMenu implements InventoryHolder {
         int start = page * ITEMS_PER_PAGE;
         int end = Math.min(start + ITEMS_PER_PAGE, otherTerritories.size());
 
-        int invSlot = 9; // Start from second row, first usable slot
         for (int i = start; i < end; i++) {
             ClanTerritory territory = otherTerritories.get(i);
             ItemStack territoryItem = ItemBuilder.of(Material.GRASS_BLOCK)
@@ -61,28 +67,26 @@ public class ClanOtherTerritoriesMenu implements InventoryHolder {
                     .lore(plugin.getMessages().component("gui.other-territories.item.claimed-at", Map.of("date", plugin.getMessages().formatDate(territory.claimedAt())), player))
                     .lore(plugin.getMessages().component("gui.other-territories.item.unclaim-hint", player))
                     .build();
-            inventory.setItem(invSlot, territoryItem);
-            invSlot++;
-            if ((invSlot % 9 == 0) && (invSlot < 45)) { // Skip border slots
-                invSlot += 2; // Move to next row, skipping the first two border slots
-            }
+            inventory.setItem(CONTENT_SLOTS[i - start], territoryItem);
         }
 
-        // Navigation buttons
+        // Pagination — standard 54-slot slots (36 = Previous, 44 = Next)
         if (page > 0) {
-            inventory.setItem(45, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
+            inventory.setItem(36, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
                     .name(plugin.getMessages().component("gui.previous-page", player))
                     .build());
         }
         if ((page + 1) * ITEMS_PER_PAGE < otherTerritories.size()) {
-            inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
+            inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
                     .name(plugin.getMessages().component("gui.next-page", player))
                     .build());
         }
 
-        // Back button
-        inventory.setItem(49, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(52, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
@@ -91,25 +95,34 @@ public class ClanOtherTerritoriesMenu implements InventoryHolder {
     public void handleInventoryClick(Player clicker, int slot) {
         boolean canUnclaim = clan.hasPermission(clicker.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.CLAIM);
 
-        if (slot == 49) { // Back button
+        if (slot == 53) { // Close button
+            clicker.closeInventory();
+            return;
+        }
+
+        if (slot == 52) { // Back button
             plugin.getGuiManager().openClanTerritoriesMenu(clicker, clan);
             return;
         }
 
-        if (slot == 45 && page > 0) { // Previous page
+        if (slot == 36 && page > 0) { // Previous page
             page--;
             open();
             return;
         }
 
-        if (slot == 53 && (page + 1) * ITEMS_PER_PAGE < otherTerritories.size()) { // Next page
+        if (slot == 44 && (page + 1) * ITEMS_PER_PAGE < otherTerritories.size()) { // Next page
             page++;
             open();
             return;
         }
 
-        if (slot >= 9 && slot < 45 && (slot % 9 != 0) && (slot % 9 != 8)) { // Territory item slots
-            int index = page * ITEMS_PER_PAGE + (slot - 9 - (slot / 9) * 2); // Adjust for border slots
+        int contentIndex = -1;
+        for (int i = 0; i < CONTENT_SLOTS.length; i++) {
+            if (CONTENT_SLOTS[i] == slot) { contentIndex = i; break; }
+        }
+        if (contentIndex >= 0) { // Territory item slots
+            int index = page * ITEMS_PER_PAGE + contentIndex;
             if (index >= 0 && index < otherTerritories.size()) {
                 ClanTerritory clickedTerritory = otherTerritories.get(index);
                 if (canUnclaim) {

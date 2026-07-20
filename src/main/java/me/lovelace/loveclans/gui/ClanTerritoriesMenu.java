@@ -91,12 +91,15 @@ public final class ClanTerritoriesMenu {
 
         boolean hasInstalledBanner = clan.territories().stream().anyMatch(t -> t.bannerX() != null);
 
-        inventory.setItem(inventorySize - 5, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(inventorySize - 2, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(inventorySize - 1, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         if (canManage && !alreadyHasBanner && !hasInstalledBanner) {
-            inventory.setItem(inventorySize - 4, ItemBuilder.of(Material.WHITE_BANNER)
+            inventory.setItem(inventorySize - 3, ItemBuilder.of(Material.WHITE_BANNER)
                     .name(plugin.getMessages().component("gui.territories.banner.name", player))
                     .lore(plugin.getMessages().component("gui.territories.banner.lore", player))
                     .build());
@@ -107,12 +110,17 @@ public final class ClanTerritoriesMenu {
 
     public void handleTerritoryClick(Player player, Clan clan, int slot, boolean isRightClick) {
         int inventorySize = player.getOpenInventory().getTopInventory().getSize();
-        if (slot == inventorySize - 5) {
+        if (slot == inventorySize - 1) {
+            player.closeInventory();
+            return;
+        }
+
+        if (slot == inventorySize - 2) {
             plugin.getGuiManager().openMain(player, clan);
             return;
         }
 
-        if (slot == inventorySize - 4) {
+        if (slot == inventorySize - 3) {
             boolean canManage = clan.member(player.getUniqueId())
                     .map(m -> m.rank().atLeast(ClanRank.GUARDIAN))
                     .orElse(false);

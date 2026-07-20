@@ -126,20 +126,20 @@ public final class ClanMainMenu implements InventoryHolder {
                         : plugin.getMessages().component("gui.main.applications.no-permission-lore", player))
                 .build());
 
-        // Row 5 — Close + Leave (only for non-leaders)
-        inventory.setItem(49, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
-                .name(plugin.getMessages().component("gui.close", player))
-                .build());
-
+        // Footer — standalone menu: no Back button (slot 52 stays glass), Leave Clan uses the extra slot (51)
         boolean isLeader = clan.member(player.getUniqueId())
                 .map(m -> m.rank() == ClanRank.LEADER)
                 .orElse(false);
         if (!isLeader) {
-            inventory.setItem(52, ItemBuilder.head(ItemBuilder.HEAD_LEAVE_CLAN)
+            inventory.setItem(51, ItemBuilder.head(ItemBuilder.HEAD_LEAVE_CLAN)
                     .name(plugin.getMessages().component("gui.main.leave.name", player))
                     .lore(plugin.getMessages().component("gui.main.leave.lore", player))
                     .build());
         }
+
+        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
+                .build());
 
         player.openInventory(inventory);
     }
@@ -190,8 +190,8 @@ public final class ClanMainMenu implements InventoryHolder {
                     plugin.getMessages().send(clicker, "general.no-permission");
                 }
             }
-            case 49 -> clicker.closeInventory();
-            case 52 -> {
+            case 53 -> clicker.closeInventory();
+            case 51 -> {
                 boolean isLeader = clan.member(clicker.getUniqueId())
                         .map(m -> m.rank() == ClanRank.LEADER)
                         .orElse(false);

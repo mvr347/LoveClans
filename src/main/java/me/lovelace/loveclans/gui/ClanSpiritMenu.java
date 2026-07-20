@@ -109,16 +109,22 @@ public class ClanSpiritMenu implements InventoryHolder {
         }
         inventory.setItem(40, topItem.build());
 
-        // Back button
-        inventory.setItem(49, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(52, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
     }
 
     public void handleInventoryClick(Player player, int slot) {
-        if (slot == 49) {
+        if (slot == 53) {
+            player.closeInventory();
+            return;
+        }
+        if (slot == 52) {
             plugin.getGuiManager().openMain(player, clan);
             return;
         }

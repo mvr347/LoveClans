@@ -96,7 +96,7 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
                     .build());
         }
 
-        inventory.setItem(40, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
@@ -105,7 +105,7 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
 
     public void handleInventoryClick(InventoryClickEvent event) {
         int slot = event.getRawSlot();
-        if (slot == 40) {
+        if (slot == 44) {
             player.closeInventory();
             return;
         }

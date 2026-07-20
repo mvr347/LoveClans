@@ -82,17 +82,20 @@ public final class ClanMembersMenu {
             inventory.setItem(9 + i, builder.build()); // Start placing from slot 9
         }
 
-        // Place control buttons in the last row
-        inventory.setItem(inventorySize - 5, ItemBuilder.head(ItemBuilder.HEAD_BACK) // Back button
+        // Footer — standard positions: Back = size-2, Close = size-1, extra action (Invite) = size-3
+        inventory.setItem(inventorySize - 2, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
-                
+        inventory.setItem(inventorySize - 1, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
+                .build());
+
         if (canInvite) {
             boolean isFull = plugin.getClanManager().isClanFull(clan);
             ItemBuilder inviteBuilder = isFull ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE) : ItemBuilder.head(ItemBuilder.HEAD_INVITE);
             inviteBuilder.name(plugin.getMessages().component("gui.members.invite.name", player))
                     .lore(plugin.getMessages().component(isFull ? "gui.members.invite.lore-full" : "gui.members.invite.lore", player));
-            inventory.setItem(inventorySize - 4, inviteBuilder.build()); // Invite button
+            inventory.setItem(inventorySize - 3, inviteBuilder.build()); // Invite button
         }
 
         player.openInventory(inventory);
@@ -100,8 +103,14 @@ public final class ClanMembersMenu {
 
     public void handleInventoryClick(Player player, Clan clan, int slot) {
         int inventorySize = player.getOpenInventory().getTopInventory().getSize();
-        int backButtonSlot = inventorySize - 5;
-        int inviteButtonSlot = inventorySize - 4;
+        int backButtonSlot = inventorySize - 2;
+        int closeButtonSlot = inventorySize - 1;
+        int inviteButtonSlot = inventorySize - 3;
+
+        if (slot == closeButtonSlot) {
+            player.closeInventory();
+            return;
+        }
 
         if (slot == backButtonSlot) {
             plugin.getGuiManager().openMain(player, clan);

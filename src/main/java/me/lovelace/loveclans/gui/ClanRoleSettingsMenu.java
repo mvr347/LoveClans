@@ -47,15 +47,22 @@ public final class ClanRoleSettingsMenu {
             inventory.setItem(slots[i], builder.build());
         }
 
-        inventory.setItem(22, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(26, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
     }
 
     public void handleInventoryClick(Player player, Clan clan, int slot, org.bukkit.inventory.ItemStack clickedItem) {
-        if (slot == 22) {
+        if (slot == 26) {
+            player.closeInventory();
+            return;
+        }
+        if (slot == 25) {
             plugin.getGuiManager().openSettings(player, clan);
             return;
         }
