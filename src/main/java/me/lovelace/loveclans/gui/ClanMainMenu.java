@@ -39,8 +39,8 @@ public final class ClanMainMenu implements InventoryHolder {
             inventory.setItem(i, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
 
-        // Row 0 — clan info (center)
-        inventory.setItem(4, ItemBuilder.of(clan.emblem())
+        // Row 0, slot 0 — clan info (same slot used for player profile in chained menus)
+        inventory.setItem(0, ItemBuilder.of(clan.emblem())
                 .name(plugin.getMessages().component("gui.main.info.name", Map.of("clan", clan.name(), "color", clan.tagColor()), player))
                 .lore(plugin.getMessages().component("gui.main.info.tag",
                         Map.of("tag", clan.tag()), player))
