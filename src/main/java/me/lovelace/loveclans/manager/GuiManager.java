@@ -5,6 +5,7 @@ import me.lovelace.loveclans.gui.ClanApplicationsMenu;
 import me.lovelace.loveclans.gui.ClanCapitalManagementMenu;
 import me.lovelace.loveclans.gui.ClanColorPickerMenu;
 import me.lovelace.loveclans.gui.ClanConfirmMenu;
+import me.lovelace.loveclans.gui.ClanContractsMenu;
 import me.lovelace.loveclans.gui.ClanCreateMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacyMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacySelectMenu;
@@ -56,6 +57,7 @@ public class GuiManager implements Listener {
     private final ClanColorPickerMenu colorPickerMenu;
     private final ClanRoleSettingsMenu roleSettingsMenu;
     private final ClanRankPermissionsMenu rankPermissionsMenu;
+    private final ClanContractsMenu contractsMenu;
 
     private final Map<UUID, Runnable> confirmYes = new ConcurrentHashMap<>();
     private final Map<UUID, Runnable> confirmNo = new ConcurrentHashMap<>();
@@ -74,6 +76,11 @@ public class GuiManager implements Listener {
         this.colorPickerMenu = new ClanColorPickerMenu(plugin);
         this.roleSettingsMenu = new ClanRoleSettingsMenu(plugin);
         this.rankPermissionsMenu = new ClanRankPermissionsMenu(plugin);
+        this.contractsMenu = new ClanContractsMenu(plugin);
+    }
+
+    public void openContracts(Player player, Clan clan) {
+        contractsMenu.open(player, clan);
     }
 
     public NamespacedKey memberKey() {
@@ -307,6 +314,7 @@ public class GuiManager implements Listener {
                     case COLOR_PICKER -> colorPickerMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case ROLE_SETTINGS -> roleSettingsMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case RANK_PERMISSIONS -> rankPermissionsMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
+                    case CONTRACTS -> contractsMenu.handleInventoryClick(player, clan, slot);
                     default -> {
                     }
                 }

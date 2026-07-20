@@ -231,6 +231,28 @@ public final class DatabaseManager implements AutoCloseable {
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);
+
+            // Физический общий сундук клана (отдельно от банка-казны)
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_chest (
+                        clan_id VARCHAR(36) NOT NULL PRIMARY KEY,
+                        contents BLOB,
+                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
+                    )
+                    """);
+
+            // Клановые обеты (контракты) — один активный на клан за раз
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_contracts (
+                        clan_id VARCHAR(36) NOT NULL PRIMARY KEY,
+                        contract_id VARCHAR(64) NOT NULL,
+                        progress INT NOT NULL DEFAULT 0,
+                        completed INT NOT NULL DEFAULT 0,
+                        claimed INT NOT NULL DEFAULT 0,
+                        last_reset BIGINT NOT NULL,
+                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
+                    )
+                    """);
         } catch (SQLException exception) {
             throw new StorageException("Unable to create database schema", exception);
         }

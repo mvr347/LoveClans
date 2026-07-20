@@ -39,6 +39,21 @@ bank:
   deposit-success: "<prefix><green>Внесено <yellow><amount></yellow>× <white><item></white> в банк клана. Баланс: <gold><balance></gold>."
   withdraw-success: "<prefix><green>Снято <yellow><amount></yellow>× <white><item></white> из банка клана."
 
+chest:
+  max-rows-reached: "<prefix><red>Сундук клана уже полностью разблокирован."
+  insufficient-funds: "<prefix><red>Недостаточно монет в банке клана для разблокировки нового ряда."
+  row-purchased: "<prefix><green>Разблокирован новый ряд сундука клана! (<rows>/<max>)"
+
+contract:
+  unknown: "<prefix><red>Неизвестный обет."
+  already-active: "<prefix><red>У клана уже есть активный обет на этой неделе."
+  none-active: "<prefix><red>У клана сейчас нет активного обета."
+  not-completed: "<prefix><red>Этот обет ещё не выполнен."
+  already-claimed: "<prefix><red>Награда за этот обет уже получена."
+  selected: "<prefix><green>Клан взял новый обет!"
+  reward-claimed: "<prefix><green>Награда за обет получена!"
+  completed: "<prefix><gold>Клан выполнил обет «<name>»! Лидер может забрать награду."
+
 clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
   already-applied: "<prefix><red>Вы уже подали заявку в этот клан."
@@ -121,6 +136,38 @@ gui:
   territories-title: "<gray>Территории клана <color><tag>"
   territories-selection-title: "<gray>Управление столицей клана <white><clan>"
   upgrades-title: "<gray>Улучшения клана <color><tag>"
+  chest-title: "<gray>Сундук клана <color><tag>"
+  chest:
+    unlock-row:
+      name: "<green>Разблокировать ряд"
+      lore:
+        - "<gray>Стоимость: <gold><cost></gold> монет из банка клана"
+        - "<green>ЛКМ - разблокировать"
+    locked:
+      name: "<dark_gray>Заблокировано"
+  contracts-title: "<gray>Обеты клана <color><tag>"
+  contracts:
+    info:
+      none:
+        name: "<gray>Нет активного обета"
+        lore: "<gray>Выберите обет ниже, чтобы начать."
+      active:
+        name: "<gold>Текущий обет: <white><name>"
+      ready-to-claim: "<green>Обет выполнен! Заберите награду ниже."
+      claimed: "<gray>Награда уже получена."
+    item:
+      name: "<gold><name>"
+      description: "<gray><description>"
+      reward: "<gray>Награда: <yellow><reward>"
+      current: "<green>Это активный обет клана."
+      locked: "<dark_gray>Сначала завершите текущий обет."
+      select: "<green>ЛКМ - выбрать этот обет"
+    claim:
+      ready:
+        name: "<green>Забрать награду"
+        lore: "<gray>ЛКМ - получить награду за выполненный обет"
+      unavailable:
+        name: "<dark_gray>Награда недоступна"
   territorries:
     item:
       coords: "<gray>Чанк: <white><cx>, <cz></white> (<x>, <z>)"
@@ -548,6 +595,7 @@ quest:
     player_xp: "<prefix><green>Награда за задание: <gold><amount></gold> опыта игрока."
     item: "<prefix><green>Награда за задание: <gold><amount>x <item></gold>."
     upgrade_points: "<prefix><green>Награда за задание: <gold><amount></gold> очков улучшений."
+    clan-bank: "<prefix><green>В банк клана зачислено <yellow><amount></yellow>× <white><item></white>."
 
 ritual:
   cooldown: "<prefix><red>Ритуал ещё на перезарядке: <white><time></white>."
