@@ -17,11 +17,12 @@ import java.util.Map;
 import java.util.UUID;
 
 public final class ClanDiplomacySelectMenu implements InventoryHolder {
+    // Framed content grid — columns 0 and 8 of each row stay reserved for the border/pagination.
     private static final int[] CONTENT_SLOTS = {
-            9, 10, 11, 12, 13, 14, 15, 16, 17,
-            18, 19, 20, 21, 22, 23, 24, 25, 26,
-            27, 28, 29, 30, 31, 32, 33, 34, 35,
-            36, 37, 38, 39, 40, 41, 42, 43, 44
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34,
+            37, 38, 39, 40, 41, 42, 43
     };
 
     private final LoveClansPlugin plugin;
@@ -75,30 +76,37 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
         }
 
         if (currentPage > 0) {
-            inventory.setItem(45, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
+            inventory.setItem(36, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
                     .name(plugin.getMessages().component("gui.previous-page", player)).build());
         }
         if (currentPage < maxPage) {
-            inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
+            inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
                     .name(plugin.getMessages().component("gui.next-page", player)).build());
         }
 
-        inventory.setItem(49, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(52, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
     }
 
     public void handleInventoryClick(int slot) {
-        if (slot == 49) {
+        if (slot == 53) {
+            player.closeInventory();
+            return;
+        }
+        if (slot == 52) {
             plugin.getGuiManager().openMain(player, sourceClan);
             return;
         }
 
         int maxPage = Math.max(0, (otherClans.size() - 1) / CONTENT_SLOTS.length);
-        if (slot == 45 && currentPage > 0) { currentPage--; open(); return; }
-        if (slot == 53 && currentPage < maxPage) { currentPage++; open(); return; }
+        if (slot == 36 && currentPage > 0) { currentPage--; open(); return; }
+        if (slot == 44 && currentPage < maxPage) { currentPage++; open(); return; }
 
         org.bukkit.inventory.ItemStack item = inventory.getItem(slot);
         if (item == null || !item.hasItemMeta()) return;

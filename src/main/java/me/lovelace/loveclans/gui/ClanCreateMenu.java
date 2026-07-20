@@ -57,7 +57,7 @@ public final class ClanCreateMenu implements InventoryHolder {
                 .name(plugin.getMessages().component(ready ? "gui.create.create.ready" : "gui.create.create.not-ready", player))
                 .build());
 
-        inventory.setItem(22, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
+        inventory.setItem(26, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
@@ -70,7 +70,7 @@ public final class ClanCreateMenu implements InventoryHolder {
             case 12 -> promptTag();
             case 14 -> { open = !open; open(); }
             case 16 -> tryCreate();
-            case 22 -> player.closeInventory();
+            case 26 -> player.closeInventory();
             default -> {}
         }
     }

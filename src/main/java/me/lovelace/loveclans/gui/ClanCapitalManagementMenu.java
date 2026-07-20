@@ -87,9 +87,11 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         }
         inventory.setItem(14, disbandItem);
 
-        // Back button (bottom center)
-        inventory.setItem(22, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(26, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
@@ -102,8 +104,11 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         boolean canManage = isLeader || isAssistant;
 
         switch (slot) {
-            case 22: // Back button
+            case 25: // Back button
                 plugin.getGuiManager().openClanTerritoriesMenu(clicker, clan);
+                break;
+            case 26: // Close button
+                clicker.closeInventory();
                 break;
             case 10: // Relocate clan spawn
                 if (!canManage) {

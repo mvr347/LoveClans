@@ -117,20 +117,24 @@ public final class ClanApplicationsMenu {
                     .build());
         }
 
-        int lastRowStart = invSize - 9;
+        // Pagination only ever occurs once the menu has grown to its full 54-slot size (see computeSize);
+        // slots 36/44 are the standard pagination slots for a 54-slot menu.
         if (page > 0) {
-            inventory.setItem(lastRowStart, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
+            inventory.setItem(36, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
                     .name(plugin.getMessages().component("gui.previous-page", player))
                     .build());
         }
         if (page < maxPage) {
-            inventory.setItem(lastRowStart + 8, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
+            inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
                     .name(plugin.getMessages().component("gui.next-page", player))
                     .build());
         }
 
-        inventory.setItem(lastRowStart + 4, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(invSize - 2, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(invSize - 1, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
@@ -139,21 +143,23 @@ public final class ClanApplicationsMenu {
     public void handleInventoryClick(InventoryClickEvent event, Player player, Clan clan) {
         int slot = event.getRawSlot();
         int invSize = event.getView().getTopInventory().getSize();
-        int lastRowStart = invSize - 9;
-        int backSlot = lastRowStart + 4;
-        int prevSlot = lastRowStart;
-        int nextSlot = lastRowStart + 8;
+        int backSlot = invSize - 2;
+        int closeSlot = invSize - 1;
 
+        if (slot == closeSlot) {
+            player.closeInventory();
+            return;
+        }
         if (slot == backSlot) {
             pageByPlayer.remove(player.getUniqueId());
             plugin.getGuiManager().openMain(player, clan);
             return;
         }
-        if (slot == prevSlot) {
+        if (slot == 36) {
             open(player, clan, pageByPlayer.getOrDefault(player.getUniqueId(), 0) - 1);
             return;
         }
-        if (slot == nextSlot) {
+        if (slot == 44) {
             open(player, clan, pageByPlayer.getOrDefault(player.getUniqueId(), 0) + 1);
             return;
         }

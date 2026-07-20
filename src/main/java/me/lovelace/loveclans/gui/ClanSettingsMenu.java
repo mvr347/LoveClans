@@ -70,15 +70,22 @@ public final class ClanSettingsMenu {
                 .lore(plugin.getMessages().component("gui.settings.disband.lore", player))
                 .build());
 
-        inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(34, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(35, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
     }
 
     public void handleInventoryClick(Player player, Clan clan, int slot) {
-        if (slot == 31) {
+        if (slot == 35) {
+            player.closeInventory();
+            return;
+        }
+        if (slot == 34) {
             plugin.getGuiManager().openMain(player, clan);
             return;
         }

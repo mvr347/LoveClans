@@ -24,12 +24,12 @@ import java.util.UUID;
 import java.util.Date;
 
 public final class ClanListMenu implements InventoryHolder {
-    // Slots 9-44 = 36 content slots
+    // Framed content grid — columns 0 and 8 of each row stay reserved for the border/pagination.
     private static final int[] CONTENT_SLOTS = {
-            9, 10, 11, 12, 13, 14, 15, 16, 17,
-            18, 19, 20, 21, 22, 23, 24, 25, 26,
-            27, 28, 29, 30, 31, 32, 33, 34, 35,
-            36, 37, 38, 39, 40, 41, 42, 43, 44
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34,
+            37, 38, 39, 40, 41, 42, 43
     };
 
     private final LoveClansPlugin plugin;
@@ -71,25 +71,27 @@ public final class ClanListMenu implements InventoryHolder {
                     .build());
         }
 
-        if (currentPage > 0) inventory.setItem(45, ItemBuilder.head(ItemBuilder.HEAD_BACK) // Changed to HEAD_PREVIOUS
+        // Pagination — standard 54-slot slots (36 = Previous, 44 = Next)
+        if (currentPage > 0) inventory.setItem(36, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
                 .name(plugin.getMessages().component("gui.previous-page", player)).build());
-        
-        // Slot 53: Next page OR My Applications if not in clan
-        boolean notInClan = plugin.getClanManager().getPlayerClan(player.getUniqueId()).isEmpty();
         if (currentPage < maxPage) {
-            inventory.setItem(53, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTliZjMyOTJlMTI2YTEwNWI1NGViYTcxM2FhMWIxNTJkNTQxYTFkODkzODgyOWM1NjM2NGQxNzhlZDIyYmYifX19") // Changed to HEAD_NEXT
+            inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
                     .name(plugin.getMessages().component("gui.next-page", player)).build());
-        } else if (notInClan) {
+        }
+
+        // Standalone menu (opened via command) — no Back button, extra slot (51) hosts the
+        // "My Applications" shortcut once there's no next page to go to.
+        boolean notInClan = plugin.getClanManager().getPlayerClan(player.getUniqueId()).isEmpty();
+        if (currentPage >= maxPage && notInClan) {
             int appCount = countPlayerApplicationsAndInvites();
-            inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_MSG)
+            inventory.setItem(51, ItemBuilder.head(ItemBuilder.HEAD_MSG)
                     .name(plugin.getMessages().component("gui.clan-list.my-applications.name", player))
                     .lore(plugin.getMessages().component("gui.clan-list.my-applications.lore",
                             Map.of("count", String.valueOf(appCount)), player))
                     .build());
         }
 
-        // Close button
-        inventory.setItem(49, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
+        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player)).build());
 
         return inventory;
@@ -170,19 +172,16 @@ public final class ClanListMenu implements InventoryHolder {
     public void open() { player.openInventory(getInventory()); }
 
     public void handleInventoryClick(int slot) {
-        if (slot == 49) { // Close button
+        if (slot == 53) { // Close button
             player.closeInventory();
             return;
         }
-        if (slot == 45 && currentPage > 0) { currentPage--; open(); return; }
-        
+        if (slot == 36 && currentPage > 0) { currentPage--; open(); return; }
+
         int maxPage = Math.max(0, (allClans.size() - 1) / CONTENT_SLOTS.length);
-        if (slot == 53) {
-            if (currentPage < maxPage) {
-                currentPage++; open();
-            } else if (plugin.getClanManager().getPlayerClan(player.getUniqueId()).isEmpty()) {
-                new PlayerApplicationsMenu(plugin, player).open();
-            }
+        if (slot == 44 && currentPage < maxPage) { currentPage++; open(); return; }
+        if (slot == 51 && currentPage >= maxPage && plugin.getClanManager().getPlayerClan(player.getUniqueId()).isEmpty()) {
+            new PlayerApplicationsMenu(plugin, player).open();
             return;
         }
 

@@ -80,15 +80,22 @@ public final class ClanUpgradesMenu {
             inventory.setItem(UPGRADE_SLOTS[i], builder.build());
         }
 
-        inventory.setItem(40, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(43, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
     }
 
     public void handleInventoryClick(Player player, int slot) {
-        if (slot == 40) {
+        if (slot == 44) {
+            player.closeInventory();
+            return;
+        }
+        if (slot == 43) {
             plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> plugin.getGuiManager().openMain(player, clan));
             return;
         }

@@ -51,8 +51,11 @@ public final class ClanDiplomacyMenu {
         if (current == DiplomacyRelation.ENEMY) enemyItem.glow(true);
         inventory.setItem(16, enemyItem.build());
 
-        inventory.setItem(22, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.diplomacy.select-other.name", player))
+                .build());
+        inventory.setItem(26, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
@@ -66,7 +69,11 @@ public final class ClanDiplomacyMenu {
         }
         Clan sourceClan = sourceClanOpt.get();
 
-        if (slot == 22) {
+        if (slot == 26) {
+            player.closeInventory();
+            return;
+        }
+        if (slot == 25) {
             plugin.getGuiManager().openDiplomacySelect(player, sourceClan);
             return;
         }

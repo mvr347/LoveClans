@@ -19,7 +19,12 @@ import java.util.Map;
 public final class ClanColorPickerMenu {
     private record ColorOption(String tag, String headTexture, String name) {}
 
-    private static final int[] COLOR_SLOTS = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21};
+    // Framed content grid (3 rows x 7 columns) — enough for all 16 configured colors.
+    private static final int[] COLOR_SLOTS = {
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34
+    };
 
     // Жёстко заданный список из 15 цветов с текстурами шерсти для выбора цвета тега клана.
     // Ключ конфигурации (clans.available-colors.<key>) используется только для получения tag/name,
@@ -51,7 +56,7 @@ public final class ClanColorPickerMenu {
 
     public void open(Player player, Clan clan) {
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.COLOR_PICKER, clan.id()), 27,
+                new ClanMenuHolder(ClanMenuType.COLOR_PICKER, clan.id()), 45,
                 plugin.getMessages().component("gui.color-picker.title", player));
 
         fillGlass(inventory);
@@ -69,15 +74,22 @@ public final class ClanColorPickerMenu {
             inventory.setItem(COLOR_SLOTS[i], builder.build());
         }
 
-        inventory.setItem(22, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(43, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
+                .build());
+        inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
     }
 
     public void handleInventoryClick(Player player, Clan clan, int slot, ItemStack clickedItem) {
-        if (slot == 22) {
+        if (slot == 44) {
+            player.closeInventory();
+            return;
+        }
+        if (slot == 43) {
             plugin.getGuiManager().openSettings(player, clan);
             return;
         }
