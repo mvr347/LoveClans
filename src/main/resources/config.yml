@@ -66,6 +66,14 @@ clans:
     # из казны клана. Предметы, отсутствующие в этом списке, банк не принимает.
     allowed-items: []
 
+  # Общий физический сундук клана (/clan chest) — реальное хранилище предметов, отдельное от
+  # банка. Новые ряды разблокируются за монеты ItemsAdder, списываемые из банка клана.
+  # base-chest-rows/max-chest-rows заданы в limits.
+  chest:
+    currency-item: 'currency:gold_coin'
+    # Стоимость разблокировки следующего ряда; индекс = (текущие_ряды - limits.base-chest-rows)
+    cost-per-row: [1000, 2500, 5000]
+
 limits:
   max-level: 20
   base-members: 10

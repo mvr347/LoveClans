@@ -67,4 +67,12 @@ public interface ClanStorage {
     CompletableFuture<Long> adjustBankAmountAsync(UUID clanId, String itemId, long delta);
 
     CompletableFuture<Boolean> withdrawBankAmountAsync(UUID clanId, String itemId, long amount);
+
+    // --- Clan chest (physical item storage, separate from the bank ledger) ---
+
+    CompletableFuture<Void> updateClanChestRows(UUID clanId, int chestRows);
+
+    CompletableFuture<Void> saveChestContentsAsync(UUID clanId, byte[] contents);
+
+    CompletableFuture<byte[]> loadChestContentsAsync(UUID clanId);
 }

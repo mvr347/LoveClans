@@ -39,6 +39,11 @@ bank:
   deposit-success: "<prefix><green>Внесено <yellow><amount></yellow>× <white><item></white> в банк клана. Баланс: <gold><balance></gold>."
   withdraw-success: "<prefix><green>Снято <yellow><amount></yellow>× <white><item></white> из банка клана."
 
+chest:
+  max-rows-reached: "<prefix><red>Сундук клана уже полностью разблокирован."
+  insufficient-funds: "<prefix><red>Недостаточно монет в банке клана для разблокировки нового ряда."
+  row-purchased: "<prefix><green>Разблокирован новый ряд сундука клана! (<rows>/<max>)"
+
 clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
   already-applied: "<prefix><red>Вы уже подали заявку в этот клан."
@@ -121,6 +126,15 @@ gui:
   territories-title: "<gray>Территории клана <color><tag>"
   territories-selection-title: "<gray>Управление столицей клана <white><clan>"
   upgrades-title: "<gray>Улучшения клана <color><tag>"
+  chest-title: "<gray>Сундук клана <color><tag>"
+  chest:
+    unlock-row:
+      name: "<green>Разблокировать ряд"
+      lore:
+        - "<gray>Стоимость: <gold><cost></gold> монет из банка клана"
+        - "<green>ЛКМ - разблокировать"
+    locked:
+      name: "<dark_gray>Заблокировано"
   territorries:
     item:
       coords: "<gray>Чанк: <white><cx>, <cz></white> (<x>, <z>)"

@@ -22,6 +22,7 @@ import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.storage.ClanStorage;
 import me.lovelace.loveclans.util.ClanItemFactory;
+import me.lovelace.loveclans.util.InventorySerialization;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -29,6 +30,7 @@ import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.BoundingBox;
 
@@ -60,6 +62,7 @@ public final class ClanManager {
     private final Map<UUID, Map<UUID, Long>> rejoinCooldowns = new ConcurrentHashMap<>();
     // Отметки времени последнего создания клана каждым игроком, для clans.creation-cooldown-seconds.
     private final Map<UUID, Long> creationCooldowns = new ConcurrentHashMap<>();
+    private final Map<UUID, ItemStack[]> chestCache = new ConcurrentHashMap<>();
 
     public ClanManager(LoveClansPlugin plugin, ClanStorage storage) {
         this.plugin = plugin;
@@ -1137,6 +1140,83 @@ public final class ClanManager {
         }
     }
 
+    // --- Clan chest (physical item storage, separate from the bank ledger) ---
+
+    /** Full Bukkit inventory size backing the chest; unlocked rows are the first {@code chestRows() * 9} slots. */
+    public static final int CHEST_MAX_SIZE = 54;
+
+    public int maxChestRows() {
+        return plugin.getConfig().getInt("limits.max-chest-rows", 6);
+    }
+
+    /** Cost, in the configured chest currency, to unlock the clan's next chest row. -1 if there is none left to buy. */
+    public long nextChestRowCost(Clan clan) {
+        if (clan == null) return -1;
+        int index = clan.chestRows() - plugin.getConfig().getInt("limits.base-chest-rows", 3);
+        List<?> tiers = plugin.getConfig().getList("clans.chest.cost-per-row");
+        if (tiers == null || index < 0 || index >= tiers.size()) return -1;
+        Object value = tiers.get(index);
+        return value instanceof Number number ? number.longValue() : -1;
+    }
+
+    public String chestCurrencyItem() {
+        return plugin.getConfig().getString("clans.chest.currency-item", "");
+    }
+
+    /**
+     * Spends the next tier's cost from the clan bank (atomically, via the same conditional
+     * decrement as {@link #withdrawFromBankAsync}) and unlocks one more chest row.
+     */
+    public CompletableFuture<Clan> purchaseChestRowAsync(Clan clan, UUID actorId) {
+        if (clan == null || actorId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and actor ID cannot be null."));
+        return plugin.supplySync(() -> {
+            if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
+                throw new IllegalStateException("general.no-permission");
+            }
+            if (clan.chestRows() >= maxChestRows()) {
+                throw new IllegalStateException("chest.max-rows-reached");
+            }
+            return nextChestRowCost(clan);
+        }).thenCompose(cost -> {
+            if (cost < 0) {
+                return CompletableFuture.failedFuture(new IllegalStateException("chest.max-rows-reached"));
+            }
+            String currencyItem = chestCurrencyItem();
+            return storage.withdrawBankAmountAsync(clan.id(), currencyItem, cost).thenCompose(success -> {
+                if (!Boolean.TRUE.equals(success)) {
+                    return CompletableFuture.failedFuture(new IllegalStateException("chest.insufficient-funds"));
+                }
+                return plugin.supplySync(() -> {
+                    clan.addBankAmount(currencyItem, -cost);
+                    clan.setChestRows(clan.chestRows() + 1);
+                    return clan;
+                }).thenCompose(updatedClan -> storage.updateClanChestRows(updatedClan.id(), updatedClan.chestRows())
+                        .thenApply(ignored -> updatedClan));
+            });
+        });
+    }
+
+    /** Loads (and caches) the clan's chest contents, always sized to {@link #CHEST_MAX_SIZE}. */
+    public CompletableFuture<ItemStack[]> loadChestContentsAsync(Clan clan) {
+        ItemStack[] cached = chestCache.get(clan.id());
+        if (cached != null) {
+            return CompletableFuture.completedFuture(cached);
+        }
+        return storage.loadChestContentsAsync(clan.id()).thenApply(bytes -> {
+            ItemStack[] contents = InventorySerialization.deserialize(bytes, CHEST_MAX_SIZE);
+            chestCache.put(clan.id(), contents);
+            return contents;
+        });
+    }
+
+    public CompletableFuture<Void> saveChestContentsAsync(UUID clanId, ItemStack[] contents) {
+        chestCache.put(clanId, contents);
+        Inventory temp = Bukkit.createInventory(null, CHEST_MAX_SIZE);
+        temp.setContents(contents);
+        return storage.saveChestContentsAsync(clanId, InventorySerialization.serialize(temp));
+    }
+
     public CompletableFuture<Clan> updateClanAsync(Clan clan) {
         if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
         return storage.saveClanAsync(clan).thenApply(ignored -> clan);
@@ -1254,6 +1334,7 @@ public final class ClanManager {
 
     private void unindexClan(Clan clan) {
         if (clan == null) return;
+        chestCache.remove(clan.id());
         clansById.remove(clan.id());
         clanByTag.remove(normalizeTag(clan.tag()));
         for (UUID playerId : clan.members().keySet()) {

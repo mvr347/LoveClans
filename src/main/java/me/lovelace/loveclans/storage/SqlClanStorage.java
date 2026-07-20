@@ -463,6 +463,49 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
+    // --- Clan chest (physical item storage) ---
+
+    @Override
+    public CompletableFuture<Void> updateClanChestRows(UUID clanId, int chestRows) {
+        return updateClanColumn(clanId, "chest_rows", chestRows);
+    }
+
+    @Override
+    public CompletableFuture<Void> saveChestContentsAsync(UUID clanId, byte[] contents) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection()) {
+                String sql = database.type() == DatabaseType.MYSQL
+                        ? "INSERT INTO clan_chest (clan_id, contents) VALUES (?, ?) " +
+                          "ON DUPLICATE KEY UPDATE contents = VALUES(contents)"
+                        : "INSERT INTO clan_chest (clan_id, contents) VALUES (?, ?) " +
+                          "ON CONFLICT(clan_id) DO UPDATE SET contents = excluded.contents";
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, clanId.toString());
+                    statement.setBytes(2, contents);
+                    statement.executeUpdate();
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save chest contents for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<byte[]> loadChestContentsAsync(UUID clanId) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT contents FROM clan_chest WHERE clan_id = ?")) {
+                statement.setString(1, clanId.toString());
+                try (ResultSet result = statement.executeQuery()) {
+                    return result.next() ? result.getBytes("contents") : null;
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load chest contents for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
     private void loadBank(Connection connection, Map<UUID, Clan> clans) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_bank");
              ResultSet result = statement.executeQuery()) {

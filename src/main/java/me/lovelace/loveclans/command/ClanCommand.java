@@ -34,7 +34,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "bank" // Added "home"/"bank"
+            "war", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "bank", "chest" // Added "home"/"bank"/"chest"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "create", "accept", "list", "info"
@@ -167,6 +167,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 }
                 case "home" -> home(requirePlayer(sender)); // Added home command handler
                 case "bank" -> bank(requirePlayer(sender), args);
+                case "chest" -> openChest(requirePlayer(sender));
                 case "confirm" -> confirmPendingChatInput(requirePlayer(sender));
                 case "cancel" -> cancelPendingChatInput(requirePlayer(sender));
                 default -> plugin.getMessages().send(sender, "general.unknown-command");
@@ -709,6 +710,16 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         new ClanUpgradesMenu(plugin).open(player, optionalClan.get());
+    }
+
+    private void openChest(Player player) {
+        requirePermission(player, Permissions.CHEST);
+        Optional<Clan> optionalClan = requireClan(player);
+        if (optionalClan.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        ClanChestMenu.open(plugin, optionalClan.get(), player);
     }
 
     private void openSpirit(Player player) {
