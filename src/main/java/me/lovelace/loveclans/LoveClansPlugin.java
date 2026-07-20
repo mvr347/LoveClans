@@ -5,16 +5,20 @@ import me.lovelace.loveclans.command.ClanCommand;
 import me.lovelace.loveclans.economy.ItemsAdderEconomyService;
 import me.lovelace.loveclans.manager.GuiManager;
 import me.lovelace.loveclans.integration.AdvancedClaimsHook;
+import me.lovelace.loveclans.integration.CitizensIntegration;
+import me.lovelace.loveclans.integration.LoveHuntBountyBridge;
 import me.lovelace.loveclans.integration.PlaceholderAPIHook;
 import me.lovelace.loveclans.listener.ArtifactListener;
 import me.lovelace.loveclans.listener.ChatInputListener;
 import me.lovelace.loveclans.listener.ClanProtectionListener;
 import me.lovelace.loveclans.listener.CombatListener;
+import me.lovelace.loveclans.listener.ContractListener;
 import me.lovelace.loveclans.listener.PlayerConnectionListener;
 import me.lovelace.loveclans.listener.ShieldColorListener;
 import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
+import me.lovelace.loveclans.manager.ContractManager;
 import me.lovelace.loveclans.manager.RitualManager;
 import me.lovelace.loveclans.manager.ShieldColorManager;
 import me.lovelace.loveclans.manager.SpiritManager;
@@ -61,6 +65,8 @@ public final class LoveClansPlugin extends JavaPlugin {
     private ShieldColorManager shieldColorManager;
     private AdvancedClaimsHook advancedClaimsHook;
     private ItemsAdderEconomyService itemsAdderEconomyService;
+    private ContractManager contractManager;
+    private CitizensIntegration citizensIntegration;
     private ClanProtectionListener clanProtectionListener;
     private BukkitTask heartbeatTask;
     private BukkitTask warTickTask;
@@ -88,6 +94,8 @@ public final class LoveClansPlugin extends JavaPlugin {
         shieldColorManager = new ShieldColorManager(this);
         advancedClaimsHook = new AdvancedClaimsHook(this);
         itemsAdderEconomyService = new ItemsAdderEconomyService();
+        citizensIntegration = new CitizensIntegration();
+        contractManager = new ContractManager(this, storage);
 
         clanManager.loadAsync().thenRunAsync(() -> {
             runSync(() -> {
@@ -96,6 +104,11 @@ public final class LoveClansPlugin extends JavaPlugin {
                 registerCommands();
                 registerListeners();
                 registerIntegrations();
+
+                contractManager.loadAsync().exceptionally(t -> {
+                    getLogger().warning("Не удалось загрузить клановые контракты: " + t.getMessage());
+                    return null;
+                });
 
                 try {
                     if (Bukkit.getPluginManager().isPluginEnabled("LoveClaims")) {
@@ -259,6 +272,14 @@ public final class LoveClansPlugin extends JavaPlugin {
         return itemsAdderEconomyService;
     }
 
+    public ContractManager getContractManager() {
+        return contractManager;
+    }
+
+    public CitizensIntegration getCitizensIntegration() {
+        return citizensIntegration;
+    }
+
     public CompletableFuture<Void> runSync(Runnable runnable) {
         return supplySync(() -> {
             runnable.run();
@@ -341,6 +362,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new ShieldColorListener(this), this);
         pluginManager.registerEvents(spiritManager, this);
         pluginManager.registerEvents(afkManager, this);
+        pluginManager.registerEvents(new ContractListener(this, citizensIntegration), this);
     }
 
     private void registerIntegrations() {
@@ -352,6 +374,7 @@ public final class LoveClansPlugin extends JavaPlugin {
             new me.lovelace.loveclans.integration.LoveTradesHook(this).initialize();
             getLogger().info("Клановая интеграция с LoveTrades подключена (враги не торгуют, союзники получают скидку).");
         }
+        new LoveHuntBountyBridge(this).register();
     }
 
     private Throwable unwrap(Throwable throwable) {

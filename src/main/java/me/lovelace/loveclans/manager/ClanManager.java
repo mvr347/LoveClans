@@ -1217,6 +1217,18 @@ public final class ClanManager {
         return storage.saveChestContentsAsync(clanId, InventorySerialization.serialize(temp));
     }
 
+    /** System-granted currency reward (e.g. a completed clan contract) — not a player deposit. */
+    public CompletableFuture<Long> depositRewardToBankAsync(Clan clan, String itemId, long amount) {
+        if (clan == null || itemId == null || itemId.isBlank() || amount <= 0) {
+            return CompletableFuture.completedFuture(clan != null ? clan.bankAmount(itemId) : 0L);
+        }
+        return storage.adjustBankAmountAsync(clan.id(), itemId, amount)
+                .thenApply(newBalance -> {
+                    clan.putBankAmount(itemId, newBalance);
+                    return newBalance;
+                });
+    }
+
     public CompletableFuture<Clan> updateClanAsync(Clan clan) {
         if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
         return storage.saveClanAsync(clan).thenApply(ignored -> clan);

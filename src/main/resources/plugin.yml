@@ -9,6 +9,8 @@ softdepend:
   - LoveTrades
   - PlaceholderAPI
   - ItemsAdder
+  - Citizens
+  - LoveHunt
 
 commands:
   loveclan:

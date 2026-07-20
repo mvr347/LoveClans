@@ -6,6 +6,7 @@ import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
+import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -75,4 +76,10 @@ public interface ClanStorage {
     CompletableFuture<Void> saveChestContentsAsync(UUID clanId, byte[] contents);
 
     CompletableFuture<byte[]> loadChestContentsAsync(UUID clanId);
+
+    // --- Clan contracts (weekly quests) ---
+
+    CompletableFuture<Void> saveContractProgressAsync(ClanQuestProgress progress);
+
+    CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync();
 }

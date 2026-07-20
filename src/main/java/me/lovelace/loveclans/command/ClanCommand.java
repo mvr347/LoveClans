@@ -34,7 +34,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "bank", "chest" // Added "home"/"bank"/"chest"
+            "war", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "bank", "chest", "contracts" // Added "home"/"bank"/"chest"/"contracts"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "create", "accept", "list", "info"
@@ -168,6 +168,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "home" -> home(requirePlayer(sender)); // Added home command handler
                 case "bank" -> bank(requirePlayer(sender), args);
                 case "chest" -> openChest(requirePlayer(sender));
+                case "contracts" -> openContracts(requirePlayer(sender));
                 case "confirm" -> confirmPendingChatInput(requirePlayer(sender));
                 case "cancel" -> cancelPendingChatInput(requirePlayer(sender));
                 default -> plugin.getMessages().send(sender, "general.unknown-command");
@@ -720,6 +721,16 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         ClanChestMenu.open(plugin, optionalClan.get(), player);
+    }
+
+    private void openContracts(Player player) {
+        requirePermission(player, Permissions.MENU);
+        Optional<Clan> optionalClan = requireClan(player);
+        if (optionalClan.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        plugin.getGuiManager().openContracts(player, optionalClan.get());
     }
 
     private void openSpirit(Player player) {

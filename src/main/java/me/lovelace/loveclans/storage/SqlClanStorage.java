@@ -9,6 +9,7 @@ import me.lovelace.loveclans.model.ClanSpirit;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
+import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Bukkit; // Import Bukkit for World access
 import org.bukkit.Location; // Import Location
@@ -503,6 +504,60 @@ public final class SqlClanStorage implements ClanStorage {
             } catch (SQLException exception) {
                 throw new StorageException("Unable to load chest contents for clan " + clanId, exception);
             }
+        }, database.executor());
+    }
+
+    // --- Clan contracts (weekly quests) ---
+
+    @Override
+    public CompletableFuture<Void> saveContractProgressAsync(ClanQuestProgress progress) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection()) {
+                String sql = database.type() == DatabaseType.MYSQL
+                        ? "INSERT INTO clan_contracts (clan_id, contract_id, progress, completed, claimed, last_reset) " +
+                          "VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE contract_id = VALUES(contract_id), " +
+                          "progress = VALUES(progress), completed = VALUES(completed), claimed = VALUES(claimed), last_reset = VALUES(last_reset)"
+                        : "INSERT INTO clan_contracts (clan_id, contract_id, progress, completed, claimed, last_reset) " +
+                          "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(clan_id) DO UPDATE SET contract_id = excluded.contract_id, " +
+                          "progress = excluded.progress, completed = excluded.completed, claimed = excluded.claimed, last_reset = excluded.last_reset";
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, progress.clanId().toString());
+                    statement.setString(2, progress.questId());
+                    statement.setInt(3, progress.objectiveProgress().getOrDefault(0, 0));
+                    statement.setInt(4, progress.completed() ? 1 : 0);
+                    statement.setInt(5, progress.claimed() ? 1 : 0);
+                    statement.setLong(6, progress.lastReset());
+                    statement.executeUpdate();
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save contract progress for clan " + progress.clanId(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<ClanQuestProgress> result = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_contracts");
+                 ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    Map<Integer, Integer> progressMap = new LinkedHashMap<>();
+                    progressMap.put(0, rs.getInt("progress"));
+                    result.add(new ClanQuestProgress(
+                            UUID.fromString(rs.getString("clan_id")),
+                            rs.getString("contract_id"),
+                            progressMap,
+                            rs.getInt("completed") != 0,
+                            rs.getInt("claimed") != 0,
+                            rs.getLong("last_reset")
+                    ));
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load clan contracts", exception);
+            }
+            return result;
         }, database.executor());
     }
 

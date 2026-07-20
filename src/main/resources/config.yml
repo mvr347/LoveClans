@@ -74,6 +74,41 @@ clans:
     # Стоимость разблокировки следующего ряда; индекс = (текущие_ряды - limits.base-chest-rows)
     cost-per-row: [1000, 2500, 5000]
 
+  # Клановые обеты (контракты) — раз в неделю лидер клана выбирает один обет у NPC-Маршала
+  # (Citizens). npc-id — числовой ID NPC (узнаётся через /npc id, стоя рядом с ним); -1 отключает
+  # взаимодействие с NPC (GUI всё равно доступно через /clan contracts).
+  #
+  # Обет Крови использует систему bounty LoveHunt через reflection (BountyClaimEvent) — если
+  # LoveHunt не установлен или бридж клановых bounty на его стороне не работает, прогресс по
+  # этому обету просто не будет засчитываться, без ошибок.
+  #
+  # Обет Очищения — в этой кодовой базе нет системы данжей, поэтому здесь он реализован как
+  # "уничтожить boss-type N раз всем кланом" (обычный EntityDeathEvent).
+  contracts:
+    npc-id: -1
+    labor:
+      name: 'Обет Труда'
+      description: 'Суммарно всем кланом накопать 5000 единиц любой руды.'
+      progress-format: '<gray>Добыто руды: <white>{current_progress}</white>/{target_amount}'
+      target-ore: 5000
+      reward-item: 'currency:gold_coin'
+      reward-amount: 5000
+    blood:
+      name: 'Обет Крови'
+      description: 'Сдать 10 голов игроков из враждебных кланов через bounty.'
+      progress-format: '<gray>Сдано наёмников: <white>{current_progress}</white>/{target_amount}'
+      target-kills: 10
+      reward-item: 'currency:gold_coin'
+      reward-amount: 8000
+    purification:
+      name: 'Обет Очищения'
+      description: 'Уничтожить опасного босса 5 раз всем кланом.'
+      progress-format: '<gray>Уничтожено боссов: <white>{current_progress}</white>/{target_amount}'
+      boss-type: 'WITHER'
+      target-kills: 5
+      reward-item: 'currency:gold_coin'
+      reward-amount: 10000
+
 limits:
   max-level: 20
   base-members: 10
