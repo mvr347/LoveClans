@@ -187,7 +187,7 @@ integration:
   advanced-claims:
     enabled: true
     auto-claim-chunk: true
-    claim-radius: 12 # Radius for LoveClaims (25x25x25 area)
+    claim-radius: 35 # Radius for LoveClaims (71x71x71 area)
     border-display-ticks: 100 # Duration in ticks for showing claim border (5 seconds)
     trust-mapping:
       LEADER: OWNER

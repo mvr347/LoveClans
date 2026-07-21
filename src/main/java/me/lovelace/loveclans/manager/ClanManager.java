@@ -783,7 +783,7 @@ public final class ClanManager {
             return false;
         }
 
-        int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 12);
+        int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
         BoundingBox visualizationBox = new BoundingBox(
                 location.getBlockX() - radius, location.getWorld().getMinHeight(), location.getBlockZ() - radius,
                 location.getBlockX() + radius, location.getWorld().getMaxHeight(), location.getBlockZ() + radius
@@ -1359,7 +1359,7 @@ public final class ClanManager {
 
     /**
      * Регистрирует территорию во всех чанках, которые покрывает её область (bounding box).
-     * Территория занимает область ~25x25 (см. claim-radius), которая может пересекать
+     * Территория занимает область ~71x71 (см. claim-radius), которая может пересекать
      * несколько чанков, поэтому регистрировать её только по одному чанку нельзя — иначе
      * getClanAt и проверка повторного захвата будут работать лишь на части территории.
      */

@@ -791,7 +791,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         //
         // Важно: находим территорию по фактическому bounding box'у (territory.boundingBox()),
         // а не по TerritoryKey.fromLocation(player.getLocation()). Территория может занимать
-        // несколько чанков (integration.advanced-claims.claim-radius по умолчанию 12 => ~25x25
+        // несколько чанков (integration.advanced-claims.claim-radius по умолчанию 35 => ~71x71
         // блоков), а ClanTerritory#key() всегда фиксирован на чанке МИНИМАЛЬНОГО угла территории.
         // Если бы мы просто брали чанк игрока, WarManager.resolveContestedTerritory (сверяющий
         // territory.key() с contestedTerritory) не нашёл бы территорию всякий раз, когда игрок
