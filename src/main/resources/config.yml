@@ -171,6 +171,24 @@ mechanics:
   artifacts:
     war-horn-cooldown-seconds: 300
 
+# Влияние клана — производный показатель авторитета клана на сервере, пересчитывается
+# автоматически при изменении числа участников, завершении войны/осады/набега, повышении
+# уровня клана и трате очков улучшений (см. InfluenceManager).
+influence:
+  member-weight: 10
+  level-weight: 5
+  upgrade-point-weight: 20
+  war-win-weight: 50
+  war-loss-weight: 25
+  siege-win-weight: 75
+  siege-loss-weight: 40
+  raid-win-weight: 30
+  raid-loss-weight: 15
+  # Клан А может устроить блокаду клану Б только если Влияние(А) >= Влияние(Б) * blockade-multiplier.
+  blockade-multiplier: 1.5
+  # Клан нельзя выбрать целью набега, если его влияние >= (средний уровень кланов сервера) * raid-immunity-multiplier.
+  raid-immunity-multiplier: 2.0
+
 war:
   duration-minutes: 30
   cooldown-hours: 24

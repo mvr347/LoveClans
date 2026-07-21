@@ -88,16 +88,16 @@ public final class ClanInfoMenu implements InventoryHolder {
                 .name(plugin.getMessages().component("gui.info.name",
                         Map.of("tag", clan.tag(), "color", clan.tagColor(), "name", clan.name()), player))
                 .lore(plugin.getMessages().component("gui.info.level", Map.of("level", String.valueOf(clan.level())), player))
+                .lore(plugin.getMessages().component("gui.info.influence", Map.of("influence", String.valueOf(clan.influence())), player))
                 .lore(plugin.getMessages().component("gui.info.members",
                         Map.of("current", String.valueOf(memberCount),
                                 "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player))
                 .lore(plugin.getMessages().component(clan.isOpen() ? "gui.info.status.open" : "gui.info.status.closed", player));
         inventory.setItem(4, info.build());
 
-        boolean isMember = plugin.getClanManager().getPlayerClan(player.getUniqueId())
-                .map(c -> c.id().equals(clan.id())).orElse(false);
+        boolean inAnyClan = plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent();
 
-        if (!isMember) {
+        if (!inAnyClan) {
             if (clan.isOpen()) {
                 inventory.setItem(APPLY_SLOT, ItemBuilder.head(ItemBuilder.HEAD_INVITE)
                         .name(plugin.getMessages().component("gui.info.apply.name", player))
@@ -206,9 +206,8 @@ public final class ClanInfoMenu implements InventoryHolder {
             return;
         }
         if (slot == APPLY_SLOT) {
-            boolean isMember = plugin.getClanManager().getPlayerClan(player.getUniqueId())
-                    .map(c -> c.id().equals(clan.id())).orElse(false);
-            if (isMember || !clan.isOpen()) return;
+            boolean inAnyClan = plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent();
+            if (inAnyClan || !clan.isOpen()) return;
 
             plugin.getClanManager().applyToClanAsync(clan, player.getUniqueId())
                     .thenRun(() -> plugin.runSync(() -> {

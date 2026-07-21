@@ -157,9 +157,19 @@ public final class WarManager {
 
                 long reward = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
                 if (result == WarResult.ATTACKER_WIN) {
-                    plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(clan ->
-                            plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
-                                plugin.getLogger().warning("Failed to award war experience to clan " + clan.id() + ": " + t.getMessage());
+                    plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(clan -> {
+                        plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
+                            plugin.getLogger().warning("Failed to award war experience to clan " + clan.id() + ": " + t.getMessage());
+                            return null;
+                        });
+                        plugin.getClanManager().recordWarResultAsync(clan, true).exceptionally(t -> {
+                            plugin.getLogger().warning("Failed to record war win for clan " + clan.id() + ": " + t.getMessage());
+                            return null;
+                        });
+                    });
+                    plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(clan ->
+                            plugin.getClanManager().recordWarResultAsync(clan, false).exceptionally(t -> {
+                                plugin.getLogger().warning("Failed to record war loss for clan " + clan.id() + ": " + t.getMessage());
                                 return null;
                             }));
                     if (war.capturedBannerBy() != null) {
@@ -173,9 +183,19 @@ public final class WarManager {
                                 }));
                     }
                 } else if (result == WarResult.DEFENDER_WIN) {
-                    plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(clan ->
-                            plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
-                                plugin.getLogger().warning("Failed to award war experience to clan " + clan.id() + ": " + t.getMessage());
+                    plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(clan -> {
+                        plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
+                            plugin.getLogger().warning("Failed to award war experience to clan " + clan.id() + ": " + t.getMessage());
+                            return null;
+                        });
+                        plugin.getClanManager().recordWarResultAsync(clan, true).exceptionally(t -> {
+                            plugin.getLogger().warning("Failed to record war win for clan " + clan.id() + ": " + t.getMessage());
+                            return null;
+                        });
+                    });
+                    plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(clan ->
+                            plugin.getClanManager().recordWarResultAsync(clan, false).exceptionally(t -> {
+                                plugin.getLogger().warning("Failed to record war loss for clan " + clan.id() + ": " + t.getMessage());
                                 return null;
                             }));
                 }

@@ -223,6 +223,7 @@ gui:
         offline: "<red>● не в сети"
       leader-last-seen: "<gray>Был в сети: <white><date>"
       level: "<gray>Уровень: <white><level>"
+      influence: "<gray>Влияние: <white><influence>"
       members: "<gray>Участников: <white><current>/<max>"
       created-at: "<gray>Создан: <white><date>"
       already-member: "<gray>Вы состоите в этом клане"
@@ -304,6 +305,7 @@ gui:
     title: "<color><name> <white>[<tag>]"
     name: "<color><name> <white>[<tag>]"
     level: "<gray>Уровень: <white><level>"
+    influence: "<gray>Влияние: <white><influence>"
     members: "<gray>Участников: <white><current>/<max>"
     leader: "<gray>Глава: <white><player>"
     status:

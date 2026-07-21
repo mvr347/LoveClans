@@ -496,7 +496,8 @@ public final class ClanManager {
             }
 
             return clan;
-        }).thenCompose(saved -> storage.saveMemberAsync(saved.id(), saved.member(playerId).orElseThrow()).thenApply(ignored -> saved));
+        }).thenCompose(saved -> storage.saveMemberAsync(saved.id(), saved.member(playerId).orElseThrow())
+                .thenCompose(ignored -> recalculateInfluenceAsync(saved)));
     }
 
     public CompletableFuture<Void> removeMemberAsync(Clan clan, UUID actorId, UUID playerId, boolean kicked) {
@@ -541,7 +542,14 @@ public final class ClanManager {
                 applicationsByClan.remove(clan.id());
             }
             return clan.members().isEmpty();
-        }).thenCompose(empty -> empty ? storage.deleteClanAsync(clan.id()).thenCompose(v -> storage.deleteAllApplicationsForClanAsync(clan.id())) : storage.deleteMemberAsync(clan.id(), playerId));
+        }).thenCompose(empty -> {
+            if (empty) {
+                return storage.deleteClanAsync(clan.id()).thenCompose(v -> storage.deleteAllApplicationsForClanAsync(clan.id()));
+            }
+            return storage.deleteMemberAsync(clan.id(), playerId)
+                    .thenCompose(ignored -> recalculateInfluenceAsync(clan))
+                    .<Void>thenApply(ignored -> null);
+        });
     }
 
     public CompletableFuture<Clan> setRankAsync(Clan clan, UUID actorId, UUID playerId, ClanRank rank) {
@@ -1045,6 +1053,7 @@ public final class ClanManager {
 
     public CompletableFuture<Clan> addExperienceAsync(Clan clan, long amount) {
         if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
+        java.util.concurrent.atomic.AtomicBoolean leveledUp = new java.util.concurrent.atomic.AtomicBoolean(false);
         return plugin.supplySync(() -> {
             int maxLevel = plugin.getConfig().getInt("limits.max-level", 20);
             int oldLevel = clan.level();
@@ -1054,10 +1063,74 @@ public final class ClanManager {
                 clan.levelUp();
                 Bukkit.getPluginManager().callEvent(new ClanLevelUpEvent(clan, oldLevel, clan.level()));
                 oldLevel = clan.level();
+                leveledUp.set(true);
             }
             return clan;
         }).thenCompose(c -> storage.updateClanProgression(c.id(), c.level(), c.experience(), c.upgradePoints(), c.spirit().level()).thenApply(ignored -> c))
+                .thenCompose(c -> leveledUp.get() ? recalculateInfluenceAsync(c) : CompletableFuture.completedFuture(c))
                 .thenCompose(c -> plugin.runSync(() -> plugin.getSpiritManager().addSpiritExperience(c, Math.max(0L, amount / 4), "Опыт клана")).thenApply(ignored -> c));
+    }
+
+    // --- Влияние клана (§8) ---
+
+    /**
+     * Суммарное число уровней, вложенных во все категории улучшений — это и есть
+     * "УпраддеПункты" из формулы влияния (не путать с {@link Clan#upgradePoints()},
+     * которые уменьшаются при трате).
+     */
+    private int totalUpgradeLevelsInvested(Clan clan) {
+        return clan.upgrades().values().stream().mapToInt(Integer::intValue).sum();
+    }
+
+    public long computeInfluence(Clan clan) {
+        if (clan == null) return 0L;
+        var cfg = plugin.getConfig();
+        long value = 0L;
+        value += (long) clan.members().size() * cfg.getInt("influence.member-weight", 10);
+        value += (long) clan.level() * cfg.getInt("influence.level-weight", 5);
+        value += (long) totalUpgradeLevelsInvested(clan) * cfg.getInt("influence.upgrade-point-weight", 20);
+        value += (long) clan.warsWon() * cfg.getInt("influence.war-win-weight", 50);
+        value -= (long) clan.warsLost() * cfg.getInt("influence.war-loss-weight", 25);
+        value += (long) clan.siegesWon() * cfg.getInt("influence.siege-win-weight", 75);
+        value -= (long) clan.siegesLost() * cfg.getInt("influence.siege-loss-weight", 40);
+        value += (long) clan.raidsWon() * cfg.getInt("influence.raid-win-weight", 30);
+        value -= (long) clan.raidsLost() * cfg.getInt("influence.raid-loss-weight", 15);
+        return Math.max(0L, value);
+    }
+
+    /** Recomputes and persists {@code clan}'s cached influence value. */
+    public CompletableFuture<Clan> recalculateInfluenceAsync(Clan clan) {
+        if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
+        return plugin.supplySync(() -> {
+            clan.setInfluence(computeInfluence(clan));
+            return clan;
+        }).thenCompose(c -> storage.updateClanInfluenceStats(c.id(), c.warsWon(), c.warsLost(), c.siegesWon(),
+                        c.siegesLost(), c.raidsWon(), c.raidsLost(), c.influence())
+                .thenApply(ignored -> c));
+    }
+
+    public CompletableFuture<Clan> recordWarResultAsync(Clan clan, boolean won) {
+        if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
+        return plugin.supplySync(() -> {
+            clan.addWarResult(won);
+            return clan;
+        }).thenCompose(this::recalculateInfluenceAsync);
+    }
+
+    public CompletableFuture<Clan> recordSiegeResultAsync(Clan clan, boolean won) {
+        if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
+        return plugin.supplySync(() -> {
+            clan.addSiegeResult(won);
+            return clan;
+        }).thenCompose(this::recalculateInfluenceAsync);
+    }
+
+    public CompletableFuture<Clan> recordRaidResultAsync(Clan clan, boolean won) {
+        if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
+        return plugin.supplySync(() -> {
+            clan.addRaidResult(won);
+            return clan;
+        }).thenCompose(this::recalculateInfluenceAsync);
     }
 
     // --- Clan bank / treasury (ItemsAdder-backed) ---
@@ -1289,7 +1362,7 @@ public final class ClanManager {
             return clan;
         }).thenCompose(updatedClan -> storage.saveUpgradeAsync(updatedClan.id(), upgrade, updatedClan.upgradeLevel(upgrade))
                 .thenCompose(ignored -> storage.updateClanUpgradePoints(updatedClan.id(), updatedClan.upgradePoints()))
-                .thenApply(ignored -> updatedClan));
+                .thenCompose(ignored -> recalculateInfluenceAsync(updatedClan)));
     }
 
     public CompletableFuture<Clan> chooseSpiritAbilityAsync(Clan clan, UUID actorId, me.lovelace.loveclans.model.spirit.SpiritAbility ability) {

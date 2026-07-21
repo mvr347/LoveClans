@@ -140,6 +140,8 @@ public final class ClanListMenu implements InventoryHolder {
 
         builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.level",
                         Map.of("level", String.valueOf(clan.level())), player))
+                .lore(plugin.getMessages().component("gui.clan-list.clan-item.influence",
+                        Map.of("influence", String.valueOf(clan.influence())), player))
                 .lore(plugin.getMessages().component("gui.clan-list.clan-item.members",
                         Map.of("current", String.valueOf(clan.members().size()),
                                 "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player))

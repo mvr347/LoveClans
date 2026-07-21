@@ -63,6 +63,9 @@ public interface ClanStorage {
 
     CompletableFuture<Void> updateClanProgression(UUID clanId, int level, long experience, int upgradePoints, int spiritLevel);
 
+    CompletableFuture<Void> updateClanInfluenceStats(UUID clanId, int warsWon, int warsLost, int siegesWon,
+                                                       int siegesLost, int raidsWon, int raidsLost, long influence);
+
     // --- Clan bank / treasury (ItemsAdder items) ---
 
     CompletableFuture<Long> adjustBankAmountAsync(UUID clanId, String itemId, long delta);

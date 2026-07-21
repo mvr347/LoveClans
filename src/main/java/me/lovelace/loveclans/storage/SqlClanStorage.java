@@ -110,6 +110,17 @@ public final class SqlClanStorage implements ClanStorage {
                                 isOpen,
                                 homeLocation // Pass homeLocation to constructor
                         );
+                        try {
+                            clan.setWarsWon(result.getInt("wars_won"));
+                            clan.setWarsLost(result.getInt("wars_lost"));
+                            clan.setSiegesWon(result.getInt("sieges_won"));
+                            clan.setSiegesLost(result.getInt("sieges_lost"));
+                            clan.setRaidsWon(result.getInt("raids_won"));
+                            clan.setRaidsLost(result.getInt("raids_lost"));
+                            clan.setInfluence(result.getLong("influence"));
+                        } catch (SQLException ignored) {
+                            // Columns might not exist yet if plugin just updated
+                        }
                         clans.put(id, clan);
                     }
                 }
@@ -397,6 +408,29 @@ public final class SqlClanStorage implements ClanStorage {
                 statement.executeUpdate();
             } catch (SQLException exception) {
                 throw new StorageException("Unable to update progression for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanInfluenceStats(UUID clanId, int warsWon, int warsLost, int siegesWon,
+                                                              int siegesLost, int raidsWon, int raidsLost, long influence) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET wars_won = ?, wars_lost = ?, sieges_won = ?, sieges_lost = ?, " +
+                                 "raids_won = ?, raids_lost = ?, influence = ? WHERE id = ?")) {
+                statement.setInt(1, warsWon);
+                statement.setInt(2, warsLost);
+                statement.setInt(3, siegesWon);
+                statement.setInt(4, siegesLost);
+                statement.setInt(5, raidsWon);
+                statement.setInt(6, raidsLost);
+                statement.setLong(7, influence);
+                statement.setString(8, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update influence stats for clan " + clanId, exception);
             }
         }, database.executor());
     }

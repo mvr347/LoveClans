@@ -29,6 +29,15 @@ public final class Clan {
     private boolean open;
     private Location homeLocation; // New field for home location
 
+    // --- Influence (§8): raw counters used to derive the cached influence value ---
+    private int warsWon;
+    private int warsLost;
+    private int siegesWon;
+    private int siegesLost;
+    private int raidsWon;
+    private int raidsLost;
+    private long influence;
+
     private final Map<UUID, ClanMember> members = new ConcurrentHashMap<>();
     private final Map<UUID, ClanTerritory> territories = new ConcurrentHashMap<>();
     private final Map<UUID, DiplomacyRelation> diplomacy = new ConcurrentHashMap<>();
@@ -362,5 +371,75 @@ public final class Clan {
         long updated = Math.max(0L, bankAmount(itemId) + delta);
         putBankAmount(itemId, updated);
         return updated;
+    }
+
+    // --- Influence (§8) ---
+
+    public int warsWon() {
+        return warsWon;
+    }
+
+    public int warsLost() {
+        return warsLost;
+    }
+
+    public int siegesWon() {
+        return siegesWon;
+    }
+
+    public int siegesLost() {
+        return siegesLost;
+    }
+
+    public int raidsWon() {
+        return raidsWon;
+    }
+
+    public int raidsLost() {
+        return raidsLost;
+    }
+
+    public void setWarsWon(int value) {
+        this.warsWon = Math.max(0, value);
+    }
+
+    public void setWarsLost(int value) {
+        this.warsLost = Math.max(0, value);
+    }
+
+    public void setSiegesWon(int value) {
+        this.siegesWon = Math.max(0, value);
+    }
+
+    public void setSiegesLost(int value) {
+        this.siegesLost = Math.max(0, value);
+    }
+
+    public void setRaidsWon(int value) {
+        this.raidsWon = Math.max(0, value);
+    }
+
+    public void setRaidsLost(int value) {
+        this.raidsLost = Math.max(0, value);
+    }
+
+    public void addWarResult(boolean won) {
+        if (won) warsWon++; else warsLost++;
+    }
+
+    public void addSiegeResult(boolean won) {
+        if (won) siegesWon++; else siegesLost++;
+    }
+
+    public void addRaidResult(boolean won) {
+        if (won) raidsWon++; else raidsLost++;
+    }
+
+    public long influence() {
+        return influence;
+    }
+
+    public void setInfluence(long influence) {
+        this.influence = Math.max(0L, influence);
     }
 }

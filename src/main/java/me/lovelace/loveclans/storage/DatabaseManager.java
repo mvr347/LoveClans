@@ -121,7 +121,14 @@ public final class DatabaseManager implements AutoCloseable {
                         spirit_last_decay BIGINT NOT NULL DEFAULT 0,
                         created_at BIGINT NOT NULL,
                         is_open TINYINT NOT NULL DEFAULT 1,
-                        home_location TEXT
+                        home_location TEXT,
+                        wars_won INT NOT NULL DEFAULT 0,
+                        wars_lost INT NOT NULL DEFAULT 0,
+                        sieges_won INT NOT NULL DEFAULT 0,
+                        sieges_lost INT NOT NULL DEFAULT 0,
+                        raids_won INT NOT NULL DEFAULT 0,
+                        raids_lost INT NOT NULL DEFAULT 0,
+                        influence BIGINT NOT NULL DEFAULT 0
                     )
                     """);
             // Migrations
@@ -132,6 +139,13 @@ public final class DatabaseManager implements AutoCloseable {
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN home_location TEXT"); } catch (SQLException ignored) {}
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_ability VARCHAR(32)"); } catch (SQLException ignored) {}
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_ability_chosen_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN wars_won INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN wars_lost INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN sieges_won INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN sieges_lost INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN raids_won INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN raids_lost INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN influence BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_members (
