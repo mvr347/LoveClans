@@ -2,7 +2,6 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
-import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -12,17 +11,23 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.SkullMeta;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
-import java.util.Date;
 
+/**
+ * "Список кланов" (§10) - the /clans main menu. Keeps the existing 28-slot browsing grid (rows
+ * 1-4) rather than shrinking to §10.1's 6-slots-per-page mockup, which would noticeably hurt
+ * usability for servers with more than a handful of clans; the requested "my clan" shortcut,
+ * sort/filter cycling and always-visible "my applications" button are added into the header/footer
+ * rows that were previously just border glass, the same adaptation already used for the
+ * Diplomacy &amp; Trade browser (§6.1/{@link ClanDiplomacySelectMenu}).
+ */
 public final class ClanListMenu implements InventoryHolder {
     // Framed content grid — columns 0 and 8 of each row stay reserved for the border/pagination.
     private static final int[] CONTENT_SLOTS = {
@@ -31,67 +36,142 @@ public final class ClanListMenu implements InventoryHolder {
             28, 29, 30, 31, 32, 33, 34,
             37, 38, 39, 40, 41, 42, 43
     };
+    private static final int SLOT_MY_CLAN = 0;
+    private static final int SLOT_PREVIOUS = 36;
+    private static final int SLOT_NEXT = 44;
+    private static final int SLOT_FILTER = 45;
+    private static final int SLOT_SORT = 46;
+    private static final int SLOT_MY_APPLICATIONS = 47;
+    private static final int SLOT_CLOSE = 53;
+
+    private enum SortMode {
+        NEWEST(Comparator.comparingLong(Clan::createdAt).reversed()),
+        OLDEST(Comparator.comparingLong(Clan::createdAt)),
+        INFLUENCE(Comparator.comparingLong(Clan::influence).reversed()),
+        MEMBERS(Comparator.comparingInt((Clan c) -> c.members().size()).reversed());
+
+        final Comparator<Clan> comparator;
+
+        SortMode(Comparator<Clan> comparator) {
+            this.comparator = comparator;
+        }
+
+        SortMode next() {
+            SortMode[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+    }
+
+    private enum FilterMode {
+        ALL,
+        AT_WAR,
+        PEACEFUL,
+        CLOSED,
+        OPEN;
+
+        FilterMode next() {
+            FilterMode[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+    }
 
     private final LoveClansPlugin plugin;
     private final Player player;
-    private final List<Clan> allClans;
     private int currentPage;
+    private SortMode sortMode = SortMode.NEWEST;
+    private FilterMode filterMode = FilterMode.ALL;
+    private List<Clan> visibleClans = List.of();
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
     private final SimpleDateFormat dateTimeFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm");
-
 
     public ClanListMenu(LoveClansPlugin plugin, Player player) {
         this.plugin = plugin;
         this.player = player;
-        this.allClans = new ArrayList<>(plugin.getClanManager().getAllClans().stream()
-                .sorted(Comparator.comparingInt(Clan::level).reversed())
-                .toList());
         this.currentPage = 0;
+    }
+
+    private boolean matchesFilter(Clan clan) {
+        return switch (filterMode) {
+            case ALL -> true;
+            case AT_WAR -> plugin.getClanManager().inAnyConflict(clan.id());
+            case PEACEFUL -> !plugin.getClanManager().inAnyConflict(clan.id());
+            case CLOSED -> !clan.isOpen();
+            case OPEN -> clan.isOpen();
+        };
+    }
+
+    private void recomputeVisibleClans() {
+        visibleClans = plugin.getClanManager().getAllClans().stream()
+                .filter(this::matchesFilter)
+                .sorted(sortMode.comparator)
+                .toList();
     }
 
     @Override
     public Inventory getInventory() {
-        int maxPage = Math.max(0, (allClans.size() - 1) / CONTENT_SLOTS.length);
+        recomputeVisibleClans();
+        int maxPage = Math.max(0, (visibleClans.size() - 1) / CONTENT_SLOTS.length);
         currentPage = Math.max(0, Math.min(currentPage, maxPage));
 
         Inventory inventory = Bukkit.createInventory(this, 54,
-                plugin.getMessages().component("gui.clan-list.title", player));
+                plugin.getMessages().component("gui.clan-list.title", Map.of("page", String.valueOf(currentPage + 1), "max", String.valueOf(maxPage + 1)), player));
         fillGlass(inventory);
 
-        int start = currentPage * CONTENT_SLOTS.length;
-        int end = Math.min(start + CONTENT_SLOTS.length, allClans.size());
-        for (int index = start; index < end; index++) {
-            inventory.setItem(CONTENT_SLOTS[index - start], createClanItem(allClans.get(index)));
+        Optional<Clan> myClan = plugin.getClanManager().getPlayerClan(player.getUniqueId());
+        if (myClan.isPresent()) {
+            Clan clan = myClan.get();
+            Material emblemMaterial = clan.emblem().name().endsWith("_BANNER") ? clan.emblem() : Material.WHITE_BANNER;
+            inventory.setItem(SLOT_MY_CLAN, ItemBuilder.of(emblemMaterial)
+                    .name(plugin.getMessages().component("gui.clan-list.my-clan.name",
+                            Map.of("tag", clan.tag(), "color", clan.tagColor()), player))
+                    .lore(plugin.getMessages().components("gui.clan-list.my-clan.lore", Map.of(
+                            "level", String.valueOf(clan.level()),
+                            "influence", String.valueOf(clan.influence()),
+                            "members", String.valueOf(clan.members().size())
+                    ), player))
+                    .build());
         }
 
-        if (allClans.isEmpty()) {
+        int start = currentPage * CONTENT_SLOTS.length;
+        int end = Math.min(start + CONTENT_SLOTS.length, visibleClans.size());
+        for (int index = start; index < end; index++) {
+            inventory.setItem(CONTENT_SLOTS[index - start], createClanItem(visibleClans.get(index)));
+        }
+
+        if (visibleClans.isEmpty()) {
             inventory.setItem(31, ItemBuilder.of(Material.PAPER)
                     .name(plugin.getMessages().component("gui.clan-list.empty.name", player))
                     .lore(plugin.getMessages().component("gui.clan-list.empty.lore", player))
                     .build());
         }
 
-        // Pagination — standard 54-slot slots (36 = Previous, 44 = Next)
-        if (currentPage > 0) inventory.setItem(36, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
+        if (currentPage > 0) inventory.setItem(SLOT_PREVIOUS, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
                 .name(plugin.getMessages().component("gui.previous-page", player)).build());
         if (currentPage < maxPage) {
-            inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
+            inventory.setItem(SLOT_NEXT, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
                     .name(plugin.getMessages().component("gui.next-page", player)).build());
         }
 
-        // Standalone menu (opened via command) — no Back button, extra slot (51) hosts the
-        // "My Applications" shortcut once there's no next page to go to.
-        boolean notInClan = plugin.getClanManager().getPlayerClan(player.getUniqueId()).isEmpty();
-        if (currentPage >= maxPage && notInClan) {
+        inventory.setItem(SLOT_FILTER, ItemBuilder.of(Material.COMPARATOR)
+                .name(plugin.getMessages().component("gui.clan-list.filter.name", player))
+                .lore(plugin.getMessages().component("gui.clan-list.filter." + filterMode.name().toLowerCase(Locale.ROOT), player))
+                .build());
+        inventory.setItem(SLOT_SORT, ItemBuilder.of(Material.HOPPER)
+                .name(plugin.getMessages().component("gui.clan-list.sort.name", player))
+                .lore(plugin.getMessages().component("gui.clan-list.sort." + sortMode.name().toLowerCase(Locale.ROOT), player))
+                .build());
+
+        boolean notInClan = myClan.isEmpty();
+        if (notInClan) {
             int appCount = countPlayerApplicationsAndInvites();
-            inventory.setItem(51, ItemBuilder.head(ItemBuilder.HEAD_MSG)
+            inventory.setItem(SLOT_MY_APPLICATIONS, ItemBuilder.head(ItemBuilder.HEAD_MSG)
                     .name(plugin.getMessages().component("gui.clan-list.my-applications.name", player))
                     .lore(plugin.getMessages().component("gui.clan-list.my-applications.lore",
                             Map.of("count", String.valueOf(appCount)), player))
                     .build());
         }
 
-        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+        inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player)).build());
 
         return inventory;
@@ -105,7 +185,6 @@ public final class ClanListMenu implements InventoryHolder {
     }
 
     private ItemStack createClanItem(Clan clan) {
-        boolean full = plugin.getClanManager().isClanFull(clan);
         boolean closed = !clan.isOpen();
         boolean isMember = plugin.getClanManager().getPlayerClan(player.getUniqueId())
                 .map(c -> c.id().equals(clan.id())).orElse(false);
@@ -115,7 +194,7 @@ public final class ClanListMenu implements InventoryHolder {
         ItemBuilder builder = ItemBuilder.of(emblemMaterial)
                 .name(plugin.getMessages().component("gui.clan-list.clan-item.name",
                         Map.of("tag", clan.tag(), "color", clan.tagColor(), "name", clan.name()), player));
-        
+
         // Leader information
         clan.leaderId().ifPresent(leaderId -> {
             OfflinePlayer leader = Bukkit.getOfflinePlayer(leaderId);
@@ -156,9 +235,9 @@ public final class ClanListMenu implements InventoryHolder {
         } else { // Open clan
             builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.apply-open", player));
         }
-        
+
         builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.click-info", player));
-                
+
         return builder.build();
     }
 
@@ -174,15 +253,31 @@ public final class ClanListMenu implements InventoryHolder {
     public void open() { player.openInventory(getInventory()); }
 
     public void handleInventoryClick(int slot) {
-        if (slot == 53) { // Close button
+        if (slot == SLOT_CLOSE) {
             player.closeInventory();
             return;
         }
-        if (slot == 36 && currentPage > 0) { currentPage--; open(); return; }
+        if (slot == SLOT_MY_CLAN) {
+            plugin.getClanManager().getPlayerClan(player.getUniqueId())
+                    .ifPresent(clan -> plugin.getGuiManager().openMain(player, clan));
+            return;
+        }
+        if (slot == SLOT_FILTER) {
+            filterMode = filterMode.next();
+            currentPage = 0;
+            open();
+            return;
+        }
+        if (slot == SLOT_SORT) {
+            sortMode = sortMode.next();
+            open();
+            return;
+        }
+        if (slot == SLOT_PREVIOUS && currentPage > 0) { currentPage--; open(); return; }
 
-        int maxPage = Math.max(0, (allClans.size() - 1) / CONTENT_SLOTS.length);
-        if (slot == 44 && currentPage < maxPage) { currentPage++; open(); return; }
-        if (slot == 51 && currentPage >= maxPage && plugin.getClanManager().getPlayerClan(player.getUniqueId()).isEmpty()) {
+        int maxPage = Math.max(0, (visibleClans.size() - 1) / CONTENT_SLOTS.length);
+        if (slot == SLOT_NEXT && currentPage < maxPage) { currentPage++; open(); return; }
+        if (slot == SLOT_MY_APPLICATIONS && plugin.getClanManager().getPlayerClan(player.getUniqueId()).isEmpty()) {
             new PlayerApplicationsMenu(plugin, player).open();
             return;
         }
@@ -190,9 +285,9 @@ public final class ClanListMenu implements InventoryHolder {
         int relativeIndex = contentSlotIndex(slot);
         if (relativeIndex < 0) return;
         int clanIndex = currentPage * CONTENT_SLOTS.length + relativeIndex;
-        if (clanIndex < 0 || clanIndex >= allClans.size()) return;
+        if (clanIndex < 0 || clanIndex >= visibleClans.size()) return;
 
-        Clan clickedClan = allClans.get(clanIndex);
+        Clan clickedClan = visibleClans.get(clanIndex);
 
         // Click → open clan info
         new ClanInfoMenu(plugin, player, clickedClan).open();

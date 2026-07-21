@@ -331,13 +331,33 @@ gui:
       confirm-prompt: "<prefix><yellow>Вы уверены? Приват столицы будет снесён, а знамя возвращено вам для переноса."
       action: "<prefix><green>Территория столицы перенесена. Разместите знамя в новом месте."
   clan-list:
-    title: "<gold>Список кланов"
+    title: "<gold>Список кланов <white>- Страница <page>/<max>"
     empty:
       name: "<gray>Список пуст"
       lore: "<gray>Кланов пока не существует."
+    my-clan:
+      name: "<color><tag> <white>(Ваш клан)"
+      lore:
+        - "<gray>Уровень: <white><level>"
+        - "<gray>Влияние: <white><influence>"
+        - "<gray>Участников: <white><members>"
+        - "<green>ЛКМ - открыть меню клана"
     my-applications:
       name: "<yellow>Мои заявки"
       lore: "<gray>Активных заявок: <white><count>"
+    filter:
+      name: "<gold>Фильтр"
+      all: "<gray>Сейчас: <white>Все"
+      at_war: "<gray>Сейчас: <white>Воюют"
+      peaceful: "<gray>Сейчас: <white>Не воюют"
+      closed: "<gray>Сейчас: <white>Закрытые"
+      open: "<gray>Сейчас: <white>Открытые"
+    sort:
+      name: "<gold>Сортировка"
+      newest: "<gray>Сейчас: <white>Новые"
+      oldest: "<gray>Сейчас: <white>Старые"
+      influence: "<gray>Сейчас: <white>Влияние"
+      members: "<gray>Сейчас: <white>Кол-во игроков"
     clan-item:
       name: "<color><name> <white>[<tag>]"
       leader: "<gray>Глава: <white><player>"
