@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class ClanUpgradesMenu {
-    private static final int[] UPGRADE_SLOTS = {20, 22, 24};
+    private static final int[] UPGRADE_SLOTS = {20, 22, 24, 26};
     private static final int[] PERK_SLOTS = {11, 13, 15};
     private static final int PERK_LOCKED_SLOT = 13;
 
@@ -30,6 +30,7 @@ public final class ClanUpgradesMenu {
             case MEMBERS -> ItemBuilder.HEAD_MEMBERS;
             case TERRITORIES -> ItemBuilder.HEAD_TERRITORIES;
             case EXPERIENCE -> ItemBuilder.HEAD_EXPERIENCE;
+            case CHEST -> ItemBuilder.HEAD_EXPAND;
         };
     }
 

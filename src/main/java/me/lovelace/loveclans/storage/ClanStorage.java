@@ -69,13 +69,15 @@ public interface ClanStorage {
 
     CompletableFuture<Void> updateClanPerk(UUID clanId, ClanPerk perk, long chosenAt);
 
-    // --- Clan bank / treasury (ItemsAdder items) ---
+    // --- Клановый сундук: деньги и налог (§2; заменяет прежний отдельный /clan bank) ---
 
-    CompletableFuture<Long> adjustBankAmountAsync(UUID clanId, String itemId, long delta);
+    CompletableFuture<Void> updateClanChestMoney(UUID clanId, long amount);
 
-    CompletableFuture<Boolean> withdrawBankAmountAsync(UUID clanId, String itemId, long amount);
+    CompletableFuture<Void> updateClanTaxState(UUID clanId, long lastTaxAt, boolean locked);
 
-    // --- Clan chest (physical item storage, separate from the bank ledger) ---
+    CompletableFuture<Long> migrateLegacyBankMoneyAsync(UUID clanId, String currencyItemId);
+
+    // --- Clan chest (physical item storage) ---
 
     CompletableFuture<Void> updateClanChestRows(UUID clanId, int chestRows);
 

@@ -28,21 +28,15 @@ admin:
   war-ended: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> завершена администратором."
   war-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> начата администратором."
 
-bank:
-  disabled: "<prefix><red>Банк клана отключён на этом сервере."
-  empty: "<prefix><gray>Банк клана пуст."
-  header: "<prefix><gold>Содержимое банка клана:"
-  line: "<gray> - <white><item></white>: <yellow><amount></yellow>"
-  invalid-amount: "<prefix><red>Укажите корректное положительное количество."
-  item-not-allowed: "<prefix><red>Этот предмет нельзя вносить в банк клана."
-  insufficient-items: "<prefix><red>Недостаточно предметов для этой операции."
-  deposit-success: "<prefix><green>Внесено <yellow><amount></yellow>× <white><item></white> в банк клана. Баланс: <gold><balance></gold>."
-  withdraw-success: "<prefix><green>Снято <yellow><amount></yellow>× <white><item></white> из банка клана."
-
 chest:
-  max-rows-reached: "<prefix><red>Сундук клана уже полностью разблокирован."
-  insufficient-funds: "<prefix><red>Недостаточно монет в банке клана для разблокировки нового ряда."
-  row-purchased: "<prefix><green>Разблокирован новый ряд сундука клана! (<rows>/<max>)"
+  invalid-amount: "<prefix><red>Укажите корректное положительное количество."
+  insufficient-items: "<prefix><red>Недостаточно средств для этой операции."
+  tax-locked: "<prefix><red>Сундук заблокирован за неуплату налога. Внесите деньги, чтобы погасить долг."
+  tax-paid-manually: "<prefix><green>Налог погашен - сундук клана разблокирован."
+  tax-collected: "<prefix><yellow>С клана списан еженедельный налог: <gold><amount></gold>."
+  tax-locked-announcement: "<prefix><red>Недостаточно денег в сундуке для уплаты налога (<gold><amount></gold>) - сундук заблокирован!"
+  deposit-success: "<prefix><green>Внесено <yellow><amount></yellow> в сундук клана. Баланс: <gold><balance></gold>."
+  withdraw-success: "<prefix><green>Снято <yellow><amount></yellow> из сундука клана."
 
 contract:
   unknown: "<prefix><red>Неизвестный обет."
@@ -138,14 +132,44 @@ gui:
   territories-selection-title: "<gray>Управление столицей клана <white><clan>"
   upgrades-title: "<gray>Улучшения клана <color><tag>"
   chest-title: "<gray>Сундук клана <color><tag>"
+  chest-items-title: "<gray>Сундук клана <color><tag> <white>- Предметы"
+  chest-money-title: "<gray>Сундук клана <color><tag> <white>- Деньги"
   chest:
-    unlock-row:
-      name: "<green>Разблокировать ряд"
-      lore:
-        - "<gray>Стоимость: <gold><cost></gold> монет из банка клана"
-        - "<green>ЛКМ - разблокировать"
     locked:
       name: "<dark_gray>Заблокировано"
+      lore: "<gray>Улучшите «Сундук» во вкладке улучшений, чтобы открыть этот ряд."
+    info:
+      name: "<gold>Информация о сундуке"
+      lore:
+        - "<gray>Денег: <white><money>"
+        - "<gray>Рядов предметов: <white><rows></white>/<max>"
+      tax-ok: "<green>Налог: оплачен"
+      tax-none: "<gray>Налог: не взимается (уровень < <level>)"
+      tax-locked: "<red>Налог: НЕ ОПЛАЧЕН - сундук заблокирован!"
+      next-tax: "<gray>Следующее списание: <white><time>"
+    money-button:
+      name: "<gold>💰 Деньги"
+      lore: "<gray>Баланс: <yellow><amount>"
+    items-button:
+      name: "<gold>📦 Предметы"
+      lore: "<gray>ЛКМ - открыть хранилище"
+    locked-warning:
+      name: "<red>Сундук заблокирован"
+      lore:
+        - "<gray>Налог не был оплачен вовремя."
+        - "<gray>Внесите деньги, чтобы разблокировать сундук."
+    money:
+      balance:
+        name: "<gold>Баланс сундука"
+        lore: "<white><amount>"
+      deposit:
+        name: "<green>Положить"
+        lore: "<gray>ЛКМ - внести деньги в сундук"
+        prompt: "<prefix><yellow>Введите количество для внесения в чат."
+      withdraw:
+        name: "<red>Взять"
+        lore: "<gray>ЛКМ - забрать деньги из сундука"
+        prompt: "<prefix><yellow>Введите количество для снятия в чат."
   contracts-title: "<gray>Обеты клана <color><tag>"
   contracts:
     info:
@@ -552,6 +576,7 @@ gui:
       members: "<gray>+3 участника за уровень"
       territories: "<gray>+2 территории за уровень"
       experience: "<gray>+5% опыта клана за уровень"
+      chest: "<gray>+1 ряд сундука за уровень"
       click-to-upgrade: "<gray>ЛКМ - повысить уровень"
       maxed: "<gold>Максимальный уровень достигнут"
       no-points: "<red>Недостаточно очков улучшений"

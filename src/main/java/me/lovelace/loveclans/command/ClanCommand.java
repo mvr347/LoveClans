@@ -34,7 +34,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "siege", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "bank", "chest", "contracts" // Added "home"/"bank"/"chest"/"contracts"
+            "war", "siege", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "create", "accept", "list", "info"
@@ -167,7 +167,6 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                     }
                 }
                 case "home" -> home(requirePlayer(sender)); // Added home command handler
-                case "bank" -> bank(requirePlayer(sender), args);
                 case "chest" -> openChest(requirePlayer(sender));
                 case "contracts" -> openContracts(requirePlayer(sender));
                 case "confirm" -> confirmPendingChatInput(requirePlayer(sender));
@@ -211,14 +210,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                             completions.addAll(List.of("exp", "points", "diplo", "war", "disband"));
                         }
                     }
-                    case "bank" -> completions.addAll(List.of("deposit", "withdraw"));
                 }
                 return filter(completions, args[1]);
-            }
-            if (args.length == 3 && args[0].equalsIgnoreCase("bank")
-                    && (args[1].equalsIgnoreCase("deposit") || args[1].equalsIgnoreCase("withdraw"))) {
-                completions.addAll(plugin.getConfig().getStringList("clans.bank.allowed-items"));
-                return filter(completions, args[2]);
             }
             if (args.length == 3 && args[0].equalsIgnoreCase("admin") && Permissions.has(sender, Permissions.ADMIN)) {
                  if (args[1].equalsIgnoreCase("exp") || args[1].equalsIgnoreCase("points")) {
@@ -307,58 +300,6 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                         return null;
                     });
         }, () -> plugin.getMessages().send(player, "clan.home.not-set")); // New message key
-    }
-
-    private void bank(Player player, String[] args) {
-        requirePermission(player, Permissions.BANK);
-        Optional<Clan> optionalClan = requireClan(player);
-        if (optionalClan.isEmpty()) {
-            plugin.getMessages().send(player, "clan.not-in-clan");
-            return;
-        }
-        Clan clan = optionalClan.get();
-
-        if (args.length < 4 || !(args[1].equalsIgnoreCase("deposit") || args[1].equalsIgnoreCase("withdraw"))) {
-            openBankSummary(player, clan);
-            return;
-        }
-
-        String itemId = args[2];
-        long amount;
-        try {
-            amount = Long.parseLong(args[3]);
-        } catch (NumberFormatException exception) {
-            plugin.getMessages().send(player, "bank.invalid-amount");
-            return;
-        }
-
-        if (args[1].equalsIgnoreCase("deposit")) {
-            plugin.getClanManager().depositToBankAsync(clan, player.getUniqueId(), player, itemId, amount)
-                    .thenAccept(newBalance -> plugin.getMessages().send(player, "bank.deposit-success", Map.of(
-                            "amount", String.valueOf(amount), "item", itemId, "balance", String.valueOf(newBalance))))
-                    .exceptionally(throwable -> {
-                        plugin.sendOperationError(player, throwable);
-                        return null;
-                    });
-        } else {
-            plugin.getClanManager().withdrawFromBankAsync(clan, player.getUniqueId(), player, itemId, amount)
-                    .thenRun(() -> plugin.getMessages().send(player, "bank.withdraw-success", Map.of(
-                            "amount", String.valueOf(amount), "item", itemId)))
-                    .exceptionally(throwable -> {
-                        plugin.sendOperationError(player, throwable);
-                        return null;
-                    });
-        }
-    }
-
-    private void openBankSummary(Player player, Clan clan) {
-        if (clan.bankContents().isEmpty()) {
-            plugin.getMessages().send(player, "bank.empty");
-            return;
-        }
-        plugin.getMessages().send(player, "bank.header");
-        clan.bankContents().forEach((itemId, amount) ->
-                plugin.getMessages().send(player, "bank.line", Map.of("item", itemId, "amount", String.valueOf(amount))));
     }
 
     private void confirmPendingChatInput(Player player) {
@@ -721,7 +662,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.not-in-clan");
             return;
         }
-        ClanChestMenu.open(plugin, optionalClan.get(), player);
+        plugin.getGuiManager().openChestHub(player, optionalClan.get());
     }
 
     private void openContracts(Player player) {

@@ -3,6 +3,8 @@ package me.lovelace.loveclans.manager;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.gui.ClanApplicationsMenu;
 import me.lovelace.loveclans.gui.ClanCapitalManagementMenu;
+import me.lovelace.loveclans.gui.ClanChestHubMenu;
+import me.lovelace.loveclans.gui.ClanChestMoneyMenu;
 import me.lovelace.loveclans.gui.ClanColorPickerMenu;
 import me.lovelace.loveclans.gui.ClanConfirmMenu;
 import me.lovelace.loveclans.gui.ClanContractsMenu;
@@ -58,6 +60,8 @@ public class GuiManager implements Listener {
     private final ClanRoleSettingsMenu roleSettingsMenu;
     private final ClanRankPermissionsMenu rankPermissionsMenu;
     private final ClanContractsMenu contractsMenu;
+    private final ClanChestHubMenu chestHubMenu;
+    private final ClanChestMoneyMenu chestMoneyMenu;
 
     private final Map<UUID, Runnable> confirmYes = new ConcurrentHashMap<>();
     private final Map<UUID, Runnable> confirmNo = new ConcurrentHashMap<>();
@@ -77,6 +81,16 @@ public class GuiManager implements Listener {
         this.roleSettingsMenu = new ClanRoleSettingsMenu(plugin);
         this.rankPermissionsMenu = new ClanRankPermissionsMenu(plugin);
         this.contractsMenu = new ClanContractsMenu(plugin);
+        this.chestHubMenu = new ClanChestHubMenu(plugin);
+        this.chestMoneyMenu = new ClanChestMoneyMenu(plugin);
+    }
+
+    public void openChestHub(Player player, Clan clan) {
+        chestHubMenu.open(player, clan);
+    }
+
+    public void openChestMoney(Player player, Clan clan) {
+        chestMoneyMenu.open(player, clan);
     }
 
     public void openContracts(Player player, Clan clan) {
@@ -315,6 +329,8 @@ public class GuiManager implements Listener {
                     case ROLE_SETTINGS -> roleSettingsMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case RANK_PERMISSIONS -> rankPermissionsMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case CONTRACTS -> contractsMenu.handleInventoryClick(player, clan, slot);
+                    case CHEST_HUB -> chestHubMenu.handleInventoryClick(player, clan, slot);
+                    case CHEST_MONEY -> chestMoneyMenu.handleInventoryClick(player, clan, slot);
                     default -> {
                     }
                 }

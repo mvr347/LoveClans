@@ -58,21 +58,19 @@ clans:
   default-emblem: WHITE_BANNER
   invite-expire-seconds: 120
   friendly-fire: false
-  # Казна клана (банк) — хранилище на основе кастомных предметов ItemsAdder, отдельное от
-  # физического общего сундука клана. Пополняется/снимается командами /clan bank deposit|withdraw.
-  bank:
-    enabled: true
-    # allowed-items — список ItemsAdder ID (namespace:id) предметов, которые можно вносить/снимать
-    # из казны клана. Предметы, отсутствующие в этом списке, банк не принимает.
-    allowed-items: []
 
-  # Общий физический сундук клана (/clan chest) — реальное хранилище предметов, отдельное от
-  # банка. Новые ряды разблокируются за монеты ItemsAdder, списываемые из банка клана.
+  # Общий клановый сундук (§2, /clan chest) — единое хранилище денег (currency-item, отдельный
+  # слот) и предметов (обычное хранилище). Заменяет прежний отдельный /clan bank. Новые ряды
+  # предметов разблокируются улучшением "Сундук" (upgrades.CHEST), а не покупкой за деньги.
   # base-chest-rows/max-chest-rows заданы в limits.
   chest:
     currency-item: 'currency:gold_coin'
-    # Стоимость разблокировки следующего ряда; индекс = (текущие_ряды - limits.base-chest-rows)
-    cost-per-row: [1000, 2500, 5000]
+    tax:
+      # С какого уровня клана начинает взиматься налог (1-2 уровень — без налога).
+      tax-free-until-level: 3
+      base-amount: 1000
+      percent-per-member: 0.05
+      percent-per-extra-row: 0.10
 
   # Клановые обеты (контракты) — раз в неделю лидер клана выбирает один обет у NPC-Маршала
   # (Citizens). npc-id — числовой ID NPC (узнаётся через /npc id, стоя рядом с ним); -1 отключает
@@ -134,6 +132,10 @@ upgrades:
     max-level: 5
   EXPERIENCE:
     max-level: 5
+  # Уровни этого улучшения = число рядов сундука сверх базового (limits.base-chest-rows).
+  # max-level здесь должен совпадать с (limits.max-chest-rows - limits.base-chest-rows).
+  CHEST:
+    max-level: 3
 
 # Клановые перки (§7) — доступны с perks.unlock-level, один активный за раз, смена стоит
 # опыта клана после первого (бесплатного) выбора.

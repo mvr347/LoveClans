@@ -130,7 +130,10 @@ public final class DatabaseManager implements AutoCloseable {
                         raids_lost INT NOT NULL DEFAULT 0,
                         influence BIGINT NOT NULL DEFAULT 0,
                         perk VARCHAR(32),
-                        perk_chosen_at BIGINT NOT NULL DEFAULT 0
+                        perk_chosen_at BIGINT NOT NULL DEFAULT 0,
+                        chest_money BIGINT NOT NULL DEFAULT 0,
+                        last_tax_at BIGINT NOT NULL DEFAULT 0,
+                        chest_tax_locked TINYINT NOT NULL DEFAULT 0
                     )
                     """);
             // Migrations
@@ -150,6 +153,9 @@ public final class DatabaseManager implements AutoCloseable {
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN influence BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN perk VARCHAR(32)"); } catch (SQLException ignored) {}
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN perk_chosen_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN chest_money BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN last_tax_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN chest_tax_locked TINYINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_members (
@@ -228,6 +234,10 @@ public final class DatabaseManager implements AutoCloseable {
                     """);
 
 
+            // Legacy /clan bank ledger (§2 removed the command and merged money into the chest's
+            // dedicated money slot - see clans.chest_money). Table is kept only so
+            // SqlClanStorage#migrateLegacyBankMoneyAsync can do a one-time transfer into
+            // chest_money on first load after upgrading; nothing writes to it anymore.
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_bank (
                         clan_id VARCHAR(36) NOT NULL,

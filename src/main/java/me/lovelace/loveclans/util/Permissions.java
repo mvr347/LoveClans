@@ -23,7 +23,6 @@ public final class Permissions {
     public static final String APPLICATIONS = "loveclans.applications";
     public static final String ADMIN = "loveclans.admin";
     public static final String HOME = "loveclans.home";
-    public static final String BANK = "loveclans.bank";
 
     private static final String LEGACY_PREFIX = "clans.";
     private static final String CURRENT_PREFIX = "loveclans.";

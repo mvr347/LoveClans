@@ -15,5 +15,7 @@ public enum ClanMenuType {
     TERRITORY_SETTINGS,
     ROLE_SETTINGS,
     RANK_PERMISSIONS,
-    CONTRACTS
+    CONTRACTS,
+    CHEST_HUB,
+    CHEST_MONEY
 }

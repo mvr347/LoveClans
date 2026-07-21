@@ -42,13 +42,17 @@ public final class Clan {
     private ClanPerk perk;
     private long perkChosenAt;
 
+    // --- Клановый сундук (§2): деньги хранятся отдельным полем прямо на клане, а не как
+    // произвольный предметный банк - в сундуке ровно одна валюта (clans.chest.currency-item).
+    private long chestMoney;
+    private long lastTaxAt;
+    private boolean chestTaxLocked;
+
     private final Map<UUID, ClanMember> members = new ConcurrentHashMap<>();
     private final Map<UUID, ClanTerritory> territories = new ConcurrentHashMap<>();
     private final Map<UUID, DiplomacyRelation> diplomacy = new ConcurrentHashMap<>();
     private final Map<ClanUpgrade, Integer> upgrades = new ConcurrentHashMap<>();
     private final Map<ClanRank, Set<ClanPermission>> permissions = new ConcurrentHashMap<>();
-    // Казна клана: ItemsAdder namespaced ID -> количество предмета, хранящееся в банке клана.
-    private final Map<String, Long> bank = new ConcurrentHashMap<>();
 
     public Clan(UUID id,
                 String name,
@@ -78,6 +82,7 @@ public final class Clan {
         this.createdAt = createdAt;
         this.open = open;
         this.homeLocation = homeLocation; // Initialize homeLocation
+        this.lastTaxAt = createdAt;
         for (ClanUpgrade upgrade : ClanUpgrade.values()) {
             upgrades.put(upgrade, 0);
         }
@@ -352,29 +357,32 @@ public final class Clan {
         this.homeLocation = homeLocation;
     }
 
-    // --- Clan bank / treasury (ItemsAdder-backed) ---
+    // --- Клановый сундук: деньги (§2) ---
 
-    public Map<String, Long> bankContents() {
-        return Collections.unmodifiableMap(bank);
+    public long chestMoney() {
+        return chestMoney;
     }
 
-    public long bankAmount(String itemId) {
-        return bank.getOrDefault(itemId, 0L);
+    public void setChestMoney(long amount) {
+        this.chestMoney = Math.max(0L, amount);
     }
 
-    /** Used when loading bank rows from storage; does not touch persisted state itself. */
-    public void putBankAmount(String itemId, long amount) {
-        if (amount <= 0) {
-            bank.remove(itemId);
-        } else {
-            bank.put(itemId, amount);
-        }
+    public long addChestMoney(long delta) {
+        this.chestMoney = Math.max(0L, this.chestMoney + delta);
+        return this.chestMoney;
     }
 
-    public long addBankAmount(String itemId, long delta) {
-        long updated = Math.max(0L, bankAmount(itemId) + delta);
-        putBankAmount(itemId, updated);
-        return updated;
+    public long lastTaxAt() {
+        return lastTaxAt;
+    }
+
+    public boolean isChestTaxLocked() {
+        return chestTaxLocked;
+    }
+
+    public void setTaxState(long lastTaxAt, boolean locked) {
+        this.lastTaxAt = lastTaxAt;
+        this.chestTaxLocked = locked;
     }
 
     // --- Influence (§8) ---

@@ -87,7 +87,39 @@ public final class ClanManager {
                 applicationsByClan.computeIfAbsent(application.clanId(), k -> new ArrayList<>()).add(application);
             }
             plugin.getLogger().info("Loaded " + applications.size() + " clan applications.");
-        }));
+        })).thenCompose(v -> migrateLegacyBankMoneyAsync());
+    }
+
+    /**
+     * One-time startup migration (§2): the old /clan bank ledger is gone, replaced by the chest's
+     * money slot. For every loaded clan that hasn't already been migrated (chestMoney still 0),
+     * pulls whatever balance the old bank had for the configured currency item into chestMoney.
+     * Safe to run on every startup — migrateLegacyBankMoneyAsync clears the legacy row once read,
+     * so there is nothing left to migrate on subsequent restarts.
+     */
+    private CompletableFuture<Void> migrateLegacyBankMoneyAsync() {
+        String currencyItem = chestCurrencyItem();
+        if (currencyItem == null || currencyItem.isBlank()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        List<CompletableFuture<Void>> migrations = new ArrayList<>();
+        for (Clan clan : clansById.values()) {
+            if (clan.chestMoney() > 0) {
+                continue;
+            }
+            migrations.add(storage.migrateLegacyBankMoneyAsync(clan.id(), currencyItem).thenCompose(amount -> {
+                if (amount <= 0) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                clan.addChestMoney(amount);
+                plugin.getLogger().info("Migrated " + amount + "x " + currencyItem + " from the old clan bank into the chest for clan " + clan.id());
+                return storage.updateClanChestMoney(clan.id(), clan.chestMoney());
+            }).exceptionally(t -> {
+                plugin.getLogger().warning("Failed to migrate legacy bank money for clan " + clan.id() + ": " + t.getMessage());
+                return null;
+            }));
+        }
+        return CompletableFuture.allOf(migrations.toArray(new CompletableFuture[0]));
     }
 
     public Optional<Clan> getClanById(UUID clanId) {
@@ -1140,141 +1172,158 @@ public final class ClanManager {
         }).thenCompose(this::recalculateInfluenceAsync);
     }
 
-    // --- Clan bank / treasury (ItemsAdder-backed) ---
-
-    /**
-     * Deposits {@code amount} of the given ItemsAdder item from the player's inventory into
-     * their clan's bank. Unlike money, ItemsAdder items must be physically removed from the
-     * player, so this is guarded by an explicit inventory check before anything is persisted.
-     */
-    public CompletableFuture<Long> depositToBankAsync(Clan clan, UUID actorId, Player player, String itemId, long amount) {
-        if (clan == null || actorId == null || player == null || itemId == null)
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor, player and item ID cannot be null."));
-        return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
-                throw new IllegalStateException("general.no-permission");
-            }
-            if (amount <= 0) {
-                throw new IllegalStateException("bank.invalid-amount");
-            }
-            requireBankEnabled();
-            requireAllowedBankItem(itemId);
-            if (!plugin.getItemsAdderEconomyService().isAvailable()) {
-                throw new IllegalStateException("clan.creation-economy-unavailable");
-            }
-            if (!plugin.getItemsAdderEconomyService().hasItem(player, itemId, amount)) {
-                throw new IllegalStateException("bank.insufficient-items");
-            }
-            plugin.getItemsAdderEconomyService().withdraw(player, itemId, amount);
-            return null;
-        }).thenCompose(ignored -> storage.adjustBankAmountAsync(clan.id(), itemId, amount)
-                .thenApply(newBalance -> {
-                    clan.putBankAmount(itemId, newBalance);
-                    return newBalance;
-                }));
-    }
-
-    /**
-     * Withdraws {@code amount} of the given ItemsAdder item from the clan's bank and gives it to
-     * the player. The storage-level decrement is atomic (conditioned on sufficient balance), so
-     * two concurrent withdrawals from different clan members can't overdraw the bank.
-     */
-    public CompletableFuture<Void> withdrawFromBankAsync(Clan clan, UUID actorId, Player player, String itemId, long amount) {
-        if (clan == null || actorId == null || player == null || itemId == null)
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor, player and item ID cannot be null."));
-        return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
-                throw new IllegalStateException("general.no-permission");
-            }
-            if (amount <= 0) {
-                throw new IllegalStateException("bank.invalid-amount");
-            }
-            requireBankEnabled();
-            requireAllowedBankItem(itemId);
-            if (!plugin.getItemsAdderEconomyService().isAvailable()) {
-                throw new IllegalStateException("clan.creation-economy-unavailable");
-            }
-            return null;
-        }).thenCompose(ignored -> storage.withdrawBankAmountAsync(clan.id(), itemId, amount)).thenCompose(success -> {
-            if (!Boolean.TRUE.equals(success)) {
-                return CompletableFuture.failedFuture(new IllegalStateException("bank.insufficient-items"));
-            }
-            return plugin.supplySync(() -> {
-                clan.addBankAmount(itemId, -amount);
-                plugin.getItemsAdderEconomyService().give(player, itemId, amount);
-                return null;
-            });
-        });
-    }
-
-    private void requireBankEnabled() {
-        if (!plugin.getConfig().getBoolean("clans.bank.enabled", true)) {
-            throw new IllegalStateException("bank.disabled");
-        }
-    }
-
-    private void requireAllowedBankItem(String itemId) {
-        List<String> allowed = plugin.getConfig().getStringList("clans.bank.allowed-items");
-        if (!allowed.contains(itemId)) {
-            throw new IllegalStateException("bank.item-not-allowed");
-        }
-    }
-
-    // --- Clan chest (physical item storage, separate from the bank ledger) ---
-
-    /** Full Bukkit inventory size backing the chest; unlocked rows are the first {@code chestRows() * 9} slots. */
-    public static final int CHEST_MAX_SIZE = 54;
-
-    public int maxChestRows() {
-        return plugin.getConfig().getInt("limits.max-chest-rows", 6);
-    }
-
-    /** Cost, in the configured chest currency, to unlock the clan's next chest row. -1 if there is none left to buy. */
-    public long nextChestRowCost(Clan clan) {
-        if (clan == null) return -1;
-        int index = clan.chestRows() - plugin.getConfig().getInt("limits.base-chest-rows", 3);
-        List<?> tiers = plugin.getConfig().getList("clans.chest.cost-per-row");
-        if (tiers == null || index < 0 || index >= tiers.size()) return -1;
-        Object value = tiers.get(index);
-        return value instanceof Number number ? number.longValue() : -1;
-    }
+    // --- Клановый сундук: деньги (§2) — заменяет прежний отдельный /clan bank ---
 
     public String chestCurrencyItem() {
         return plugin.getConfig().getString("clans.chest.currency-item", "");
     }
 
     /**
-     * Spends the next tier's cost from the clan bank (atomically, via the same conditional
-     * decrement as {@link #withdrawFromBankAsync}) and unlocks one more chest row.
+     * Deposits {@code amount} of the chest currency from the player's inventory into their
+     * clan's chest money slot. The item is physically removed from the player, so this is
+     * guarded by an explicit inventory check before anything is persisted.
      */
-    public CompletableFuture<Clan> purchaseChestRowAsync(Clan clan, UUID actorId) {
-        if (clan == null || actorId == null)
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and actor ID cannot be null."));
+    public CompletableFuture<Long> depositChestMoneyAsync(Clan clan, UUID actorId, Player player, long amount) {
+        if (clan == null || actorId == null || player == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor and player cannot be null."));
         return plugin.supplySync(() -> {
             if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
                 throw new IllegalStateException("general.no-permission");
             }
-            if (clan.chestRows() >= maxChestRows()) {
-                throw new IllegalStateException("chest.max-rows-reached");
-            }
-            return nextChestRowCost(clan);
-        }).thenCompose(cost -> {
-            if (cost < 0) {
-                return CompletableFuture.failedFuture(new IllegalStateException("chest.max-rows-reached"));
+            if (amount <= 0) {
+                throw new IllegalStateException("chest.invalid-amount");
             }
             String currencyItem = chestCurrencyItem();
-            return storage.withdrawBankAmountAsync(clan.id(), currencyItem, cost).thenCompose(success -> {
-                if (!Boolean.TRUE.equals(success)) {
-                    return CompletableFuture.failedFuture(new IllegalStateException("chest.insufficient-funds"));
-                }
-                return plugin.supplySync(() -> {
-                    clan.addBankAmount(currencyItem, -cost);
-                    clan.setChestRows(clan.chestRows() + 1);
-                    return clan;
-                }).thenCompose(updatedClan -> storage.updateClanChestRows(updatedClan.id(), updatedClan.chestRows())
-                        .thenApply(ignored -> updatedClan));
-            });
+            if (!plugin.getItemsAdderEconomyService().isAvailable()) {
+                throw new IllegalStateException("clan.creation-economy-unavailable");
+            }
+            if (!plugin.getItemsAdderEconomyService().hasItem(player, currencyItem, amount)) {
+                throw new IllegalStateException("chest.insufficient-items");
+            }
+            plugin.getItemsAdderEconomyService().withdraw(player, currencyItem, amount);
+            return null;
+        }).thenCompose(ignored -> {
+            long newBalance = clan.addChestMoney(amount);
+            return storage.updateClanChestMoney(clan.id(), newBalance)
+                    .thenCompose(v -> maybeUnlockChestAsync(clan))
+                    .thenApply(v -> newBalance);
         });
+    }
+
+    /**
+     * Withdraws {@code amount} of the chest currency from the clan's chest and gives it to the
+     * player. Blocked while the chest is tax-locked, same as the items side of the chest.
+     */
+    public CompletableFuture<Void> withdrawChestMoneyAsync(Clan clan, UUID actorId, Player player, long amount) {
+        if (clan == null || actorId == null || player == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor and player cannot be null."));
+        return plugin.supplySync(() -> {
+            if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
+                throw new IllegalStateException("general.no-permission");
+            }
+            if (clan.isChestTaxLocked()) {
+                throw new IllegalStateException("chest.tax-locked");
+            }
+            if (amount <= 0) {
+                throw new IllegalStateException("chest.invalid-amount");
+            }
+            if (clan.chestMoney() < amount) {
+                throw new IllegalStateException("chest.insufficient-items");
+            }
+            if (!plugin.getItemsAdderEconomyService().isAvailable()) {
+                throw new IllegalStateException("clan.creation-economy-unavailable");
+            }
+            clan.addChestMoney(-amount);
+            plugin.getItemsAdderEconomyService().give(player, chestCurrencyItem(), amount);
+            return null;
+        }).thenCompose(ignored -> storage.updateClanChestMoney(clan.id(), clan.chestMoney()));
+    }
+
+    /** System-granted currency reward (e.g. a completed clan contract) — not a player deposit. */
+    public CompletableFuture<Long> depositRewardToChestAsync(Clan clan, long amount) {
+        if (clan == null || amount <= 0) {
+            return CompletableFuture.completedFuture(clan != null ? clan.chestMoney() : 0L);
+        }
+        long newBalance = clan.addChestMoney(amount);
+        return storage.updateClanChestMoney(clan.id(), newBalance).thenApply(v -> newBalance);
+    }
+
+    // --- Клановый сундук: налог (§2.2) ---
+
+    /** Base tax is charged from clan level chest.tax.tax-free-until-level onward. */
+    public boolean isTaxApplicable(Clan clan) {
+        return clan.level() >= plugin.getConfig().getInt("clans.chest.tax.tax-free-until-level", 3);
+    }
+
+    public long weeklyChestTax(Clan clan) {
+        double base = plugin.getConfig().getDouble("clans.chest.tax.base-amount", 1000.0);
+        double perMember = plugin.getConfig().getDouble("clans.chest.tax.percent-per-member", 0.05);
+        double perRow = plugin.getConfig().getDouble("clans.chest.tax.percent-per-extra-row", 0.10);
+        int baseRows = plugin.getConfig().getInt("limits.base-chest-rows", 3);
+        double multiplier = 1.0 + Math.max(0, clan.members().size() - 1) * perMember
+                + Math.max(0, clan.chestRows() - baseRows) * perRow;
+        return Math.round(base * multiplier);
+    }
+
+    private CompletableFuture<Void> maybeUnlockChestAsync(Clan clan) {
+        if (!clan.isChestTaxLocked()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        long tax = weeklyChestTax(clan);
+        if (clan.chestMoney() < tax) {
+            return CompletableFuture.completedFuture(null);
+        }
+        clan.addChestMoney(-tax);
+        clan.setTaxState(System.currentTimeMillis(), false);
+        return storage.updateClanChestMoney(clan.id(), clan.chestMoney())
+                .thenCompose(v -> storage.updateClanTaxState(clan.id(), clan.lastTaxAt(), false))
+                .thenRun(() -> getOnlineMembersWithPermission(clan, ClanPermission.BANK)
+                        .forEach(p -> plugin.getMessages().send(p, "chest.tax-paid-manually")));
+    }
+
+    /**
+     * Rolling weekly tax check (not calendar-locked to Monday, to avoid timezone edge cases):
+     * called periodically for every loaded clan; if 7+ days passed since the last attempt for a
+     * clan at/above the taxable level, tries to withdraw the tax automatically and locks the
+     * chest on failure.
+     */
+    public void tickChestTaxes() {
+        long weekMs = Duration.ofDays(7).toMillis();
+        long now = System.currentTimeMillis();
+        for (Clan clan : clansById.values()) {
+            if (!isTaxApplicable(clan) || now - clan.lastTaxAt() < weekMs) {
+                continue;
+            }
+            long tax = weeklyChestTax(clan);
+            boolean paid = clan.chestMoney() >= tax;
+            if (paid) {
+                clan.addChestMoney(-tax);
+            }
+            clan.setTaxState(now, !paid);
+            storage.updateClanChestMoney(clan.id(), clan.chestMoney())
+                    .thenCompose(v -> storage.updateClanTaxState(clan.id(), clan.lastTaxAt(), clan.isChestTaxLocked()))
+                    .exceptionally(t -> {
+                        plugin.getLogger().warning("Failed to persist chest tax for clan " + clan.id() + ": " + t.getMessage());
+                        return null;
+                    });
+            String key = paid ? "chest.tax-collected" : "chest.tax-locked-announcement";
+            for (Player p : onlineMembers(clan)) {
+                plugin.getMessages().send(p, key, Map.of("amount", String.valueOf(tax)));
+            }
+        }
+    }
+
+    private java.util.stream.Stream<Player> onlineMembers(Clan clan) {
+        return clan.members().keySet().stream().map(Bukkit::getPlayer).filter(Objects::nonNull);
+    }
+
+    // --- Clan chest (physical item storage) ---
+
+    /** Full Bukkit inventory size backing the chest; unlocked rows are the first {@code chestRows() * 9} slots. */
+    public static final int CHEST_MAX_SIZE = 54;
+
+    public int maxChestRows() {
+        return plugin.getConfig().getInt("limits.max-chest-rows", 6);
     }
 
     /** Loads (and caches) the clan's chest contents, always sized to {@link #CHEST_MAX_SIZE}. */
@@ -1295,18 +1344,6 @@ public final class ClanManager {
         Inventory temp = Bukkit.createInventory(null, CHEST_MAX_SIZE);
         temp.setContents(contents);
         return storage.saveChestContentsAsync(clanId, InventorySerialization.serialize(temp));
-    }
-
-    /** System-granted currency reward (e.g. a completed clan contract) — not a player deposit. */
-    public CompletableFuture<Long> depositRewardToBankAsync(Clan clan, String itemId, long amount) {
-        if (clan == null || itemId == null || itemId.isBlank() || amount <= 0) {
-            return CompletableFuture.completedFuture(clan != null ? clan.bankAmount(itemId) : 0L);
-        }
-        return storage.adjustBankAmountAsync(clan.id(), itemId, amount)
-                .thenApply(newBalance -> {
-                    clan.putBankAmount(itemId, newBalance);
-                    return newBalance;
-                });
     }
 
     public CompletableFuture<Clan> updateClanAsync(Clan clan) {
@@ -1366,9 +1403,17 @@ public final class ClanManager {
             }
             clan.setUpgradeLevel(upgrade, clan.upgradeLevel(upgrade) + 1);
             clan.removeUpgradePoints(1);
+            // Улучшение "Сундук" (§2.1) не хранит собственное состояние - его уровень напрямую
+            // определяет число разблокированных рядов физического сундука клана.
+            if (upgrade == ClanUpgrade.CHEST) {
+                clan.setChestRows(clan.chestRows() + 1);
+            }
             return clan;
         }).thenCompose(updatedClan -> storage.saveUpgradeAsync(updatedClan.id(), upgrade, updatedClan.upgradeLevel(upgrade))
                 .thenCompose(ignored -> storage.updateClanUpgradePoints(updatedClan.id(), updatedClan.upgradePoints()))
+                .thenCompose(ignored -> upgrade == ClanUpgrade.CHEST
+                        ? storage.updateClanChestRows(updatedClan.id(), updatedClan.chestRows())
+                        : CompletableFuture.completedFuture(null))
                 .thenCompose(ignored -> recalculateInfluenceAsync(updatedClan)));
     }
 

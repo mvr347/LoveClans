@@ -129,6 +129,13 @@ public final class SqlClanStorage implements ClanStorage {
                         } catch (SQLException | IllegalArgumentException ignored) {
                             // Column might not exist yet, or contain a retired perk name
                         }
+                        try {
+                            clan.setChestMoney(result.getLong("chest_money"));
+                            long lastTaxAt = result.getLong("last_tax_at");
+                            clan.setTaxState(lastTaxAt > 0 ? lastTaxAt : clan.createdAt(), result.getInt("chest_tax_locked") == 1);
+                        } catch (SQLException ignored) {
+                            // Columns might not exist yet if plugin just updated
+                        }
                         clans.put(id, clan);
                     }
                 }
@@ -137,7 +144,6 @@ public final class SqlClanStorage implements ClanStorage {
                 loadDiplomacy(connection, clans);
                 loadUpgrades(connection, clans);
                 loadPermissions(connection, clans);
-                loadBank(connection, clans);
                 return new ArrayList<>(clans.values());
             } catch (SQLException exception) {
                 throw new StorageException("Unable to load clans", exception);
@@ -476,52 +482,61 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
-    // --- Clan bank / treasury ---
+    // --- Клановый сундук: деньги и налог (§2) ---
 
     @Override
-    public CompletableFuture<Long> adjustBankAmountAsync(UUID clanId, String itemId, long delta) {
-        return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = database.dataSource().getConnection()) {
-                String sql = database.type() == DatabaseType.MYSQL
-                        ? "INSERT INTO clan_bank (clan_id, item_id, amount) VALUES (?, ?, ?) " +
-                          "ON DUPLICATE KEY UPDATE amount = amount + VALUES(amount)"
-                        : "INSERT INTO clan_bank (clan_id, item_id, amount) VALUES (?, ?, ?) " +
-                          "ON CONFLICT(clan_id, item_id) DO UPDATE SET amount = clan_bank.amount + excluded.amount";
-                try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                    statement.setString(1, clanId.toString());
-                    statement.setString(2, itemId);
-                    statement.setLong(3, delta);
-                    statement.executeUpdate();
-                }
-                try (PreparedStatement select = connection.prepareStatement(
-                        "SELECT amount FROM clan_bank WHERE clan_id = ? AND item_id = ?")) {
-                    select.setString(1, clanId.toString());
-                    select.setString(2, itemId);
-                    try (ResultSet result = select.executeQuery()) {
-                        return result.next() ? result.getLong("amount") : 0L;
-                    }
-                }
+    public CompletableFuture<Void> updateClanChestMoney(UUID clanId, long amount) {
+        return updateClanColumn(clanId, "chest_money", amount);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanTaxState(UUID clanId, long lastTaxAt, boolean locked) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET last_tax_at = ?, chest_tax_locked = ? WHERE id = ?")) {
+                statement.setLong(1, lastTaxAt);
+                statement.setInt(2, locked ? 1 : 0);
+                statement.setString(3, clanId.toString());
+                statement.executeUpdate();
             } catch (SQLException exception) {
-                throw new StorageException("Unable to adjust bank amount for clan " + clanId, exception);
+                throw new StorageException("Unable to update tax state for clan " + clanId, exception);
             }
         }, database.executor());
     }
 
+    /**
+     * One-time migration (§2): reads whatever balance the old /clan bank ledger had for
+     * {@code currencyItemId}, deletes that row so it isn't re-applied on a future restart, and
+     * returns the amount to add to the clan's new chest money slot. Returns 0 if there was
+     * nothing to migrate.
+     */
     @Override
-    public CompletableFuture<Boolean> withdrawBankAmountAsync(UUID clanId, String itemId, long amount) {
+    public CompletableFuture<Long> migrateLegacyBankMoneyAsync(UUID clanId, String currencyItemId) {
         return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = database.dataSource().getConnection();
-                 PreparedStatement statement = connection.prepareStatement(
-                         "UPDATE clan_bank SET amount = amount - ? WHERE clan_id = ? AND item_id = ? AND amount >= ?")) {
-                statement.setLong(1, amount);
-                statement.setString(2, clanId.toString());
-                statement.setString(3, itemId);
-                statement.setLong(4, amount);
-                // Conditioning on "amount >= ?" makes this a single atomic statement: concurrent
-                // withdrawals on the same clan/item can't both succeed and drive the balance negative.
-                return statement.executeUpdate() > 0;
+            try (Connection connection = database.dataSource().getConnection()) {
+                long amount = 0L;
+                try (PreparedStatement select = connection.prepareStatement(
+                        "SELECT amount FROM clan_bank WHERE clan_id = ? AND item_id = ?")) {
+                    select.setString(1, clanId.toString());
+                    select.setString(2, currencyItemId);
+                    try (ResultSet result = select.executeQuery()) {
+                        if (result.next()) {
+                            amount = result.getLong("amount");
+                        }
+                    }
+                }
+                if (amount > 0) {
+                    try (PreparedStatement delete = connection.prepareStatement(
+                            "DELETE FROM clan_bank WHERE clan_id = ? AND item_id = ?")) {
+                        delete.setString(1, clanId.toString());
+                        delete.setString(2, currencyItemId);
+                        delete.executeUpdate();
+                    }
+                }
+                return amount;
             } catch (SQLException exception) {
-                throw new StorageException("Unable to withdraw bank amount for clan " + clanId, exception);
+                throw new StorageException("Unable to migrate legacy bank money for clan " + clanId, exception);
             }
         }, database.executor());
     }
@@ -621,21 +636,6 @@ public final class SqlClanStorage implements ClanStorage {
             }
             return result;
         }, database.executor());
-    }
-
-    private void loadBank(Connection connection, Map<UUID, Clan> clans) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_bank");
-             ResultSet result = statement.executeQuery()) {
-            while (result.next()) {
-                Clan clan = clans.get(UUID.fromString(result.getString("clan_id")));
-                if (clan == null) {
-                    continue;
-                }
-                clan.putBankAmount(result.getString("item_id"), result.getLong("amount"));
-            }
-        } catch (SQLException ignored) {
-            // Table might not exist yet if plugin just updated
-        }
     }
 
     private void loadMembers(Connection connection, Map<UUID, Clan> clans) throws SQLException {

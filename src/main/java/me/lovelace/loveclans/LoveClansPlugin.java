@@ -138,6 +138,16 @@ public final class LoveClansPlugin extends JavaPlugin {
                 successionManager.start();
                 perkManager.start();
 
+                // Еженедельный налог сундука (§2.2) — не привязан к календарному понедельнику
+                // (см. ClanManager#tickChestTaxes), поэтому достаточно проверять раз в час.
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        clanManager.tickChestTaxes();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Chest tax tick failed", t);
+                    }
+                }, 20L * 60L * 60L, 20L * 60L * 60L);
+
                 heartbeatTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
                     try {
                         ritualManager.tick();
