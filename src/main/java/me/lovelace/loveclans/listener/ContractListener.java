@@ -3,8 +3,8 @@ package me.lovelace.loveclans.listener;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.gui.ClanContractsMenu;
 import me.lovelace.loveclans.integration.CitizensIntegration;
-import org.bukkit.entity.AnimalTamer;
 import org.bukkit.entity.Item;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -86,7 +86,7 @@ public class ContractListener implements Listener {
 
     @EventHandler
     public void onEntityBreed(EntityBreedEvent event) {
-        AnimalTamer breeder = event.getBreeder();
+        LivingEntity breeder = event.getBreeder();
         if (!(breeder instanceof Player player)) {
             return;
         }
