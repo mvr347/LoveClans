@@ -13,6 +13,8 @@ import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.quest.ContractType;
+import me.lovelace.loveclans.model.trade.ClanTrade;
+import me.lovelace.loveclans.model.trade.TradeStatus;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Bukkit; // Import Bukkit for World access
 import org.bukkit.Location; // Import Location
@@ -834,6 +836,62 @@ public final class SqlClanStorage implements ClanStorage {
             } catch (SQLException exception) {
                 throw new StorageException("Unable to mark letter " + letterId + " as read", exception);
             }
+        }, database.executor());
+    }
+
+    // --- Торговля между кланами через сундук (§4.2) ---
+
+    @Override
+    public CompletableFuture<Void> saveTradeAsync(ClanTrade trade) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT INTO clan_trades (id, clan_from, clan_to, money, items, status, created_at, resolved_at) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status), resolved_at = VALUES(resolved_at)"
+                    : "INSERT INTO clan_trades (id, clan_from, clan_to, money, items, status, created_at, resolved_at) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET status = excluded.status, resolved_at = excluded.resolved_at";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, trade.id().toString());
+                statement.setString(2, trade.fromClanId().toString());
+                statement.setString(3, trade.toClanId().toString());
+                statement.setLong(4, trade.money());
+                statement.setBytes(5, trade.items());
+                statement.setString(6, trade.status().name());
+                statement.setLong(7, trade.createdAt());
+                statement.setLong(8, trade.resolvedAt());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save trade " + trade.id(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<ClanTrade>> loadPendingTradesAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<ClanTrade> result = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT * FROM clan_trades WHERE status = ?")) {
+                statement.setString(1, TradeStatus.PENDING.name());
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        result.add(new ClanTrade(
+                                UUID.fromString(rs.getString("id")),
+                                UUID.fromString(rs.getString("clan_from")),
+                                UUID.fromString(rs.getString("clan_to")),
+                                rs.getLong("money"),
+                                rs.getBytes("items"),
+                                TradeStatus.valueOf(rs.getString("status")),
+                                rs.getLong("created_at"),
+                                rs.getLong("resolved_at")
+                        ));
+                    }
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load pending clan trades", exception);
+            }
+            return result;
         }, database.executor());
     }
 

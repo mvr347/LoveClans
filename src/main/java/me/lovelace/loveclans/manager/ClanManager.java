@@ -1266,6 +1266,15 @@ public final class ClanManager {
         return storage.updateClanChestMoney(clan.id(), newBalance).thenApply(v -> newBalance);
     }
 
+    /** System-side balance decrement (e.g. escrowing money into a clan trade offer, §4.2) — no physical item involved, unlike withdrawChestMoneyAsync. */
+    public CompletableFuture<Long> removeChestMoneyAsync(Clan clan, long amount) {
+        if (clan == null || amount <= 0) {
+            return CompletableFuture.completedFuture(clan != null ? clan.chestMoney() : 0L);
+        }
+        long newBalance = clan.addChestMoney(-amount);
+        return storage.updateClanChestMoney(clan.id(), newBalance).thenApply(v -> newBalance);
+    }
+
     // --- Клановый сундук: налог (§2.2) ---
 
     /** Base tax is charged from clan level chest.tax.tax-free-until-level onward. */
@@ -1362,6 +1371,35 @@ public final class ClanManager {
         Inventory temp = Bukkit.createInventory(null, CHEST_MAX_SIZE);
         temp.setContents(contents);
         return storage.saveChestContentsAsync(clanId, InventorySerialization.serialize(temp));
+    }
+
+    /**
+     * Merges {@code items} into the clan's chest (only its unlocked rows), stacking onto existing
+     * items where possible. Used to settle a clan trade (§4.2) - both crediting the receiving
+     * clan on accept and refunding the proposer on decline/cancel. Returns whatever didn't fit so
+     * the caller can hand it back to a player instead of silently discarding it.
+     */
+    public CompletableFuture<List<ItemStack>> depositItemsToChestAsync(Clan clan, List<ItemStack> items) {
+        if (clan == null || items == null || items.isEmpty()) {
+            return CompletableFuture.completedFuture(List.of());
+        }
+        return loadChestContentsAsync(clan).thenCompose(contents -> {
+            int unlocked = Math.min(contents.length, clan.chestRows() * 9);
+            ItemStack[] unlockedPortion = new ItemStack[unlocked];
+            System.arraycopy(contents, 0, unlockedPortion, 0, unlocked);
+            Inventory temp = Bukkit.createInventory(null, Math.max(unlocked, 9));
+            temp.setContents(unlockedPortion);
+
+            List<ItemStack> leftovers = new ArrayList<>();
+            for (ItemStack item : items) {
+                if (item == null || item.getType().isAir()) continue;
+                leftovers.addAll(temp.addItem(item.clone()).values());
+            }
+
+            ItemStack[] merged = contents.clone();
+            System.arraycopy(temp.getContents(), 0, merged, 0, unlocked);
+            return saveChestContentsAsync(clan.id(), merged).thenApply(v -> leftovers);
+        });
     }
 
     public CompletableFuture<Clan> updateClanAsync(Clan clan) {

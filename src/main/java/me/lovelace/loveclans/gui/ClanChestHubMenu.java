@@ -20,6 +20,7 @@ public final class ClanChestHubMenu {
     private static final int INFO_SLOT = 4;
     private static final int MONEY_SLOT = 11;
     private static final int ITEMS_SLOT = 15;
+    private static final int TRADE_SLOT = 13;
     private static final int BACK_SLOT = 25;
     private static final int CLOSE_SLOT = 26;
 
@@ -78,6 +79,13 @@ public final class ClanChestHubMenu {
                     .build());
         }
 
+        // Полноценный выбор клана для торговли (§6.3) — в отдельной задаче по переделке UI
+        // дипломатии/торговли; пока кнопка лишь подсказывает команду.
+        inventory.setItem(TRADE_SLOT, ItemBuilder.of(Material.EMERALD)
+                .name(plugin.getMessages().component("gui.chest.trade-button.name", player))
+                .lore(plugin.getMessages().component("gui.chest.trade-button.lore", player))
+                .build());
+
         inventory.setItem(BACK_SLOT, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
@@ -95,6 +103,9 @@ public final class ClanChestHubMenu {
             plugin.getGuiManager().openMain(player, clan);
         } else if (slot == MONEY_SLOT) {
             plugin.getGuiManager().openChestMoney(player, clan);
+        } else if (slot == TRADE_SLOT) {
+            player.closeInventory();
+            plugin.getMessages().send(player, "gui.chest.trade-button.hint");
         } else if (slot == ITEMS_SLOT) {
             if (clan.isChestTaxLocked()) {
                 plugin.getMessages().send(player, "chest.tax-locked");

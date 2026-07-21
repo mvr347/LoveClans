@@ -67,6 +67,23 @@ contract:
     breed-animal: "<gray>Разведено ({animal_type}): <white>{current_progress}</white>/{target_amount}"
     enchant-item: "<gray>Зачаровано предметов ({enchantment_type}): <white>{current_progress}</white>/{target_amount}"
 
+trade:
+  empty-offer: "<prefix><red>Нужно предложить хотя бы деньги или предмет."
+  blocked: "<prefix><red>Торговля с этим кланом сейчас недоступна (эмбарго, блокада или конфликт)."
+  already-pending: "<prefix><red>У вас уже есть неотвеченное предложение этому клану."
+  cooldown-active: "<prefix><red>Подождите <yellow><seconds></yellow> сек. перед новой сделкой с этим кланом."
+  not-found: "<prefix><red>Сделка не найдена или уже завершена."
+  sent: "<prefix><green>Предложение обмена отправлено клану <color><tag></color>."
+  offer-received: "<prefix><gold>Клан <color><tag></color> предлагает обмен!"
+  open: "<green>[Открыть]"
+  received: "<prefix><green>Клан <color><tag></color> принял ваш обмен - товар зачислен в ваш сундук."
+  accepted: "<prefix><green>Клан <color><tag></color> принял ваше предложение обмена."
+  declined: "<prefix><yellow>Клан <color><tag></color> отклонил ваше предложение обмена."
+  cancelled: "<prefix><yellow>Предложение обмена клану <color><tag></color> отозвано."
+  accepted-confirm: "<prefix><green>Сделка принята."
+  declined-confirm: "<prefix><yellow>Сделка отклонена."
+  cancelled-confirm: "<prefix><yellow>Сделка отозвана."
+
 clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
   already-applied: "<prefix><red>Вы уже подали заявку в этот клан."
@@ -128,6 +145,7 @@ clan:
     siege: "<gray>/clan siege <tag> <white>- устроить осаду клана, стоя на его территории"
     raid: "<gray>/clan raid <tag|loot <сумма>|items> <white>- устроить набег или вынести добычу"
     letters: "<gray>/clan letters <tag> <white>- переписка с кланом"
+    trade: "<gray>/clan trade <tag> [деньги] <white>- предложить обмен клану; /clan trade <accept|decline|cancel> <id>"
 
 diplomacy:
   alliance-accepted: "<prefix><green>Вы заключили союз с кланом <color><tag></color>."
@@ -199,6 +217,10 @@ gui:
     items-button:
       name: "<gold>📦 Предметы"
       lore: "<gray>ЛКМ - открыть хранилище"
+    trade-button:
+      name: "<green>🤝 Торговля с кланами"
+      lore: "<gray>ЛКМ - узнать, как предложить обмен другому клану"
+      hint: "<prefix><yellow>Используйте /clan trade <tag> [деньги], чтобы предложить обмен другому клану."
     locked-warning:
       name: "<red>Сундук заблокирован"
       lore:
@@ -252,6 +274,26 @@ gui:
         lore: "<gray>ЛКМ - получить награду за выполненный обет"
       unavailable:
         name: "<dark_gray>Награда недоступна"
+  trade-offer:
+    title: "<gray>Обмен с кланом <color><tag>"
+    money:
+      name: "<gold>💰 Деньги в предложении"
+      lore: "<gray>Сумма: <yellow><amount>"
+    send:
+      name: "<green>Отправить предложение"
+      lore: "<gray>ЛКМ - отправить деньги и предметы выше клану-получателю"
+  trade-review:
+    title: "<gray>Обмен от клана <color><tag>"
+    no-items: "<dark_gray>Предметов не предложено"
+    money:
+      name: "<gold>💰 Деньги в предложении"
+      lore: "<gray>Сумма: <yellow><amount>"
+    accept:
+      name: "<green>Принять обмен"
+      lore: "<gray>ЛКМ - зачислить деньги и предметы в сундук вашего клана"
+    decline:
+      name: "<red>Отклонить обмен"
+      lore: "<gray>ЛКМ - вернуть деньги и предметы отправителю"
   territorries:
     item:
       coords: "<gray>Чанк: <white><cx>, <cz></white> (<x>, <z>)"

@@ -21,6 +21,7 @@ import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.manager.ContractManager;
+import me.lovelace.loveclans.manager.ClanTradeManager;
 import me.lovelace.loveclans.manager.DiplomacyManager;
 import me.lovelace.loveclans.manager.PerkManager;
 import me.lovelace.loveclans.manager.RaidManager;
@@ -76,6 +77,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private ItemsAdderEconomyService itemsAdderEconomyService;
     private ContractManager contractManager;
     private DiplomacyManager diplomacyManager;
+    private ClanTradeManager clanTradeManager;
     private CitizensIntegration citizensIntegration;
     private ClanProtectionListener clanProtectionListener;
     private BukkitTask heartbeatTask;
@@ -110,6 +112,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         citizensIntegration = new CitizensIntegration();
         contractManager = new ContractManager(this, storage);
         diplomacyManager = new DiplomacyManager(this, storage);
+        clanTradeManager = new ClanTradeManager(this, storage);
 
         clanManager.loadAsync().thenCompose(v -> diplomacyManager.loadAsync()).thenRunAsync(() -> {
             runSync(() -> {
@@ -121,6 +124,11 @@ public final class LoveClansPlugin extends JavaPlugin {
 
                 contractManager.loadAsync().exceptionally(t -> {
                     getLogger().warning("Не удалось загрузить клановые контракты: " + t.getMessage());
+                    return null;
+                });
+
+                clanTradeManager.loadAsync().exceptionally(t -> {
+                    getLogger().warning("Не удалось загрузить клановую торговлю: " + t.getMessage());
                     return null;
                 });
 
@@ -342,6 +350,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         return diplomacyManager;
     }
 
+    public ClanTradeManager getClanTradeManager() {
+        return clanTradeManager;
+    }
+
     public CitizensIntegration getCitizensIntegration() {
         return citizensIntegration;
     }
@@ -380,6 +392,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         }
         if (root instanceof me.lovelace.loveclans.manager.SpiritAbilityCooldownException cooldown) {
             messages.send(sender, "gui.spirit.ability.cooldown", Map.of("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(cooldown.remainingMillis())));
+            return;
+        }
+        if (root instanceof me.lovelace.loveclans.manager.TradeCooldownException cooldown) {
+            messages.send(sender, "trade.cooldown-active", Map.of("seconds", String.valueOf(cooldown.remainingSeconds())));
             return;
         }
         String key = root.getMessage();

@@ -10,6 +10,7 @@ import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.quest.ContractType;
+import me.lovelace.loveclans.model.trade.ClanTrade;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -115,4 +116,10 @@ public interface ClanStorage {
     CompletableFuture<Collection<ClanLetter>> loadLettersBetweenAsync(UUID clanA, UUID clanB);
 
     CompletableFuture<Void> markLetterReadAsync(UUID letterId);
+
+    // --- Торговля между кланами через сундук (§4.2) ---
+
+    CompletableFuture<Void> saveTradeAsync(ClanTrade trade);
+
+    CompletableFuture<Collection<ClanTrade>> loadPendingTradesAsync();
 }

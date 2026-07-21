@@ -336,6 +336,23 @@ public final class DatabaseManager implements AutoCloseable {
                         created_at BIGINT NOT NULL
                     )
                     """);
+
+            // Торговля между кланами через сундук (§4.2) — money/items уже списаны с clan_from
+            // (эскроу) на момент создания строки; при ACCEPTED оба зачисляются clan_to, при
+            // DECLINED/CANCELLED возвращаются обратно clan_from. items — сериализованный
+            // ItemStack[] (см. InventorySerialization), может быть NULL при чисто денежной сделке.
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_trades (
+                        id VARCHAR(36) PRIMARY KEY,
+                        clan_from VARCHAR(36) NOT NULL,
+                        clan_to VARCHAR(36) NOT NULL,
+                        money BIGINT NOT NULL DEFAULT 0,
+                        items BLOB,
+                        status VARCHAR(16) NOT NULL,
+                        created_at BIGINT NOT NULL,
+                        resolved_at BIGINT NOT NULL DEFAULT 0
+                    )
+                    """);
         } catch (SQLException exception) {
             throw new StorageException("Unable to create database schema", exception);
         }

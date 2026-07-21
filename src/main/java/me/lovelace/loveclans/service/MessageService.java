@@ -185,6 +185,15 @@ public final class MessageService {
         leader.sendMessage(msg);
     }
 
+    public void sendClickableTrade(Player recipient, java.util.UUID tradeId, String senderTag, String senderColor) {
+        Component msg = component("trade.offer-received",
+                Map.of("tag", senderTag, "color", senderColor), recipient)
+                .append(Component.text(" "))
+                .append(component("trade.open", recipient)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan trade review " + tradeId)));
+        recipient.sendMessage(msg);
+    }
+
     public void sendChatConfirmPrompt(Player player, String promptKey, Map<String, String> placeholders, Runnable onConfirm, Runnable onCancel) {
         player.sendMessage(component(promptKey, placeholders, player));
         player.sendMessage(component("gui.confirm.chat-yes", player)

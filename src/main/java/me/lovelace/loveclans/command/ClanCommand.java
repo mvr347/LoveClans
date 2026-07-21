@@ -29,13 +29,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "letters", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts"
+            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "letters", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "create", "accept", "list", "info"
@@ -172,6 +173,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "home" -> home(requirePlayer(sender)); // Added home command handler
                 case "chest" -> openChest(requirePlayer(sender));
                 case "contracts" -> openContracts(requirePlayer(sender));
+                case "trade" -> trade(requirePlayer(sender), args);
                 case "confirm" -> confirmPendingChatInput(requirePlayer(sender));
                 case "cancel" -> cancelPendingChatInput(requirePlayer(sender));
                 default -> plugin.getMessages().send(sender, "general.unknown-command");
@@ -202,6 +204,10 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 switch (args[0].toLowerCase(Locale.ROOT)) {
                     case "accept", "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "info", "letters" ->
                             completions.addAll(plugin.getClanManager().getAllClans().stream().map(Clan::tag).collect(Collectors.toList()));
+                    case "trade" -> {
+                        completions.addAll(List.of("review", "accept", "decline", "cancel"));
+                        completions.addAll(plugin.getClanManager().getAllClans().stream().map(Clan::tag).collect(Collectors.toList()));
+                    }
                     case "ritual" ->
                             completions.addAll(Arrays.stream(RitualType.values()).map(type -> type.name().toLowerCase(Locale.ROOT)).collect(Collectors.toList()));
                     case "artifact" ->
@@ -695,6 +701,67 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         plugin.getGuiManager().openContracts(player, optionalClan.get());
+    }
+
+    private void trade(Player player, String[] args) {
+        requirePermission(player, Permissions.CHEST);
+        if (args.length < 2) {
+            plugin.getMessages().send(player, "clan.help.trade");
+            return;
+        }
+        Optional<Clan> sourceClanOpt = requireClan(player);
+        if (sourceClanOpt.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        Clan sourceClan = sourceClanOpt.get();
+        String sub = args[1].toLowerCase(Locale.ROOT);
+
+        if (sub.equals("review") || sub.equals("accept") || sub.equals("decline") || sub.equals("cancel")) {
+            if (args.length < 3) {
+                plugin.getMessages().send(player, "clan.help.trade");
+                return;
+            }
+            UUID tradeId;
+            try {
+                tradeId = UUID.fromString(args[2]);
+            } catch (IllegalArgumentException exception) {
+                plugin.getMessages().send(player, "trade.not-found");
+                return;
+            }
+            switch (sub) {
+                case "review" -> plugin.getGuiManager().openTradeReview(player, tradeId);
+                case "accept" -> plugin.getClanTradeManager().acceptTradeAsync(tradeId, sourceClan, player.getUniqueId())
+                        .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(player, "trade.accepted-confirm")))
+                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                case "decline" -> plugin.getClanTradeManager().declineTradeAsync(tradeId, sourceClan, player.getUniqueId())
+                        .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(player, "trade.declined-confirm")))
+                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                case "cancel" -> plugin.getClanTradeManager().cancelTradeAsync(tradeId, sourceClan, player.getUniqueId())
+                        .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(player, "trade.cancelled-confirm")))
+                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+            }
+            return;
+        }
+
+        Clan targetClan = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("clan.not-found"));
+        if (targetClan.id().equals(sourceClan.id())) {
+            throw new IllegalStateException("general.error");
+        }
+        long money = 0;
+        if (args.length >= 3) {
+            try {
+                money = Long.parseLong(args[2]);
+            } catch (NumberFormatException exception) {
+                plugin.getMessages().send(player, "general.invalid-number");
+                return;
+            }
+            if (money < 0) {
+                plugin.getMessages().send(player, "general.invalid-number");
+                return;
+            }
+        }
+        ClanTradeOfferMenu.open(plugin, sourceClan, targetClan, player, money);
     }
 
     private void openSpirit(Player player) {
