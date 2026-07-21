@@ -281,6 +281,39 @@ public final class DatabaseManager implements AutoCloseable {
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);
+
+            // Эмбарго (§5.2) — взаимный запрет торговли. Одна строка на пару, clan_a/clan_b всегда
+            // хранятся в каноническом порядке (clan_a < clan_b по строке), см. DiplomacyManager#pairKey.
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_embargoes (
+                        clan_a VARCHAR(36) NOT NULL,
+                        clan_b VARCHAR(36) NOT NULL,
+                        created_at BIGINT NOT NULL,
+                        PRIMARY KEY (clan_a, clan_b)
+                    )
+                    """);
+
+            // Блокада (§5.3) — односторонняя: clan_blocker блокирует clan_blocked.
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_blockades (
+                        clan_blocker VARCHAR(36) NOT NULL,
+                        clan_blocked VARCHAR(36) NOT NULL,
+                        created_at BIGINT NOT NULL,
+                        PRIMARY KEY (clan_blocker, clan_blocked)
+                    )
+                    """);
+
+            // Письма между кланами (§5.4).
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_letters (
+                        id VARCHAR(36) PRIMARY KEY,
+                        clan_from VARCHAR(36) NOT NULL,
+                        clan_to VARCHAR(36) NOT NULL,
+                        message TEXT NOT NULL,
+                        is_read TINYINT NOT NULL DEFAULT 0,
+                        created_at BIGINT NOT NULL
+                    )
+                    """);
         } catch (SQLException exception) {
             throw new StorageException("Unable to create database schema", exception);
         }

@@ -7,11 +7,13 @@ import me.lovelace.loveclans.model.ClanPerk;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
+import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Location;
 import org.bukkit.Material;
 
+import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -90,4 +92,24 @@ public interface ClanStorage {
     CompletableFuture<Void> saveContractProgressAsync(ClanQuestProgress progress);
 
     CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync();
+
+    // --- Дипломатия: эмбарго, блокада, письма (§5) ---
+
+    CompletableFuture<Collection<AbstractMap.SimpleImmutableEntry<UUID, UUID>>> loadAllEmbargoesAsync();
+
+    CompletableFuture<Void> saveEmbargoAsync(UUID clanA, UUID clanB);
+
+    CompletableFuture<Void> deleteEmbargoAsync(UUID clanA, UUID clanB);
+
+    CompletableFuture<Collection<AbstractMap.SimpleImmutableEntry<UUID, UUID>>> loadAllBlockadesAsync();
+
+    CompletableFuture<Void> saveBlockadeAsync(UUID blockerClanId, UUID blockedClanId);
+
+    CompletableFuture<Void> deleteBlockadeAsync(UUID blockerClanId, UUID blockedClanId);
+
+    CompletableFuture<Void> saveLetterAsync(ClanLetter letter);
+
+    CompletableFuture<Collection<ClanLetter>> loadLettersBetweenAsync(UUID clanA, UUID clanB);
+
+    CompletableFuture<Void> markLetterReadAsync(UUID letterId);
 }

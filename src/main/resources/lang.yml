@@ -108,6 +108,7 @@ clan:
     war: "<gray>/clan war <start|peace> <tag> <white>- управление войной клана"
     siege: "<gray>/clan siege <tag> <white>- устроить осаду клана, стоя на его территории"
     raid: "<gray>/clan raid <tag|loot <сумма>|items> <white>- устроить набег или вынести добычу"
+    letters: "<gray>/clan letters <tag> <white>- переписка с кланом"
 
 diplomacy:
   alliance-accepted: "<prefix><green>Вы заключили союз с кланом <color><tag></color>."
@@ -120,6 +121,31 @@ diplomacy:
   no-pending-request: "<prefix><red>Нет ожидающих запросов от клана <color><tag></color>."
   requires-home: "<prefix><red>Для этого действия у вашего клана должен быть установлен дом."
   updated: "<prefix><green>Отношения с кланом <color><tag></color> изменены на <yellow><relation></yellow>."
+  conflict-in-progress: "<prefix><red>Недоступно во время войны/осады/набега с этим кланом."
+  embargo:
+    already-active: "<prefix><red>Эмбарго с этим кланом уже действует."
+    not-active: "<prefix><red>Эмбарго с этим кланом сейчас не действует."
+    declared: "<prefix><red>Установлено эмбарго с кланом <color><tag></color> - торговля запрещена."
+    cancelled: "<prefix><green>Эмбарго с кланом <color><tag></color> отменено."
+  blockade:
+    leader-only: "<prefix><red>Устроить или отменить блокаду может только глава клана."
+    already-active: "<prefix><red>Вы уже блокируете этот клан."
+    not-active: "<prefix><red>Вы не блокируете этот клан."
+    insufficient-influence: "<prefix><red>Недостаточно влияния, чтобы устроить блокаду этому клану."
+    declared: "<prefix><red>Вы устроили блокаду клану <color><tag></color>."
+    received: "<prefix><red>Клан <color><tag></color> устроил вам блокаду! Вы не можете торговать с другими кланами."
+    cancelled: "<prefix><green>Блокада клана <color><tag></color> отменена."
+    lifted: "<prefix><green>Клан <color><tag></color> снял с вас блокаду."
+    overthrown: "<prefix><gold>Вы восстали против угнетателя и сняли блокаду, победив его в войне!"
+  letter:
+    empty: "<prefix><red>Письмо не может быть пустым."
+    too-long: "<prefix><red>Письмо слишком длинное."
+    conflict-blocked: "<prefix><red>Во время войны/осады/набега письма недоступны."
+    received: "<prefix><color><tag></color> отправил вам письмо!"
+    open: "<green>[Открыть]"
+    sent: "<prefix><green>Письмо отправлено клану <color><tag></color>."
+    prompt: "<prefix><yellow>Введите текст письма в чат."
+    empty-list: "<prefix><gray>Писем пока нет."
 
 gui:
   accept: "<green>[Принять]"
@@ -171,6 +197,16 @@ gui:
         name: "<red>Взять"
         lore: "<gray>ЛКМ - забрать деньги из сундука"
         prompt: "<prefix><yellow>Введите количество для снятия в чат."
+  letters:
+    title: "<gray>Письма с кланом <color><tag>"
+    write:
+      name: "<green>✎ Написать письмо"
+      lore: "<gray>ЛКМ - написать новое письмо этому клану"
+    item:
+      sent-name: "<gray>Вам → <color><tag>"
+      received-name: "<gold><color><tag> <white>→ Вам"
+      preview: "<gray>\"<text>\""
+      date: "<dark_gray><date>"
   contracts-title: "<gray>Обеты клана <color><tag>"
   contracts:
     info:
@@ -320,6 +356,21 @@ gui:
     enemy:
       name: "<red>Вражда"
       lore: "<gray>Нажмите, чтобы объявить кланы враждующими."
+    embargo:
+      declare-name: "<gold>🔒 Эмбарго"
+      declare-lore: "<gray>ЛКМ - запретить торговлю с этим кланом"
+      cancel-name: "<red>🔒 Эмбарго активно"
+      cancel-lore: "<gray>ЛКМ - отменить эмбарго"
+    blockade:
+      declare-name: "<gold>🚫 Блокада"
+      declare-lore: "<gray>ЛКМ - заблокировать торговлю этого клана с внешним миром"
+      cancel-name: "<red>🚫 Блокада активна"
+      cancel-lore: "<gray>ЛКМ - отменить блокаду"
+      blocked-name: "<dark_gray>🚫 Вы заблокированы"
+      blocked-lore: "<gray>Этот клан уже блокирует вас."
+    letters:
+      name: "<gold>📮 Письма"
+      lore: "<gray>ЛКМ - открыть переписку с этим кланом"
     select-other:
       name: "<gray>« Выбрать другой клан"
   diplomacy-select:

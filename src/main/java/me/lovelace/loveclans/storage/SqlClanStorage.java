@@ -10,6 +10,7 @@ import me.lovelace.loveclans.model.ClanSpirit;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
+import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Bukkit; // Import Bukkit for World access
@@ -22,6 +23,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -635,6 +637,177 @@ public final class SqlClanStorage implements ClanStorage {
                 throw new StorageException("Unable to load clan contracts", exception);
             }
             return result;
+        }, database.executor());
+    }
+
+    // --- Дипломатия: эмбарго, блокада, письма (§5) ---
+
+    @Override
+    public CompletableFuture<Collection<AbstractMap.SimpleImmutableEntry<UUID, UUID>>> loadAllEmbargoesAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<AbstractMap.SimpleImmutableEntry<UUID, UUID>> result = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_embargoes");
+                 ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    result.add(new AbstractMap.SimpleImmutableEntry<>(
+                            UUID.fromString(rs.getString("clan_a")), UUID.fromString(rs.getString("clan_b"))));
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load clan embargoes", exception);
+            }
+            return result;
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> saveEmbargoAsync(UUID clanA, UUID clanB) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT IGNORE INTO clan_embargoes (clan_a, clan_b, created_at) VALUES (?, ?, ?)"
+                    : "INSERT OR IGNORE INTO clan_embargoes (clan_a, clan_b, created_at) VALUES (?, ?, ?)";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, clanA.toString());
+                statement.setString(2, clanB.toString());
+                statement.setLong(3, System.currentTimeMillis());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save embargo between " + clanA + " and " + clanB, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteEmbargoAsync(UUID clanA, UUID clanB) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "DELETE FROM clan_embargoes WHERE clan_a = ? AND clan_b = ?")) {
+                statement.setString(1, clanA.toString());
+                statement.setString(2, clanB.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete embargo between " + clanA + " and " + clanB, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<AbstractMap.SimpleImmutableEntry<UUID, UUID>>> loadAllBlockadesAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<AbstractMap.SimpleImmutableEntry<UUID, UUID>> result = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_blockades");
+                 ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    result.add(new AbstractMap.SimpleImmutableEntry<>(
+                            UUID.fromString(rs.getString("clan_blocker")), UUID.fromString(rs.getString("clan_blocked"))));
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load clan blockades", exception);
+            }
+            return result;
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> saveBlockadeAsync(UUID blockerClanId, UUID blockedClanId) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT IGNORE INTO clan_blockades (clan_blocker, clan_blocked, created_at) VALUES (?, ?, ?)"
+                    : "INSERT OR IGNORE INTO clan_blockades (clan_blocker, clan_blocked, created_at) VALUES (?, ?, ?)";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, blockerClanId.toString());
+                statement.setString(2, blockedClanId.toString());
+                statement.setLong(3, System.currentTimeMillis());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save blockade of " + blockedClanId + " by " + blockerClanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteBlockadeAsync(UUID blockerClanId, UUID blockedClanId) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "DELETE FROM clan_blockades WHERE clan_blocker = ? AND clan_blocked = ?")) {
+                statement.setString(1, blockerClanId.toString());
+                statement.setString(2, blockedClanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete blockade of " + blockedClanId + " by " + blockerClanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> saveLetterAsync(ClanLetter letter) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT INTO clan_letters (id, clan_from, clan_to, message, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?) " +
+                      "ON DUPLICATE KEY UPDATE is_read = VALUES(is_read)"
+                    : "INSERT INTO clan_letters (id, clan_from, clan_to, message, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?) " +
+                      "ON CONFLICT(id) DO UPDATE SET is_read = excluded.is_read";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, letter.id().toString());
+                statement.setString(2, letter.fromClanId().toString());
+                statement.setString(3, letter.toClanId().toString());
+                statement.setString(4, letter.message());
+                statement.setInt(5, letter.read() ? 1 : 0);
+                statement.setLong(6, letter.createdAt());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save letter " + letter.id(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<ClanLetter>> loadLettersBetweenAsync(UUID clanA, UUID clanB) {
+        return CompletableFuture.supplyAsync(() -> {
+            List<ClanLetter> result = new ArrayList<>();
+            String sql = "SELECT * FROM clan_letters WHERE (clan_from = ? AND clan_to = ?) OR (clan_from = ? AND clan_to = ?) ORDER BY created_at DESC";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, clanA.toString());
+                statement.setString(2, clanB.toString());
+                statement.setString(3, clanB.toString());
+                statement.setString(4, clanA.toString());
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        result.add(new ClanLetter(
+                                UUID.fromString(rs.getString("id")),
+                                UUID.fromString(rs.getString("clan_from")),
+                                UUID.fromString(rs.getString("clan_to")),
+                                rs.getString("message"),
+                                rs.getInt("is_read") != 0,
+                                rs.getLong("created_at")
+                        ));
+                    }
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load letters between " + clanA + " and " + clanB, exception);
+            }
+            return result;
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> markLetterReadAsync(UUID letterId) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clan_letters SET is_read = 1 WHERE id = ?")) {
+                statement.setString(1, letterId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to mark letter " + letterId + " as read", exception);
+            }
         }, database.executor());
     }
 

@@ -72,6 +72,10 @@ clans:
       percent-per-member: 0.05
       percent-per-extra-row: 0.10
 
+  # Эмбарго/блокада/письма (§5). Влияние для блокады берётся из influence.blockade-multiplier.
+  diplomacy:
+    letter-max-length: 256
+
   # Клановые обеты (контракты) — раз в неделю лидер клана выбирает один обет у NPC-Маршала
   # (Citizens). npc-id — числовой ID NPC (узнаётся через /npc id, стоя рядом с ним); -1 отключает
   # взаимодействие с NPC (GUI всё равно доступно через /clan contracts).

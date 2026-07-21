@@ -51,6 +51,37 @@ public final class ClanDiplomacyMenu {
         if (current == DiplomacyRelation.ENEMY) enemyItem.glow(true);
         inventory.setItem(16, enemyItem.build());
 
+        boolean embargoed = plugin.getDiplomacyManager().isEmbargoed(sourceClan.id(), targetClan.id());
+        ItemBuilder embargoItem = ItemBuilder.of(Material.IRON_BARS)
+                .name(plugin.getMessages().component(embargoed ? "gui.diplomacy.embargo.cancel-name" : "gui.diplomacy.embargo.declare-name", player))
+                .lore(plugin.getMessages().component(embargoed ? "gui.diplomacy.embargo.cancel-lore" : "gui.diplomacy.embargo.declare-lore", player));
+        if (embargoed) embargoItem.glow(true);
+        inventory.setItem(19, embargoItem.build());
+
+        boolean blockading = plugin.getDiplomacyManager().isBlockading(sourceClan.id(), targetClan.id());
+        boolean blockadedByTarget = plugin.getDiplomacyManager().isBlockading(targetClan.id(), sourceClan.id());
+        ItemBuilder blockadeItem;
+        if (blockadedByTarget) {
+            blockadeItem = ItemBuilder.of(Material.CHAIN)
+                    .name(plugin.getMessages().component("gui.diplomacy.blockade.blocked-name", player))
+                    .lore(plugin.getMessages().component("gui.diplomacy.blockade.blocked-lore", player));
+        } else if (blockading) {
+            blockadeItem = ItemBuilder.of(Material.CHAIN)
+                    .name(plugin.getMessages().component("gui.diplomacy.blockade.cancel-name", player))
+                    .lore(plugin.getMessages().component("gui.diplomacy.blockade.cancel-lore", player))
+                    .glow(true);
+        } else {
+            blockadeItem = ItemBuilder.of(Material.CHAIN)
+                    .name(plugin.getMessages().component("gui.diplomacy.blockade.declare-name", player))
+                    .lore(plugin.getMessages().component("gui.diplomacy.blockade.declare-lore", player));
+        }
+        inventory.setItem(20, blockadeItem.build());
+
+        inventory.setItem(22, ItemBuilder.of(Material.WRITABLE_BOOK)
+                .name(plugin.getMessages().component("gui.diplomacy.letters.name", player))
+                .lore(plugin.getMessages().component("gui.diplomacy.letters.lore", player))
+                .build());
+
         inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.diplomacy.select-other.name", player))
                 .build());
@@ -75,6 +106,18 @@ public final class ClanDiplomacyMenu {
         }
         if (slot == 25) {
             plugin.getGuiManager().openDiplomacySelect(player, sourceClan);
+            return;
+        }
+        if (slot == 19) {
+            handleEmbargoToggle(player, sourceClan, targetClan);
+            return;
+        }
+        if (slot == 20) {
+            handleBlockadeToggle(player, sourceClan, targetClan);
+            return;
+        }
+        if (slot == 22) {
+            plugin.getGuiManager().openLetters(player, sourceClan, targetClan);
             return;
         }
 
@@ -120,6 +163,24 @@ public final class ClanDiplomacyMenu {
                     plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "relation", relation.name()));
                     open(player, updated, targetClan);
                 }))
+                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+    }
+
+    private void handleEmbargoToggle(Player player, Clan sourceClan, Clan targetClan) {
+        boolean embargoed = plugin.getDiplomacyManager().isEmbargoed(sourceClan.id(), targetClan.id());
+        var future = embargoed
+                ? plugin.getDiplomacyManager().cancelEmbargoAsync(sourceClan, player.getUniqueId(), targetClan)
+                : plugin.getDiplomacyManager().declareEmbargoAsync(sourceClan, player.getUniqueId(), targetClan);
+        future.thenRun(() -> plugin.runSync(() -> open(player, sourceClan, targetClan)))
+                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+    }
+
+    private void handleBlockadeToggle(Player player, Clan sourceClan, Clan targetClan) {
+        boolean blockading = plugin.getDiplomacyManager().isBlockading(sourceClan.id(), targetClan.id());
+        var future = blockading
+                ? plugin.getDiplomacyManager().cancelBlockadeAsync(sourceClan, player.getUniqueId(), targetClan)
+                : plugin.getDiplomacyManager().declareBlockadeAsync(sourceClan, player.getUniqueId(), targetClan);
+        future.thenRun(() -> plugin.runSync(() -> open(player, sourceClan, targetClan)))
                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
     }
 }

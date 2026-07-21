@@ -1112,6 +1112,13 @@ public final class ClanManager {
         return plugin.getWarManager().isAtWar(clanId) || plugin.getSiegeManager().isInSiege(clanId) || plugin.getRaidManager().isInRaid(clanId);
     }
 
+    /** True if these two specific clans are at war/siege/raid with each other (as opposed to either being in a conflict with a third clan). */
+    public boolean inConflictWith(UUID clanA, UUID clanB) {
+        return plugin.getWarManager().areAtWar(clanA, clanB)
+                || plugin.getSiegeManager().areInSiege(clanA, clanB)
+                || plugin.getRaidManager().areInRaid(clanA, clanB);
+    }
+
     // --- Влияние клана (§8) ---
 
     /**

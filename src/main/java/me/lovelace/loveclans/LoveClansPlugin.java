@@ -21,6 +21,7 @@ import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.manager.ContractManager;
+import me.lovelace.loveclans.manager.DiplomacyManager;
 import me.lovelace.loveclans.manager.PerkManager;
 import me.lovelace.loveclans.manager.RaidManager;
 import me.lovelace.loveclans.manager.RitualManager;
@@ -74,6 +75,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private AdvancedClaimsHook advancedClaimsHook;
     private ItemsAdderEconomyService itemsAdderEconomyService;
     private ContractManager contractManager;
+    private DiplomacyManager diplomacyManager;
     private CitizensIntegration citizensIntegration;
     private ClanProtectionListener clanProtectionListener;
     private BukkitTask heartbeatTask;
@@ -107,8 +109,9 @@ public final class LoveClansPlugin extends JavaPlugin {
         itemsAdderEconomyService = new ItemsAdderEconomyService();
         citizensIntegration = new CitizensIntegration();
         contractManager = new ContractManager(this, storage);
+        diplomacyManager = new DiplomacyManager(this, storage);
 
-        clanManager.loadAsync().thenRunAsync(() -> {
+        clanManager.loadAsync().thenCompose(v -> diplomacyManager.loadAsync()).thenRunAsync(() -> {
             runSync(() -> {
                 LoveClansAPI.init(this);
 
@@ -321,6 +324,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public ContractManager getContractManager() {
         return contractManager;
+    }
+
+    public DiplomacyManager getDiplomacyManager() {
+        return diplomacyManager;
     }
 
     public CitizensIntegration getCitizensIntegration() {

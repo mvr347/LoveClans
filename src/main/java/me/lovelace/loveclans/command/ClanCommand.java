@@ -35,7 +35,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts"
+            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "letters", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "create", "accept", "list", "info"
@@ -152,6 +152,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "enemy" -> diplomacy(requirePlayer(sender), args, DiplomacyRelation.ENEMY);
                 case "neutral" -> diplomacy(requirePlayer(sender), args, DiplomacyRelation.NEUTRAL);
                 case "diplo" -> openDiplomacyFor(requirePlayer(sender), args.length > 1 ? args[1] : null);
+                case "letters" -> openLetters(requirePlayer(sender), args);
                 case "decline" -> declineInvite(requirePlayer(sender), args);
                 case "ritual" -> ritual(requirePlayer(sender), args);
                 case "vote" -> vote(requirePlayer(sender), args);
@@ -199,7 +200,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             }
             if (args.length == 2) {
                 switch (args[0].toLowerCase(Locale.ROOT)) {
-                    case "accept", "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "info" ->
+                    case "accept", "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "info", "letters" ->
                             completions.addAll(plugin.getClanManager().getAllClans().stream().map(Clan::tag).collect(Collectors.toList()));
                     case "ritual" ->
                             completions.addAll(Arrays.stream(RitualType.values()).map(type -> type.name().toLowerCase(Locale.ROOT)).collect(Collectors.toList()));
@@ -335,6 +336,21 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Clan target = plugin.getClanManager().getClanByTag(targetTag)
                 .orElseThrow(() -> new IllegalStateException("war.not-found"));
         new ClanDiplomacyMenu(plugin).open(player, sourceClan.get(), target);
+    }
+
+    private void openLetters(Player player, String[] args) {
+        requirePermission(player, Permissions.DIPLOMACY);
+        if (args.length < 2) {
+            plugin.getMessages().send(player, "clan.help.letters");
+            return;
+        }
+        Optional<Clan> sourceClan = requireClan(player);
+        if (sourceClan.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        Clan target = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
+        plugin.getGuiManager().openLetters(player, sourceClan.get(), target);
     }
 
     private void allianceAccept(Player player, String sourceClanTag) {

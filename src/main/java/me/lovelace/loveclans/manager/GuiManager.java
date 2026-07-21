@@ -6,6 +6,7 @@ import me.lovelace.loveclans.gui.ClanCapitalManagementMenu;
 import me.lovelace.loveclans.gui.ClanChestHubMenu;
 import me.lovelace.loveclans.gui.ClanChestMoneyMenu;
 import me.lovelace.loveclans.gui.ClanColorPickerMenu;
+import me.lovelace.loveclans.gui.ClanLettersMenu;
 import me.lovelace.loveclans.gui.ClanConfirmMenu;
 import me.lovelace.loveclans.gui.ClanContractsMenu;
 import me.lovelace.loveclans.gui.ClanCreateMenu;
@@ -62,6 +63,7 @@ public class GuiManager implements Listener {
     private final ClanContractsMenu contractsMenu;
     private final ClanChestHubMenu chestHubMenu;
     private final ClanChestMoneyMenu chestMoneyMenu;
+    private final ClanLettersMenu lettersMenu;
 
     private final Map<UUID, Runnable> confirmYes = new ConcurrentHashMap<>();
     private final Map<UUID, Runnable> confirmNo = new ConcurrentHashMap<>();
@@ -83,6 +85,7 @@ public class GuiManager implements Listener {
         this.contractsMenu = new ClanContractsMenu(plugin);
         this.chestHubMenu = new ClanChestHubMenu(plugin);
         this.chestMoneyMenu = new ClanChestMoneyMenu(plugin);
+        this.lettersMenu = new ClanLettersMenu(plugin);
     }
 
     public void openChestHub(Player player, Clan clan) {
@@ -91,6 +94,10 @@ public class GuiManager implements Listener {
 
     public void openChestMoney(Player player, Clan clan) {
         chestMoneyMenu.open(player, clan);
+    }
+
+    public void openLetters(Player player, Clan sourceClan, Clan targetClan) {
+        lettersMenu.open(player, sourceClan, targetClan);
     }
 
     public void openContracts(Player player, Clan clan) {
@@ -331,6 +338,7 @@ public class GuiManager implements Listener {
                     case CONTRACTS -> contractsMenu.handleInventoryClick(player, clan, slot);
                     case CHEST_HUB -> chestHubMenu.handleInventoryClick(player, clan, slot);
                     case CHEST_MONEY -> chestMoneyMenu.handleInventoryClick(player, clan, slot);
+                    case LETTERS -> lettersMenu.handleInventoryClick(player, clan, slot);
                     default -> {
                     }
                 }

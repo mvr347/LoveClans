@@ -17,5 +17,6 @@ public enum ClanMenuType {
     RANK_PERMISSIONS,
     CONTRACTS,
     CHEST_HUB,
-    CHEST_MONEY
+    CHEST_MONEY,
+    LETTERS
 }

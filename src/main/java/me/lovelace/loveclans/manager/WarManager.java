@@ -140,6 +140,7 @@ public final class WarManager {
             }
             activeWars.put(war.id(), war);
             warCooldowns.put(cooldownKey, now);
+            plugin.getDiplomacyManager().liftBlockadesBetween(attacker.id(), defender.id());
 
             beginPendingPhase(war, attacker, defender);
 
@@ -224,6 +225,7 @@ public final class WarManager {
                                 plugin.getLogger().warning("Failed to record war loss for clan " + clan.id() + ": " + t.getMessage());
                                 return null;
                             }));
+                    plugin.getDiplomacyManager().liftBlockadeOnVictory(war.attackerClanId(), war.defenderClanId());
                     if (war.capturedBannerBy() != null) {
                         // null actorId: this is a forced system disband (the attacker who captured
                         // the banner is not a member of the defender clan, so passing their UUID
@@ -250,6 +252,7 @@ public final class WarManager {
                                 plugin.getLogger().warning("Failed to record war loss for clan " + clan.id() + ": " + t.getMessage());
                                 return null;
                             }));
+                    plugin.getDiplomacyManager().liftBlockadeOnVictory(war.defenderClanId(), war.attackerClanId());
                 }
             }
             return null;

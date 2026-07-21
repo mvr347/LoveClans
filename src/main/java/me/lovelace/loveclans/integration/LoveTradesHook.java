@@ -52,6 +52,16 @@ public final class LoveTradesHook {
                     || plugin.getRaidManager().areInRaid(clanA.id(), clanB.id())) {
                 return true;
             }
+            // isEnemy() is LoveTrades' only "block this trade" hook, so embargo (§5.2) and blockade
+            // (§5.3) piggyback on it too, even though neither actually changes the ALLY/NEUTRAL/ENEMY
+            // relation - a blockaded clan can't trade with anyone outside its own clan, and an
+            // embargo blocks trade specifically between the two embargoed clans.
+            if (plugin.getDiplomacyManager().isBlockaded(clanA.id()) || plugin.getDiplomacyManager().isBlockaded(clanB.id())) {
+                return true;
+            }
+            if (plugin.getDiplomacyManager().isEmbargoed(clanA.id(), clanB.id())) {
+                return true;
+            }
             // Enemy declarations are unilateral in this clan model (see ClanManager#setDiplomacyAsync -
             // only the declaring clan's relation is set), so check both directions.
             return clanA.relationTo(clanB.id()) == DiplomacyRelation.ENEMY
