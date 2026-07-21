@@ -37,7 +37,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
             inventory.setItem(i, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
 
-        boolean isAtWar = plugin.getWarManager().isAtWar(clan.id());
+        boolean isAtWar = plugin.getClanManager().inAnyConflict(clan.id());
         boolean isLeader = clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.LEADER).orElse(false);
         boolean isAssistant = clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.GUARDIAN).orElse(false);
         boolean canManage = isLeader || isAssistant;
@@ -98,7 +98,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
     }
 
     public void handleInventoryClick(Player clicker, int slot) {
-        boolean isAtWar = plugin.getWarManager().isAtWar(clan.id());
+        boolean isAtWar = plugin.getClanManager().inAnyConflict(clan.id());
         boolean isLeader = clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.LEADER).orElse(false);
         boolean isAssistant = clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.GUARDIAN).orElse(false);
         boolean canManage = isLeader || isAssistant;

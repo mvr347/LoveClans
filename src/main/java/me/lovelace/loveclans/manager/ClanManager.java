@@ -344,8 +344,9 @@ public final class ClanManager {
                 }
             }
             // Must run before unindexClan: it still needs to resolve this clan (and messages
-            // its war opponents) while it's a member of ClanManager's lookup maps.
+            // its war/siege opponents) while it's a member of ClanManager's lookup maps.
             plugin.getWarManager().endActiveWarsInvolvingClan(clan.id());
+            plugin.getSiegeManager().endActiveSiegesInvolvingClan(clan.id());
             for (ClanTerritory territory : clan.territories()) {
                 plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
                 unindexTerritory(territory);
@@ -353,6 +354,7 @@ public final class ClanManager {
             unindexClan(clan);
             applicationsByClan.remove(clan.id());
             plugin.getWarManager().purgeClan(clan.id());
+            plugin.getSiegeManager().purgeClan(clan.id());
             plugin.getRitualManager().purgeClan(clan.id());
             plugin.getSpiritManager().purgeClan(clan.id());
             return null;
@@ -366,7 +368,7 @@ public final class ClanManager {
             if (!clan.hasPermission(inviterId, ClanPermission.INVITE)) {
                 throw new IllegalStateException("general.no-permission");
             }
-            if (plugin.getWarManager().isAtWar(clan.id())) {
+            if (inAnyConflict(clan.id())) {
                 throw new IllegalStateException("gui.capital.war-blocked");
             }
             if (clan.hasMember(invitedPlayerId) || getPlayerClan(invitedPlayerId).isPresent()) {
@@ -428,7 +430,7 @@ public final class ClanManager {
             if (!clan.hasPermission(actorId, ClanPermission.INVITE)) {
                 throw new IllegalStateException("general.no-permission");
             }
-            if (plugin.getWarManager().isAtWar(clan.id())) {
+            if (inAnyConflict(clan.id())) {
                 throw new IllegalStateException("gui.capital.war-blocked");
             }
             List<ClanApplication> applications = applicationsByClan.computeIfAbsent(clan.id(), ignored -> new ArrayList<>());
@@ -923,7 +925,7 @@ public final class ClanManager {
             if (!canManage) {
                 throw new IllegalStateException("gui.capital.no-permission");
             }
-            if (plugin.getWarManager().isAtWar(clan.id())) {
+            if (inAnyConflict(clan.id())) {
                 throw new IllegalStateException("gui.capital.war-blocked");
             }
             ClanTerritory territory = clan.territories().stream()
@@ -1069,6 +1071,11 @@ public final class ClanManager {
         }).thenCompose(c -> storage.updateClanProgression(c.id(), c.level(), c.experience(), c.upgradePoints(), c.spirit().level()).thenApply(ignored -> c))
                 .thenCompose(c -> leveledUp.get() ? recalculateInfluenceAsync(c) : CompletableFuture.completedFuture(c))
                 .thenCompose(c -> plugin.runSync(() -> plugin.getSpiritManager().addSpiritExperience(c, Math.max(0L, amount / 4), "Опыт клана")).thenApply(ignored -> c));
+    }
+
+    /** True if the clan is currently in a war (any phase) or a siege - used to block clan actions during conflicts. */
+    public boolean inAnyConflict(UUID clanId) {
+        return plugin.getWarManager().isAtWar(clanId) || plugin.getSiegeManager().isInSiege(clanId);
     }
 
     // --- Влияние клана (§8) ---

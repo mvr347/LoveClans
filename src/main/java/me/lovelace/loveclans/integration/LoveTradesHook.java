@@ -48,7 +48,7 @@ public final class LoveTradesHook {
             if (clanA.id().equals(clanB.id())) {
                 return false;
             }
-            if (plugin.getWarManager().areAtWar(clanA.id(), clanB.id())) {
+            if (plugin.getWarManager().areAtWar(clanA.id(), clanB.id()) || plugin.getSiegeManager().areInSiege(clanA.id(), clanB.id())) {
                 return true;
             }
             // Enemy declarations are unilateral in this clan model (see ClanManager#setDiplomacyAsync -

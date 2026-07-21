@@ -112,6 +112,7 @@ clan:
     ritual: "<gray>/clan ritual <type> <white>- провести ритуал клана"
     vote: "<gray>/clan vote <white>- проголосовать за нового главу клана"
     war: "<gray>/clan war <start|peace> <tag> <white>- управление войной клана"
+    siege: "<gray>/clan siege <tag> <white>- устроить осаду клана, стоя на его территории"
 
 diplomacy:
   alliance-accepted: "<prefix><green>Вы заключили союз с кланом <color><tag></color>."
@@ -717,6 +718,10 @@ war:
     attacker-subtitle: "<gray>Вы объявили войну клану <color><tag></color>"
     defender-title: "<red><bold>На вас напали!"
     defender-subtitle: "<gray>Клан <color><tag></color> объявил вам войну"
+  pending:
+    bossbar: "<color1><attacker></color1> <white>⚔</white> <color2><defender></color2> <gray>— начало через <white><time></white>"
+    declared: "<prefix><gold>Клан <color><tag></color> объявил войну! Начало через <white><time></white>."
+    one-minute-warning: "<prefix><red>Война начнётся через 1 минуту!"
   end:
     victory-title: "<green><bold>Победа!"
     victory-subtitle: "<gray>Ваш клан одержал победу над <color><tag></color>"
@@ -726,3 +731,29 @@ war:
     draw-subtitle: "<gray>Война с кланом <color><tag></color> окончилась вничью"
     cancelled-title: "<yellow><bold>Война окончена"
     cancelled-subtitle: "<gray>Клан <color><tag></color> был расформирован"
+
+siege:
+  max-sieges-reached: "<prefix><red>Достигнут лимит одновременных осад."
+  already-in-siege: "<prefix><red>Один из кланов уже участвует в осаде."
+  war-in-progress: "<prefix><red>Нельзя начать осаду - один из кланов уже воюет."
+  not-enough-attackers: "<prefix><red>Недостаточно атакующих онлайн для начала осады."
+  not-enough-defenders: "<prefix><red>Недостаточно защитников онлайн для начала осады (нужно минимум 5)."
+  artifact-reward: "<prefix><gold>За победу в осаде клан получил редкий артефакт!"
+  pending:
+    bossbar: "<color1><attacker></color1> <white>🏕</white> <color2><defender></color2> <gray>— осада через <white><time></white>"
+    declared: "<prefix><gold>Клан <color><tag></color> готовит осаду! Начало через <white><time></white>."
+    one-minute-warning: "<prefix><red>Осада начнётся через 1 минуту!"
+  start:
+    attacker-title: "<gold><bold>Осада началась!"
+    attacker-subtitle: "<gray>Удержите осадные лагеря клана <color><tag></color> 20 минут"
+    defender-title: "<red><bold>Вас осаждают!"
+    defender-subtitle: "<gray>Клан <color><tag></color> поставил осадные лагеря - уничтожайте их"
+  camp:
+    not-your-camp: "<prefix><red>Разрушать этот осадный лагерь может только клан-защитник."
+    broken-attacker: "<prefix><yellow>Защитники разрушили осадный лагерь #<index>! Он восстановится через некоторое время."
+    broken-defender: "<prefix><green>Вы разрушили осадный лагерь #<index>!"
+  end:
+    victory-title: "<green><bold>Осада прорвана!"
+    victory-subtitle: "<gray>Ваш клан захватил территорию клана <color><tag></color>"
+    defeat-title: "<red><bold>Осада отражена"
+    defeat-subtitle: "<gray>Осада клана <color><tag></color> провалилась"

@@ -15,6 +15,7 @@ import me.lovelace.loveclans.listener.CombatListener;
 import me.lovelace.loveclans.listener.ContractListener;
 import me.lovelace.loveclans.listener.PerkEffectListener;
 import me.lovelace.loveclans.listener.PlayerConnectionListener;
+import me.lovelace.loveclans.listener.SiegeCampListener;
 import me.lovelace.loveclans.listener.ShieldColorListener;
 import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
@@ -23,6 +24,7 @@ import me.lovelace.loveclans.manager.ContractManager;
 import me.lovelace.loveclans.manager.PerkManager;
 import me.lovelace.loveclans.manager.RitualManager;
 import me.lovelace.loveclans.manager.ShieldColorManager;
+import me.lovelace.loveclans.manager.SiegeManager;
 import me.lovelace.loveclans.manager.SpiritManager;
 import me.lovelace.loveclans.manager.SuccessionManager;
 import me.lovelace.loveclans.manager.WarManager;
@@ -58,6 +60,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private MessageService messages;
     private ClanManager clanManager;
     private WarManager warManager;
+    private SiegeManager siegeManager;
     private RitualManager ritualManager;
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
@@ -88,6 +91,7 @@ public final class LoveClansPlugin extends JavaPlugin {
 
         clanManager = new ClanManager(this, storage);
         warManager = new WarManager(this);
+        siegeManager = new SiegeManager(this);
         ritualManager = new RitualManager(this);
         successionManager = new SuccessionManager(this);
         spiritManager = new SpiritManager(this);
@@ -150,6 +154,11 @@ public final class LoveClansPlugin extends JavaPlugin {
                         warManager.tick();
                     } catch (Throwable t) {
                         getLogger().log(java.util.logging.Level.SEVERE, "War tick failed", t);
+                    }
+                    try {
+                        siegeManager.tick();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Siege tick failed", t);
                     }
                     try {
                         if (clanProtectionListener != null) {
@@ -242,6 +251,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public WarManager getWarManager() {
         return warManager;
+    }
+
+    public SiegeManager getSiegeManager() {
+        return siegeManager;
     }
 
     public RitualManager getRitualManager() {
@@ -376,6 +389,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(afkManager, this);
         pluginManager.registerEvents(new ContractListener(this, citizensIntegration), this);
         pluginManager.registerEvents(new PerkEffectListener(this), this);
+        pluginManager.registerEvents(new SiegeCampListener(this), this);
     }
 
     private void registerIntegrations() {

@@ -208,6 +208,9 @@ influence:
   raid-immunity-multiplier: 2.0
 
 war:
+  # Таймер (босс-бар) между объявлением войны и её реальным началом (баннеры, компасы,
+  # осадный режим территории появляются только после этого таймера).
+  pre-start-minutes: 10
   duration-minutes: 30
   cooldown-hours: 24
   # Сколько времени вражеский клан должен непрерывно удерживать сломанное знамя территории,
@@ -218,6 +221,25 @@ war:
   banner-break-hits: 5
   # Если по знамени не бьют дольше этого времени, прогресс поломки сбрасывается.
   banner-break-progress-reset-seconds: 15
+
+# Осада (§3) — второй тип конфликта клана: атакующие ставят осадные лагеря вокруг территории
+# защитника, каждый лагерь должен продержаться duration-minutes без разрушения, чтобы осада
+# прорвалась. Как и война, начинается не сразу, а после pre-start-minutes (босс-бар).
+siege:
+  pre-start-minutes: 20
+  duration-minutes: 20
+  cooldown-hours: 24
+  min-attacker-online: 1
+  min-defender-online: 5
+  max-concurrent: 3
+  camp-count-min: 3
+  camp-count-max: 4
+  camp-distance-blocks: 50
+  camp-respawn-minutes: 2
+  # Доля сундука защитника, которую получает победивший атакующий (случайно между min/max).
+  win-chest-percent-min: 25
+  win-chest-percent-max: 30
+  reward-artifact: true
 
 integration:
   advanced-claims:

@@ -34,7 +34,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "bank", "chest", "contracts" // Added "home"/"bank"/"chest"/"contracts"
+            "war", "siege", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "bank", "chest", "contracts" // Added "home"/"bank"/"chest"/"contracts"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "create", "accept", "list", "info"
@@ -136,6 +136,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "spirit" -> openSpirit(requirePlayer(sender));
                 case "list" -> openClanList(requirePlayer(sender));
                 case "war" -> war(requirePlayer(sender), args);
+                case "siege" -> siege(requirePlayer(sender), args);
                 case "peace" -> peace(requirePlayer(sender), args);
                 case "ally" -> {
                     if (args.length >= 3 && args[1].equalsIgnoreCase("accept")) {
@@ -197,7 +198,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             }
             if (args.length == 2) {
                 switch (args[0].toLowerCase(Locale.ROOT)) {
-                    case "accept", "war", "peace", "ally", "enemy", "neutral", "info" ->
+                    case "accept", "war", "siege", "peace", "ally", "enemy", "neutral", "info" ->
                             completions.addAll(plugin.getClanManager().getAllClans().stream().map(Clan::tag).collect(Collectors.toList()));
                     case "ritual" ->
                             completions.addAll(Arrays.stream(RitualType.values()).map(type -> type.name().toLowerCase(Locale.ROOT)).collect(Collectors.toList()));
@@ -810,15 +811,54 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         TerritoryKey territoryKey = contestedTerritory.get().key();
 
+        // No success message here: WarManager#beginPendingPhase already notifies every online
+        // member of both clans (including this player) once the war is actually registered.
         plugin.getWarManager().startWarAsync(attacker, defender, territoryKey)
-                .thenAccept(war -> plugin.runSync(() -> plugin.getMessages().send(player, "war.started",
-                        Map.of("attacker", attacker.tag(), "defender", defender.tag()))))
                 .exceptionally(throwable -> {
                     plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                     return null;
                 });
     }
-    
+
+    private void siege(Player player, String[] args) {
+        requirePermission(player, Permissions.WAR);
+        if (args.length < 2) {
+            plugin.getMessages().send(player, "clan.help.siege");
+            return;
+        }
+        Optional<Clan> optionalAttacker = requireClan(player);
+        if (optionalAttacker.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        Clan attacker = optionalAttacker.get();
+        Clan defender = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
+
+        // Same "must be standing inside the defender's territory" requirement as /clan war -
+        // see the comment there for why boundingBox() is used instead of TerritoryKey.fromLocation.
+        boolean withinDefenderTerritory = plugin.getClanManager().getClanAt(player.getLocation())
+                .map(owner -> owner.id().equals(defender.id()))
+                .orElse(false);
+        Optional<ClanTerritory> contestedTerritory = withinDefenderTerritory
+                ? defender.territories().stream()
+                        .filter(t -> t.boundingBox().contains(player.getLocation().toVector()))
+                        .findFirst()
+                : Optional.empty();
+        if (contestedTerritory.isEmpty()) {
+            plugin.sendOperationError(player, new IllegalStateException("war.must-be-in-enemy-territory"));
+            return;
+        }
+        TerritoryKey territoryKey = contestedTerritory.get().key();
+
+        // No success message here: SiegeManager#beginPendingPhase already notifies every online
+        // member of both clans (including this player) once the siege is actually registered.
+        plugin.getSiegeManager().startSiegeAsync(attacker, defender, territoryKey)
+                .exceptionally(throwable -> {
+                    plugin.runSync(() -> plugin.sendOperationError(player, throwable));
+                    return null;
+                });
+    }
+
     private void peace(Player player, String[] args) {
         requirePermission(player, Permissions.WAR);
         if (args.length < 2) {
@@ -832,13 +872,15 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         Clan source = optionalSource.get();
         Clan target = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
-        if (!plugin.getWarManager().areAtWar(source.id(), target.id())) {
+        boolean atWar = plugin.getWarManager().areAtWar(source.id(), target.id());
+        boolean inSiege = !atWar && plugin.getSiegeManager().areInSiege(source.id(), target.id());
+        if (!atWar && !inSiege) {
             plugin.sendOperationError(player, new IllegalStateException("war.not-at-war"));
             return;
         }
         plugin.getMessages().sendChatConfirmPrompt(player, "war.peace-confirm-prompt",
                 Map.of("tag", target.tag(), "color", target.tagColor()),
-                () -> plugin.getWarManager().peaceAsync(source, target)
+                () -> (atWar ? plugin.getWarManager().peaceAsync(source, target) : plugin.getSiegeManager().peaceAsync(source, target))
                         .exceptionally(throwable -> {
                             plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                             return null;
