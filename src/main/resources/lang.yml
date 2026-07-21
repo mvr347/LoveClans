@@ -107,6 +107,7 @@ clan:
     vote: "<gray>/clan vote <white>- проголосовать за нового главу клана"
     war: "<gray>/clan war <start|peace> <tag> <white>- управление войной клана"
     siege: "<gray>/clan siege <tag> <white>- устроить осаду клана, стоя на его территории"
+    raid: "<gray>/clan raid <tag|loot <сумма>|items> <white>- устроить набег или вынести добычу"
 
 diplomacy:
   alliance-accepted: "<prefix><green>Вы заключили союз с кланом <color><tag></color>."
@@ -782,3 +783,37 @@ siege:
     victory-subtitle: "<gray>Ваш клан захватил территорию клана <color><tag></color>"
     defeat-title: "<red><bold>Осада отражена"
     defeat-subtitle: "<gray>Осада клана <color><tag></color> провалилась"
+
+raid:
+  already-in-raid: "<prefix><red>Один из кланов уже участвует в набеге."
+  conflict-in-progress: "<prefix><red>Нельзя начать набег - один из кланов уже в конфликте."
+  target-immune: "<prefix><red>Этот клан слишком влиятелен, чтобы стать целью набега."
+  too-many-defenders: "<prefix><red>У защитников слишком много игроков онлайн для набега."
+  not-enough-attackers: "<prefix><red>Недостаточно атакующих онлайн для начала набега."
+  not-active: "<prefix><red>Набег сейчас не активен."
+  nothing-left: "<prefix><red>Больше нечего вынести - лимит набега исчерпан или сундук пуст."
+  bonus-item: "<prefix><gold>Бонусная добыча: <white><item></white>!"
+  pending:
+    bossbar: "<color1><attacker></color1> <white>🏹</white> <color2><defender></color2> <gray>— набег через <white><time></white>"
+    declared: "<prefix><gold>Клан <color><tag></color> готовит набег! Начало через <white><time></white>."
+    one-minute-warning: "<prefix><red>Набег начнётся через 1 минуту!"
+  start:
+    attacker-title: "<gold><bold>Набег начался!"
+    attacker-subtitle: "<gray>У вас <time> минут, чтобы вынести добычу из сундука клана <color><tag></color>"
+    defender-title: "<red><bold>На вас напали!"
+    defender-subtitle: "<gray>Клан <color><tag></color> грабит ваш сундук - остановите их!"
+  end:
+    victory-title: "<green><bold>Набег удался!"
+    victory-subtitle: "<gray>Клан <color><tag></color> ограблен"
+    defeat-title: "<red><bold>Набег провален"
+    defeat-subtitle: "<gray>Не удалось ничего вынести из сундука клана <color><tag></color>"
+    repelled-title: "<green><bold>Набег отражён!"
+    repelled-subtitle: "<gray>Клан <color><tag></color> ничего не смог вынести"
+    failed-title: "<red><bold>Набег провален"
+    failed-subtitle: "<gray>Не удалось ничего вынести из сундука клана <color><tag></color>"
+  loot:
+    title: "<red>Грабёж: <color><tag>"
+    money-button:
+      name: "<gold>💰 Забрать деньги"
+      lore: "<gray>Доступно: <white><amount>"
+    prompt: "<prefix><yellow>Введите количество денег, чтобы забрать, в чат."

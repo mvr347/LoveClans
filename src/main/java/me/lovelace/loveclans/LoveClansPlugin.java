@@ -22,6 +22,7 @@ import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.manager.ContractManager;
 import me.lovelace.loveclans.manager.PerkManager;
+import me.lovelace.loveclans.manager.RaidManager;
 import me.lovelace.loveclans.manager.RitualManager;
 import me.lovelace.loveclans.manager.ShieldColorManager;
 import me.lovelace.loveclans.manager.SiegeManager;
@@ -61,6 +62,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private ClanManager clanManager;
     private WarManager warManager;
     private SiegeManager siegeManager;
+    private RaidManager raidManager;
     private RitualManager ritualManager;
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
@@ -92,6 +94,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         clanManager = new ClanManager(this, storage);
         warManager = new WarManager(this);
         siegeManager = new SiegeManager(this);
+        raidManager = new RaidManager(this);
         ritualManager = new RitualManager(this);
         successionManager = new SuccessionManager(this);
         spiritManager = new SpiritManager(this);
@@ -169,6 +172,11 @@ public final class LoveClansPlugin extends JavaPlugin {
                         siegeManager.tick();
                     } catch (Throwable t) {
                         getLogger().log(java.util.logging.Level.SEVERE, "Siege tick failed", t);
+                    }
+                    try {
+                        raidManager.tick();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Raid tick failed", t);
                     }
                     try {
                         if (clanProtectionListener != null) {
@@ -265,6 +273,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public SiegeManager getSiegeManager() {
         return siegeManager;
+    }
+
+    public RaidManager getRaidManager() {
+        return raidManager;
     }
 
     public RitualManager getRitualManager() {

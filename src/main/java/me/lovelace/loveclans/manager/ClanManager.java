@@ -379,6 +379,7 @@ public final class ClanManager {
             // its war/siege opponents) while it's a member of ClanManager's lookup maps.
             plugin.getWarManager().endActiveWarsInvolvingClan(clan.id());
             plugin.getSiegeManager().endActiveSiegesInvolvingClan(clan.id());
+            plugin.getRaidManager().endActiveRaidsInvolvingClan(clan.id());
             for (ClanTerritory territory : clan.territories()) {
                 plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
                 unindexTerritory(territory);
@@ -387,6 +388,7 @@ public final class ClanManager {
             applicationsByClan.remove(clan.id());
             plugin.getWarManager().purgeClan(clan.id());
             plugin.getSiegeManager().purgeClan(clan.id());
+            plugin.getRaidManager().purgeClan(clan.id());
             plugin.getRitualManager().purgeClan(clan.id());
             plugin.getSpiritManager().purgeClan(clan.id());
             return null;
@@ -1105,9 +1107,9 @@ public final class ClanManager {
                 .thenCompose(c -> plugin.runSync(() -> plugin.getSpiritManager().addSpiritExperience(c, Math.max(0L, amount / 4), "Опыт клана")).thenApply(ignored -> c));
     }
 
-    /** True if the clan is currently in a war (any phase) or a siege - used to block clan actions during conflicts. */
+    /** True if the clan is currently in a war (any phase), a siege, or a raid - used to block clan actions during conflicts. */
     public boolean inAnyConflict(UUID clanId) {
-        return plugin.getWarManager().isAtWar(clanId) || plugin.getSiegeManager().isInSiege(clanId);
+        return plugin.getWarManager().isAtWar(clanId) || plugin.getSiegeManager().isInSiege(clanId) || plugin.getRaidManager().isInRaid(clanId);
     }
 
     // --- Влияние клана (§8) ---

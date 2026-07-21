@@ -9,6 +9,7 @@ import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.model.artifact.ArtifactType;
+import me.lovelace.loveclans.model.raid.ClanRaid;
 import me.lovelace.loveclans.model.ritual.RitualType;
 import me.lovelace.loveclans.util.Permissions;
 import org.bukkit.Bukkit;
@@ -34,7 +35,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "siege", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts"
+            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "create", "accept", "list", "info"
@@ -137,6 +138,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "list" -> openClanList(requirePlayer(sender));
                 case "war" -> war(requirePlayer(sender), args);
                 case "siege" -> siege(requirePlayer(sender), args);
+                case "raid" -> raid(requirePlayer(sender), args);
                 case "peace" -> peace(requirePlayer(sender), args);
                 case "ally" -> {
                     if (args.length >= 3 && args[1].equalsIgnoreCase("accept")) {
@@ -197,7 +199,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             }
             if (args.length == 2) {
                 switch (args[0].toLowerCase(Locale.ROOT)) {
-                    case "accept", "war", "siege", "peace", "ally", "enemy", "neutral", "info" ->
+                    case "accept", "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "info" ->
                             completions.addAll(plugin.getClanManager().getAllClans().stream().map(Clan::tag).collect(Collectors.toList()));
                     case "ritual" ->
                             completions.addAll(Arrays.stream(RitualType.values()).map(type -> type.name().toLowerCase(Locale.ROOT)).collect(Collectors.toList()));
@@ -800,6 +802,77 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 });
     }
 
+    private void raid(Player player, String[] args) {
+        requirePermission(player, Permissions.WAR);
+        if (args.length < 2) {
+            plugin.getMessages().send(player, "clan.help.raid");
+            return;
+        }
+        Optional<Clan> optionalAttacker = requireClan(player);
+        if (optionalAttacker.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        Clan attacker = optionalAttacker.get();
+
+        if (args[1].equalsIgnoreCase("loot")) {
+            raidLootMoney(player, attacker, args);
+            return;
+        }
+        if (args[1].equalsIgnoreCase("items")) {
+            raidLootItems(player, attacker);
+            return;
+        }
+
+        Clan defender = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
+        // No success message here: RaidManager#beginPendingPhase already notifies every online
+        // member of both clans (including this player) once the raid is actually registered.
+        plugin.getRaidManager().startRaidAsync(attacker, defender)
+                .exceptionally(throwable -> {
+                    plugin.runSync(() -> plugin.sendOperationError(player, throwable));
+                    return null;
+                });
+    }
+
+    private void raidLootMoney(Player player, Clan attacker, String[] args) {
+        if (args.length < 3) {
+            plugin.getMessages().send(player, "raid.loot.prompt");
+            return;
+        }
+        long amount;
+        try {
+            amount = Long.parseLong(args[2]);
+        } catch (NumberFormatException exception) {
+            plugin.getMessages().send(player, "chest.invalid-amount");
+            return;
+        }
+        ClanRaid raid = plugin.getRaidManager().findActiveRaidAsAttacker(attacker.id()).orElse(null);
+        if (raid == null) {
+            plugin.sendOperationError(player, new IllegalStateException("raid.not-active"));
+            return;
+        }
+        plugin.getRaidManager().lootMoneyAsync(raid, player, amount)
+                .thenAccept(looted -> plugin.getMessages().send(player, "chest.withdraw-success", Map.of("amount", String.valueOf(looted))))
+                .exceptionally(throwable -> {
+                    plugin.runSync(() -> plugin.sendOperationError(player, throwable));
+                    return null;
+                });
+    }
+
+    private void raidLootItems(Player player, Clan attacker) {
+        ClanRaid raid = plugin.getRaidManager().findActiveRaidAsAttacker(attacker.id()).orElse(null);
+        if (raid == null) {
+            plugin.sendOperationError(player, new IllegalStateException("raid.not-active"));
+            return;
+        }
+        Optional<Clan> defender = plugin.getClanManager().getClanById(raid.defenderClanId());
+        if (defender.isEmpty()) {
+            plugin.sendOperationError(player, new IllegalStateException("clan.not-found"));
+            return;
+        }
+        RaidLootMenu.open(plugin, raid, defender.get(), player);
+    }
+
     private void peace(Player player, String[] args) {
         requirePermission(player, Permissions.WAR);
         if (args.length < 2) {
@@ -815,17 +888,22 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Clan target = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
         boolean atWar = plugin.getWarManager().areAtWar(source.id(), target.id());
         boolean inSiege = !atWar && plugin.getSiegeManager().areInSiege(source.id(), target.id());
-        if (!atWar && !inSiege) {
+        boolean inRaid = !atWar && !inSiege && plugin.getRaidManager().areInRaid(source.id(), target.id());
+        if (!atWar && !inSiege && !inRaid) {
             plugin.sendOperationError(player, new IllegalStateException("war.not-at-war"));
             return;
         }
         plugin.getMessages().sendChatConfirmPrompt(player, "war.peace-confirm-prompt",
                 Map.of("tag", target.tag(), "color", target.tagColor()),
-                () -> (atWar ? plugin.getWarManager().peaceAsync(source, target) : plugin.getSiegeManager().peaceAsync(source, target))
-                        .exceptionally(throwable -> {
-                            plugin.runSync(() -> plugin.sendOperationError(player, throwable));
-                            return null;
-                        }),
+                () -> {
+                    var future = atWar ? plugin.getWarManager().peaceAsync(source, target)
+                            : inSiege ? plugin.getSiegeManager().peaceAsync(source, target)
+                            : plugin.getRaidManager().peaceAsync(source, target);
+                    future.exceptionally(throwable -> {
+                        plugin.runSync(() -> plugin.sendOperationError(player, throwable));
+                        return null;
+                    });
+                },
                 () -> plugin.getMessages().send(player, "general.chat-input-cancelled"));
     }
 

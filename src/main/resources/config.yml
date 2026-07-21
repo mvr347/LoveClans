@@ -206,7 +206,7 @@ influence:
   raid-loss-weight: 15
   # Клан А может устроить блокаду клану Б только если Влияние(А) >= Влияние(Б) * blockade-multiplier.
   blockade-multiplier: 1.5
-  # Клан нельзя выбрать целью набега, если его влияние >= (средний уровень кланов сервера) * raid-immunity-multiplier.
+  # Клан нельзя выбрать целью набега, если его влияние >= (среднее влияние кланов сервера) * raid-immunity-multiplier.
   raid-immunity-multiplier: 2.0
 
 war:
@@ -242,6 +242,22 @@ siege:
   win-chest-percent-min: 25
   win-chest-percent-max: 30
   reward-artifact: true
+
+# Набег (§3.1) — третий тип конфликта: возможен только если у защитника мало людей онлайн,
+# запрещён против клана с высоким влиянием. Успешен, если атакующие вынесли хоть что-то из
+# сундука защитника (деньги и/или предметы, оба ограничены процентом от того, что было в
+# сундуке на момент начала набега) до истечения duration-minutes.
+raid:
+  pre-start-minutes: 5
+  duration-minutes: 10
+  cooldown-hours: 24
+  min-attacker-online: 1
+  max-defender-online: 2
+  loot-money-percent: 50
+  loot-item-slot-percent: 50
+  win-exp-multiplier: 0.5
+  # Материалы ванильных предметов для бонусного "редкого" дропа при успешном набеге; пусто = без бонуса.
+  bonus-items: []
 
 integration:
   advanced-claims:
