@@ -289,7 +289,7 @@ public class GuiManager implements Listener {
         if (holder instanceof ClanDiplomacySelectMenu diplomacySelectMenu) {
             if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
             event.setCancelled(true);
-            diplomacySelectMenu.handleInventoryClick(event.getRawSlot());
+            diplomacySelectMenu.handleInventoryClick(event.getRawSlot(), event.isRightClick());
             return;
         }
 

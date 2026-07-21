@@ -381,6 +381,14 @@ gui:
       title: "<gold>Подтвердите смену названия"
     transfer:
       title: "<gold>Подтвердите передачу лидерства"
+    war:
+      title: "<red>Объявить войну клану <color><tag></color>?"
+    siege:
+      title: "<red>Устроить осаду клана <color><tag></color>?"
+    raid:
+      title: "<red>Устроить набег на клан <color><tag></color>?"
+    peace:
+      title: "<gold>Предложить мир клану <color><tag></color>?"
   create:
     title: "<gold>Создание клана"
     start:
@@ -435,13 +443,60 @@ gui:
     letters:
       name: "<gold>📮 Письма"
       lore: "<gray>ЛКМ - открыть переписку с этим кланом"
+    trade:
+      name: "<green>🤝 Торговля"
+      lore: "<gray>ЛКМ - предложить обмен этому клану"
+      unavailable-name: "<dark_gray>🤝 Торговля недоступна"
+    war:
+      name: "<red>⚔ Объявить войну"
+      lore: "<gray>ЛКМ - начать войну (нужно стоять на территории клана)"
+      unavailable-conflict: "<dark_gray>Конфликт уже идёт"
+      unavailable-location: "<dark_gray>Нужно стоять на территории этого клана"
+    siege:
+      name: "<red>🎯 Устроить осаду"
+      lore: "<gray>ЛКМ - начать осаду (нужно стоять на территории клана)"
+      unavailable-conflict: "<dark_gray>Конфликт уже идёт"
+      unavailable-location: "<dark_gray>Нужно стоять на территории этого клана"
+    raid:
+      name: "<red>🏹 Устроить набег"
+      lore: "<gray>ЛКМ - начать набег на сундук этого клана"
+      unavailable-conflict: "<dark_gray>Конфликт уже идёт"
+    peace:
+      name: "<white>🕊 Мир"
+      lore: "<gray>ЛКМ - предложить прекратить конфликт"
+      unavailable-name: "<dark_gray>🕊 Мир"
+    info:
+      name: "<color><tag> <white>- Информация"
+      lore:
+        - "<gray>Уровень: <white><level>"
+        - "<gray>Влияние: <white><influence>"
+        - "<gray>Участников: <white><members>"
+        - "<gray>Отношения: <white><relation>"
     select-other:
       name: "<gray>« Выбрать другой клан"
   diplomacy-select:
-    title: "<gold>Выберите клан"
+    title: "<gold>Дипломатия и Торговля <white>- <color><tag>"
+    empty: "<gray>Других кланов пока нет."
     clan-item:
       name: "<color><name> <white>[<tag>]"
       relation: "<gray>Отношения: <white><relation>"
+      hint: "<gray>ЛКМ - отношения, ПКМ - торговля"
+    sort:
+      name: "<gold>Сортировка"
+      newest: "<gray>Сейчас: <white>Новые"
+      oldest: "<gray>Сейчас: <white>Старые"
+      influence: "<gray>Сейчас: <white>Влияние"
+      members: "<gray>Сейчас: <white>Число игроков"
+    filter:
+      name: "<gold>Фильтр"
+      all: "<gray>Сейчас: <white>Все"
+      at_war: "<gray>Сейчас: <white>В конфликте"
+      peaceful: "<gray>Сейчас: <white>Без конфликта"
+      closed: "<gray>Сейчас: <white>Закрытые"
+      open: "<gray>Сейчас: <white>Открытые"
+    refresh:
+      name: "<green>Обновить"
+      lore: "<gray>ЛКМ - обновить список"
   info:
     title: "<color><name> <white>[<tag>]"
     name: "<color><name> <white>[<tag>]"
