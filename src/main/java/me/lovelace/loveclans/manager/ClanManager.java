@@ -1107,6 +1107,15 @@ public final class ClanManager {
                 .thenCompose(c -> plugin.runSync(() -> plugin.getSpiritManager().addSpiritExperience(c, Math.max(0L, amount / 4), "Опыт клана")).thenApply(ignored -> c));
     }
 
+    /** Subtracts clan XP without the reward-bonus multiplier or level-up checks - used for contract failure penalties (§1.3). */
+    public CompletableFuture<Clan> removeExperienceAsync(Clan clan, long amount) {
+        if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
+        return plugin.supplySync(() -> {
+            clan.removeExperience(amount);
+            return clan;
+        }).thenCompose(c -> storage.updateClanProgression(c.id(), c.level(), c.experience(), c.upgradePoints(), c.spirit().level()).thenApply(ignored -> c));
+    }
+
     /** True if the clan is currently in a war (any phase), a siege, or a raid - used to block clan actions during conflicts. */
     public boolean inAnyConflict(UUID clanId) {
         return plugin.getWarManager().isAtWar(clanId) || plugin.getSiegeManager().isInSiege(clanId) || plugin.getRaidManager().isInRaid(clanId);

@@ -92,7 +92,7 @@ public final class PerkEffectListener implements Listener {
         if (killer == null) {
             return;
         }
-        String bossType = plugin.getConfig().getString("clans.contracts.purification.boss-type", "WITHER");
+        String bossType = plugin.getConfig().getString("perks.miner.rare-drop-boss-type", "WITHER");
         if (bossType == null || !bossType.equalsIgnoreCase(entity.getType().name())) {
             return;
         }

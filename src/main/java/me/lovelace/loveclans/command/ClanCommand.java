@@ -210,7 +210,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                             Bukkit.getOnlinePlayers().stream().map(OfflinePlayer::getName).filter(Objects::nonNull).forEach(completions::add);
                     case "admin" -> {
                         if (Permissions.has(sender, Permissions.ADMIN)) {
-                            completions.addAll(List.of("exp", "points", "diplo", "war", "disband"));
+                            completions.addAll(List.of("exp", "points", "diplo", "war", "disband", "createnpc", "removenpc"));
                         }
                     }
                 }
@@ -223,6 +223,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                      completions.addAll(List.of("start", "end"));
                  } else if (args[1].equalsIgnoreCase("diplo") || args[1].equalsIgnoreCase("disband")) {
                      completions.addAll(plugin.getClanManager().getAllClans().stream().map(Clan::tag).collect(Collectors.toList()));
+                 } else if (args[1].equalsIgnoreCase("createnpc")) {
+                     completions.add("contracts");
                  }
                  return filter(completions, args[2]);
             }
@@ -252,7 +254,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                     completions.addAll(Arrays.stream(ArtifactType.values()).map(type -> type.name().toLowerCase(Locale.ROOT)).collect(Collectors.toList()));
                 }
                 if (args[0].equalsIgnoreCase("admin")) {
-                    completions.addAll(List.of("exp", "points", "diplo", "war", "disband"));
+                    completions.addAll(List.of("exp", "points", "diplo", "war", "disband", "createnpc", "removenpc"));
                 }
                 return filter(completions, args[1]);
             }
@@ -263,6 +265,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                      completions.addAll(List.of("start", "end"));
                  } else if (args[1].equalsIgnoreCase("diplo") || args[1].equalsIgnoreCase("disband")) {
                      completions.addAll(plugin.getClanManager().getAllClans().stream().map(Clan::tag).collect(Collectors.toList()));
+                 } else if (args[1].equalsIgnoreCase("createnpc")) {
+                     completions.add("contracts");
                  }
                  return filter(completions, args[2]);
             }
@@ -1022,7 +1026,48 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         
         String action = args[1].toLowerCase(Locale.ROOT);
-        
+
+        if (action.equals("createnpc")) {
+            if (!(sender instanceof Player player)) {
+                plugin.getMessages().send(sender, "general.players-only");
+                return;
+            }
+            if (!args[2].equalsIgnoreCase("contracts")) {
+                plugin.getMessages().send(sender, "admin.npc.unknown-type");
+                return;
+            }
+            double distance = plugin.getConfig().getDouble("clans.contracts.npc-bind-distance", 6.0);
+            var npc = plugin.getCitizensIntegration().lookedAtNpc(player, distance);
+            Integer npcId = npc == null ? null : plugin.getCitizensIntegration().npcId(npc);
+            if (npcId == null) {
+                plugin.getMessages().send(player, "admin.npc.not-looking-at-npc");
+                return;
+            }
+            plugin.getConfig().set("clans.contracts.npc-id", npcId);
+            plugin.saveConfig();
+            plugin.getMessages().send(player, "admin.npc.bound", Map.of("id", String.valueOf(npcId)));
+            return;
+        }
+
+        if (action.equals("removenpc")) {
+            int targetId;
+            try {
+                targetId = Integer.parseInt(args[2]);
+            } catch (NumberFormatException exception) {
+                plugin.getMessages().send(sender, "general.invalid-number");
+                return;
+            }
+            int currentId = plugin.getConfig().getInt("clans.contracts.npc-id", -1);
+            if (currentId != targetId) {
+                plugin.getMessages().send(sender, "admin.npc.not-bound");
+                return;
+            }
+            plugin.getConfig().set("clans.contracts.npc-id", -1);
+            plugin.saveConfig();
+            plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", String.valueOf(targetId)));
+            return;
+        }
+
         if (action.equals("disband")) {
              String clanTag = args[2];
              Optional<Clan> clanOpt = plugin.getClanManager().getClanByTag(clanTag);

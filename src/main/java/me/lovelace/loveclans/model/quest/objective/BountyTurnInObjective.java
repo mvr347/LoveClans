@@ -42,4 +42,9 @@ public record BountyTurnInObjective(int targetAmount, String displayNameFormat) 
     public int updateProgress(UUID clanId, UUID playerId, int currentProgress, Map<String, Object> eventData) {
         return Boolean.TRUE.equals(eventData.get("bounty_turn_in")) ? 1 : 0;
     }
+
+    @Override
+    public QuestObjective scaled(double multiplier) {
+        return new BountyTurnInObjective(Math.max(1, (int) Math.round(targetAmount * multiplier)), displayNameFormat);
+    }
 }

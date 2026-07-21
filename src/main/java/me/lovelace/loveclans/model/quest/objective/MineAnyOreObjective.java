@@ -46,4 +46,9 @@ public record MineAnyOreObjective(int targetAmount, String displayNameFormat) im
         }
         return 0;
     }
+
+    @Override
+    public QuestObjective scaled(double multiplier) {
+        return new MineAnyOreObjective(Math.max(1, (int) Math.round(targetAmount * multiplier)), displayNameFormat);
+    }
 }

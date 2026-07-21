@@ -44,4 +44,9 @@ public record KillMobObjective(EntityType mobType, int targetAmount, String disp
         }
         return 0;
     }
+
+    @Override
+    public QuestObjective scaled(double multiplier) {
+        return new KillMobObjective(mobType, Math.max(1, (int) Math.round(targetAmount * multiplier)), displayNameFormat);
+    }
 }

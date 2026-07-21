@@ -269,7 +269,10 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
 
-            // Клановые обеты (контракты) — один активный на клан за раз
+            // Клановые обеты (§1) — раздельные слоты для еженедельного и ежедневного активного
+            // контракта, по одной таблице на тип (одна активная строка на клан за раз в каждой).
+            // target/reward_xp/started_at/expires_at хранят снимок сложности на момент выбора
+            // (§1.2), чтобы уход/вход участников не менял уже начатый контракт задним числом.
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_contracts (
                         clan_id VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -278,6 +281,25 @@ public final class DatabaseManager implements AutoCloseable {
                         completed INT NOT NULL DEFAULT 0,
                         claimed INT NOT NULL DEFAULT 0,
                         last_reset BIGINT NOT NULL,
+                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
+                    )
+                    """);
+            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN target INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN reward_xp BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN started_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN expires_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_daily_contracts (
+                        clan_id VARCHAR(36) NOT NULL PRIMARY KEY,
+                        contract_id VARCHAR(64) NOT NULL,
+                        progress INT NOT NULL DEFAULT 0,
+                        completed INT NOT NULL DEFAULT 0,
+                        claimed INT NOT NULL DEFAULT 0,
+                        target INT NOT NULL DEFAULT 0,
+                        reward_xp BIGINT NOT NULL DEFAULT 0,
+                        started_at BIGINT NOT NULL DEFAULT 0,
+                        expires_at BIGINT NOT NULL DEFAULT 0,
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);

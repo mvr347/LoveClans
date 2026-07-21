@@ -1,45 +1,35 @@
 package me.lovelace.loveclans.model.quest;
 
-import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * A clan's progress on one active contract slot (§1.1) - a clan can have one active WEEKLY and one
+ * active DAILY contract at the same time, tracked as separate rows/instances. {@code scaledTarget}
+ * and {@code scaledRewardXp} are snapshots taken at selection time (§1.2's difficulty multiplier
+ * applied against the clan's member count then), so they stay stable even if members join/leave
+ * mid-contract.
+ */
 public record ClanQuestProgress(
         UUID clanId,
+        ContractType type,
         String questId,
-        Map<Integer, Integer> objectiveProgress, // Key: objective index, Value: current progress
+        int scaledTarget,
+        long scaledRewardXp,
+        int progress,
         boolean completed,
         boolean claimed,
-        long lastReset // Timestamp for daily/weekly/monthly quests
+        long startedAt,
+        long expiresAt
 ) {
-    public ClanQuestProgress {
-        // Ensure objectiveProgress is not null and is mutable if needed
-        if (objectiveProgress == null) {
-            objectiveProgress = new ConcurrentHashMap<>();
-        } else {
-            objectiveProgress = new ConcurrentHashMap<>(objectiveProgress);
-        }
-    }
-
-    public ClanQuestProgress withObjectiveProgress(int objectiveIndex, int progress) {
-        Map<Integer, Integer> newProgressMap = new ConcurrentHashMap<>(this.objectiveProgress);
-        newProgressMap.put(objectiveIndex, progress);
-        return new ClanQuestProgress(clanId, questId, newProgressMap, completed, claimed, lastReset);
-    }
-    
-    public ClanQuestProgress withObjectiveProgress(Map<Integer, Integer> newProgressMap) {
-        return new ClanQuestProgress(clanId, questId, newProgressMap, completed, claimed, lastReset);
+    public ClanQuestProgress withProgress(int progress) {
+        return new ClanQuestProgress(clanId, type, questId, scaledTarget, scaledRewardXp, progress, completed, claimed, startedAt, expiresAt);
     }
 
     public ClanQuestProgress withCompleted(boolean completed) {
-        return new ClanQuestProgress(clanId, questId, objectiveProgress, completed, claimed, lastReset);
+        return new ClanQuestProgress(clanId, type, questId, scaledTarget, scaledRewardXp, progress, completed, claimed, startedAt, expiresAt);
     }
 
     public ClanQuestProgress withClaimed(boolean claimed) {
-        return new ClanQuestProgress(clanId, questId, objectiveProgress, completed, claimed, lastReset);
-    }
-
-    public ClanQuestProgress withLastReset(long lastReset) {
-        return new ClanQuestProgress(clanId, questId, objectiveProgress, completed, claimed, lastReset);
+        return new ClanQuestProgress(clanId, type, questId, scaledTarget, scaledRewardXp, progress, completed, claimed, startedAt, expiresAt);
     }
 }

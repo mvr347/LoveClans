@@ -44,4 +44,9 @@ public record MineBlockObjective(Material blockType, int targetAmount, String di
         }
         return 0;
     }
+
+    @Override
+    public QuestObjective scaled(double multiplier) {
+        return new MineBlockObjective(blockType, Math.max(1, (int) Math.round(targetAmount * multiplier)), displayNameFormat);
+    }
 }

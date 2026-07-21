@@ -45,4 +45,9 @@ public record GatherItemObjective(Material itemType, int targetAmount, String di
         }
         return 0;
     }
+
+    @Override
+    public QuestObjective scaled(double multiplier) {
+        return new GatherItemObjective(itemType, Math.max(1, (int) Math.round(targetAmount * multiplier)), displayNameFormat);
+    }
 }

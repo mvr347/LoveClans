@@ -27,6 +27,12 @@ admin:
   points-updated: "<prefix><green>Очки улучшений клана <color><tag></color> обновлены."
   war-ended: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> завершена администратором."
   war-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> начата администратором."
+  npc:
+    unknown-type: "<prefix><red>Неизвестный тип NPC. Сейчас поддерживается только 'contracts'."
+    not-looking-at-npc: "<prefix><red>Посмотрите на NPC Citizens, которого нужно привязать, и повторите команду."
+    bound: "<prefix><green>NPC обетов привязан (ID <white><id></white>)."
+    not-bound: "<prefix><red>NPC обетов сейчас не привязан к этому ID."
+    unbound: "<prefix><green>NPC обетов (ID <white><id></white>) отвязан."
 
 chest:
   invalid-amount: "<prefix><red>Укажите корректное положительное количество."
@@ -40,13 +46,26 @@ chest:
 
 contract:
   unknown: "<prefix><red>Неизвестный обет."
-  already-active: "<prefix><red>У клана уже есть активный обет на этой неделе."
-  none-active: "<prefix><red>У клана сейчас нет активного обета."
+  none-available: "<prefix><red>Сейчас нет доступных обетов этого типа."
+  already-active: "<prefix><red>У клана уже есть активный обет этого типа."
+  none-active: "<prefix><red>У клана сейчас нет активного обета этого типа."
   not-completed: "<prefix><red>Этот обет ещё не выполнен."
   already-claimed: "<prefix><red>Награда за этот обет уже получена."
   selected: "<prefix><green>Клан взял новый обет!"
   reward-claimed: "<prefix><green>Награда за обет получена!"
-  completed: "<prefix><gold>Клан выполнил обет «<name>»! Лидер может забрать награду."
+  completed: "<prefix><gold>Клан выполнил обет «<name>»! Можно забрать награду."
+  failed: "<prefix><red>Обет «<name>» провален - срок истёк. Штраф: <gold><penalty></gold> опыта клана."
+  progress:
+    mine-any-ore: "<gray>Добыто руды: <white>{current_progress}</white>/{target_amount}"
+    mine-block: "<gray>Добыто ({block_type}): <white>{current_progress}</white>/{target_amount}"
+    kill-mob: "<gray>Убито ({mob_type}): <white>{current_progress}</white>/{target_amount}"
+    bounty-turn-in: "<gray>Сдано голов через bounty: <white>{current_progress}</white>/{target_amount}"
+    gather-item: "<gray>Собрано ({item_type}): <white>{current_progress}</white>/{target_amount}"
+    craft-item: "<gray>Скрафчено ({item_type}): <white>{current_progress}</white>/{target_amount}"
+    fish-item: "<gray>Выловлено ({item_type}): <white>{current_progress}</white>/{target_amount}"
+    pvp-kill: "<gray>PvP-убийств: <white>{current_progress}</white>/{target_amount}"
+    breed-animal: "<gray>Разведено ({animal_type}): <white>{current_progress}</white>/{target_amount}"
+    enchant-item: "<gray>Зачаровано предметов ({enchantment_type}): <white>{current_progress}</white>/{target_amount}"
 
 clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
@@ -210,20 +229,23 @@ gui:
   contracts-title: "<gray>Обеты клана <color><tag>"
   contracts:
     info:
+      title: "<gold>Обеты клана"
+      weekly-active: "<gray>Еженедельный: <green>активен"
+      weekly-none: "<gray>Еженедельный: <dark_gray>не выбран"
+      daily-active: "<gray>Ежедневный: <green>активен"
+      daily-none: "<gray>Ежедневный: <dark_gray>не выбран"
       none:
         name: "<gray>Нет активного обета"
         lore: "<gray>Выберите обет ниже, чтобы начать."
-      active:
-        name: "<gold>Текущий обет: <white><name>"
       ready-to-claim: "<green>Обет выполнен! Заберите награду ниже."
       claimed: "<gray>Награда уже получена."
     item:
       name: "<gold><name>"
       description: "<gray><description>"
-      reward: "<gray>Награда: <yellow><reward>"
+      reward: "<gray>Награда: <yellow><reward> опыта клана"
       current: "<green>Это активный обет клана."
-      locked: "<dark_gray>Сначала завершите текущий обет."
       select: "<green>ЛКМ - выбрать этот обет"
+      none-available: "<dark_gray>Нет доступных обетов"
     claim:
       ready:
         name: "<green>Забрать награду"
@@ -499,7 +521,8 @@ gui:
       upgrade: "<gold>Улучшения клана"
       settings: "<gold>Настройки клана"
       diplomacy: "<gold>Дипломатия"
-      bank: "<gold>Управление банком клана"
+      bank: "<gold>Управление сундуком клана"
+      contracts: "<gold>Управление обетами"
   role-settings:
     title: "<gold>Управление рангами"
     rank:

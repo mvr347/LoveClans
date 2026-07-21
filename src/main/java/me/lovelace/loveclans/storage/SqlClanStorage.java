@@ -12,6 +12,7 @@ import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
+import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Bukkit; // Import Bukkit for World access
 import org.bukkit.Location; // Import Location
@@ -586,55 +587,80 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
-    // --- Clan contracts (weekly quests) ---
+    // --- Clan contracts: independent weekly/daily active slots, one table per type (§1) ---
+
+    private static String contractTable(ContractType type) {
+        return type == ContractType.DAILY ? "clan_daily_contracts" : "clan_contracts";
+    }
 
     @Override
     public CompletableFuture<Void> saveContractProgressAsync(ClanQuestProgress progress) {
         return CompletableFuture.runAsync(() -> {
-            try (Connection connection = database.dataSource().getConnection()) {
-                String sql = database.type() == DatabaseType.MYSQL
-                        ? "INSERT INTO clan_contracts (clan_id, contract_id, progress, completed, claimed, last_reset) " +
-                          "VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE contract_id = VALUES(contract_id), " +
-                          "progress = VALUES(progress), completed = VALUES(completed), claimed = VALUES(claimed), last_reset = VALUES(last_reset)"
-                        : "INSERT INTO clan_contracts (clan_id, contract_id, progress, completed, claimed, last_reset) " +
-                          "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(clan_id) DO UPDATE SET contract_id = excluded.contract_id, " +
-                          "progress = excluded.progress, completed = excluded.completed, claimed = excluded.claimed, last_reset = excluded.last_reset";
-                try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                    statement.setString(1, progress.clanId().toString());
-                    statement.setString(2, progress.questId());
-                    statement.setInt(3, progress.objectiveProgress().getOrDefault(0, 0));
-                    statement.setInt(4, progress.completed() ? 1 : 0);
-                    statement.setInt(5, progress.claimed() ? 1 : 0);
-                    statement.setLong(6, progress.lastReset());
-                    statement.executeUpdate();
-                }
+            String table = contractTable(progress.type());
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT INTO " + table + " (clan_id, contract_id, progress, completed, claimed, target, reward_xp, started_at, expires_at) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE contract_id = VALUES(contract_id), " +
+                      "progress = VALUES(progress), completed = VALUES(completed), claimed = VALUES(claimed), " +
+                      "target = VALUES(target), reward_xp = VALUES(reward_xp), started_at = VALUES(started_at), expires_at = VALUES(expires_at)"
+                    : "INSERT INTO " + table + " (clan_id, contract_id, progress, completed, claimed, target, reward_xp, started_at, expires_at) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(clan_id) DO UPDATE SET contract_id = excluded.contract_id, " +
+                      "progress = excluded.progress, completed = excluded.completed, claimed = excluded.claimed, " +
+                      "target = excluded.target, reward_xp = excluded.reward_xp, started_at = excluded.started_at, expires_at = excluded.expires_at";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, progress.clanId().toString());
+                statement.setString(2, progress.questId());
+                statement.setInt(3, progress.progress());
+                statement.setInt(4, progress.completed() ? 1 : 0);
+                statement.setInt(5, progress.claimed() ? 1 : 0);
+                statement.setInt(6, progress.scaledTarget());
+                statement.setLong(7, progress.scaledRewardXp());
+                statement.setLong(8, progress.startedAt());
+                statement.setLong(9, progress.expiresAt());
+                statement.executeUpdate();
             } catch (SQLException exception) {
-                throw new StorageException("Unable to save contract progress for clan " + progress.clanId(), exception);
+                throw new StorageException("Unable to save " + progress.type() + " contract progress for clan " + progress.clanId(), exception);
             }
         }, database.executor());
     }
 
     @Override
-    public CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync() {
+    public CompletableFuture<Void> deleteContractProgressAsync(UUID clanId, ContractType type) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "DELETE FROM " + contractTable(type) + " WHERE clan_id = ?")) {
+                statement.setString(1, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete " + type + " contract progress for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync(ContractType type) {
         return CompletableFuture.supplyAsync(() -> {
             List<ClanQuestProgress> result = new ArrayList<>();
             try (Connection connection = database.dataSource().getConnection();
-                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_contracts");
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM " + contractTable(type));
                  ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
-                    Map<Integer, Integer> progressMap = new LinkedHashMap<>();
-                    progressMap.put(0, rs.getInt("progress"));
                     result.add(new ClanQuestProgress(
                             UUID.fromString(rs.getString("clan_id")),
+                            type,
                             rs.getString("contract_id"),
-                            progressMap,
+                            rs.getInt("target"),
+                            rs.getLong("reward_xp"),
+                            rs.getInt("progress"),
                             rs.getInt("completed") != 0,
                             rs.getInt("claimed") != 0,
-                            rs.getLong("last_reset")
+                            rs.getLong("started_at"),
+                            rs.getLong("expires_at")
                     ));
                 }
             } catch (SQLException exception) {
-                throw new StorageException("Unable to load clan contracts", exception);
+                throw new StorageException("Unable to load " + type + " clan contracts", exception);
             }
             return result;
         }, database.executor());

@@ -154,6 +154,18 @@ public final class LoveClansPlugin extends JavaPlugin {
                     }
                 }, 20L * 60L * 60L, 20L * 60L * 60L);
 
+                // Истечение контрактов (§1.3) - проверяет дедлайны еженедельных/ежедневных обетов
+                // и применяет штраф/авто-сдачу; интервал настраивается, т.к. ежедневный контракт
+                // истекает через 24ч и слишком редкая проверка даёт большой люфт.
+                long contractTickTicks = 20L * 60L * Math.max(1, getConfig().getInt("clans.contracts.tick-interval-minutes", 5));
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        contractManager.tickContracts();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Contract tick failed", t);
+                    }
+                }, contractTickTicks, contractTickTicks);
+
                 heartbeatTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
                     try {
                         ritualManager.tick();

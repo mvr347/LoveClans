@@ -9,6 +9,7 @@ import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
+import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -87,11 +88,13 @@ public interface ClanStorage {
 
     CompletableFuture<byte[]> loadChestContentsAsync(UUID clanId);
 
-    // --- Clan contracts (weekly quests) ---
+    // --- Clan contracts: separate weekly/daily pools with independent active slots (§1) ---
 
     CompletableFuture<Void> saveContractProgressAsync(ClanQuestProgress progress);
 
-    CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync();
+    CompletableFuture<Void> deleteContractProgressAsync(UUID clanId, ContractType type);
+
+    CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync(ContractType type);
 
     // --- Дипломатия: эмбарго, блокада, письма (§5) ---
 
