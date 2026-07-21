@@ -3,14 +3,19 @@ package me.lovelace.loveclans.storage;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanApplication;
 import me.lovelace.loveclans.model.ClanMember;
+import me.lovelace.loveclans.model.ClanPerk;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
+import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
+import me.lovelace.loveclans.model.quest.ContractType;
+import me.lovelace.loveclans.model.trade.ClanTrade;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Location;
 import org.bukkit.Material;
 
+import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -63,13 +68,20 @@ public interface ClanStorage {
 
     CompletableFuture<Void> updateClanProgression(UUID clanId, int level, long experience, int upgradePoints, int spiritLevel);
 
-    // --- Clan bank / treasury (ItemsAdder items) ---
+    CompletableFuture<Void> updateClanInfluenceStats(UUID clanId, int warsWon, int warsLost, int siegesWon,
+                                                       int siegesLost, int raidsWon, int raidsLost, long influence);
 
-    CompletableFuture<Long> adjustBankAmountAsync(UUID clanId, String itemId, long delta);
+    CompletableFuture<Void> updateClanPerk(UUID clanId, ClanPerk perk, long chosenAt);
 
-    CompletableFuture<Boolean> withdrawBankAmountAsync(UUID clanId, String itemId, long amount);
+    // --- Клановый сундук: деньги и налог (§2; заменяет прежний отдельный /clan bank) ---
 
-    // --- Clan chest (physical item storage, separate from the bank ledger) ---
+    CompletableFuture<Void> updateClanChestMoney(UUID clanId, long amount);
+
+    CompletableFuture<Void> updateClanTaxState(UUID clanId, long lastTaxAt, boolean locked);
+
+    CompletableFuture<Long> migrateLegacyBankMoneyAsync(UUID clanId, String currencyItemId);
+
+    // --- Clan chest (physical item storage) ---
 
     CompletableFuture<Void> updateClanChestRows(UUID clanId, int chestRows);
 
@@ -77,9 +89,37 @@ public interface ClanStorage {
 
     CompletableFuture<byte[]> loadChestContentsAsync(UUID clanId);
 
-    // --- Clan contracts (weekly quests) ---
+    // --- Clan contracts: separate weekly/daily pools with independent active slots (§1) ---
 
     CompletableFuture<Void> saveContractProgressAsync(ClanQuestProgress progress);
 
-    CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync();
+    CompletableFuture<Void> deleteContractProgressAsync(UUID clanId, ContractType type);
+
+    CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync(ContractType type);
+
+    // --- Дипломатия: эмбарго, блокада, письма (§5) ---
+
+    CompletableFuture<Collection<AbstractMap.SimpleImmutableEntry<UUID, UUID>>> loadAllEmbargoesAsync();
+
+    CompletableFuture<Void> saveEmbargoAsync(UUID clanA, UUID clanB);
+
+    CompletableFuture<Void> deleteEmbargoAsync(UUID clanA, UUID clanB);
+
+    CompletableFuture<Collection<AbstractMap.SimpleImmutableEntry<UUID, UUID>>> loadAllBlockadesAsync();
+
+    CompletableFuture<Void> saveBlockadeAsync(UUID blockerClanId, UUID blockedClanId);
+
+    CompletableFuture<Void> deleteBlockadeAsync(UUID blockerClanId, UUID blockedClanId);
+
+    CompletableFuture<Void> saveLetterAsync(ClanLetter letter);
+
+    CompletableFuture<Collection<ClanLetter>> loadLettersBetweenAsync(UUID clanA, UUID clanB);
+
+    CompletableFuture<Void> markLetterReadAsync(UUID letterId);
+
+    // --- Торговля между кланами через сундук (§4.2) ---
+
+    CompletableFuture<Void> saveTradeAsync(ClanTrade trade);
+
+    CompletableFuture<Collection<ClanTrade>> loadPendingTradesAsync();
 }

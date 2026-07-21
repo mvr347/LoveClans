@@ -121,7 +121,19 @@ public final class DatabaseManager implements AutoCloseable {
                         spirit_last_decay BIGINT NOT NULL DEFAULT 0,
                         created_at BIGINT NOT NULL,
                         is_open TINYINT NOT NULL DEFAULT 1,
-                        home_location TEXT
+                        home_location TEXT,
+                        wars_won INT NOT NULL DEFAULT 0,
+                        wars_lost INT NOT NULL DEFAULT 0,
+                        sieges_won INT NOT NULL DEFAULT 0,
+                        sieges_lost INT NOT NULL DEFAULT 0,
+                        raids_won INT NOT NULL DEFAULT 0,
+                        raids_lost INT NOT NULL DEFAULT 0,
+                        influence BIGINT NOT NULL DEFAULT 0,
+                        perk VARCHAR(32),
+                        perk_chosen_at BIGINT NOT NULL DEFAULT 0,
+                        chest_money BIGINT NOT NULL DEFAULT 0,
+                        last_tax_at BIGINT NOT NULL DEFAULT 0,
+                        chest_tax_locked TINYINT NOT NULL DEFAULT 0
                     )
                     """);
             // Migrations
@@ -132,6 +144,18 @@ public final class DatabaseManager implements AutoCloseable {
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN home_location TEXT"); } catch (SQLException ignored) {}
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_ability VARCHAR(32)"); } catch (SQLException ignored) {}
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_ability_chosen_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN wars_won INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN wars_lost INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN sieges_won INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN sieges_lost INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN raids_won INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN raids_lost INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN influence BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN perk VARCHAR(32)"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN perk_chosen_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN chest_money BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN last_tax_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN chest_tax_locked TINYINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_members (
@@ -210,6 +234,10 @@ public final class DatabaseManager implements AutoCloseable {
                     """);
 
 
+            // Legacy /clan bank ledger (§2 removed the command and merged money into the chest's
+            // dedicated money slot - see clans.chest_money). Table is kept only so
+            // SqlClanStorage#migrateLegacyBankMoneyAsync can do a one-time transfer into
+            // chest_money on first load after upgrading; nothing writes to it anymore.
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_bank (
                         clan_id VARCHAR(36) NOT NULL,
@@ -241,7 +269,10 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
 
-            // Клановые обеты (контракты) — один активный на клан за раз
+            // Клановые обеты (§1) — раздельные слоты для еженедельного и ежедневного активного
+            // контракта, по одной таблице на тип (одна активная строка на клан за раз в каждой).
+            // target/reward_xp/started_at/expires_at хранят снимок сложности на момент выбора
+            // (§1.2), чтобы уход/вход участников не менял уже начатый контракт задним числом.
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_contracts (
                         clan_id VARCHAR(36) NOT NULL PRIMARY KEY,
@@ -251,6 +282,75 @@ public final class DatabaseManager implements AutoCloseable {
                         claimed INT NOT NULL DEFAULT 0,
                         last_reset BIGINT NOT NULL,
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
+                    )
+                    """);
+            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN target INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN reward_xp BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN started_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN expires_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_daily_contracts (
+                        clan_id VARCHAR(36) NOT NULL PRIMARY KEY,
+                        contract_id VARCHAR(64) NOT NULL,
+                        progress INT NOT NULL DEFAULT 0,
+                        completed INT NOT NULL DEFAULT 0,
+                        claimed INT NOT NULL DEFAULT 0,
+                        target INT NOT NULL DEFAULT 0,
+                        reward_xp BIGINT NOT NULL DEFAULT 0,
+                        started_at BIGINT NOT NULL DEFAULT 0,
+                        expires_at BIGINT NOT NULL DEFAULT 0,
+                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
+                    )
+                    """);
+
+            // Эмбарго (§5.2) — взаимный запрет торговли. Одна строка на пару, clan_a/clan_b всегда
+            // хранятся в каноническом порядке (clan_a < clan_b по строке), см. DiplomacyManager#pairKey.
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_embargoes (
+                        clan_a VARCHAR(36) NOT NULL,
+                        clan_b VARCHAR(36) NOT NULL,
+                        created_at BIGINT NOT NULL,
+                        PRIMARY KEY (clan_a, clan_b)
+                    )
+                    """);
+
+            // Блокада (§5.3) — односторонняя: clan_blocker блокирует clan_blocked.
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_blockades (
+                        clan_blocker VARCHAR(36) NOT NULL,
+                        clan_blocked VARCHAR(36) NOT NULL,
+                        created_at BIGINT NOT NULL,
+                        PRIMARY KEY (clan_blocker, clan_blocked)
+                    )
+                    """);
+
+            // Письма между кланами (§5.4).
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_letters (
+                        id VARCHAR(36) PRIMARY KEY,
+                        clan_from VARCHAR(36) NOT NULL,
+                        clan_to VARCHAR(36) NOT NULL,
+                        message TEXT NOT NULL,
+                        is_read TINYINT NOT NULL DEFAULT 0,
+                        created_at BIGINT NOT NULL
+                    )
+                    """);
+
+            // Торговля между кланами через сундук (§4.2) — money/items уже списаны с clan_from
+            // (эскроу) на момент создания строки; при ACCEPTED оба зачисляются clan_to, при
+            // DECLINED/CANCELLED возвращаются обратно clan_from. items — сериализованный
+            // ItemStack[] (см. InventorySerialization), может быть NULL при чисто денежной сделке.
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_trades (
+                        id VARCHAR(36) PRIMARY KEY,
+                        clan_from VARCHAR(36) NOT NULL,
+                        clan_to VARCHAR(36) NOT NULL,
+                        money BIGINT NOT NULL DEFAULT 0,
+                        items BLOB,
+                        status VARCHAR(16) NOT NULL,
+                        created_at BIGINT NOT NULL,
+                        resolved_at BIGINT NOT NULL DEFAULT 0
                     )
                     """);
         } catch (SQLException exception) {

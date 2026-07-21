@@ -13,6 +13,8 @@ import me.lovelace.loveclans.model.war.ClanWar;
 import me.lovelace.loveclans.model.war.WarResult;
 import me.lovelace.loveclans.model.war.WarState;
 import me.lovelace.loveclans.util.ClanItemFactory;
+import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -29,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,9 +45,17 @@ public final class WarManager {
     // всегда обновлялись/удалялись вместе и не могли разойтись.
     private record BannerProgress(int hits, long lastHitAt) {}
     private final Map<UUID, BannerProgress> bannerProgress = new ConcurrentHashMap<>();
+    // Боевой таймер (§3.2): босс-бар и разовое предупреждение "за минуту", показываемые обеим
+    // сторонам, пока война находится в состоянии PREPARING (объявлена, но ещё не началась).
+    private final Map<UUID, BossBar> pendingBossBars = new ConcurrentHashMap<>();
+    private final Set<UUID> oneMinuteWarned = ConcurrentHashMap.newKeySet();
 
     public WarManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    private Duration preStartDuration() {
+        return Duration.ofMinutes(plugin.getConfig().getLong("war.pre-start-minutes", 10));
     }
 
     private Duration warDuration() {
@@ -121,7 +132,7 @@ public final class WarManager {
             }
 
             ClanWar war = new ClanWar(UUID.randomUUID(), attacker.id(), defender.id(), territory, now,
-                    now + warDuration().toMillis(), WarState.ACTIVE, 0, 0);
+                    now + preStartDuration().toMillis(), WarState.PREPARING, 0, 0);
             ClanWarStartEvent event = new ClanWarStartEvent(war);
             Bukkit.getPluginManager().callEvent(event);
             if (event.isCancelled()) {
@@ -129,20 +140,62 @@ public final class WarManager {
             }
             activeWars.put(war.id(), war);
             warCooldowns.put(cooldownKey, now);
+            plugin.getDiplomacyManager().liftBlockadesBetween(attacker.id(), defender.id());
 
-            distributeWarCompasses(war);
-            resolveContestedTerritory(war).ifPresent(t ->
-                    plugin.getAdvancedClaimsHook().setSiegeMode(t.advancedClaimId(), true));
-            announceWarStart(war, attacker, defender);
+            beginPendingPhase(war, attacker, defender);
 
             return war;
         });
+    }
+
+    /** Shows the pending-phase boss bar/chat message to both sides; does not touch gameplay yet. */
+    private void beginPendingPhase(ClanWar war, Clan attacker, Clan defender) {
+        String time = formatDuration(war.endsAt() - System.currentTimeMillis());
+        Component title = plugin.getMessages().component("war.pending.bossbar", Map.of(
+                "attacker", attacker.tag(), "color1", attacker.tagColor(),
+                "defender", defender.tag(), "color2", defender.tagColor(), "time", time));
+        BossBar bar = BossBar.bossBar(title, 1.0f, BossBar.Color.RED, BossBar.Overlay.PROGRESS);
+        pendingBossBars.put(war.id(), bar);
+
+        java.util.stream.Stream.concat(onlineMembers(attacker), onlineMembers(defender)).forEach(p -> p.showBossBar(bar));
+        onlineMembers(attacker).forEach(p -> plugin.getMessages().send(p, "war.pending.declared",
+                Map.of("tag", defender.tag(), "color", defender.tagColor(), "time", time)));
+        onlineMembers(defender).forEach(p -> plugin.getMessages().send(p, "war.pending.declared",
+                Map.of("tag", attacker.tag(), "color", attacker.tagColor(), "time", time)));
+    }
+
+    /** Promotes a PREPARING war to ACTIVE: gameplay (compasses, siege mode, start titles) begins now. */
+    private void activateWar(ClanWar war) {
+        Optional<WarClans> warClansOpt = resolveWarClans(war);
+        clearPendingPhase(war.id(), warClansOpt.orElse(null));
+        if (warClansOpt.isEmpty()) {
+            activeWars.remove(war.id());
+            return;
+        }
+        long now = System.currentTimeMillis();
+        ClanWar activated = war.activate(now + warDuration().toMillis());
+        activeWars.put(activated.id(), activated);
+
+        distributeWarCompasses(activated);
+        resolveContestedTerritory(activated).ifPresent(t ->
+                plugin.getAdvancedClaimsHook().setSiegeMode(t.advancedClaimId(), true));
+        announceWarStart(activated, warClansOpt.get().attacker(), warClansOpt.get().defender());
+    }
+
+    private void clearPendingPhase(UUID warId, WarClans clans) {
+        BossBar bar = pendingBossBars.remove(warId);
+        oneMinuteWarned.remove(warId);
+        if (bar != null && clans != null) {
+            java.util.stream.Stream.concat(onlineMembers(clans.attacker()), onlineMembers(clans.defender()))
+                    .forEach(p -> p.hideBossBar(bar));
+        }
     }
 
     public CompletableFuture<Void> endWarAsync(UUID warId, WarResult result) {
         return plugin.supplySync(() -> {
             ClanWar war = activeWars.remove(warId);
             if (war != null) {
+                clearPendingPhase(war.id(), resolveWarClans(war).orElse(null));
                 Bukkit.getPluginManager().callEvent(new ClanWarEndEvent(war.withState(WarState.FINISHED), result));
 
                 // Notifications/cleanup must run BEFORE any disband below: disbandClanAsync runs
@@ -157,11 +210,22 @@ public final class WarManager {
 
                 long reward = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
                 if (result == WarResult.ATTACKER_WIN) {
-                    plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(clan ->
-                            plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
-                                plugin.getLogger().warning("Failed to award war experience to clan " + clan.id() + ": " + t.getMessage());
+                    plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(clan -> {
+                        plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
+                            plugin.getLogger().warning("Failed to award war experience to clan " + clan.id() + ": " + t.getMessage());
+                            return null;
+                        });
+                        plugin.getClanManager().recordWarResultAsync(clan, true).exceptionally(t -> {
+                            plugin.getLogger().warning("Failed to record war win for clan " + clan.id() + ": " + t.getMessage());
+                            return null;
+                        });
+                    });
+                    plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(clan ->
+                            plugin.getClanManager().recordWarResultAsync(clan, false).exceptionally(t -> {
+                                plugin.getLogger().warning("Failed to record war loss for clan " + clan.id() + ": " + t.getMessage());
                                 return null;
                             }));
+                    plugin.getDiplomacyManager().liftBlockadeOnVictory(war.attackerClanId(), war.defenderClanId());
                     if (war.capturedBannerBy() != null) {
                         // null actorId: this is a forced system disband (the attacker who captured
                         // the banner is not a member of the defender clan, so passing their UUID
@@ -173,11 +237,22 @@ public final class WarManager {
                                 }));
                     }
                 } else if (result == WarResult.DEFENDER_WIN) {
-                    plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(clan ->
-                            plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
-                                plugin.getLogger().warning("Failed to award war experience to clan " + clan.id() + ": " + t.getMessage());
+                    plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(clan -> {
+                        plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
+                            plugin.getLogger().warning("Failed to award war experience to clan " + clan.id() + ": " + t.getMessage());
+                            return null;
+                        });
+                        plugin.getClanManager().recordWarResultAsync(clan, true).exceptionally(t -> {
+                            plugin.getLogger().warning("Failed to record war win for clan " + clan.id() + ": " + t.getMessage());
+                            return null;
+                        });
+                    });
+                    plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(clan ->
+                            plugin.getClanManager().recordWarResultAsync(clan, false).exceptionally(t -> {
+                                plugin.getLogger().warning("Failed to record war loss for clan " + clan.id() + ": " + t.getMessage());
                                 return null;
                             }));
+                    plugin.getDiplomacyManager().liftBlockadeOnVictory(war.defenderClanId(), war.attackerClanId());
                 }
             }
             return null;
@@ -193,6 +268,7 @@ public final class WarManager {
 
             ClanWar war = warOpt.get();
             activeWars.remove(war.id());
+            clearPendingPhase(war.id(), resolveWarClans(war).orElse(null));
             Bukkit.getPluginManager().callEvent(new ClanWarEndEvent(war.withState(WarState.FINISHED), WarResult.DRAW));
 
             for (UUID memberId : sourceClan.members().keySet()) {
@@ -213,17 +289,19 @@ public final class WarManager {
         });
     }
 
+    /** True for both PREPARING (declared, not yet active) and ACTIVE wars - see {@link #isAtWar(UUID)}. */
     public boolean areAtWar(UUID firstClanId, UUID secondClanId) {
-        return activeWars.values().stream().anyMatch(war -> war.state() == WarState.ACTIVE && war.between(firstClanId, secondClanId));
+        return activeWars.values().stream().anyMatch(war -> war.between(firstClanId, secondClanId));
     }
 
     public boolean isAtWar(UUID clanId) {
         return activeWars.values().stream().anyMatch(war -> war.involves(clanId));
     }
 
+    /** Matches PREPARING or ACTIVE - FINISHED wars are never kept in {@code activeWars}. */
     public Optional<ClanWar> activeWar(UUID firstClanId, UUID secondClanId) {
         return activeWars.values().stream()
-                .filter(war -> war.state() == WarState.ACTIVE && war.between(firstClanId, secondClanId))
+                .filter(war -> war.between(firstClanId, secondClanId))
                 .findFirst();
     }
 
@@ -386,6 +464,7 @@ public final class WarManager {
                 continue;
             }
             activeWars.remove(war.id());
+            clearPendingPhase(war.id(), resolveWarClans(war).orElse(null));
             // Fire the same event and run the same cleanup/reward as every other war-end path
             // (endWarAsync, peaceAsync) so third-party listeners and the surviving clan see
             // consistent behaviour regardless of why the war ended.
@@ -414,6 +493,11 @@ public final class WarManager {
         warCooldowns.entrySet().removeIf(entry -> now - entry.getValue() >= cooldownMillis);
 
         for (ClanWar war : activeWars.values()) {
+            if (war.state() == WarState.PREPARING) {
+                tickPendingWar(war, now);
+                continue;
+            }
+
             if (war.capturedBannerBy() != null) {
                 long remainingMs = bannerCaptureDuration().toMillis() - (now - war.bannerCapturedAt());
                 if (remainingMs <= 0) {
@@ -429,6 +513,31 @@ public final class WarManager {
                         : war.defenderScore() > war.attackerScore() ? WarResult.DEFENDER_WIN : WarResult.DRAW;
                 endWarAsync(war.id(), result);
             }
+        }
+    }
+
+    private void tickPendingWar(ClanWar war, long now) {
+        long remainingMs = war.endsAt() - now;
+        if (remainingMs <= 0) {
+            activateWar(war);
+            return;
+        }
+
+        BossBar bar = pendingBossBars.get(war.id());
+        Optional<WarClans> warClansOpt = resolveWarClans(war);
+        if (bar == null || warClansOpt.isEmpty()) {
+            return;
+        }
+        long totalMs = preStartDuration().toMillis();
+        bar.progress(Math.max(0f, Math.min(1f, (float) remainingMs / (float) totalMs)));
+        bar.name(plugin.getMessages().component("war.pending.bossbar", Map.of(
+                "attacker", warClansOpt.get().attacker().tag(), "color1", warClansOpt.get().attacker().tagColor(),
+                "defender", warClansOpt.get().defender().tag(), "color2", warClansOpt.get().defender().tagColor(),
+                "time", formatDuration(remainingMs))));
+
+        if (remainingMs <= 60_000L && oneMinuteWarned.add(war.id())) {
+            java.util.stream.Stream.concat(onlineMembers(warClansOpt.get().attacker()), onlineMembers(warClansOpt.get().defender()))
+                    .forEach(p -> plugin.getMessages().send(p, "war.pending.one-minute-warning"));
         }
     }
 

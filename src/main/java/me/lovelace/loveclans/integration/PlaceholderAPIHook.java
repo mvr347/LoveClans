@@ -64,6 +64,7 @@ public final class PlaceholderAPIHook extends PlaceholderExpansion {
             case "members" -> String.valueOf(clan.members().size());
             case "territories" -> String.valueOf(clan.territories().size());
             case "spirit_level" -> String.valueOf(clan.spirit().level());
+            case "influence" -> String.valueOf(clan.influence());
             case "rank" -> clan.member(player.getUniqueId()).map(ClanMember::rank).map(Enum::name).orElse("");
             case "rank_display" -> clan.member(player.getUniqueId()).map(ClanMember::rank).map(rank -> rank.displayName()).orElse("");
             default -> "";

@@ -44,4 +44,11 @@ public interface QuestObjective {
      * @return The amount by which the progress should increase, or 0 if no increase.
      */
     int updateProgress(UUID clanId, UUID playerId, int currentProgress, Map<String, Object> eventData);
+
+    /**
+     * Returns a copy of this objective with its target amount scaled by the clan-size difficulty
+     * multiplier (§1.2). Objectives whose target is fixed (e.g. visiting a location once) may
+     * return themselves unchanged.
+     */
+    QuestObjective scaled(double multiplier);
 }

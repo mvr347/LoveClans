@@ -16,6 +16,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * "Дипломатия и Торговля" (§6.1) - the clan browser that fans out into the per-clan relations
+ * menu (left click, §6.2 - {@link ClanDiplomacyMenu}) or straight into a trade offer (right
+ * click, §4.2/§6.3 - {@link ClanTradeOfferMenu}). Sort/filter are spec'd as mouse-wheel cycles,
+ * which vanilla container GUIs can't actually capture outside the hotbar - left-click cycles
+ * forward here instead, the same adaptation already used elsewhere in this plugin for stateful
+ * toggle buttons.
+ */
 public final class ClanDiplomacySelectMenu implements InventoryHolder {
     // Framed content grid — columns 0 and 8 of each row stay reserved for the border/pagination.
     private static final int[] CONTENT_SLOTS = {
@@ -24,44 +32,99 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
             28, 29, 30, 31, 32, 33, 34,
             37, 38, 39, 40, 41, 42, 43
     };
+    private static final int SLOT_SORT = 47;
+    private static final int SLOT_FILTER = 48;
+    private static final int SLOT_REFRESH = 49;
+    private static final int SLOT_PREVIOUS = 36;
+    private static final int SLOT_NEXT = 44;
+    private static final int SLOT_BACK = 52;
+    private static final int SLOT_CLOSE = 53;
+
+    private enum SortMode {
+        NEWEST(Comparator.comparingLong(Clan::createdAt).reversed()),
+        OLDEST(Comparator.comparingLong(Clan::createdAt)),
+        INFLUENCE(Comparator.comparingLong(Clan::influence).reversed()),
+        MEMBERS(Comparator.comparingInt((Clan c) -> c.members().size()).reversed());
+
+        final Comparator<Clan> comparator;
+
+        SortMode(Comparator<Clan> comparator) {
+            this.comparator = comparator;
+        }
+
+        SortMode next() {
+            SortMode[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+    }
+
+    private enum FilterMode {
+        ALL,
+        AT_WAR,
+        PEACEFUL,
+        CLOSED,
+        OPEN;
+
+        FilterMode next() {
+            FilterMode[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+    }
 
     private final LoveClansPlugin plugin;
     private final Player player;
     private final Clan sourceClan;
-    private final List<Clan> otherClans;
     private int currentPage;
+    private SortMode sortMode = SortMode.NEWEST;
+    private FilterMode filterMode = FilterMode.ALL;
+    private List<Clan> visibleClans = List.of();
     private Inventory inventory;
 
     public ClanDiplomacySelectMenu(LoveClansPlugin plugin, Player player, Clan sourceClan) {
         this.plugin = plugin;
         this.player = player;
         this.sourceClan = sourceClan;
-        this.otherClans = plugin.getClanManager().getAllClans().stream()
-                .filter(clan -> !clan.id().equals(sourceClan.id()))
-                .sorted(Comparator.comparing(Clan::name))
-                .toList();
         this.currentPage = 0;
     }
 
     public boolean hasClans() {
-        return !otherClans.isEmpty();
+        return plugin.getClanManager().getAllClans().stream().anyMatch(clan -> !clan.id().equals(sourceClan.id()));
+    }
+
+    private boolean matchesFilter(Clan clan) {
+        return switch (filterMode) {
+            case ALL -> true;
+            case AT_WAR -> plugin.getClanManager().inConflictWith(sourceClan.id(), clan.id());
+            case PEACEFUL -> !plugin.getClanManager().inConflictWith(sourceClan.id(), clan.id());
+            case CLOSED -> !clan.isOpen();
+            case OPEN -> clan.isOpen();
+        };
+    }
+
+    private void recomputeVisibleClans() {
+        visibleClans = plugin.getClanManager().getAllClans().stream()
+                .filter(clan -> !clan.id().equals(sourceClan.id()))
+                .filter(this::matchesFilter)
+                .sorted(sortMode.comparator)
+                .toList();
     }
 
     public void open() {
-        int maxPage = Math.max(0, (otherClans.size() - 1) / CONTENT_SLOTS.length);
+        recomputeVisibleClans();
+        int maxPage = Math.max(0, (visibleClans.size() - 1) / CONTENT_SLOTS.length);
         currentPage = Math.max(0, Math.min(currentPage, maxPage));
 
         this.inventory = Bukkit.createInventory(this, 54,
-                plugin.getMessages().component("gui.diplomacy-select.title", player));
+                plugin.getMessages().component("gui.diplomacy-select.title", Map.of("tag", sourceClan.tag(), "color", sourceClan.tagColor()), player));
 
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
 
         int start = currentPage * CONTENT_SLOTS.length;
-        int end = Math.min(start + CONTENT_SLOTS.length, otherClans.size());
+        int end = Math.min(start + CONTENT_SLOTS.length, visibleClans.size());
         for (int index = start; index < end; index++) {
-            Clan target = otherClans.get(index);
+            Clan target = visibleClans.get(index);
             int targetSlot = CONTENT_SLOTS[index - start];
 
             Material emblemMaterial = target.emblem().name().endsWith("_BANNER") ? target.emblem() : Material.WHITE_BANNER;
@@ -69,44 +132,79 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
                     .name(plugin.getMessages().component("gui.diplomacy-select.clan-item.name",
                             Map.of("tag", target.tag(), "color", target.tagColor(), "name", target.name()), player))
                     .lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.relation",
-                            Map.of("relation", sourceClan.relationTo(target.id()).name()), player));
+                            Map.of("relation", sourceClan.relationTo(target.id()).name()), player))
+                    .lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.hint", player));
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, target.id().toString()));
             inventory.setItem(targetSlot, builder.build());
         }
 
+        if (visibleClans.isEmpty()) {
+            inventory.setItem(31, ItemBuilder.of(Material.PAPER)
+                    .name(plugin.getMessages().component("gui.diplomacy-select.empty", player))
+                    .build());
+        }
+
         if (currentPage > 0) {
-            inventory.setItem(36, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
+            inventory.setItem(SLOT_PREVIOUS, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
                     .name(plugin.getMessages().component("gui.previous-page", player)).build());
         }
         if (currentPage < maxPage) {
-            inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
+            inventory.setItem(SLOT_NEXT, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
                     .name(plugin.getMessages().component("gui.next-page", player)).build());
         }
 
-        inventory.setItem(52, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(SLOT_SORT, ItemBuilder.of(Material.HOPPER)
+                .name(plugin.getMessages().component("gui.diplomacy-select.sort.name", player))
+                .lore(plugin.getMessages().component("gui.diplomacy-select.sort." + sortMode.name().toLowerCase(java.util.Locale.ROOT), player))
+                .build());
+        inventory.setItem(SLOT_FILTER, ItemBuilder.of(Material.COMPARATOR)
+                .name(plugin.getMessages().component("gui.diplomacy-select.filter.name", player))
+                .lore(plugin.getMessages().component("gui.diplomacy-select.filter." + filterMode.name().toLowerCase(java.util.Locale.ROOT), player))
+                .build());
+        inventory.setItem(SLOT_REFRESH, ItemBuilder.of(Material.SUNFLOWER)
+                .name(plugin.getMessages().component("gui.diplomacy-select.refresh.name", player))
+                .lore(plugin.getMessages().component("gui.diplomacy-select.refresh.lore", player))
+                .build());
+
+        inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
-        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+        inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
     }
 
-    public void handleInventoryClick(int slot) {
-        if (slot == 53) {
+    public void handleInventoryClick(int slot, boolean rightClick) {
+        if (slot == SLOT_CLOSE) {
             player.closeInventory();
             return;
         }
-        if (slot == 52) {
+        if (slot == SLOT_BACK) {
             plugin.getGuiManager().openMain(player, sourceClan);
             return;
         }
+        if (slot == SLOT_SORT) {
+            sortMode = sortMode.next();
+            open();
+            return;
+        }
+        if (slot == SLOT_FILTER) {
+            filterMode = filterMode.next();
+            currentPage = 0;
+            open();
+            return;
+        }
+        if (slot == SLOT_REFRESH) {
+            open();
+            return;
+        }
 
-        int maxPage = Math.max(0, (otherClans.size() - 1) / CONTENT_SLOTS.length);
-        if (slot == 36 && currentPage > 0) { currentPage--; open(); return; }
-        if (slot == 44 && currentPage < maxPage) { currentPage++; open(); return; }
+        int maxPage = Math.max(0, (visibleClans.size() - 1) / CONTENT_SLOTS.length);
+        if (slot == SLOT_PREVIOUS && currentPage > 0) { currentPage--; open(); return; }
+        if (slot == SLOT_NEXT && currentPage < maxPage) { currentPage++; open(); return; }
 
         org.bukkit.inventory.ItemStack item = inventory.getItem(slot);
         if (item == null || !item.hasItemMeta()) return;
@@ -115,8 +213,18 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
         if (rawId == null) return;
         try {
             UUID targetId = UUID.fromString(rawId);
-            plugin.getClanManager().getClanById(targetId).ifPresent(targetClan ->
-                    plugin.getGuiManager().openDiplomacy(player, sourceClan, targetClan));
+            plugin.getClanManager().getClanById(targetId).ifPresent(targetClan -> {
+                if (rightClick) {
+                    if (plugin.getClanTradeManager().tradeBlocked(sourceClan.id(), targetClan.id())) {
+                        plugin.getMessages().send(player, "trade.blocked");
+                        return;
+                    }
+                    player.closeInventory();
+                    ClanTradeOfferMenu.open(plugin, sourceClan, targetClan, player, 0L);
+                } else {
+                    plugin.getGuiManager().openDiplomacy(player, sourceClan, targetClan);
+                }
+            });
         } catch (IllegalArgumentException ignored) {}
     }
 

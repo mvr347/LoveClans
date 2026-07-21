@@ -61,7 +61,7 @@ public final class ClanMainMenu implements InventoryHolder {
         // неактивными (серый череп), если у игрока нет соответствующего права клана.
         // Кнопка территорий — особый случай: при отсутствии права на управление
         // она всё равно открывается, но в режиме просмотра/телепортации (см. handleInventoryClick).
-        boolean atWar = plugin.getWarManager().isAtWar(clan.id());
+        boolean atWar = plugin.getClanManager().inAnyConflict(clan.id());
         UUID clickerId = player.getUniqueId();
         boolean canManageTerritories = clan.hasPermission(clickerId, ClanPermission.CLAIM);
         boolean canUpgrade = clan.hasPermission(clickerId, ClanPermission.UPGRADE);
@@ -157,7 +157,7 @@ public final class ClanMainMenu implements InventoryHolder {
             case 23 -> {
                 // Территории — особый случай: даже без права CLAIM меню всё равно открывается,
                 // но в режиме просмотра/телепортации (см. ClanTerritoriesSelectionGui.isManagement).
-                if (plugin.getWarManager().isAtWar(clan.id())) {
+                if (plugin.getClanManager().inAnyConflict(clan.id())) {
                     plugin.getMessages().send(clicker, "gui.capital.war-blocked");
                 } else {
                     plugin.getGuiManager().openClanTerritoriesMenu(clicker, clan);
@@ -166,7 +166,7 @@ public final class ClanMainMenu implements InventoryHolder {
             case 25 -> {
                 if (!clan.hasPermission(clicker.getUniqueId(), ClanPermission.UPGRADE)) {
                     plugin.getMessages().send(clicker, "general.no-permission");
-                } else if (plugin.getWarManager().isAtWar(clan.id())) {
+                } else if (plugin.getClanManager().inAnyConflict(clan.id())) {
                     plugin.getMessages().send(clicker, "gui.capital.war-blocked");
                 } else {
                     plugin.getGuiManager().openUpgrades(clicker, clan);

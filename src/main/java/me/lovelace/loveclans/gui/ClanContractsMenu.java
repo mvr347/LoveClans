@@ -4,6 +4,7 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.quest.ClanContractDefinition;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
+import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -17,11 +18,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Compact contract picker (§1.4) - one weekly slot and two daily slots. A clan can run one active
+ * weekly and one active daily contract at the same time (§1.1), each with its own claim button, so
+ * unlike the original single-contract layout this menu tracks two independent progress states.
+ */
 public final class ClanContractsMenu {
-    private static final int[] CONTRACT_SLOTS = {11, 13, 15};
-    private static final String[] CONTRACT_IDS = {"labor", "blood", "purification"};
+    private static final int SLOT_WEEKLY = 11;
+    private static final int SLOT_DAILY_1 = 13;
+    private static final int SLOT_DAILY_2 = 15;
     private static final int SLOT_INFO = 4;
-    private static final int SLOT_CLAIM = 22;
+    private static final int SLOT_CLAIM_WEEKLY = 20;
+    private static final int SLOT_CLAIM_DAILY = 24;
     private static final int SLOT_BACK = 34;
     private static final int SLOT_CLOSE = 35;
 
@@ -37,16 +45,22 @@ public final class ClanContractsMenu {
 
         fillGlass(inventory);
 
-        Optional<ClanQuestProgress> active = plugin.getContractManager().activeContract(clan.id());
-        inventory.setItem(SLOT_INFO, buildInfoItem(active, player));
+        Optional<ClanQuestProgress> weekly = plugin.getContractManager().activeWeekly(clan.id());
+        Optional<ClanQuestProgress> daily = plugin.getContractManager().activeDaily(clan.id());
 
-        for (int i = 0; i < CONTRACT_SLOTS.length; i++) {
-            plugin.getContractManager().definition(CONTRACT_IDS[i]).ifPresent(definition ->
-                    inventory.setItem(CONTRACT_SLOTS[i], buildContractItem(definition, active, player)));
+        inventory.setItem(SLOT_INFO, buildInfoItem(weekly, daily, player));
+        inventory.setItem(SLOT_WEEKLY, buildWeeklySlot(weekly, player));
+
+        List<ClanContractDefinition> rotation = plugin.getContractManager().dailyRotation();
+        if (daily.isPresent()) {
+            inventory.setItem(SLOT_DAILY_1, buildDailyProgressItem(daily.get(), player));
+        } else {
+            inventory.setItem(SLOT_DAILY_1, rotation.size() > 0 ? buildDailyPickItem(rotation.get(0), player) : null);
+            inventory.setItem(SLOT_DAILY_2, rotation.size() > 1 ? buildDailyPickItem(rotation.get(1), player) : null);
         }
 
-        boolean canClaim = active.map(p -> p.completed() && !p.claimed()).orElse(false);
-        inventory.setItem(SLOT_CLAIM, buildClaimItem(canClaim, player));
+        inventory.setItem(SLOT_CLAIM_WEEKLY, buildClaimItem(weekly, player));
+        inventory.setItem(SLOT_CLAIM_DAILY, buildClaimItem(daily, player));
 
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
@@ -58,73 +72,81 @@ public final class ClanContractsMenu {
         player.openInventory(inventory);
     }
 
-    private ItemStack buildInfoItem(Optional<ClanQuestProgress> active, Player player) {
-        if (active.isEmpty()) {
-            return ItemBuilder.head(ItemBuilder.HEAD_QUEST)
-                    .name(plugin.getMessages().component("gui.contracts.info.none.name", player))
-                    .lore(plugin.getMessages().component("gui.contracts.info.none.lore", player))
-                    .build();
-        }
-        ClanQuestProgress progress = active.get();
-        ClanContractDefinition definition = plugin.getContractManager().definition(progress.questId()).orElse(null);
-        if (definition == null) {
-            return ItemBuilder.head(ItemBuilder.HEAD_QUEST)
-                    .name(plugin.getMessages().component("gui.contracts.info.none.name", player))
-                    .build();
-        }
-        int current = progress.objectiveProgress().getOrDefault(0, 0);
+    private ItemStack buildInfoItem(Optional<ClanQuestProgress> weekly, Optional<ClanQuestProgress> daily, Player player) {
         List<Component> lore = new ArrayList<>();
-        lore.add(definition.objective().getDisplayName(player, current));
+        lore.add(plugin.getMessages().component(weekly.isPresent() ? "gui.contracts.info.weekly-active" : "gui.contracts.info.weekly-none", player));
+        lore.add(plugin.getMessages().component(daily.isPresent() ? "gui.contracts.info.daily-active" : "gui.contracts.info.daily-none", player));
+        return ItemBuilder.head(ItemBuilder.HEAD_QUEST)
+                .name(plugin.getMessages().component("gui.contracts.info.title", player))
+                .lore(lore)
+                .build();
+    }
+
+    private ItemStack buildWeeklySlot(Optional<ClanQuestProgress> weekly, Player player) {
+        if (weekly.isPresent()) {
+            return buildProgressItem(ContractType.WEEKLY, weekly.get(), player, ItemBuilder.HEAD_WEEKLY_QUESTS);
+        }
+        Optional<ClanContractDefinition> featured = plugin.getContractManager().featuredWeekly();
+        if (featured.isEmpty()) {
+            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.contracts.item.none-available", player))
+                    .build();
+        }
+        ClanContractDefinition definition = featured.get();
+        List<Component> lore = new ArrayList<>();
+        lore.add(plugin.getMessages().component("gui.contracts.item.description", Map.of("description", definition.description()), player));
+        lore.add(plugin.getMessages().component("gui.contracts.item.reward", Map.of("reward", String.valueOf(definition.baseRewardXp())), player));
+        lore.add(plugin.getMessages().component("gui.contracts.item.select", player));
+        return ItemBuilder.head(ItemBuilder.HEAD_WEEKLY_QUESTS)
+                .name(plugin.getMessages().component("gui.contracts.item.name", Map.of("name", definition.displayName()), player))
+                .lore(lore)
+                .build();
+    }
+
+    private ItemStack buildDailyPickItem(ClanContractDefinition definition, Player player) {
+        List<Component> lore = new ArrayList<>();
+        lore.add(plugin.getMessages().component("gui.contracts.item.description", Map.of("description", definition.description()), player));
+        lore.add(plugin.getMessages().component("gui.contracts.item.reward", Map.of("reward", String.valueOf(definition.baseRewardXp())), player));
+        lore.add(plugin.getMessages().component("gui.contracts.item.select", player));
+        return ItemBuilder.head(ItemBuilder.HEAD_DAILY_QUESTS)
+                .name(plugin.getMessages().component("gui.contracts.item.name", Map.of("name", definition.displayName()), player))
+                .lore(lore)
+                .build();
+    }
+
+    private ItemStack buildDailyProgressItem(ClanQuestProgress progress, Player player) {
+        return buildProgressItem(ContractType.DAILY, progress, player, ItemBuilder.HEAD_DAILY_QUESTS);
+    }
+
+    private ItemStack buildProgressItem(ContractType type, ClanQuestProgress progress, Player player, String head) {
+        Optional<ClanContractDefinition> definitionOpt = plugin.getContractManager().definition(type, progress.questId());
+        if (definitionOpt.isEmpty()) {
+            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.contracts.info.none.name", player))
+                    .build();
+        }
+        ClanContractDefinition definition = definitionOpt.get();
+        List<Component> lore = new ArrayList<>();
+        lore.add(plugin.getContractManager().displayObjective(definition, progress).getDisplayName(player, progress.progress()));
+        lore.add(plugin.getMessages().component("gui.contracts.item.current", player));
         if (progress.completed()) {
             lore.add(plugin.getMessages().component(progress.claimed()
                     ? "gui.contracts.info.claimed" : "gui.contracts.info.ready-to-claim", player));
         }
-        return ItemBuilder.head(ItemBuilder.HEAD_WEEKLY_QUESTS)
-                .name(plugin.getMessages().component("gui.contracts.info.active.name",
-                        Map.of("name", definition.displayName()), player))
-                .lore(lore)
-                .build();
+        ItemBuilder builder = ItemBuilder.head(head)
+                .name(plugin.getMessages().component("gui.contracts.item.name", Map.of("name", definition.displayName()), player))
+                .lore(lore);
+        if (progress.completed() && !progress.claimed()) builder.glow(true);
+        return builder.build();
     }
 
-    private ItemStack buildContractItem(ClanContractDefinition definition, Optional<ClanQuestProgress> active, Player player) {
-        boolean isCurrent = active.map(p -> p.questId().equals(definition.id())).orElse(false);
-        boolean canSelect = active.isEmpty();
-
-        List<Component> lore = new ArrayList<>();
-        lore.add(plugin.getMessages().component("gui.contracts.item.description",
-                Map.of("description", definition.description()), player));
-        lore.add(plugin.getMessages().component("gui.contracts.item.reward",
-                Map.of("reward", definition.reward().getDisplayString()), player));
-
-        if (isCurrent) {
-            lore.add(plugin.getMessages().component("gui.contracts.item.current", player));
-            return ItemBuilder.head(ItemBuilder.HEAD_WEEKLY_QUESTS)
-                    .name(plugin.getMessages().component("gui.contracts.item.name",
-                            Map.of("name", definition.displayName()), player))
-                    .lore(lore)
-                    .build();
-        }
-        if (!canSelect) {
-            lore.add(plugin.getMessages().component("gui.contracts.item.locked", player));
-            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.contracts.item.name",
-                            Map.of("name", definition.displayName()), player))
-                    .lore(lore)
-                    .build();
-        }
-        lore.add(plugin.getMessages().component("gui.contracts.item.select", player));
-        return ItemBuilder.head(ItemBuilder.HEAD_QUEST)
-                .name(plugin.getMessages().component("gui.contracts.item.name",
-                        Map.of("name", definition.displayName()), player))
-                .lore(lore)
-                .build();
-    }
-
-    private ItemStack buildClaimItem(boolean canClaim, Player player) {
+    private ItemStack buildClaimItem(Optional<ClanQuestProgress> progress, Player player) {
+        boolean canClaim = progress.map(p -> p.completed() && !p.claimed()).orElse(false);
         if (canClaim) {
             return ItemBuilder.head(ItemBuilder.HEAD_COMPLETED_QUESTS)
                     .name(plugin.getMessages().component("gui.contracts.claim.ready.name", player))
                     .lore(plugin.getMessages().component("gui.contracts.claim.ready.lore", player))
+                    .glow(true)
                     .build();
         }
         return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
@@ -141,24 +163,37 @@ public final class ClanContractsMenu {
             plugin.getGuiManager().openMain(player, clan);
             return;
         }
-        if (slot == SLOT_CLAIM) {
-            plugin.getContractManager().claimRewardAsync(clan, player.getUniqueId())
-                    .thenRun(() -> plugin.runSync(() -> {
-                        plugin.getMessages().send(player, "contract.reward-claimed");
-                        open(player, clan);
-                    }))
+        if (slot == SLOT_CLAIM_WEEKLY) {
+            plugin.getContractManager().claimWeeklyAsync(clan, player.getUniqueId())
+                    .thenRun(() -> plugin.runSync(() -> open(player, clan)))
                     .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
             return;
         }
-        for (int i = 0; i < CONTRACT_SLOTS.length; i++) {
-            if (slot != CONTRACT_SLOTS[i]) continue;
-            plugin.getContractManager().selectContractAsync(clan, player.getUniqueId(), CONTRACT_IDS[i])
+        if (slot == SLOT_CLAIM_DAILY) {
+            plugin.getContractManager().claimDailyAsync(clan, player.getUniqueId())
+                    .thenRun(() -> plugin.runSync(() -> open(player, clan)))
+                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+            return;
+        }
+        if (slot == SLOT_WEEKLY && plugin.getContractManager().activeWeekly(clan.id()).isEmpty()) {
+            plugin.getContractManager().selectWeeklyAsync(clan, player.getUniqueId())
                     .thenAccept(progress -> plugin.runSync(() -> {
                         plugin.getMessages().send(player, "contract.selected");
                         open(player, clan);
                     }))
                     .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
             return;
+        }
+        if ((slot == SLOT_DAILY_1 || slot == SLOT_DAILY_2) && plugin.getContractManager().activeDaily(clan.id()).isEmpty()) {
+            List<ClanContractDefinition> rotation = plugin.getContractManager().dailyRotation();
+            int index = slot == SLOT_DAILY_1 ? 0 : 1;
+            if (index >= rotation.size()) return;
+            plugin.getContractManager().selectDailyAsync(clan, player.getUniqueId(), rotation.get(index).id())
+                    .thenAccept(progress -> plugin.runSync(() -> {
+                        plugin.getMessages().send(player, "contract.selected");
+                        open(player, clan);
+                    }))
+                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
         }
     }
 

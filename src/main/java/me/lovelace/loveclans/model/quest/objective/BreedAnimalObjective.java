@@ -44,4 +44,9 @@ public record BreedAnimalObjective(EntityType animalType, int targetAmount, Stri
         }
         return 0;
     }
+
+    @Override
+    public QuestObjective scaled(double multiplier) {
+        return new BreedAnimalObjective(animalType, Math.max(1, (int) Math.round(targetAmount * multiplier)), displayNameFormat);
+    }
 }

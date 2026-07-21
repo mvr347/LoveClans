@@ -29,13 +29,30 @@ public final class Clan {
     private boolean open;
     private Location homeLocation; // New field for home location
 
+    // --- Influence (§8): raw counters used to derive the cached influence value ---
+    private int warsWon;
+    private int warsLost;
+    private int siegesWon;
+    private int siegesLost;
+    private int raidsWon;
+    private int raidsLost;
+    private long influence;
+
+    // --- Perk (§7): unlocked at level >= perks.unlock-level, one active at a time ---
+    private ClanPerk perk;
+    private long perkChosenAt;
+
+    // --- Клановый сундук (§2): деньги хранятся отдельным полем прямо на клане, а не как
+    // произвольный предметный банк - в сундуке ровно одна валюта (clans.chest.currency-item).
+    private long chestMoney;
+    private long lastTaxAt;
+    private boolean chestTaxLocked;
+
     private final Map<UUID, ClanMember> members = new ConcurrentHashMap<>();
     private final Map<UUID, ClanTerritory> territories = new ConcurrentHashMap<>();
     private final Map<UUID, DiplomacyRelation> diplomacy = new ConcurrentHashMap<>();
     private final Map<ClanUpgrade, Integer> upgrades = new ConcurrentHashMap<>();
     private final Map<ClanRank, Set<ClanPermission>> permissions = new ConcurrentHashMap<>();
-    // Казна клана: ItemsAdder namespaced ID -> количество предмета, хранящееся в банке клана.
-    private final Map<String, Long> bank = new ConcurrentHashMap<>();
 
     public Clan(UUID id,
                 String name,
@@ -65,6 +82,7 @@ public final class Clan {
         this.createdAt = createdAt;
         this.open = open;
         this.homeLocation = homeLocation; // Initialize homeLocation
+        this.lastTaxAt = createdAt;
         for (ClanUpgrade upgrade : ClanUpgrade.values()) {
             upgrades.put(upgrade, 0);
         }
@@ -339,28 +357,116 @@ public final class Clan {
         this.homeLocation = homeLocation;
     }
 
-    // --- Clan bank / treasury (ItemsAdder-backed) ---
+    // --- Клановый сундук: деньги (§2) ---
 
-    public Map<String, Long> bankContents() {
-        return Collections.unmodifiableMap(bank);
+    public long chestMoney() {
+        return chestMoney;
     }
 
-    public long bankAmount(String itemId) {
-        return bank.getOrDefault(itemId, 0L);
+    public void setChestMoney(long amount) {
+        this.chestMoney = Math.max(0L, amount);
     }
 
-    /** Used when loading bank rows from storage; does not touch persisted state itself. */
-    public void putBankAmount(String itemId, long amount) {
-        if (amount <= 0) {
-            bank.remove(itemId);
-        } else {
-            bank.put(itemId, amount);
-        }
+    public long addChestMoney(long delta) {
+        this.chestMoney = Math.max(0L, this.chestMoney + delta);
+        return this.chestMoney;
     }
 
-    public long addBankAmount(String itemId, long delta) {
-        long updated = Math.max(0L, bankAmount(itemId) + delta);
-        putBankAmount(itemId, updated);
-        return updated;
+    public long lastTaxAt() {
+        return lastTaxAt;
+    }
+
+    public boolean isChestTaxLocked() {
+        return chestTaxLocked;
+    }
+
+    public void setTaxState(long lastTaxAt, boolean locked) {
+        this.lastTaxAt = lastTaxAt;
+        this.chestTaxLocked = locked;
+    }
+
+    // --- Influence (§8) ---
+
+    public int warsWon() {
+        return warsWon;
+    }
+
+    public int warsLost() {
+        return warsLost;
+    }
+
+    public int siegesWon() {
+        return siegesWon;
+    }
+
+    public int siegesLost() {
+        return siegesLost;
+    }
+
+    public int raidsWon() {
+        return raidsWon;
+    }
+
+    public int raidsLost() {
+        return raidsLost;
+    }
+
+    public void setWarsWon(int value) {
+        this.warsWon = Math.max(0, value);
+    }
+
+    public void setWarsLost(int value) {
+        this.warsLost = Math.max(0, value);
+    }
+
+    public void setSiegesWon(int value) {
+        this.siegesWon = Math.max(0, value);
+    }
+
+    public void setSiegesLost(int value) {
+        this.siegesLost = Math.max(0, value);
+    }
+
+    public void setRaidsWon(int value) {
+        this.raidsWon = Math.max(0, value);
+    }
+
+    public void setRaidsLost(int value) {
+        this.raidsLost = Math.max(0, value);
+    }
+
+    public void addWarResult(boolean won) {
+        if (won) warsWon++; else warsLost++;
+    }
+
+    public void addSiegeResult(boolean won) {
+        if (won) siegesWon++; else siegesLost++;
+    }
+
+    public void addRaidResult(boolean won) {
+        if (won) raidsWon++; else raidsLost++;
+    }
+
+    public long influence() {
+        return influence;
+    }
+
+    public void setInfluence(long influence) {
+        this.influence = Math.max(0L, influence);
+    }
+
+    // --- Perk (§7) ---
+
+    public Optional<ClanPerk> perk() {
+        return Optional.ofNullable(perk);
+    }
+
+    public long perkChosenAt() {
+        return perkChosenAt;
+    }
+
+    public void setPerk(ClanPerk perk, long chosenAt) {
+        this.perk = perk;
+        this.perkChosenAt = chosenAt;
     }
 }

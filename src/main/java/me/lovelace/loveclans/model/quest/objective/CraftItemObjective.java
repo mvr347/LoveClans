@@ -45,4 +45,9 @@ public record CraftItemObjective(Material itemType, int targetAmount, String dis
         }
         return 0;
     }
+
+    @Override
+    public QuestObjective scaled(double multiplier) {
+        return new CraftItemObjective(itemType, Math.max(1, (int) Math.round(targetAmount * multiplier)), displayNameFormat);
+    }
 }

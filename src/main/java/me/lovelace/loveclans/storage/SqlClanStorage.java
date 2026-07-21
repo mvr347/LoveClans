@@ -3,13 +3,18 @@ package me.lovelace.loveclans.storage;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanApplication;
 import me.lovelace.loveclans.model.ClanMember;
+import me.lovelace.loveclans.model.ClanPerk;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanSpirit;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
+import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
+import me.lovelace.loveclans.model.quest.ContractType;
+import me.lovelace.loveclans.model.trade.ClanTrade;
+import me.lovelace.loveclans.model.trade.TradeStatus;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Bukkit; // Import Bukkit for World access
 import org.bukkit.Location; // Import Location
@@ -21,6 +26,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -110,6 +116,31 @@ public final class SqlClanStorage implements ClanStorage {
                                 isOpen,
                                 homeLocation // Pass homeLocation to constructor
                         );
+                        try {
+                            clan.setWarsWon(result.getInt("wars_won"));
+                            clan.setWarsLost(result.getInt("wars_lost"));
+                            clan.setSiegesWon(result.getInt("sieges_won"));
+                            clan.setSiegesLost(result.getInt("sieges_lost"));
+                            clan.setRaidsWon(result.getInt("raids_won"));
+                            clan.setRaidsLost(result.getInt("raids_lost"));
+                            clan.setInfluence(result.getLong("influence"));
+                        } catch (SQLException ignored) {
+                            // Columns might not exist yet if plugin just updated
+                        }
+                        try {
+                            String rawPerk = result.getString("perk");
+                            ClanPerk perk = rawPerk == null ? null : ClanPerk.valueOf(rawPerk);
+                            clan.setPerk(perk, result.getLong("perk_chosen_at"));
+                        } catch (SQLException | IllegalArgumentException ignored) {
+                            // Column might not exist yet, or contain a retired perk name
+                        }
+                        try {
+                            clan.setChestMoney(result.getLong("chest_money"));
+                            long lastTaxAt = result.getLong("last_tax_at");
+                            clan.setTaxState(lastTaxAt > 0 ? lastTaxAt : clan.createdAt(), result.getInt("chest_tax_locked") == 1);
+                        } catch (SQLException ignored) {
+                            // Columns might not exist yet if plugin just updated
+                        }
                         clans.put(id, clan);
                     }
                 }
@@ -118,7 +149,6 @@ public final class SqlClanStorage implements ClanStorage {
                 loadDiplomacy(connection, clans);
                 loadUpgrades(connection, clans);
                 loadPermissions(connection, clans);
-                loadBank(connection, clans);
                 return new ArrayList<>(clans.values());
             } catch (SQLException exception) {
                 throw new StorageException("Unable to load clans", exception);
@@ -401,6 +431,49 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
+    @Override
+    public CompletableFuture<Void> updateClanInfluenceStats(UUID clanId, int warsWon, int warsLost, int siegesWon,
+                                                              int siegesLost, int raidsWon, int raidsLost, long influence) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET wars_won = ?, wars_lost = ?, sieges_won = ?, sieges_lost = ?, " +
+                                 "raids_won = ?, raids_lost = ?, influence = ? WHERE id = ?")) {
+                statement.setInt(1, warsWon);
+                statement.setInt(2, warsLost);
+                statement.setInt(3, siegesWon);
+                statement.setInt(4, siegesLost);
+                statement.setInt(5, raidsWon);
+                statement.setInt(6, raidsLost);
+                statement.setLong(7, influence);
+                statement.setString(8, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update influence stats for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanPerk(UUID clanId, ClanPerk perk, long chosenAt) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET perk = ?, perk_chosen_at = ? WHERE id = ?")) {
+                if (perk == null) {
+                    statement.setNull(1, Types.VARCHAR);
+                } else {
+                    statement.setString(1, perk.name());
+                }
+                statement.setLong(2, chosenAt);
+                statement.setString(3, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update perk for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
     private CompletableFuture<Void> updateClanColumn(UUID clanId, String column, Object value) {
         return CompletableFuture.runAsync(() -> {
             try (Connection connection = database.dataSource().getConnection();
@@ -414,52 +487,61 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
-    // --- Clan bank / treasury ---
+    // --- Клановый сундук: деньги и налог (§2) ---
 
     @Override
-    public CompletableFuture<Long> adjustBankAmountAsync(UUID clanId, String itemId, long delta) {
-        return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = database.dataSource().getConnection()) {
-                String sql = database.type() == DatabaseType.MYSQL
-                        ? "INSERT INTO clan_bank (clan_id, item_id, amount) VALUES (?, ?, ?) " +
-                          "ON DUPLICATE KEY UPDATE amount = amount + VALUES(amount)"
-                        : "INSERT INTO clan_bank (clan_id, item_id, amount) VALUES (?, ?, ?) " +
-                          "ON CONFLICT(clan_id, item_id) DO UPDATE SET amount = clan_bank.amount + excluded.amount";
-                try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                    statement.setString(1, clanId.toString());
-                    statement.setString(2, itemId);
-                    statement.setLong(3, delta);
-                    statement.executeUpdate();
-                }
-                try (PreparedStatement select = connection.prepareStatement(
-                        "SELECT amount FROM clan_bank WHERE clan_id = ? AND item_id = ?")) {
-                    select.setString(1, clanId.toString());
-                    select.setString(2, itemId);
-                    try (ResultSet result = select.executeQuery()) {
-                        return result.next() ? result.getLong("amount") : 0L;
-                    }
-                }
+    public CompletableFuture<Void> updateClanChestMoney(UUID clanId, long amount) {
+        return updateClanColumn(clanId, "chest_money", amount);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanTaxState(UUID clanId, long lastTaxAt, boolean locked) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET last_tax_at = ?, chest_tax_locked = ? WHERE id = ?")) {
+                statement.setLong(1, lastTaxAt);
+                statement.setInt(2, locked ? 1 : 0);
+                statement.setString(3, clanId.toString());
+                statement.executeUpdate();
             } catch (SQLException exception) {
-                throw new StorageException("Unable to adjust bank amount for clan " + clanId, exception);
+                throw new StorageException("Unable to update tax state for clan " + clanId, exception);
             }
         }, database.executor());
     }
 
+    /**
+     * One-time migration (§2): reads whatever balance the old /clan bank ledger had for
+     * {@code currencyItemId}, deletes that row so it isn't re-applied on a future restart, and
+     * returns the amount to add to the clan's new chest money slot. Returns 0 if there was
+     * nothing to migrate.
+     */
     @Override
-    public CompletableFuture<Boolean> withdrawBankAmountAsync(UUID clanId, String itemId, long amount) {
+    public CompletableFuture<Long> migrateLegacyBankMoneyAsync(UUID clanId, String currencyItemId) {
         return CompletableFuture.supplyAsync(() -> {
-            try (Connection connection = database.dataSource().getConnection();
-                 PreparedStatement statement = connection.prepareStatement(
-                         "UPDATE clan_bank SET amount = amount - ? WHERE clan_id = ? AND item_id = ? AND amount >= ?")) {
-                statement.setLong(1, amount);
-                statement.setString(2, clanId.toString());
-                statement.setString(3, itemId);
-                statement.setLong(4, amount);
-                // Conditioning on "amount >= ?" makes this a single atomic statement: concurrent
-                // withdrawals on the same clan/item can't both succeed and drive the balance negative.
-                return statement.executeUpdate() > 0;
+            try (Connection connection = database.dataSource().getConnection()) {
+                long amount = 0L;
+                try (PreparedStatement select = connection.prepareStatement(
+                        "SELECT amount FROM clan_bank WHERE clan_id = ? AND item_id = ?")) {
+                    select.setString(1, clanId.toString());
+                    select.setString(2, currencyItemId);
+                    try (ResultSet result = select.executeQuery()) {
+                        if (result.next()) {
+                            amount = result.getLong("amount");
+                        }
+                    }
+                }
+                if (amount > 0) {
+                    try (PreparedStatement delete = connection.prepareStatement(
+                            "DELETE FROM clan_bank WHERE clan_id = ? AND item_id = ?")) {
+                        delete.setString(1, clanId.toString());
+                        delete.setString(2, currencyItemId);
+                        delete.executeUpdate();
+                    }
+                }
+                return amount;
             } catch (SQLException exception) {
-                throw new StorageException("Unable to withdraw bank amount for clan " + clanId, exception);
+                throw new StorageException("Unable to migrate legacy bank money for clan " + clanId, exception);
             }
         }, database.executor());
     }
@@ -507,73 +589,310 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
-    // --- Clan contracts (weekly quests) ---
+    // --- Clan contracts: independent weekly/daily active slots, one table per type (§1) ---
+
+    private static String contractTable(ContractType type) {
+        return type == ContractType.DAILY ? "clan_daily_contracts" : "clan_contracts";
+    }
 
     @Override
     public CompletableFuture<Void> saveContractProgressAsync(ClanQuestProgress progress) {
         return CompletableFuture.runAsync(() -> {
-            try (Connection connection = database.dataSource().getConnection()) {
-                String sql = database.type() == DatabaseType.MYSQL
-                        ? "INSERT INTO clan_contracts (clan_id, contract_id, progress, completed, claimed, last_reset) " +
-                          "VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE contract_id = VALUES(contract_id), " +
-                          "progress = VALUES(progress), completed = VALUES(completed), claimed = VALUES(claimed), last_reset = VALUES(last_reset)"
-                        : "INSERT INTO clan_contracts (clan_id, contract_id, progress, completed, claimed, last_reset) " +
-                          "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(clan_id) DO UPDATE SET contract_id = excluded.contract_id, " +
-                          "progress = excluded.progress, completed = excluded.completed, claimed = excluded.claimed, last_reset = excluded.last_reset";
-                try (PreparedStatement statement = connection.prepareStatement(sql)) {
-                    statement.setString(1, progress.clanId().toString());
-                    statement.setString(2, progress.questId());
-                    statement.setInt(3, progress.objectiveProgress().getOrDefault(0, 0));
-                    statement.setInt(4, progress.completed() ? 1 : 0);
-                    statement.setInt(5, progress.claimed() ? 1 : 0);
-                    statement.setLong(6, progress.lastReset());
-                    statement.executeUpdate();
-                }
+            String table = contractTable(progress.type());
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT INTO " + table + " (clan_id, contract_id, progress, completed, claimed, target, reward_xp, started_at, expires_at) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE contract_id = VALUES(contract_id), " +
+                      "progress = VALUES(progress), completed = VALUES(completed), claimed = VALUES(claimed), " +
+                      "target = VALUES(target), reward_xp = VALUES(reward_xp), started_at = VALUES(started_at), expires_at = VALUES(expires_at)"
+                    : "INSERT INTO " + table + " (clan_id, contract_id, progress, completed, claimed, target, reward_xp, started_at, expires_at) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(clan_id) DO UPDATE SET contract_id = excluded.contract_id, " +
+                      "progress = excluded.progress, completed = excluded.completed, claimed = excluded.claimed, " +
+                      "target = excluded.target, reward_xp = excluded.reward_xp, started_at = excluded.started_at, expires_at = excluded.expires_at";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, progress.clanId().toString());
+                statement.setString(2, progress.questId());
+                statement.setInt(3, progress.progress());
+                statement.setInt(4, progress.completed() ? 1 : 0);
+                statement.setInt(5, progress.claimed() ? 1 : 0);
+                statement.setInt(6, progress.scaledTarget());
+                statement.setLong(7, progress.scaledRewardXp());
+                statement.setLong(8, progress.startedAt());
+                statement.setLong(9, progress.expiresAt());
+                statement.executeUpdate();
             } catch (SQLException exception) {
-                throw new StorageException("Unable to save contract progress for clan " + progress.clanId(), exception);
+                throw new StorageException("Unable to save " + progress.type() + " contract progress for clan " + progress.clanId(), exception);
             }
         }, database.executor());
     }
 
     @Override
-    public CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync() {
+    public CompletableFuture<Void> deleteContractProgressAsync(UUID clanId, ContractType type) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "DELETE FROM " + contractTable(type) + " WHERE clan_id = ?")) {
+                statement.setString(1, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete " + type + " contract progress for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<ClanQuestProgress>> loadAllContractsAsync(ContractType type) {
         return CompletableFuture.supplyAsync(() -> {
             List<ClanQuestProgress> result = new ArrayList<>();
             try (Connection connection = database.dataSource().getConnection();
-                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_contracts");
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM " + contractTable(type));
                  ResultSet rs = statement.executeQuery()) {
                 while (rs.next()) {
-                    Map<Integer, Integer> progressMap = new LinkedHashMap<>();
-                    progressMap.put(0, rs.getInt("progress"));
                     result.add(new ClanQuestProgress(
                             UUID.fromString(rs.getString("clan_id")),
+                            type,
                             rs.getString("contract_id"),
-                            progressMap,
+                            rs.getInt("target"),
+                            rs.getLong("reward_xp"),
+                            rs.getInt("progress"),
                             rs.getInt("completed") != 0,
                             rs.getInt("claimed") != 0,
-                            rs.getLong("last_reset")
+                            rs.getLong("started_at"),
+                            rs.getLong("expires_at")
                     ));
                 }
             } catch (SQLException exception) {
-                throw new StorageException("Unable to load clan contracts", exception);
+                throw new StorageException("Unable to load " + type + " clan contracts", exception);
             }
             return result;
         }, database.executor());
     }
 
-    private void loadBank(Connection connection, Map<UUID, Clan> clans) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_bank");
-             ResultSet result = statement.executeQuery()) {
-            while (result.next()) {
-                Clan clan = clans.get(UUID.fromString(result.getString("clan_id")));
-                if (clan == null) {
-                    continue;
+    // --- Дипломатия: эмбарго, блокада, письма (§5) ---
+
+    @Override
+    public CompletableFuture<Collection<AbstractMap.SimpleImmutableEntry<UUID, UUID>>> loadAllEmbargoesAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<AbstractMap.SimpleImmutableEntry<UUID, UUID>> result = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_embargoes");
+                 ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    result.add(new AbstractMap.SimpleImmutableEntry<>(
+                            UUID.fromString(rs.getString("clan_a")), UUID.fromString(rs.getString("clan_b"))));
                 }
-                clan.putBankAmount(result.getString("item_id"), result.getLong("amount"));
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load clan embargoes", exception);
             }
-        } catch (SQLException ignored) {
-            // Table might not exist yet if plugin just updated
-        }
+            return result;
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> saveEmbargoAsync(UUID clanA, UUID clanB) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT IGNORE INTO clan_embargoes (clan_a, clan_b, created_at) VALUES (?, ?, ?)"
+                    : "INSERT OR IGNORE INTO clan_embargoes (clan_a, clan_b, created_at) VALUES (?, ?, ?)";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, clanA.toString());
+                statement.setString(2, clanB.toString());
+                statement.setLong(3, System.currentTimeMillis());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save embargo between " + clanA + " and " + clanB, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteEmbargoAsync(UUID clanA, UUID clanB) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "DELETE FROM clan_embargoes WHERE clan_a = ? AND clan_b = ?")) {
+                statement.setString(1, clanA.toString());
+                statement.setString(2, clanB.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete embargo between " + clanA + " and " + clanB, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<AbstractMap.SimpleImmutableEntry<UUID, UUID>>> loadAllBlockadesAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<AbstractMap.SimpleImmutableEntry<UUID, UUID>> result = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_blockades");
+                 ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    result.add(new AbstractMap.SimpleImmutableEntry<>(
+                            UUID.fromString(rs.getString("clan_blocker")), UUID.fromString(rs.getString("clan_blocked"))));
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load clan blockades", exception);
+            }
+            return result;
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> saveBlockadeAsync(UUID blockerClanId, UUID blockedClanId) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT IGNORE INTO clan_blockades (clan_blocker, clan_blocked, created_at) VALUES (?, ?, ?)"
+                    : "INSERT OR IGNORE INTO clan_blockades (clan_blocker, clan_blocked, created_at) VALUES (?, ?, ?)";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, blockerClanId.toString());
+                statement.setString(2, blockedClanId.toString());
+                statement.setLong(3, System.currentTimeMillis());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save blockade of " + blockedClanId + " by " + blockerClanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteBlockadeAsync(UUID blockerClanId, UUID blockedClanId) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "DELETE FROM clan_blockades WHERE clan_blocker = ? AND clan_blocked = ?")) {
+                statement.setString(1, blockerClanId.toString());
+                statement.setString(2, blockedClanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete blockade of " + blockedClanId + " by " + blockerClanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> saveLetterAsync(ClanLetter letter) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT INTO clan_letters (id, clan_from, clan_to, message, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?) " +
+                      "ON DUPLICATE KEY UPDATE is_read = VALUES(is_read)"
+                    : "INSERT INTO clan_letters (id, clan_from, clan_to, message, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?) " +
+                      "ON CONFLICT(id) DO UPDATE SET is_read = excluded.is_read";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, letter.id().toString());
+                statement.setString(2, letter.fromClanId().toString());
+                statement.setString(3, letter.toClanId().toString());
+                statement.setString(4, letter.message());
+                statement.setInt(5, letter.read() ? 1 : 0);
+                statement.setLong(6, letter.createdAt());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save letter " + letter.id(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<ClanLetter>> loadLettersBetweenAsync(UUID clanA, UUID clanB) {
+        return CompletableFuture.supplyAsync(() -> {
+            List<ClanLetter> result = new ArrayList<>();
+            String sql = "SELECT * FROM clan_letters WHERE (clan_from = ? AND clan_to = ?) OR (clan_from = ? AND clan_to = ?) ORDER BY created_at DESC";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, clanA.toString());
+                statement.setString(2, clanB.toString());
+                statement.setString(3, clanB.toString());
+                statement.setString(4, clanA.toString());
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        result.add(new ClanLetter(
+                                UUID.fromString(rs.getString("id")),
+                                UUID.fromString(rs.getString("clan_from")),
+                                UUID.fromString(rs.getString("clan_to")),
+                                rs.getString("message"),
+                                rs.getInt("is_read") != 0,
+                                rs.getLong("created_at")
+                        ));
+                    }
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load letters between " + clanA + " and " + clanB, exception);
+            }
+            return result;
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> markLetterReadAsync(UUID letterId) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clan_letters SET is_read = 1 WHERE id = ?")) {
+                statement.setString(1, letterId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to mark letter " + letterId + " as read", exception);
+            }
+        }, database.executor());
+    }
+
+    // --- Торговля между кланами через сундук (§4.2) ---
+
+    @Override
+    public CompletableFuture<Void> saveTradeAsync(ClanTrade trade) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT INTO clan_trades (id, clan_from, clan_to, money, items, status, created_at, resolved_at) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE status = VALUES(status), resolved_at = VALUES(resolved_at)"
+                    : "INSERT INTO clan_trades (id, clan_from, clan_to, money, items, status, created_at, resolved_at) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET status = excluded.status, resolved_at = excluded.resolved_at";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, trade.id().toString());
+                statement.setString(2, trade.fromClanId().toString());
+                statement.setString(3, trade.toClanId().toString());
+                statement.setLong(4, trade.money());
+                statement.setBytes(5, trade.items());
+                statement.setString(6, trade.status().name());
+                statement.setLong(7, trade.createdAt());
+                statement.setLong(8, trade.resolvedAt());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save trade " + trade.id(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<ClanTrade>> loadPendingTradesAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<ClanTrade> result = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT * FROM clan_trades WHERE status = ?")) {
+                statement.setString(1, TradeStatus.PENDING.name());
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        result.add(new ClanTrade(
+                                UUID.fromString(rs.getString("id")),
+                                UUID.fromString(rs.getString("clan_from")),
+                                UUID.fromString(rs.getString("clan_to")),
+                                rs.getLong("money"),
+                                rs.getBytes("items"),
+                                TradeStatus.valueOf(rs.getString("status")),
+                                rs.getLong("created_at"),
+                                rs.getLong("resolved_at")
+                        ));
+                    }
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load pending clan trades", exception);
+            }
+            return result;
+        }, database.executor());
     }
 
     private void loadMembers(Connection connection, Map<UUID, Clan> clans) throws SQLException {

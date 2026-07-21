@@ -45,4 +45,9 @@ public record ClanWar(
     public ClanWar withBannerCapture(UUID playerId, long capturedAt) {
         return new ClanWar(id, attackerClanId, defenderClanId, contestedTerritory, startedAt, endsAt, state, attackerScore, defenderScore, playerId, capturedAt);
     }
+
+    /** Promotes a PREPARING war to ACTIVE, replacing the pending-phase deadline with the real war end time. */
+    public ClanWar activate(long newEndsAt) {
+        return new ClanWar(id, attackerClanId, defenderClanId, contestedTerritory, startedAt, newEndsAt, WarState.ACTIVE, attackerScore, defenderScore, capturedBannerBy, bannerCapturedAt);
+    }
 }

@@ -8,5 +8,6 @@ public enum ClanPermission {
     UPGRADE,
     SETTINGS,
     DIPLOMACY,
-    BANK
+    BANK,
+    CONTRACTS
 }

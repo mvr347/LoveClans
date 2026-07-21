@@ -58,56 +58,528 @@ clans:
   default-emblem: WHITE_BANNER
   invite-expire-seconds: 120
   friendly-fire: false
-  # Казна клана (банк) — хранилище на основе кастомных предметов ItemsAdder, отдельное от
-  # физического общего сундука клана. Пополняется/снимается командами /clan bank deposit|withdraw.
-  bank:
-    enabled: true
-    # allowed-items — список ItemsAdder ID (namespace:id) предметов, которые можно вносить/снимать
-    # из казны клана. Предметы, отсутствующие в этом списке, банк не принимает.
-    allowed-items: []
 
-  # Общий физический сундук клана (/clan chest) — реальное хранилище предметов, отдельное от
-  # банка. Новые ряды разблокируются за монеты ItemsAdder, списываемые из банка клана.
+  # Общий клановый сундук (§2, /clan chest) — единое хранилище денег (currency-item, отдельный
+  # слот) и предметов (обычное хранилище). Заменяет прежний отдельный /clan bank. Новые ряды
+  # предметов разблокируются улучшением "Сундук" (upgrades.CHEST), а не покупкой за деньги.
   # base-chest-rows/max-chest-rows заданы в limits.
   chest:
     currency-item: 'currency:gold_coin'
-    # Стоимость разблокировки следующего ряда; индекс = (текущие_ряды - limits.base-chest-rows)
-    cost-per-row: [1000, 2500, 5000]
+    tax:
+      # С какого уровня клана начинает взиматься налог (1-2 уровень — без налога).
+      tax-free-until-level: 3
+      base-amount: 1000
+      percent-per-member: 0.05
+      percent-per-extra-row: 0.10
 
-  # Клановые обеты (контракты) — раз в неделю лидер клана выбирает один обет у NPC-Маршала
-  # (Citizens). npc-id — числовой ID NPC (узнаётся через /npc id, стоя рядом с ним); -1 отключает
-  # взаимодействие с NPC (GUI всё равно доступно через /clan contracts).
+  # Эмбарго/блокада/письма (§5). Влияние для блокады берётся из influence.blockade-multiplier.
+  diplomacy:
+    letter-max-length: 256
+
+  # Торговля между кланами через сундук (§4.2). Без ограничения по количеству - только кулдаун
+  # на пару кланов. Требует permission ClanPermission.BANK (та же, что и доступ к сундуку).
+  trade:
+    cooldown-minutes: 30
+
+  # Клановые обеты (§1) — раздельные пулы: 20 еженедельных (один "контракт недели" детерминированно
+  # выбирается из пула на каждую календарную неделю пн-вс) и 40 ежедневных (3-5 случайных выходят
+  # в ротацию каждый день в 00:00). Клан может вести один активный обет каждого типа одновременно.
+  # npc-id — числовой ID NPC-Маршала (Citizens), привязывается командой
+  # /clansadmin createnpc contracts, стоя рядом с уже созданным через ванильный /npc create NPC;
+  # -1 отключает взаимодействие с NPC (GUI всё равно доступно через /clan contracts).
   #
-  # Обет Крови использует систему bounty LoveHunt через reflection (BountyClaimEvent) — если
-  # LoveHunt не установлен или бридж клановых bounty на его стороне не работает, прогресс по
-  # этому обету просто не будет засчитываться, без ошибок.
-  #
-  # Обет Очищения — в этой кодовой базе нет системы данжей, поэтому здесь он реализован как
-  # "уничтожить boss-type N раз всем кланом" (обычный EntityDeathEvent).
+  # Сложность (§1.2): множитель = difficulty.base + (Члены-1) × difficulty.per-member-step,
+  # применяется к целям объективов, наградам и (только для ежедневных) сроку выполнения.
+  # penalty-percent — доля от (уже отмасштабленной) награды, вычитаемая из опыта клана, если обет
+  # не выполнен к дедлайну.
   contracts:
     npc-id: -1
-    labor:
-      name: 'Обет Труда'
-      description: 'Суммарно всем кланом накопать 5000 единиц любой руды.'
-      progress-format: '<gray>Добыто руды: <white>{current_progress}</white>/{target_amount}'
-      target-ore: 5000
-      reward-item: 'currency:gold_coin'
-      reward-amount: 5000
-    blood:
-      name: 'Обет Крови'
-      description: 'Сдать 10 голов игроков из враждебных кланов через bounty.'
-      progress-format: '<gray>Сдано наёмников: <white>{current_progress}</white>/{target_amount}'
-      target-kills: 10
-      reward-item: 'currency:gold_coin'
-      reward-amount: 8000
-    purification:
-      name: 'Обет Очищения'
-      description: 'Уничтожить опасного босса 5 раз всем кланом.'
-      progress-format: '<gray>Уничтожено боссов: <white>{current_progress}</white>/{target_amount}'
-      boss-type: 'WITHER'
-      target-kills: 5
-      reward-item: 'currency:gold_coin'
-      reward-amount: 10000
+    npc-bind-distance: 6.0
+    tick-interval-minutes: 5
+    penalty-percent: 80
+    difficulty:
+      base: 1.0
+      per-member-step: 0.15
+    weekly:
+      reward-upgrade-points: 1
+      pool:
+        weekly_ore_veins:
+          name: 'Обет Рудных Жил'
+          description: 'Всем кланом добыть 6000 единиц любой руды.'
+          objective:
+            type: MINE_ANY_ORE
+            target: 6000
+          reward-xp: 7000
+        weekly_ore_deep:
+          name: 'Обет Глубинных Пластов'
+          description: 'Всем кланом добыть 9000 единиц любой руды.'
+          objective:
+            type: MINE_ANY_ORE
+            target: 9000
+          reward-xp: 10000
+        weekly_stone_quarry:
+          name: 'Обет Каменоломни'
+          description: 'Добыть 20000 булыжника.'
+          objective:
+            type: MINE_BLOCK
+            block-type: COBBLESTONE
+            target: 20000
+          reward-xp: 6000
+        weekly_deepslate:
+          name: 'Обет Тёмных Пещер'
+          description: 'Добыть 15000 глубинного сланца.'
+          objective:
+            type: MINE_BLOCK
+            block-type: DEEPSLATE
+            target: 15000
+          reward-xp: 7000
+        weekly_netherrack:
+          name: 'Обет Адского Похода'
+          description: 'Добыть 10000 адского камня в Нижнем мире.'
+          objective:
+            type: MINE_BLOCK
+            block-type: NETHERRACK
+            target: 10000
+          reward-xp: 6500
+        weekly_zombie_purge:
+          name: 'Обет Зачистки Нежити'
+          description: 'Уничтожить 800 зомби.'
+          objective:
+            type: KILL_MOB
+            mob-type: ZOMBIE
+            target: 800
+          reward-xp: 7000
+        weekly_skeleton_hunt:
+          name: 'Обет Охоты на Скелетов'
+          description: 'Уничтожить 800 скелетов.'
+          objective:
+            type: KILL_MOB
+            mob-type: SKELETON
+            target: 800
+          reward-xp: 7000
+        weekly_spider_hunt:
+          name: 'Обет Паучьей Охоты'
+          description: 'Уничтожить 600 пауков.'
+          objective:
+            type: KILL_MOB
+            mob-type: SPIDER
+            target: 600
+          reward-xp: 6000
+        weekly_enderman_hunt:
+          name: 'Обет Странников Края'
+          description: 'Уничтожить 200 эндерменов.'
+          objective:
+            type: KILL_MOB
+            mob-type: ENDERMAN
+            target: 200
+          reward-xp: 8000
+        weekly_wither_skeleton:
+          name: 'Обет Иссушенных Костей'
+          description: 'Уничтожить 150 иссушенных скелетов в Нижнем мире.'
+          objective:
+            type: KILL_MOB
+            mob-type: WITHER_SKELETON
+            target: 150
+          reward-xp: 9000
+        weekly_blaze_hunt:
+          name: 'Обет Огненного Похода'
+          description: 'Уничтожить 150 ифритов.'
+          objective:
+            type: KILL_MOB
+            mob-type: BLAZE
+            target: 150
+          reward-xp: 9000
+        weekly_raider_hunt:
+          name: 'Обет Зачистки Разбойников'
+          description: 'Уничтожить 400 разбойников (иллагеров).'
+          objective:
+            type: KILL_MOB
+            mob-type: PILLAGER
+            target: 400
+          reward-xp: 7500
+        weekly_blood_oath:
+          name: 'Обет Крови'
+          description: 'Сдать 15 голов игроков из враждебных кланов через bounty.'
+          objective:
+            type: BOUNTY_TURN_IN
+            target: 15
+          reward-xp: 11000
+        weekly_purification:
+          name: 'Обет Очищения'
+          description: 'Уничтожить Иссушителя 5 раз всем кланом.'
+          objective:
+            type: KILL_MOB
+            mob-type: WITHER
+            target: 5
+          reward-xp: 14000
+        weekly_craft_arrows:
+          name: 'Обет Оружейника'
+          description: 'Скрафтить 5000 стрел.'
+          objective:
+            type: CRAFT_ITEM
+            item-type: ARROW
+            target: 5000
+          reward-xp: 6000
+        weekly_craft_tnt:
+          name: 'Обет Подрывника'
+          description: 'Скрафтить 200 динамита.'
+          objective:
+            type: CRAFT_ITEM
+            item-type: TNT
+            target: 200
+          reward-xp: 7500
+        weekly_fishing_guild:
+          name: 'Обет Рыбацкой Гильдии'
+          description: 'Выловить 1000 рыбы удочкой.'
+          objective:
+            type: FISH_ITEM
+            item-type: COD
+            target: 1000
+          reward-xp: 6500
+        weekly_duelists:
+          name: 'Обет Дуэлянтов'
+          description: 'Одержать 50 побед в PvP над игроками.'
+          objective:
+            type: PVP_KILL
+            target: 50
+          reward-xp: 12000
+        weekly_cattlemen:
+          name: 'Обет Скотоводов'
+          description: 'Развести 300 коров.'
+          objective:
+            type: BREED_ANIMAL
+            animal-type: COW
+            target: 300
+          reward-xp: 6000
+        weekly_enchanters:
+          name: 'Обет Зачарователей'
+          description: 'Зачаровать 100 предметов эффектом Остроты.'
+          objective:
+            type: ENCHANT_ITEM
+            enchantment-type: sharpness
+            target: 100
+          reward-xp: 8000
+    daily:
+      rotation-min: 3
+      rotation-max: 5
+      deadline-hours: 24
+      pool:
+        daily_ore_small:
+          name: 'Малый рудный обет'
+          description: 'Добыть 600 единиц любой руды.'
+          objective:
+            type: MINE_ANY_ORE
+            target: 600
+          reward-xp: 600
+        daily_ore_medium:
+          name: 'Рудный обет'
+          description: 'Добыть 1000 единиц любой руды.'
+          objective:
+            type: MINE_ANY_ORE
+            target: 1000
+          reward-xp: 900
+        daily_stone:
+          name: 'Обет Каменотёса'
+          description: 'Добыть 3000 камня.'
+          objective:
+            type: MINE_BLOCK
+            block-type: STONE
+            target: 3000
+          reward-xp: 500
+        daily_cobblestone:
+          name: 'Обет Булыжника'
+          description: 'Добыть 3000 булыжника.'
+          objective:
+            type: MINE_BLOCK
+            block-type: COBBLESTONE
+            target: 3000
+          reward-xp: 500
+        daily_deepslate:
+          name: 'Обет Глубин'
+          description: 'Добыть 2500 глубинного сланца.'
+          objective:
+            type: MINE_BLOCK
+            block-type: DEEPSLATE
+            target: 2500
+          reward-xp: 600
+        daily_andesite:
+          name: 'Обет Андезита'
+          description: 'Добыть 2000 андезита.'
+          objective:
+            type: MINE_BLOCK
+            block-type: ANDESITE
+            target: 2000
+          reward-xp: 450
+        daily_netherrack:
+          name: 'Обет Нижнего Мира'
+          description: 'Добыть 1500 адского камня.'
+          objective:
+            type: MINE_BLOCK
+            block-type: NETHERRACK
+            target: 1500
+          reward-xp: 550
+        daily_sand:
+          name: 'Обет Песков'
+          description: 'Добыть 2000 песка.'
+          objective:
+            type: MINE_BLOCK
+            block-type: SAND
+            target: 2000
+          reward-xp: 400
+        daily_gravel:
+          name: 'Обет Гравия'
+          description: 'Добыть 2000 гравия.'
+          objective:
+            type: MINE_BLOCK
+            block-type: GRAVEL
+            target: 2000
+          reward-xp: 400
+        daily_obsidian:
+          name: 'Обет Обсидиана'
+          description: 'Добыть 64 блока обсидиана.'
+          objective:
+            type: MINE_BLOCK
+            block-type: OBSIDIAN
+            target: 64
+          reward-xp: 900
+        daily_zombie:
+          name: 'Обет Зомби-Охоты'
+          description: 'Уничтожить 150 зомби.'
+          objective:
+            type: KILL_MOB
+            mob-type: ZOMBIE
+            target: 150
+          reward-xp: 550
+        daily_skeleton:
+          name: 'Обет Костяной Охоты'
+          description: 'Уничтожить 150 скелетов.'
+          objective:
+            type: KILL_MOB
+            mob-type: SKELETON
+            target: 150
+          reward-xp: 550
+        daily_spider:
+          name: 'Обет Паучьей Тропы'
+          description: 'Уничтожить 120 пауков.'
+          objective:
+            type: KILL_MOB
+            mob-type: SPIDER
+            target: 120
+          reward-xp: 500
+        daily_creeper:
+          name: 'Обет Тихой Угрозы'
+          description: 'Уничтожить 80 крипперов.'
+          objective:
+            type: KILL_MOB
+            mob-type: CREEPER
+            target: 80
+          reward-xp: 600
+        daily_witch:
+          name: 'Обет Ведьминого Леса'
+          description: 'Уничтожить 40 ведьм.'
+          objective:
+            type: KILL_MOB
+            mob-type: WITCH
+            target: 40
+          reward-xp: 650
+        daily_drowned:
+          name: 'Обет Утопленников'
+          description: 'Уничтожить 100 утопленников.'
+          objective:
+            type: KILL_MOB
+            mob-type: DROWNED
+            target: 100
+          reward-xp: 550
+        daily_husk:
+          name: 'Обет Пустынных Скитальцев'
+          description: 'Уничтожить 100 иссохших зомби.'
+          objective:
+            type: KILL_MOB
+            mob-type: HUSK
+            target: 100
+          reward-xp: 550
+        daily_stray:
+          name: 'Обет Ледяных Стрелков'
+          description: 'Уничтожить 80 заблудших скелетов.'
+          objective:
+            type: KILL_MOB
+            mob-type: STRAY
+            target: 80
+          reward-xp: 550
+        daily_enderman:
+          name: 'Обет Странника Края'
+          description: 'Уничтожить 40 эндерменов.'
+          objective:
+            type: KILL_MOB
+            mob-type: ENDERMAN
+            target: 40
+          reward-xp: 700
+        daily_phantom:
+          name: 'Обет Ночного Неба'
+          description: 'Уничтожить 60 фантомов.'
+          objective:
+            type: KILL_MOB
+            mob-type: PHANTOM
+            target: 60
+          reward-xp: 600
+        daily_piglin:
+          name: 'Обет Золотых Земель'
+          description: 'Уничтожить 100 пиглинов.'
+          objective:
+            type: KILL_MOB
+            mob-type: PIGLIN
+            target: 100
+          reward-xp: 600
+        daily_hoglin:
+          name: 'Обет Багровых Чащ'
+          description: 'Уничтожить 50 хоглинов.'
+          objective:
+            type: KILL_MOB
+            mob-type: HOGLIN
+            target: 50
+          reward-xp: 650
+        daily_blaze:
+          name: 'Обет Огненного Стержня'
+          description: 'Уничтожить 30 ифритов.'
+          objective:
+            type: KILL_MOB
+            mob-type: BLAZE
+            target: 30
+          reward-xp: 800
+        daily_magma_cube:
+          name: 'Обет Магмовых Кубов'
+          description: 'Уничтожить 80 магмовых кубов.'
+          objective:
+            type: KILL_MOB
+            mob-type: MAGMA_CUBE
+            target: 80
+          reward-xp: 550
+        daily_guardian:
+          name: 'Обет Морской Стражи'
+          description: 'Уничтожить 30 стражей.'
+          objective:
+            type: KILL_MOB
+            mob-type: GUARDIAN
+            target: 30
+          reward-xp: 750
+        daily_vindicator:
+          name: 'Обет Иллагерской Расправы'
+          description: 'Уничтожить 40 иллагеров-каратилей.'
+          objective:
+            type: KILL_MOB
+            mob-type: VINDICATOR
+            target: 40
+          reward-xp: 700
+        daily_evoker:
+          name: 'Обет Против Чародеев'
+          description: 'Уничтожить 10 иллагеров-чародеев.'
+          objective:
+            type: KILL_MOB
+            mob-type: EVOKER
+            target: 10
+          reward-xp: 900
+        daily_ravager:
+          name: 'Обет Против Разорителей'
+          description: 'Уничтожить 5 разорителей.'
+          objective:
+            type: KILL_MOB
+            mob-type: RAVAGER
+            target: 5
+          reward-xp: 1000
+        daily_bounty:
+          name: 'Малый Обет Крови'
+          description: 'Сдать 3 головы игроков из враждебных кланов через bounty.'
+          objective:
+            type: BOUNTY_TURN_IN
+            target: 3
+          reward-xp: 1200
+        daily_craft_arrows:
+          name: 'Обет Стрелочника'
+          description: 'Скрафтить 500 стрел.'
+          objective:
+            type: CRAFT_ITEM
+            item-type: ARROW
+            target: 500
+          reward-xp: 450
+        daily_craft_bread:
+          name: 'Обет Пекаря'
+          description: 'Скрафтить 300 хлеба.'
+          objective:
+            type: CRAFT_ITEM
+            item-type: BREAD
+            target: 300
+          reward-xp: 400
+        daily_craft_tnt:
+          name: 'Малый Обет Подрывника'
+          description: 'Скрафтить 20 динамита.'
+          objective:
+            type: CRAFT_ITEM
+            item-type: TNT
+            target: 20
+          reward-xp: 650
+        daily_fish_cod:
+          name: 'Обет Трескового Улова'
+          description: 'Выловить 150 трески.'
+          objective:
+            type: FISH_ITEM
+            item-type: COD
+            target: 150
+          reward-xp: 500
+        daily_fish_salmon:
+          name: 'Обет Лососёвого Улова'
+          description: 'Выловить 100 лосося.'
+          objective:
+            type: FISH_ITEM
+            item-type: SALMON
+            target: 100
+          reward-xp: 500
+        daily_pvp:
+          name: 'Малый Обет Дуэлянтов'
+          description: 'Одержать 8 побед в PvP над игроками.'
+          objective:
+            type: PVP_KILL
+            target: 8
+          reward-xp: 1100
+        daily_breed_cow:
+          name: 'Малый Обет Скотоводов'
+          description: 'Развести 40 коров.'
+          objective:
+            type: BREED_ANIMAL
+            animal-type: COW
+            target: 40
+          reward-xp: 450
+        daily_breed_sheep:
+          name: 'Обет Овцеводов'
+          description: 'Развести 40 овец.'
+          objective:
+            type: BREED_ANIMAL
+            animal-type: SHEEP
+            target: 40
+          reward-xp: 450
+        daily_breed_pig:
+          name: 'Обет Свиноводов'
+          description: 'Развести 40 свиней.'
+          objective:
+            type: BREED_ANIMAL
+            animal-type: PIG
+            target: 40
+          reward-xp: 450
+        daily_enchant_sharp:
+          name: 'Малый Обет Остроты'
+          description: 'Зачаровать 15 предметов эффектом Остроты.'
+          objective:
+            type: ENCHANT_ITEM
+            enchantment-type: sharpness
+            target: 15
+          reward-xp: 700
+        daily_enchant_efficiency:
+          name: 'Обет Эффективности'
+          description: 'Зачаровать 15 предметов эффектом Эффективности.'
+          objective:
+            type: ENCHANT_ITEM
+            enchantment-type: efficiency
+            target: 15
+          reward-xp: 700
 
 limits:
   max-level: 20
@@ -134,6 +606,30 @@ upgrades:
     max-level: 5
   EXPERIENCE:
     max-level: 5
+  # Уровни этого улучшения = число рядов сундука сверх базового (limits.base-chest-rows).
+  # max-level здесь должен совпадать с (limits.max-chest-rows - limits.base-chest-rows).
+  CHEST:
+    max-level: 3
+
+# Клановые перки (§7) — доступны с perks.unlock-level, один активный за раз, смена стоит
+# опыта клана после первого (бесплатного) выбора.
+perks:
+  unlock-level: 5
+  respec-cost-experience: 10000
+  tick-seconds: 15
+  harvester:
+    crop-growth-bonus-percent: 40
+    harvest-yield-bonus-percent: 10
+    pvp-bonus-hearts: 2
+  miner:
+    resource-yield-bonus-percent: 25
+    rare-drop-bonus-percent: 15
+    ore-break-particle: HAPPY_VILLAGER
+    # Тип босса, за убийство которого действует бонус на редкий дроп (§7.1's "боссов, редких рейдов").
+    rare-drop-boss-type: WITHER
+  warrior:
+    banner-damage-bonus-percent: 10
+    siege-duration-reduction-percent: 25
 
 mechanics:
   afk:
@@ -171,7 +667,28 @@ mechanics:
   artifacts:
     war-horn-cooldown-seconds: 300
 
+# Влияние клана — производный показатель авторитета клана на сервере, пересчитывается
+# автоматически при изменении числа участников, завершении войны/осады/набега, повышении
+# уровня клана и трате очков улучшений (см. InfluenceManager).
+influence:
+  member-weight: 10
+  level-weight: 5
+  upgrade-point-weight: 20
+  war-win-weight: 50
+  war-loss-weight: 25
+  siege-win-weight: 75
+  siege-loss-weight: 40
+  raid-win-weight: 30
+  raid-loss-weight: 15
+  # Клан А может устроить блокаду клану Б только если Влияние(А) >= Влияние(Б) * blockade-multiplier.
+  blockade-multiplier: 1.5
+  # Клан нельзя выбрать целью набега, если его влияние >= (среднее влияние кланов сервера) * raid-immunity-multiplier.
+  raid-immunity-multiplier: 2.0
+
 war:
+  # Таймер (босс-бар) между объявлением войны и её реальным началом (баннеры, компасы,
+  # осадный режим территории появляются только после этого таймера).
+  pre-start-minutes: 10
   duration-minutes: 30
   cooldown-hours: 24
   # Сколько времени вражеский клан должен непрерывно удерживать сломанное знамя территории,
@@ -183,11 +700,46 @@ war:
   # Если по знамени не бьют дольше этого времени, прогресс поломки сбрасывается.
   banner-break-progress-reset-seconds: 15
 
+# Осада (§3) — второй тип конфликта клана: атакующие ставят осадные лагеря вокруг территории
+# защитника, каждый лагерь должен продержаться duration-minutes без разрушения, чтобы осада
+# прорвалась. Как и война, начинается не сразу, а после pre-start-minutes (босс-бар).
+siege:
+  pre-start-minutes: 20
+  duration-minutes: 20
+  cooldown-hours: 24
+  min-attacker-online: 1
+  min-defender-online: 5
+  max-concurrent: 3
+  camp-count-min: 3
+  camp-count-max: 4
+  camp-distance-blocks: 50
+  camp-respawn-minutes: 2
+  # Доля сундука защитника, которую получает победивший атакующий (случайно между min/max).
+  win-chest-percent-min: 25
+  win-chest-percent-max: 30
+  reward-artifact: true
+
+# Набег (§3.1) — третий тип конфликта: возможен только если у защитника мало людей онлайн,
+# запрещён против клана с высоким влиянием. Успешен, если атакующие вынесли хоть что-то из
+# сундука защитника (деньги и/или предметы, оба ограничены процентом от того, что было в
+# сундуке на момент начала набега) до истечения duration-minutes.
+raid:
+  pre-start-minutes: 5
+  duration-minutes: 10
+  cooldown-hours: 24
+  min-attacker-online: 1
+  max-defender-online: 2
+  loot-money-percent: 50
+  loot-item-slot-percent: 50
+  win-exp-multiplier: 0.5
+  # Материалы ванильных предметов для бонусного "редкого" дропа при успешном набеге; пусто = без бонуса.
+  bonus-items: []
+
 integration:
   advanced-claims:
     enabled: true
     auto-claim-chunk: true
-    claim-radius: 12 # Radius for LoveClaims (25x25x25 area)
+    claim-radius: 35 # Radius for LoveClaims (71x71x71 area)
     border-display-ticks: 100 # Duration in ticks for showing claim border (5 seconds)
     trust-mapping:
       LEADER: OWNER

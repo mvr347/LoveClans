@@ -55,4 +55,9 @@ public record VisitLocationObjective(String worldName, double x, double y, doubl
         }
         return 0;
     }
+
+    @Override
+    public QuestObjective scaled(double multiplier) {
+        return this; // target is always 1 - visiting a location once is not difficulty-scalable
+    }
 }

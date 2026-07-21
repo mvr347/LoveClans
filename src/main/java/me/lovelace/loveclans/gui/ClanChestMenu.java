@@ -4,7 +4,6 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.util.ItemBuilder;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -16,15 +15,14 @@ import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.List;
 import java.util.Map;
 
 /**
- * Real, drag-and-drop clan storage chest. Unlocked slots (the first {@code chestRows()*9}) are
- * live storage; the immediate next locked row shows a purchase prompt, further locked rows show
- * a plain locked icon — none of the locked slots can hold items until unlocked. Self-registers as
- * a listener scoped to its own inventory instance (mirrors {@link ClanTerritoriesSelectionGui}),
- * unregistering and persisting the storage-region contents on close.
+ * Real, drag-and-drop clan item storage (§2.3 "Предметы"). Unlocked slots (the first
+ * {@code chestRows()*9}) are live storage; further rows show a plain locked icon and can't hold
+ * items - unlocking them is done via the "Сундук" upgrade (see ClanUpgradesMenu), not from here.
+ * Self-registers as a listener scoped to its own inventory instance (mirrors
+ * {@link ClanTerritoriesSelectionGui}), unregistering and persisting contents on close.
  */
 public final class ClanChestMenu implements Listener {
 
@@ -40,7 +38,7 @@ public final class ClanChestMenu implements Listener {
         this.player = player;
         this.unlockedSlots = Math.min(contents.length, clan.chestRows() * 9);
         this.inventory = Bukkit.createInventory(null, ClanManager.CHEST_MAX_SIZE,
-                plugin.getMessages().component("gui.chest-title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
+                plugin.getMessages().component("gui.chest-items-title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
         inventory.setContents(contents);
         drawLockedSlots();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
@@ -59,25 +57,12 @@ public final class ClanChestMenu implements Listener {
     }
 
     private void drawLockedSlots() {
-        int nextRowEnd = Math.min(inventory.getSize(), unlockedSlots + 9);
-        long cost = plugin.getClanManager().nextChestRowCost(clan);
-
         for (int slot = unlockedSlots; slot < inventory.getSize(); slot++) {
-            if (slot < nextRowEnd && cost >= 0) {
-                inventory.setItem(slot, ItemBuilder.head(ItemBuilder.HEAD_EXPAND)
-                        .name(plugin.getMessages().component("gui.chest.unlock-row.name", player))
-                        .lore(costLore(cost))
-                        .build());
-            } else {
-                inventory.setItem(slot, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                        .name(plugin.getMessages().component("gui.chest.locked.name", player))
-                        .build());
-            }
+            inventory.setItem(slot, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.chest.locked.name", player))
+                    .lore(plugin.getMessages().component("gui.chest.locked.lore", player))
+                    .build());
         }
-    }
-
-    private List<Component> costLore(long cost) {
-        return plugin.getMessages().components("gui.chest.unlock-row.lore", Map.of("cost", String.valueOf(cost)), player);
     }
 
     @EventHandler
@@ -91,11 +76,7 @@ public final class ClanChestMenu implements Listener {
         if (event.getRawSlot() < unlockedSlots) {
             return; // real storage slot — allow normal item movement
         }
-        event.setCancelled(true);
-        if (!(event.getWhoClicked() instanceof Player clicker) || !clicker.getUniqueId().equals(player.getUniqueId())) {
-            return;
-        }
-        attemptPurchase();
+        event.setCancelled(true); // locked slot — can't hold items until the CHEST upgrade unlocks it
     }
 
     @EventHandler
@@ -108,21 +89,6 @@ public final class ClanChestMenu implements Listener {
         if (touchesLocked) {
             event.setCancelled(true);
         }
-    }
-
-    private void attemptPurchase() {
-        plugin.getClanManager().purchaseChestRowAsync(clan, player.getUniqueId())
-                .thenAccept(updated -> plugin.runSync(() -> {
-                    plugin.getMessages().send(player, "chest.row-purchased", Map.of(
-                            "rows", String.valueOf(updated.chestRows()),
-                            "max", String.valueOf(plugin.getClanManager().maxChestRows())));
-                    player.closeInventory();
-                    open(plugin, updated, player);
-                }))
-                .exceptionally(throwable -> {
-                    plugin.runSync(() -> plugin.sendOperationError(player, throwable));
-                    return null;
-                });
     }
 
     @EventHandler

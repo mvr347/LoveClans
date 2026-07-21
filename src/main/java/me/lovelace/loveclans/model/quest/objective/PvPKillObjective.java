@@ -44,4 +44,9 @@ public record PvPKillObjective(int targetAmount, String displayNameFormat) imple
         }
         return 0;
     }
+
+    @Override
+    public QuestObjective scaled(double multiplier) {
+        return new PvPKillObjective(Math.max(1, (int) Math.round(targetAmount * multiplier)), displayNameFormat);
+    }
 }

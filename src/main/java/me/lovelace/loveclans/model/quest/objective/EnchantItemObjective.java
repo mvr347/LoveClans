@@ -44,4 +44,9 @@ public record EnchantItemObjective(Enchantment enchantmentType, int targetAmount
         }
         return 0;
     }
+
+    @Override
+    public QuestObjective scaled(double multiplier) {
+        return new EnchantItemObjective(enchantmentType, Math.max(1, (int) Math.round(targetAmount * multiplier)), displayNameFormat);
+    }
 }

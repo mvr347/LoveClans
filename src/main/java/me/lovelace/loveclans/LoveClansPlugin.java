@@ -13,14 +13,21 @@ import me.lovelace.loveclans.listener.ChatInputListener;
 import me.lovelace.loveclans.listener.ClanProtectionListener;
 import me.lovelace.loveclans.listener.CombatListener;
 import me.lovelace.loveclans.listener.ContractListener;
+import me.lovelace.loveclans.listener.PerkEffectListener;
 import me.lovelace.loveclans.listener.PlayerConnectionListener;
+import me.lovelace.loveclans.listener.SiegeCampListener;
 import me.lovelace.loveclans.listener.ShieldColorListener;
 import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.manager.ContractManager;
+import me.lovelace.loveclans.manager.ClanTradeManager;
+import me.lovelace.loveclans.manager.DiplomacyManager;
+import me.lovelace.loveclans.manager.PerkManager;
+import me.lovelace.loveclans.manager.RaidManager;
 import me.lovelace.loveclans.manager.RitualManager;
 import me.lovelace.loveclans.manager.ShieldColorManager;
+import me.lovelace.loveclans.manager.SiegeManager;
 import me.lovelace.loveclans.manager.SpiritManager;
 import me.lovelace.loveclans.manager.SuccessionManager;
 import me.lovelace.loveclans.manager.WarManager;
@@ -56,9 +63,12 @@ public final class LoveClansPlugin extends JavaPlugin {
     private MessageService messages;
     private ClanManager clanManager;
     private WarManager warManager;
+    private SiegeManager siegeManager;
+    private RaidManager raidManager;
     private RitualManager ritualManager;
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
+    private PerkManager perkManager;
     private AfkManager afkManager;
     private ArtifactManager artifactManager;
     private GuiManager guiManager;
@@ -66,6 +76,8 @@ public final class LoveClansPlugin extends JavaPlugin {
     private AdvancedClaimsHook advancedClaimsHook;
     private ItemsAdderEconomyService itemsAdderEconomyService;
     private ContractManager contractManager;
+    private DiplomacyManager diplomacyManager;
+    private ClanTradeManager clanTradeManager;
     private CitizensIntegration citizensIntegration;
     private ClanProtectionListener clanProtectionListener;
     private BukkitTask heartbeatTask;
@@ -85,9 +97,12 @@ public final class LoveClansPlugin extends JavaPlugin {
 
         clanManager = new ClanManager(this, storage);
         warManager = new WarManager(this);
+        siegeManager = new SiegeManager(this);
+        raidManager = new RaidManager(this);
         ritualManager = new RitualManager(this);
         successionManager = new SuccessionManager(this);
         spiritManager = new SpiritManager(this);
+        perkManager = new PerkManager(this);
         afkManager = new AfkManager(this);
         artifactManager = new ArtifactManager(this);
         guiManager = new GuiManager(this);
@@ -96,8 +111,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         itemsAdderEconomyService = new ItemsAdderEconomyService();
         citizensIntegration = new CitizensIntegration();
         contractManager = new ContractManager(this, storage);
+        diplomacyManager = new DiplomacyManager(this, storage);
+        clanTradeManager = new ClanTradeManager(this, storage);
 
-        clanManager.loadAsync().thenRunAsync(() -> {
+        clanManager.loadAsync().thenCompose(v -> diplomacyManager.loadAsync()).thenRunAsync(() -> {
             runSync(() -> {
                 LoveClansAPI.init(this);
 
@@ -107,6 +124,11 @@ public final class LoveClansPlugin extends JavaPlugin {
 
                 contractManager.loadAsync().exceptionally(t -> {
                     getLogger().warning("Не удалось загрузить клановые контракты: " + t.getMessage());
+                    return null;
+                });
+
+                clanTradeManager.loadAsync().exceptionally(t -> {
+                    getLogger().warning("Не удалось загрузить клановую торговлю: " + t.getMessage());
                     return null;
                 });
 
@@ -128,6 +150,29 @@ public final class LoveClansPlugin extends JavaPlugin {
 
                 spiritManager.start();
                 successionManager.start();
+                perkManager.start();
+
+                // Еженедельный налог сундука (§2.2) — не привязан к календарному понедельнику
+                // (см. ClanManager#tickChestTaxes), поэтому достаточно проверять раз в час.
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        clanManager.tickChestTaxes();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Chest tax tick failed", t);
+                    }
+                }, 20L * 60L * 60L, 20L * 60L * 60L);
+
+                // Истечение контрактов (§1.3) - проверяет дедлайны еженедельных/ежедневных обетов
+                // и применяет штраф/авто-сдачу; интервал настраивается, т.к. ежедневный контракт
+                // истекает через 24ч и слишком редкая проверка даёт большой люфт.
+                long contractTickTicks = 20L * 60L * Math.max(1, getConfig().getInt("clans.contracts.tick-interval-minutes", 5));
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        contractManager.tickContracts();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Contract tick failed", t);
+                    }
+                }, contractTickTicks, contractTickTicks);
 
                 heartbeatTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
                     try {
@@ -145,6 +190,16 @@ public final class LoveClansPlugin extends JavaPlugin {
                         warManager.tick();
                     } catch (Throwable t) {
                         getLogger().log(java.util.logging.Level.SEVERE, "War tick failed", t);
+                    }
+                    try {
+                        siegeManager.tick();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Siege tick failed", t);
+                    }
+                    try {
+                        raidManager.tick();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Raid tick failed", t);
                     }
                     try {
                         if (clanProtectionListener != null) {
@@ -207,6 +262,9 @@ public final class LoveClansPlugin extends JavaPlugin {
         if (spiritManager != null) {
             spiritManager.stop();
         }
+        if (perkManager != null) {
+            perkManager.stop();
+        }
         if (successionManager != null) {
             successionManager.stop();
         }
@@ -236,6 +294,14 @@ public final class LoveClansPlugin extends JavaPlugin {
         return warManager;
     }
 
+    public SiegeManager getSiegeManager() {
+        return siegeManager;
+    }
+
+    public RaidManager getRaidManager() {
+        return raidManager;
+    }
+
     public RitualManager getRitualManager() {
         return ritualManager;
     }
@@ -246,6 +312,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public SpiritManager getSpiritManager() {
         return spiritManager;
+    }
+
+    public PerkManager getPerkManager() {
+        return perkManager;
     }
 
     public AfkManager getAfkManager() {
@@ -274,6 +344,14 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public ContractManager getContractManager() {
         return contractManager;
+    }
+
+    public DiplomacyManager getDiplomacyManager() {
+        return diplomacyManager;
+    }
+
+    public ClanTradeManager getClanTradeManager() {
+        return clanTradeManager;
     }
 
     public CitizensIntegration getCitizensIntegration() {
@@ -314,6 +392,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         }
         if (root instanceof me.lovelace.loveclans.manager.SpiritAbilityCooldownException cooldown) {
             messages.send(sender, "gui.spirit.ability.cooldown", Map.of("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(cooldown.remainingMillis())));
+            return;
+        }
+        if (root instanceof me.lovelace.loveclans.manager.TradeCooldownException cooldown) {
+            messages.send(sender, "trade.cooldown-active", Map.of("seconds", String.valueOf(cooldown.remainingSeconds())));
             return;
         }
         String key = root.getMessage();
@@ -363,6 +445,8 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(spiritManager, this);
         pluginManager.registerEvents(afkManager, this);
         pluginManager.registerEvents(new ContractListener(this, citizensIntegration), this);
+        pluginManager.registerEvents(new PerkEffectListener(this), this);
+        pluginManager.registerEvents(new SiegeCampListener(this), this);
     }
 
     private void registerIntegrations() {

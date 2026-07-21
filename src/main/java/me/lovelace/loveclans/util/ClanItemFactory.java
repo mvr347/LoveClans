@@ -25,6 +25,11 @@ public final class ClanItemFactory {
     // Помечает знамя, захваченное (сломанное и поднятое) вражеским игроком во время войны,
     // идентификатором этой войны - чтобы его можно было изъять при завершении войны.
     public static final NamespacedKey CAPTURED_BANNER_WAR_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "captured_banner_war_id");
+    // Помечают физический блок осадного лагеря (§3.1) идентификатором осады и индексом лагеря
+    // в её списке - используются, чтобы связать BlockBreakEvent на этом блоке с конкретным
+    // SiegeCamp в SiegeManager.
+    public static final NamespacedKey SIEGE_ID_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "siege_id");
+    public static final NamespacedKey SIEGE_CAMP_INDEX_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "siege_camp_index");
 
     public ClanItemFactory(LoveClansPlugin plugin) {
         this.plugin = plugin;
