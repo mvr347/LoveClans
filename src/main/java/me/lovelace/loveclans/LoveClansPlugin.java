@@ -13,12 +13,14 @@ import me.lovelace.loveclans.listener.ChatInputListener;
 import me.lovelace.loveclans.listener.ClanProtectionListener;
 import me.lovelace.loveclans.listener.CombatListener;
 import me.lovelace.loveclans.listener.ContractListener;
+import me.lovelace.loveclans.listener.PerkEffectListener;
 import me.lovelace.loveclans.listener.PlayerConnectionListener;
 import me.lovelace.loveclans.listener.ShieldColorListener;
 import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.manager.ContractManager;
+import me.lovelace.loveclans.manager.PerkManager;
 import me.lovelace.loveclans.manager.RitualManager;
 import me.lovelace.loveclans.manager.ShieldColorManager;
 import me.lovelace.loveclans.manager.SpiritManager;
@@ -59,6 +61,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private RitualManager ritualManager;
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
+    private PerkManager perkManager;
     private AfkManager afkManager;
     private ArtifactManager artifactManager;
     private GuiManager guiManager;
@@ -88,6 +91,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         ritualManager = new RitualManager(this);
         successionManager = new SuccessionManager(this);
         spiritManager = new SpiritManager(this);
+        perkManager = new PerkManager(this);
         afkManager = new AfkManager(this);
         artifactManager = new ArtifactManager(this);
         guiManager = new GuiManager(this);
@@ -128,6 +132,7 @@ public final class LoveClansPlugin extends JavaPlugin {
 
                 spiritManager.start();
                 successionManager.start();
+                perkManager.start();
 
                 heartbeatTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
                     try {
@@ -207,6 +212,9 @@ public final class LoveClansPlugin extends JavaPlugin {
         if (spiritManager != null) {
             spiritManager.stop();
         }
+        if (perkManager != null) {
+            perkManager.stop();
+        }
         if (successionManager != null) {
             successionManager.stop();
         }
@@ -246,6 +254,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public SpiritManager getSpiritManager() {
         return spiritManager;
+    }
+
+    public PerkManager getPerkManager() {
+        return perkManager;
     }
 
     public AfkManager getAfkManager() {
@@ -363,6 +375,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(spiritManager, this);
         pluginManager.registerEvents(afkManager, this);
         pluginManager.registerEvents(new ContractListener(this, citizensIntegration), this);
+        pluginManager.registerEvents(new PerkEffectListener(this), this);
     }
 
     private void registerIntegrations() {

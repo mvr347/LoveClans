@@ -38,6 +38,10 @@ public final class Clan {
     private int raidsLost;
     private long influence;
 
+    // --- Perk (§7): unlocked at level >= perks.unlock-level, one active at a time ---
+    private ClanPerk perk;
+    private long perkChosenAt;
+
     private final Map<UUID, ClanMember> members = new ConcurrentHashMap<>();
     private final Map<UUID, ClanTerritory> territories = new ConcurrentHashMap<>();
     private final Map<UUID, DiplomacyRelation> diplomacy = new ConcurrentHashMap<>();
@@ -441,5 +445,20 @@ public final class Clan {
 
     public void setInfluence(long influence) {
         this.influence = Math.max(0L, influence);
+    }
+
+    // --- Perk (§7) ---
+
+    public Optional<ClanPerk> perk() {
+        return Optional.ofNullable(perk);
+    }
+
+    public long perkChosenAt() {
+        return perkChosenAt;
+    }
+
+    public void setPerk(ClanPerk perk, long chosenAt) {
+        this.perk = perk;
+        this.perkChosenAt = chosenAt;
     }
 }

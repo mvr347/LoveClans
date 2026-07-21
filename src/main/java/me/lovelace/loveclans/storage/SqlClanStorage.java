@@ -3,6 +3,7 @@ package me.lovelace.loveclans.storage;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanApplication;
 import me.lovelace.loveclans.model.ClanMember;
+import me.lovelace.loveclans.model.ClanPerk;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanSpirit;
@@ -120,6 +121,13 @@ public final class SqlClanStorage implements ClanStorage {
                             clan.setInfluence(result.getLong("influence"));
                         } catch (SQLException ignored) {
                             // Columns might not exist yet if plugin just updated
+                        }
+                        try {
+                            String rawPerk = result.getString("perk");
+                            ClanPerk perk = rawPerk == null ? null : ClanPerk.valueOf(rawPerk);
+                            clan.setPerk(perk, result.getLong("perk_chosen_at"));
+                        } catch (SQLException | IllegalArgumentException ignored) {
+                            // Column might not exist yet, or contain a retired perk name
                         }
                         clans.put(id, clan);
                     }
@@ -431,6 +439,26 @@ public final class SqlClanStorage implements ClanStorage {
                 statement.executeUpdate();
             } catch (SQLException exception) {
                 throw new StorageException("Unable to update influence stats for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanPerk(UUID clanId, ClanPerk perk, long chosenAt) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET perk = ?, perk_chosen_at = ? WHERE id = ?")) {
+                if (perk == null) {
+                    statement.setNull(1, Types.VARCHAR);
+                } else {
+                    statement.setString(1, perk.name());
+                }
+                statement.setLong(2, chosenAt);
+                statement.setString(3, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update perk for clan " + clanId, exception);
             }
         }, database.executor());
     }

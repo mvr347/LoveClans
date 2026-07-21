@@ -128,7 +128,9 @@ public final class DatabaseManager implements AutoCloseable {
                         sieges_lost INT NOT NULL DEFAULT 0,
                         raids_won INT NOT NULL DEFAULT 0,
                         raids_lost INT NOT NULL DEFAULT 0,
-                        influence BIGINT NOT NULL DEFAULT 0
+                        influence BIGINT NOT NULL DEFAULT 0,
+                        perk VARCHAR(32),
+                        perk_chosen_at BIGINT NOT NULL DEFAULT 0
                     )
                     """);
             // Migrations
@@ -146,6 +148,8 @@ public final class DatabaseManager implements AutoCloseable {
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN raids_won INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN raids_lost INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
             try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN influence BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN perk VARCHAR(32)"); } catch (SQLException ignored) {}
+            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN perk_chosen_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_members (

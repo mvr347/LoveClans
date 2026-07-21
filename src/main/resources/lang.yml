@@ -565,6 +565,37 @@ gui:
     success: "<prefix><green>Улучшение <gold><upgrade></gold> успешно применено."
     not-enough-points: "<prefix><red>Недостаточно очков улучшений."
     max-level-reached: "<prefix><red>Это улучшение уже достигло максимального уровня."
+    perks:
+      locked:
+        name: "<dark_gray>Перки клана заблокированы"
+        lore: "<gray>Открываются на <white><level></white> уровне клана."
+      harvester:
+        name: "<green>🌾 Земледелие"
+        lore:
+          - "<gray>+<percent>% к скорости роста культур"
+          - "<gray>+<hearts> сердца в боях против других кланов"
+          - "<gray>+<yield>% к урожайности"
+      miner:
+        name: "<aqua>⛏ Ресурсодобыча"
+        lore:
+          - "<gray>+<percent>% ко всем добытым ресурсам"
+          - "<gray>+<rare>% к редким дропам"
+      warrior:
+        name: "<red>⚔ Война"
+        lore:
+          - "<gray>Постоянная Сила I в PvP"
+          - "<gray>Осада длится на <percent>% меньше"
+          - "<gray>+<banner>% урона по знамёнам и осадным лагерям"
+      active: "<green>✔ Активен"
+      click-to-select: "<green>ЛКМ - выбрать этот перк"
+      click-to-change: "<gray>ЛКМ - сменить перк за <gold><cost></gold> опыта клана"
+    perk-select:
+      title: "<gold>Выбрать перк клана <color><tag>"
+    perk-change:
+      title: "<gold>Сменить перк за <cost> опыта клана?"
+    perk-selected: "<prefix><green>Клан выбрал перк <gold><perk></gold>!"
+    perk-locked: "<prefix><red>Перки клана ещё не открыты."
+    perk-insufficient-experience: "<prefix><red>Недостаточно опыта клана для смены перка."
 
 item:
   capital-banner:

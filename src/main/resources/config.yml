@@ -135,6 +135,24 @@ upgrades:
   EXPERIENCE:
     max-level: 5
 
+# Клановые перки (§7) — доступны с perks.unlock-level, один активный за раз, смена стоит
+# опыта клана после первого (бесплатного) выбора.
+perks:
+  unlock-level: 5
+  respec-cost-experience: 10000
+  tick-seconds: 15
+  harvester:
+    crop-growth-bonus-percent: 40
+    harvest-yield-bonus-percent: 10
+    pvp-bonus-hearts: 2
+  miner:
+    resource-yield-bonus-percent: 25
+    rare-drop-bonus-percent: 15
+    ore-break-particle: HAPPY_VILLAGER
+  warrior:
+    banner-damage-bonus-percent: 10
+    siege-duration-reduction-percent: 25
+
 mechanics:
   afk:
     threshold-seconds: 120

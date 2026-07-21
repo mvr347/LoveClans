@@ -1389,6 +1389,44 @@ public final class ClanManager {
                 .thenApply(ignored -> updatedClan));
     }
 
+    // --- Клановые перки (§7) ---
+
+    public int perkUnlockLevel() {
+        return plugin.getConfig().getInt("perks.unlock-level", 5);
+    }
+
+    public long perkRespecCost() {
+        return plugin.getConfig().getLong("perks.respec-cost-experience", 10000L);
+    }
+
+    public CompletableFuture<Clan> choosePerkAsync(Clan clan, UUID actorId, me.lovelace.loveclans.model.ClanPerk perk) {
+        if (clan == null || actorId == null || perk == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor ID and perk cannot be null."));
+        return plugin.supplySync(() -> {
+            if (!clan.hasPermission(actorId, ClanPermission.UPGRADE)) {
+                throw new IllegalStateException("general.no-permission");
+            }
+            if (clan.level() < perkUnlockLevel()) {
+                throw new IllegalStateException("gui.upgrades.perk-locked");
+            }
+            Optional<me.lovelace.loveclans.model.ClanPerk> current = clan.perk();
+            if (current.isPresent() && current.get() == perk) {
+                return clan;
+            }
+            if (current.isPresent()) {
+                long cost = perkRespecCost();
+                if (clan.experience() < cost) {
+                    throw new IllegalStateException("gui.upgrades.perk-insufficient-experience");
+                }
+                clan.removeExperience(cost);
+            }
+            clan.setPerk(perk, System.currentTimeMillis());
+            return clan;
+        }).thenCompose(updatedClan -> storage.updateClanPerk(updatedClan.id(), updatedClan.perk().orElse(null), updatedClan.perkChosenAt())
+                .thenCompose(ignored -> storage.updateClanProgression(updatedClan.id(), updatedClan.level(), updatedClan.experience(), updatedClan.upgradePoints(), updatedClan.spirit().level()))
+                .thenApply(ignored -> updatedClan));
+    }
+
     public long experienceForLevel(int level) {
         if (level <= 1) {
             return 0L;
