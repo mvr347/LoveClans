@@ -26,7 +26,6 @@ import me.lovelace.loveclans.gui.ClanSettingsMenu;
 import me.lovelace.loveclans.gui.ClanSpiritAbilityMenu;
 import me.lovelace.loveclans.gui.ClanSpiritMenu;
 import me.lovelace.loveclans.gui.ClanTerritoriesMenu;
-import me.lovelace.loveclans.gui.ClanTerritoriesSelectionGui;
 import me.lovelace.loveclans.gui.ClanUpgradesMenu;
 import me.lovelace.loveclans.gui.PlayerApplicationsMenu;
 import me.lovelace.loveclans.gui.TerritorySettingsMenu;
@@ -64,7 +63,6 @@ public class GuiManager implements Listener {
     private final ClanChestHubMenu chestHubMenu;
     private final ClanChestMoneyMenu chestMoneyMenu;
     private final ClanLettersMenu lettersMenu;
-    private final ClanTradeReviewMenu tradeReviewMenu;
 
     private final Map<UUID, Runnable> confirmYes = new ConcurrentHashMap<>();
     private final Map<UUID, Runnable> confirmNo = new ConcurrentHashMap<>();
@@ -87,7 +85,6 @@ public class GuiManager implements Listener {
         this.chestHubMenu = new ClanChestHubMenu(plugin);
         this.chestMoneyMenu = new ClanChestMoneyMenu(plugin);
         this.lettersMenu = new ClanLettersMenu(plugin);
-        this.tradeReviewMenu = new ClanTradeReviewMenu(plugin);
     }
 
     public void openChestHub(Player player, Clan clan) {
@@ -104,10 +101,6 @@ public class GuiManager implements Listener {
 
     public void openContracts(Player player, Clan clan) {
         contractsMenu.open(player, clan);
-    }
-
-    public void openTradeReview(Player player, UUID tradeId) {
-        tradeReviewMenu.open(player, tradeId);
     }
 
     public NamespacedKey memberKey() {
@@ -183,10 +176,6 @@ public class GuiManager implements Listener {
         new ClanSpiritMenu(plugin, clan).open(player);
     }
 
-    public void openClanTerritoriesMenu(Player player, Clan clan) {
-        new ClanTerritoriesSelectionGui(plugin, clan, player).open();
-    }
-
     public void openClanCapitalManagementMenu(Player player, Clan clan) {
         new ClanCapitalManagementMenu(plugin, clan, player).open();
     }
@@ -223,7 +212,6 @@ public class GuiManager implements Listener {
     public void clearPlayerCache(UUID playerId) {
         applicationsMenu.clearPlayer(playerId);
         rankPermissionsMenu.clearPlayer(playerId);
-        tradeReviewMenu.clearPlayer(playerId);
         confirmYes.remove(playerId);
         confirmNo.remove(playerId);
     }
@@ -346,7 +334,6 @@ public class GuiManager implements Listener {
                     case CHEST_HUB -> chestHubMenu.handleInventoryClick(player, clan, slot);
                     case CHEST_MONEY -> chestMoneyMenu.handleInventoryClick(player, clan, slot);
                     case LETTERS -> lettersMenu.handleInventoryClick(player, clan, slot);
-                    case TRADE_REVIEW -> tradeReviewMenu.handleInventoryClick(player, clan, slot);
                     default -> {
                     }
                 }

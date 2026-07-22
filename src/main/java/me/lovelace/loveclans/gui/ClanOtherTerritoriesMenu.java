@@ -100,8 +100,8 @@ public class ClanOtherTerritoriesMenu implements InventoryHolder {
             return;
         }
 
-        if (slot == 52) { // Back button
-            plugin.getGuiManager().openClanTerritoriesMenu(clicker, clan);
+        if (slot == 52) { // Back button — родитель теперь клановый дом, а не отдельный хаб
+            plugin.getGuiManager().openClanCapitalManagementMenu(clicker, clan);
             return;
         }
 

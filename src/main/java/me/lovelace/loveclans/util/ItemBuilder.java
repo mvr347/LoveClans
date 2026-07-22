@@ -75,6 +75,16 @@ public final class ItemBuilder {
     public static final String HEAD_RELATION_NEUTRAL = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvY2Q4NzhiOGYwNTJhNWU0OWExYmY5MDk4MTc3NWIxYWM2ZGVlYmFhMzhjMThjODc3YjVhOTUxNTc1NjQxOWY3OSJ9fX0=";
     public static final String HEAD_RELATION_FRIENDLY = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZWI3NmI0ZWU5ODg1NzIyOTdjYmQ4NzQ2ODNiZWU5NmFlM2M1NWNlOTRjMDA0ZTUxYWRjODJjZWUxNmNkMGIwYyJ9fX0=";
 
+    // Diplomacy select menu utility icons (sort / filter / empty-state) and menu action icons
+    // (trade / letters / embargo / blockade) - replaced plain vanilla materials so the whole
+    // diplomacy flow is heads-only, matching the rest of the plugin.
+    public static final String HEAD_SORT = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvODNkODc0ZWI4YzRjNjk3YjNmODMyYmQ4NzQ0MjZmZGY2ZDIxYmFlMzM5ZjMxNzExMDgxZmRlNTk4MzgzODZlMSJ9fX0=";
+    public static final String HEAD_FILTER = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZmM2MjExMGQ4MTg4NDQxZDIxNzk0NDM0ZjY3ZDEyYTAyMWI3NDAyYzhkYWE0MmQ0ZmVhMzIzZTdlMTllMGJiNyJ9fX0=";
+    public static final String HEAD_TRADE = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZWZiNmEzZDdkYmE5N2JiNmU3Zjc5YTE1NjI3YWVjNjM2OTc5MTIzM2Y4MzNmYTc0OWVmMjFiZWQ3OWU1OWU5OCJ9fX0=";
+    public static final String HEAD_LETTERS = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMWQ5NDA5M2MyNzM4NzUyZjI0NTY5NmI1NDc4YjY2ODIzMjE4OTkwYzlkZDUzNjFiNjQ2ZGFjYWIxNzY3NGE0MSJ9fX0=";
+    public static final String HEAD_EMBARGO = HEAD_BARRIER;
+    public static final String HEAD_BLOCKADE = HEAD_BARRIER;
+
     // Rank management icons (Recruit / Clansman / Guardian)
     public static final String HEAD_RANK_RECRUIT = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZmIwZmQ2MGQ3MjI0MTlhNzg1N2Y3Mjg2YzIzZjcyYzIxOTMzMDM4ZmM0MTQwNDljZGU2NTZmNGU4MzI4ZTU0NiJ9fX0=";
     public static final String HEAD_RANK_CLANSMAN = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZGFlZjZhZTE2OWNjNGYzZTM5Yzc2ZDA5NzE5OTNiOTJhYmU1MTBkOTZjOWJiNDk3YzFhYjlhMmI0YzJkYThhMSJ9fX0=";

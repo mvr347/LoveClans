@@ -79,9 +79,7 @@ public final class ClanChestHubMenu {
                     .build());
         }
 
-        // Полноценный выбор клана для торговли (§6.3) — в отдельной задаче по переделке UI
-        // дипломатии/торговли; пока кнопка лишь подсказывает команду.
-        inventory.setItem(TRADE_SLOT, ItemBuilder.of(Material.EMERALD)
+        inventory.setItem(TRADE_SLOT, ItemBuilder.head(ItemBuilder.HEAD_TRADE)
                 .name(plugin.getMessages().component("gui.chest.trade-button.name", player))
                 .lore(plugin.getMessages().component("gui.chest.trade-button.lore", player))
                 .build());
@@ -104,8 +102,7 @@ public final class ClanChestHubMenu {
         } else if (slot == MONEY_SLOT) {
             plugin.getGuiManager().openChestMoney(player, clan);
         } else if (slot == TRADE_SLOT) {
-            player.closeInventory();
-            plugin.getMessages().send(player, "gui.chest.trade-button.hint");
+            plugin.getGuiManager().openDiplomacySelect(player, clan);
         } else if (slot == ITEMS_SLOT) {
             if (clan.isChestTaxLocked()) {
                 plugin.getMessages().send(player, "chest.tax-locked");

@@ -54,7 +54,7 @@ public final class CitizensIntegration {
         if (!isAvailable() || player == null) {
             return null;
         }
-        RayTraceResult trace = player.rayTraceEntities(distance);
+        RayTraceResult trace = player.rayTraceEntities((int) Math.ceil(distance));
         if (trace == null) {
             return null;
         }

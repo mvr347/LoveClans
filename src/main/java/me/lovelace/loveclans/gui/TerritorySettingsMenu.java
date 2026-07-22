@@ -43,9 +43,10 @@ public class TerritorySettingsMenu implements InventoryHolder {
 
         // Toggle PvP
         boolean pvpEnabled = territory.pvp();
-        inventory.setItem(13, ItemBuilder.head(ItemBuilder.HEAD_DISBAND) // Reusing icon for now
+        String pvpStatus = plugin.getMessages().raw(pvpEnabled ? "gui.territory-settings.pvp.enabled" : "gui.territory-settings.pvp.disabled");
+        inventory.setItem(13, ItemBuilder.head(pvpEnabled ? ItemBuilder.HEAD_WOOL_LIME : ItemBuilder.HEAD_WOOL_RED)
                 .name(plugin.getMessages().component("gui.territory-settings.pvp.name", player))
-                .lore(plugin.getMessages().component("gui.territory-settings.pvp.lore", Map.of("status", pvpEnabled ? "Включено" : "Выключено"), player))
+                .lore(plugin.getMessages().component("gui.territory-settings.pvp.lore", Map.of("status", pvpStatus), player))
                 .build());
 
         // Disband Private button

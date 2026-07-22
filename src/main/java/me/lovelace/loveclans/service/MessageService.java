@@ -189,8 +189,13 @@ public final class MessageService {
         Component msg = component("trade.offer-received",
                 Map.of("tag", senderTag, "color", senderColor), recipient)
                 .append(Component.text(" "))
-                .append(component("trade.open", recipient)
-                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan trade review " + tradeId)));
+                .append(component("gui.accept", recipient)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                                "/clan trade accept " + tradeId)))
+                .append(Component.text(" "))
+                .append(component("gui.reject", recipient)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                                "/clan trade decline " + tradeId)));
         recipient.sendMessage(msg);
     }
 

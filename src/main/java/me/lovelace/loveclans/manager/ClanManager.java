@@ -1334,9 +1334,7 @@ public final class ClanManager {
                         return null;
                     });
             String key = paid ? "chest.tax-collected" : "chest.tax-locked-announcement";
-            for (Player p : onlineMembers(clan)) {
-                plugin.getMessages().send(p, key, Map.of("amount", String.valueOf(tax)));
-            }
+            onlineMembers(clan).forEach(p -> plugin.getMessages().send(p, key, Map.of("amount", String.valueOf(tax))));
         }
     }
 

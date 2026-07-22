@@ -2,6 +2,7 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
@@ -78,7 +79,7 @@ public final class ClanDiplomacyMenu {
         inventory.setItem(SLOT_ENEMY, enemyItem.build());
 
         boolean embargoed = plugin.getDiplomacyManager().isEmbargoed(sourceClan.id(), targetClan.id());
-        ItemBuilder embargoItem = ItemBuilder.of(Material.IRON_BARS)
+        ItemBuilder embargoItem = ItemBuilder.head(ItemBuilder.HEAD_EMBARGO)
                 .name(plugin.getMessages().component(embargoed ? "gui.diplomacy.embargo.cancel-name" : "gui.diplomacy.embargo.declare-name", player))
                 .lore(plugin.getMessages().component(embargoed ? "gui.diplomacy.embargo.cancel-lore" : "gui.diplomacy.embargo.declare-lore", player));
         if (embargoed) embargoItem.glow(true);
@@ -88,22 +89,22 @@ public final class ClanDiplomacyMenu {
         boolean blockadedByTarget = plugin.getDiplomacyManager().isBlockading(targetClan.id(), sourceClan.id());
         ItemBuilder blockadeItem;
         if (blockadedByTarget) {
-            blockadeItem = ItemBuilder.of(Material.CHAIN)
+            blockadeItem = ItemBuilder.head(ItemBuilder.HEAD_BLOCKADE)
                     .name(plugin.getMessages().component("gui.diplomacy.blockade.blocked-name", player))
                     .lore(plugin.getMessages().component("gui.diplomacy.blockade.blocked-lore", player));
         } else if (blockading) {
-            blockadeItem = ItemBuilder.of(Material.CHAIN)
+            blockadeItem = ItemBuilder.head(ItemBuilder.HEAD_BLOCKADE)
                     .name(plugin.getMessages().component("gui.diplomacy.blockade.cancel-name", player))
                     .lore(plugin.getMessages().component("gui.diplomacy.blockade.cancel-lore", player))
                     .glow(true);
         } else {
-            blockadeItem = ItemBuilder.of(Material.CHAIN)
+            blockadeItem = ItemBuilder.head(ItemBuilder.HEAD_BLOCKADE)
                     .name(plugin.getMessages().component("gui.diplomacy.blockade.declare-name", player))
                     .lore(plugin.getMessages().component("gui.diplomacy.blockade.declare-lore", player));
         }
         inventory.setItem(SLOT_BLOCKADE, blockadeItem.build());
 
-        inventory.setItem(SLOT_LETTERS, ItemBuilder.of(Material.WRITABLE_BOOK)
+        inventory.setItem(SLOT_LETTERS, ItemBuilder.head(ItemBuilder.HEAD_LETTERS)
                 .name(plugin.getMessages().component("gui.diplomacy.letters.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.letters.lore", player))
                 .build());
@@ -150,11 +151,17 @@ public final class ClanDiplomacyMenu {
 
     private ItemBuilder buildTradeItem(Clan sourceClan, Clan targetClan, Player player) {
         boolean blocked = plugin.getClanTradeManager().tradeBlocked(sourceClan.id(), targetClan.id());
+        boolean canTrade = sourceClan.hasPermission(player.getUniqueId(), ClanPermission.TRADE);
         if (blocked) {
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.diplomacy.trade.unavailable-name", player));
         }
-        return ItemBuilder.of(Material.EMERALD)
+        if (!canTrade) {
+            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.diplomacy.trade.name", player))
+                    .lore(plugin.getMessages().component("gui.diplomacy.trade.no-permission-lore", player));
+        }
+        return ItemBuilder.head(ItemBuilder.HEAD_TRADE)
                 .name(plugin.getMessages().component("gui.diplomacy.trade.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.trade.lore", player));
     }
@@ -239,12 +246,17 @@ public final class ClanDiplomacyMenu {
             return;
         }
         if (slot == SLOT_TRADE) {
+            if (!sourceClan.hasPermission(player.getUniqueId(), ClanPermission.TRADE)) {
+                plugin.getMessages().send(player, "general.no-permission");
+                return;
+            }
             if (plugin.getClanTradeManager().tradeBlocked(sourceClan.id(), targetClan.id())) {
                 plugin.getMessages().send(player, "trade.blocked");
                 return;
             }
             player.closeInventory();
-            ClanTradeOfferMenu.open(plugin, sourceClan, targetClan, player, 0L);
+            plugin.getClanTradeManager().proposeTradeAsync(sourceClan, player.getUniqueId(), targetClan)
+                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
             return;
         }
         if (slot == SLOT_WAR) {

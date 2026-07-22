@@ -36,11 +36,12 @@ public final class ClanRankPermissionsMenu {
         }
 
         ClanPermission[] permissions = ClanPermission.values();
-        for (int i = 0; i < permissions.length && i < 9; i++) {
+        for (int i = 0; i < permissions.length; i++) {
             ClanPermission permission = permissions[i];
             boolean enabled = clan.getPermission(rank, permission);
             // BUILD/INVITE/KICK получают собственные текстуры голов; остальные права
-            // (захват территорий, улучшения, настройки, дипломатия) переиспользуют иконки главного меню.
+            // (захват территорий, улучшения, настройки, дипломатия, торговля) переиспользуют
+            // иконки главного меню/дипломатии.
             String headTexture = switch (permission) {
                 case BUILD -> ItemBuilder.HEAD_PERMISSION_BUILD;
                 case INVITE -> ItemBuilder.HEAD_PERMISSION_INVITE;
@@ -51,6 +52,7 @@ public final class ClanRankPermissionsMenu {
                 case DIPLOMACY -> ItemBuilder.HEAD_DIPLOMACY;
                 case BANK -> ItemBuilder.HEAD_EXPAND;
                 case CONTRACTS -> ItemBuilder.HEAD_QUEST;
+                case TRADE -> ItemBuilder.HEAD_TRADE;
             };
             ItemBuilder builder = ItemBuilder.head(headTexture)
                     .name(plugin.getMessages().component("gui.rank-permissions.permission." + permission.name().toLowerCase(), player))

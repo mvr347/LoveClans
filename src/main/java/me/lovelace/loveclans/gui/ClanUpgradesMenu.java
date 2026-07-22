@@ -17,7 +17,6 @@ import java.util.Optional;
 public final class ClanUpgradesMenu {
     private static final int[] UPGRADE_SLOTS = {20, 22, 24, 26};
     private static final int[] PERK_SLOTS = {11, 13, 15};
-    private static final int PERK_LOCKED_SLOT = 13;
 
     private final LoveClansPlugin plugin;
 
@@ -133,7 +132,11 @@ public final class ClanUpgradesMenu {
             if (slot != PERK_SLOTS[i]) continue;
             ClanPerk perk = ClanPerk.values()[i];
             plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> {
-                if (clan.level() < plugin.getClanManager().perkUnlockLevel() || clan.perk().map(p -> p == perk).orElse(false)) {
+                if (clan.level() < plugin.getClanManager().perkUnlockLevel()) {
+                    plugin.getMessages().send(player, "gui.upgrades.perk-locked");
+                    return;
+                }
+                if (clan.perk().map(p -> p == perk).orElse(false)) {
                     return;
                 }
                 plugin.getClanManager().choosePerkAsync(clan, player.getUniqueId(), perk)
@@ -149,14 +152,7 @@ public final class ClanUpgradesMenu {
 
     private void renderPerks(Inventory inventory, Player player, Clan clan) {
         int unlockLevel = plugin.getClanManager().perkUnlockLevel();
-        if (clan.level() < unlockLevel) {
-            inventory.setItem(PERK_LOCKED_SLOT, ItemBuilder.of(Material.GRAY_DYE)
-                    .name(plugin.getMessages().component("gui.upgrades.perks.locked.name", player))
-                    .lore(plugin.getMessages().component("gui.upgrades.perks.locked.lore",
-                            Map.of("level", String.valueOf(unlockLevel)), player))
-                    .build());
-            return;
-        }
+        boolean locked = clan.level() < unlockLevel;
 
         Optional<ClanPerk> current = clan.perk();
         long respecCost = plugin.getClanManager().perkRespecCost();
@@ -165,12 +161,18 @@ public final class ClanUpgradesMenu {
             ClanPerk perk = perks[i];
             boolean active = current.map(p -> p == perk).orElse(false);
 
-            ItemBuilder builder = ItemBuilder.of(iconFor(perk))
+            // Перки всегда видны и просматриваемы (лор/описание), но неактивны (серая иконка,
+            // клик ничего не делает - см. handleInventoryClick), если клан ниже требуемого уровня
+            // или это уже выбранный перк.
+            ItemBuilder builder = ItemBuilder.of(locked ? Material.GRAY_DYE : iconFor(perk))
                     .name(plugin.getMessages().component("gui.upgrades.perks." + perk.name().toLowerCase() + ".name", player))
                     .lore(plugin.getMessages().components("gui.upgrades.perks." + perk.name().toLowerCase() + ".lore",
                             perkLorePlaceholders(perk), player));
 
-            if (active) {
+            if (locked) {
+                builder.lore(plugin.getMessages().component("gui.upgrades.perks.locked.lore",
+                        Map.of("level", String.valueOf(unlockLevel)), player));
+            } else if (active) {
                 builder.lore(plugin.getMessages().component("gui.upgrades.perks.active", player)).glow(true);
             } else if (current.isPresent()) {
                 builder.lore(plugin.getMessages().component("gui.upgrades.perks.click-to-change",
