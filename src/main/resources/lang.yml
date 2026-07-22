@@ -223,7 +223,7 @@ gui:
       lore: "<gray>ЛКМ - открыть хранилище"
     trade-button:
       name: "<green>🤝 Торговля с кланами"
-      lore: "<gray>ЛКМ - узнать, как предложить обмен другому клану"
+      lore: "<gray>ЛКМ - выбрать клан и отправить запрос на обмен"
       hint: "<prefix><yellow>Используйте /clan trade <tag> [деньги], чтобы предложить обмен другому клану."
     locked-warning:
       name: "<red>Сундук заблокирован"
@@ -753,6 +753,8 @@ gui:
     pvp:
       name: "<gold>PvP в чанке"
       lore: "<gray>Текущий статус: <white><status>"
+      enabled: "<green>Включено"
+      disabled: "<red>Выключено"
       success: "<prefix><green>Настройки PvP для чанка обновлены."
     rename-private:
       name: "<gold>Переименовать чанк"

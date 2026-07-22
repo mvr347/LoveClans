@@ -139,7 +139,7 @@ public final class ClanListMenu implements InventoryHolder {
         }
 
         if (visibleClans.isEmpty()) {
-            inventory.setItem(31, ItemBuilder.of(Material.PAPER)
+            inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.clan-list.empty.name", player))
                     .lore(plugin.getMessages().component("gui.clan-list.empty.lore", player))
                     .build());
@@ -152,11 +152,11 @@ public final class ClanListMenu implements InventoryHolder {
                     .name(plugin.getMessages().component("gui.next-page", player)).build());
         }
 
-        inventory.setItem(SLOT_FILTER, ItemBuilder.of(Material.COMPARATOR)
+        inventory.setItem(SLOT_FILTER, ItemBuilder.head(ItemBuilder.HEAD_FILTER)
                 .name(plugin.getMessages().component("gui.clan-list.filter.name", player))
                 .lore(plugin.getMessages().component("gui.clan-list.filter." + filterMode.name().toLowerCase(Locale.ROOT), player))
                 .build());
-        inventory.setItem(SLOT_SORT, ItemBuilder.of(Material.HOPPER)
+        inventory.setItem(SLOT_SORT, ItemBuilder.head(ItemBuilder.HEAD_SORT)
                 .name(plugin.getMessages().component("gui.clan-list.sort.name", player))
                 .lore(plugin.getMessages().component("gui.clan-list.sort." + sortMode.name().toLowerCase(Locale.ROOT), player))
                 .build());

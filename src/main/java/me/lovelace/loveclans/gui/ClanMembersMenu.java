@@ -162,17 +162,6 @@ public final class ClanMembersMenu {
         } catch (IllegalArgumentException ignored) {}
     }
 
-    private void fillGlass(Inventory inventory) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            // Only fill empty slots, do not overwrite existing items
-            if (inventory.getItem(slot) == null) {
-                inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
-                        .name(Component.empty())
-                        .build());
-            }
-        }
-    }
-
     /**
      * Заполняет инвентарь стеклянными панелями, но пропускает диапазон [contentStart, contentEnd) —
      * там, где будут размещены головы игроков. Так стекло остаётся только в служебных

@@ -24,10 +24,12 @@ import java.util.UUID;
 public final class PlayerApplicationsMenu implements InventoryHolder {
     private static final String APPLICATION_TAG = "app:";
     private static final String INVITE_TAG = "invite:";
+    // Framed content grid — columns 0 and 8 of each row stay reserved for the border, matching
+    // every other grid menu in this plugin.
     private static final int[] CONTENT_SLOTS = {
-            9, 10, 11, 12, 13, 14, 15, 16, 17,
-            18, 19, 20, 21, 22, 23, 24, 25, 26,
-            27, 28, 29, 30, 31, 32, 33, 34, 35
+            10, 11, 12, 13, 14, 15, 16,
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34
     };
 
     private final LoveClansPlugin plugin;
@@ -65,7 +67,8 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
 
             if (entry instanceof ClanApplication application) {
                 plugin.getClanManager().getClanById(application.clanId()).ifPresent(targetClan -> {
-                    ItemBuilder builder = ItemBuilder.of(Material.PAPER)
+                    Material emblemMaterial = targetClan.emblem().name().endsWith("_BANNER") ? targetClan.emblem() : Material.WHITE_BANNER;
+                    ItemBuilder builder = ItemBuilder.of(emblemMaterial)
                             .name(plugin.getMessages().component("gui.player-applications.application-item.name",
                                     Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "name", targetClan.name()), player))
                             .lore(plugin.getMessages().component("gui.player-applications.application-item.lore", player));
