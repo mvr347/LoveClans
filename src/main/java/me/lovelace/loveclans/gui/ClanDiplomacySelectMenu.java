@@ -32,8 +32,9 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
             28, 29, 30, 31, 32, 33, 34,
             37, 38, 39, 40, 41, 42, 43
     };
-    private static final int SLOT_SORT = 47;
-    private static final int SLOT_FILTER = 48;
+    private static final int SLOT_INFO = 0;
+    private static final int SLOT_SORT = 2;
+    private static final int SLOT_FILTER = 3;
     private static final int SLOT_PREVIOUS = 36;
     private static final int SLOT_NEXT = 44;
     private static final int SLOT_BACK = 52;
@@ -119,6 +120,11 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
+
+        Material sourceEmblem = sourceClan.emblem().name().endsWith("_BANNER") ? sourceClan.emblem() : Material.WHITE_BANNER;
+        inventory.setItem(SLOT_INFO, ItemBuilder.of(sourceEmblem)
+                .name(plugin.getMessages().component("gui.diplomacy-select.title", Map.of("tag", sourceClan.tag(), "color", sourceClan.tagColor()), player))
+                .build());
 
         int start = currentPage * CONTENT_SLOTS.length;
         int end = Math.min(start + CONTENT_SLOTS.length, visibleClans.size());

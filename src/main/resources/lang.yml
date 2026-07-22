@@ -317,6 +317,7 @@ gui:
     title: "<gray>Клановый дом <color><tag>"
     no-permission: "<prefix><red>У вас нет прав для управления клановым домом."
     no-permission-lore: "<red>У вас нет прав для управления клановым домом."
+    no-house-lore: "<red>Сначала создайте клановый дом."
     war-blocked: "<prefix><red>Это действие недоступно во время войны."
     disband:
       name: "<red>Распустить клановый дом"

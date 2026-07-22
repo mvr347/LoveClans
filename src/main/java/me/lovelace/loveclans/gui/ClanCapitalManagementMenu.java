@@ -116,7 +116,9 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
             inventory.setItem(14, disbandItem);
         } else {
             // Столица (клан. дом) ещё не создана — показываем получение/установку баннера,
-            // как раньше делал ClanTerritoriesSelectionGui.
+            // как раньше делал ClanTerritoriesSelectionGui. Слоты 10/12/14 (перенос спавна/переезд/
+            // роспуск) неприменимы без дома — показываем их неактивными с причиной, а не голым
+            // стеклом, как остальные неактивные кнопки в этом меню.
             ItemStack bannerItem;
             if (isManagement) {
                 boolean hasBanner = plugin.getClanManager().getClanItemFactory().hasExistingBanner(player, "CAPITAL", clan.id());
@@ -138,6 +140,19 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                         .build();
             }
             inventory.setItem(13, bannerItem);
+
+            inventory.setItem(10, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.capital.move-home.name", player))
+                    .lore(plugin.getMessages().component("gui.capital.no-house-lore", player))
+                    .build());
+            inventory.setItem(12, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.capital.relocate-territory.name", player))
+                    .lore(plugin.getMessages().component("gui.capital.no-house-lore", player))
+                    .build());
+            inventory.setItem(14, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.capital.disband.name", player))
+                    .lore(plugin.getMessages().component("gui.capital.no-house-lore", player))
+                    .build());
         }
 
         // Slot 16: Остальные территории клана — всегда доступно для просмотра

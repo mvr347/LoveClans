@@ -37,10 +37,10 @@ public final class ClanListMenu implements InventoryHolder {
             37, 38, 39, 40, 41, 42, 43
     };
     private static final int SLOT_MY_CLAN = 0;
+    private static final int SLOT_FILTER = 2;
+    private static final int SLOT_SORT = 3;
     private static final int SLOT_PREVIOUS = 36;
     private static final int SLOT_NEXT = 44;
-    private static final int SLOT_FILTER = 45;
-    private static final int SLOT_SORT = 46;
     private static final int SLOT_MY_APPLICATIONS = 47;
     private static final int SLOT_CLOSE = 53;
 
