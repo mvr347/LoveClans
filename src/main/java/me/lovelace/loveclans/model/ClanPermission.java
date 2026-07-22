@@ -9,5 +9,6 @@ public enum ClanPermission {
     SETTINGS,
     DIPLOMACY,
     BANK,
-    CONTRACTS
+    CONTRACTS,
+    TRADE
 }

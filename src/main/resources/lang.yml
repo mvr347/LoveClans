@@ -15,6 +15,7 @@ general:
   players-only: "<prefix><red>Эту команду может использовать только игрок."
   player-not-found: "<prefix><red>Игрок <player> не найден."
   invalid-number: "<prefix><red>Указано некорректное число."
+  must-be-online: "<prefix><red>Для этого действия нужно быть онлайн."
   invalid-relation: "<prefix><red>Указан некорректный тип отношений."
   unknown-command: "<prefix><red>Неизвестная команда. Используйте /clan help."
   reloaded: "<prefix><green>Конфигурация и язык плагина успешно перезагружены."
@@ -68,21 +69,24 @@ contract:
     enchant-item: "<gray>Зачаровано предметов ({enchantment_type}): <white>{current_progress}</white>/{target_amount}"
 
 trade:
-  empty-offer: "<prefix><red>Нужно предложить хотя бы деньги или предмет."
   blocked: "<prefix><red>Торговля с этим кланом сейчас недоступна (эмбарго, блокада или конфликт)."
-  already-pending: "<prefix><red>У вас уже есть неотвеченное предложение этому клану."
-  cooldown-active: "<prefix><red>Подождите <yellow><seconds></yellow> сек. перед новой сделкой с этим кланом."
-  not-found: "<prefix><red>Сделка не найдена или уже завершена."
-  sent: "<prefix><green>Предложение обмена отправлено клану <color><tag></color>."
-  offer-received: "<prefix><gold>Клан <color><tag></color> предлагает обмен!"
-  open: "<green>[Открыть]"
-  received: "<prefix><green>Клан <color><tag></color> принял ваш обмен - товар зачислен в ваш сундук."
-  accepted: "<prefix><green>Клан <color><tag></color> принял ваше предложение обмена."
-  declined: "<prefix><yellow>Клан <color><tag></color> отклонил ваше предложение обмена."
-  cancelled: "<prefix><yellow>Предложение обмена клану <color><tag></color> отозвано."
-  accepted-confirm: "<prefix><green>Сделка принята."
-  declined-confirm: "<prefix><yellow>Сделка отклонена."
-  cancelled-confirm: "<prefix><yellow>Сделка отозвана."
+  already-pending: "<prefix><red>У вас уже есть неотвеченный запрос или активная сделка с этим кланом."
+  cooldown-active: "<prefix><red>Подождите <yellow><seconds></yellow> сек. перед новым запросом этому клану."
+  not-found: "<prefix><red>Запрос не найден или уже обработан."
+  sent: "<prefix><green>Запрос на обмен отправлен клану <color><tag></color>."
+  offer-received: "<prefix><gold>Клан <color><tag></color> хочет заключить сделку!"
+  declined: "<prefix><yellow>Клан <color><tag></color> отклонил ваш запрос на обмен."
+  cancelled: "<prefix><yellow>Запрос на обмен клану <color><tag></color> отозван."
+  declined-confirm: "<prefix><yellow>Запрос отклонён."
+  cancelled-confirm: "<prefix><yellow>Запрос отозван."
+  session:
+    needs-online-rep: "<prefix><red>В клане <color><tag></color> сейчас никто не в сети с правом на торговлю."
+    clan-gone: "<prefix><red>Один из кланов-участников сделки больше не существует."
+    insufficient-funds-a: "<prefix><red>У левой стороны недостаточно денег в сундуке клана для этой суммы."
+    insufficient-funds-b: "<prefix><red>У правой стороны недостаточно денег в сундуке клана для этой суммы."
+    failed: "<prefix><red>Не удалось завершить сделку - попробуйте ещё раз."
+    completed: "<prefix><green>Сделка с кланом <white><tag></white> завершена - товар зачислен в сундук клана."
+    cancelled: "<prefix><yellow>Сделка с кланом <white><tag></white> отменена, предметы возвращены."
 
 clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
@@ -145,7 +149,7 @@ clan:
     siege: "<gray>/clan siege <tag> <white>- устроить осаду клана, стоя на его территории"
     raid: "<gray>/clan raid <tag|loot <сумма>|items> <white>- устроить набег или вынести добычу"
     letters: "<gray>/clan letters <tag> <white>- переписка с кланом"
-    trade: "<gray>/clan trade <tag> [деньги] <white>- предложить обмен клану; /clan trade <accept|decline|cancel> <id>"
+    trade: "<gray>/clan trade <tag> <white>- отправить запрос на обмен клану; /clan trade <accept|decline|cancel> <id>"
 
 diplomacy:
   alliance-accepted: "<prefix><green>Вы заключили союз с кланом <color><tag></color>."
@@ -274,26 +278,23 @@ gui:
         lore: "<gray>ЛКМ - получить награду за выполненный обет"
       unavailable:
         name: "<dark_gray>Награда недоступна"
-  trade-offer:
-    title: "<gray>Обмен с кланом <color><tag>"
+  trade-session:
+    title: "<gray>Сделка: <white><tagA> <gray>⇄ <white><tagB>"
+    icon:
+      name: "<gold>⇄ Обмен"
+    side:
+      name: "<color><tag>"
+      ready: "<green>Готов к сделке"
+      not-ready: "<gray>Ещё собирает предложение..."
     money:
       name: "<gold>💰 Деньги в предложении"
-      lore: "<gray>Сумма: <yellow><amount>"
-    send:
-      name: "<green>Отправить предложение"
-      lore: "<gray>ЛКМ - отправить деньги и предметы выше клану-получателю"
-  trade-review:
-    title: "<gray>Обмен от клана <color><tag>"
-    no-items: "<dark_gray>Предметов не предложено"
-    money:
-      name: "<gold>💰 Деньги в предложении"
-      lore: "<gray>Сумма: <yellow><amount>"
-    accept:
-      name: "<green>Принять обмен"
-      lore: "<gray>ЛКМ - зачислить деньги и предметы в сундук вашего клана"
-    decline:
-      name: "<red>Отклонить обмен"
-      lore: "<gray>ЛКМ - вернуть деньги и предметы отправителю"
+      lore: "<gray>Сумма: <yellow><amount></yellow> <gray>| <green>ЛКМ <gray>- указать сумму в чат"
+      prompt: "<prefix><yellow>Введите сумму денег для этой стороны сделки в чат."
+    ready:
+      on: "<green>✔ Готово (нажмите, чтобы отменить)"
+      off: "<gray>Нажмите, когда предложение готово"
+    cancel:
+      name: "<red>Отменить сделку"
   territorries:
     item:
       coords: "<gray>Чанк: <white><cx>, <cz></white> (<x>, <z>)"
@@ -313,23 +314,24 @@ gui:
     accepted: "<prefix><green>Заявка игрока <yellow><player></yellow> принята."
     rejected: "<prefix><yellow>Заявка игрока <yellow><player></yellow> отклонена."
   capital:
-    title: "<gray>Управление столицей <color><tag>"
-    no-permission: "<prefix><red>У вас нет прав для управления столицей клана."
+    title: "<gray>Клановый дом <color><tag>"
+    no-permission: "<prefix><red>У вас нет прав для управления клановым домом."
+    no-permission-lore: "<red>У вас нет прав для управления клановым домом."
     war-blocked: "<prefix><red>Это действие недоступно во время войны."
     disband:
-      name: "<red>Распустить столицу"
-      lore: "<gray>Снести столицу клана и вернуть знамя."
-      action: "<prefix><yellow>Столица клана была распущена."
+      name: "<red>Распустить клановый дом"
+      lore: "<gray>Снести клановый дом и вернуть знамя."
+      action: "<prefix><yellow>Клановый дом был распущен."
     move-home:
       name: "<gold>Перенести клановый спавн"
       lore: "<gray>Перенести точку возрождения клана сюда."
       confirm-prompt: "<prefix><yellow>Вы уверены, что хотите перенести клановый спавн в текущее место?"
       action: "<prefix><green>Клановый спавн перенесён."
     relocate-territory:
-      name: "<gold>Перенести территорию столицы"
-      lore: "<gray>Снести приват столицы и получить знамя обратно для переноса."
-      confirm-prompt: "<prefix><yellow>Вы уверены? Приват столицы будет снесён, а знамя возвращено вам для переноса."
-      action: "<prefix><green>Территория столицы перенесена. Разместите знамя в новом месте."
+      name: "<gold>Перенести территорию дома"
+      lore: "<gray>Снести приват кланового дома и получить знамя обратно для переноса."
+      confirm-prompt: "<prefix><yellow>Вы уверены? Приват кланового дома будет снесён, а знамя возвращено вам для переноса."
+      action: "<prefix><green>Территория кланового дома перенесена. Разместите знамя в новом месте."
   clan-list:
     title: "<gold>Список кланов <white>- Страница <page>/<max>"
     empty:
@@ -465,7 +467,8 @@ gui:
       lore: "<gray>ЛКМ - открыть переписку с этим кланом"
     trade:
       name: "<green>🤝 Торговля"
-      lore: "<gray>ЛКМ - предложить обмен этому клану"
+      lore: "<gray>ЛКМ - отправить запрос на обмен этому клану"
+      no-permission-lore: "<red>У вас нет прав на торговлю с другими кланами"
       unavailable-name: "<dark_gray>🤝 Торговля недоступна"
     war:
       name: "<red>⚔ Объявить войну"
@@ -514,9 +517,6 @@ gui:
       peaceful: "<gray>Сейчас: <white>Без конфликта"
       closed: "<gray>Сейчас: <white>Закрытые"
       open: "<gray>Сейчас: <white>Открытые"
-    refresh:
-      name: "<green>Обновить"
-      lore: "<gray>ЛКМ - обновить список"
   info:
     title: "<color><name> <white>[<tag>]"
     name: "<color><name> <white>[<tag>]"
@@ -548,9 +548,9 @@ gui:
       name: "<gold>Участники"
       lore: "<gray>Список участников клана."
     territories:
-      name: "<gold>Территории"
-      lore: "<gray>Управление территориями клана."
-      no-permission-lore: "<red>Нет прав на управление — откроется список для телепортации."
+      name: "<gold>Клановый дом"
+      lore: "<gray>Управление клановым домом и территориями клана."
+      no-permission-lore: "<red>Нет прав на управление — откроется в режиме просмотра/телепортации."
     upgrades:
       name: "<gold>Улучшения"
       lore: "<gray>Улучшить характеристики клана."
@@ -606,7 +606,7 @@ gui:
       contribution: "<gray>Вклад: <white><amount>"
       hint: "<gray>ЛКМ - изменить ранг, ПКМ - исключить"
   other-territories:
-    title: "<gray>Территории других кланов <white><clan>"
+    title: "<gray>Остальные территории клана <white><clan>"
     item:
       name: "<gold>Чанк <white><x>, <z>"
       world: "<gray>Мир: <white><world>"
@@ -640,6 +640,7 @@ gui:
       diplomacy: "<gold>Дипломатия"
       bank: "<gold>Управление сундуком клана"
       contracts: "<gold>Управление обетами"
+      trade: "<gold>Торговля с другими кланами"
   role-settings:
     title: "<gold>Управление рангами"
     rank:
@@ -729,22 +730,23 @@ gui:
       name: "<gold>Знамя захвата"
       lore: "<gray>Используйте знамя, чтобы захватить территорию."
     capital:
-      name: "<gold>Столица клана"
-      no-permission: "<prefix><red>У вас нет прав для управления столицей."
-      no-permission-management: "<prefix><red>У вас нет прав для управления столицей клана."
-      not-created: "<gray>Столица ещё не создана."
-      get-banner: "<gold>Получить знамя столицы"
-      get-banner-lore: "<gray>Нажмите, чтобы получить знамя для установки столицы."
-      place-it: "<gray>Установите знамя, чтобы создать столицу клана."
-      already-have-banner: "<prefix><red>У вас уже есть знамя столицы в инвентаре."
+      name: "<gold>Клановый дом"
+      no-permission: "<prefix><red>У вас нет прав для управления клановым домом."
+      no-permission-management: "<prefix><red>У вас нет прав для управления клановым домом."
+      not-created: "<gray>Клановый дом ещё не создан."
+      get-banner: "<gold>Получить знамя кланового дома"
+      get-banner-lore: "<gray>Нажмите, чтобы получить знамя для установки кланового дома."
+      place-it: "<gray>Установите знамя, чтобы создать клановый дом."
+      already-have-banner: "<prefix><red>У вас уже есть знамя кланового дома в инвентаре."
+      already-have-banner-item: "<red>Знамя уже получено"
       info:
         coords: "<gray>Координаты: <white><x>, <y>, <z>"
-        created: "<gray>Создана: <white><date>"
+        created: "<gray>Создан: <white><date>"
     other:
-      name: "<gold>Территории других кланов"
-      info: "<gray>Просмотр территорий, захваченных другими кланами."
+      name: "<gold>Остальные территории"
+      info: "<gray>Просмотр остальных (не главных) территорий вашего клана."
       none: "<gray>Нет территорий"
-      none-lore: "<gray>У других кланов нет захваченных территорий."
+      none-lore: "<gray>У клана нет других захваченных территорий."
       no-territories: "<prefix><gray>У этого клана нет территорий."
   territory-settings:
     title: "<gray>Настройки чанка <white><chunk>"

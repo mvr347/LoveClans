@@ -18,8 +18,8 @@ import java.util.UUID;
 
 /**
  * "Дипломатия и Торговля" (§6.1) - the clan browser that fans out into the per-clan relations
- * menu (left click, §6.2 - {@link ClanDiplomacyMenu}) or straight into a trade offer (right
- * click, §4.2/§6.3 - {@link ClanTradeOfferMenu}). Sort/filter are spec'd as mouse-wheel cycles,
+ * menu (left click, §6.2 - {@link ClanDiplomacyMenu}) or straight into a trade invite (right
+ * click, §4.2/§6.3 - see ClanTradeManager#proposeTradeAsync). Sort/filter are spec'd as mouse-wheel cycles,
  * which vanilla container GUIs can't actually capture outside the hotbar - left-click cycles
  * forward here instead, the same adaptation already used elsewhere in this plugin for stateful
  * toggle buttons.
@@ -34,7 +34,6 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
     };
     private static final int SLOT_SORT = 47;
     private static final int SLOT_FILTER = 48;
-    private static final int SLOT_REFRESH = 49;
     private static final int SLOT_PREVIOUS = 36;
     private static final int SLOT_NEXT = 44;
     private static final int SLOT_BACK = 52;
@@ -140,7 +139,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
         }
 
         if (visibleClans.isEmpty()) {
-            inventory.setItem(31, ItemBuilder.of(Material.PAPER)
+            inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.diplomacy-select.empty", player))
                     .build());
         }
@@ -154,17 +153,13 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
                     .name(plugin.getMessages().component("gui.next-page", player)).build());
         }
 
-        inventory.setItem(SLOT_SORT, ItemBuilder.of(Material.HOPPER)
+        inventory.setItem(SLOT_SORT, ItemBuilder.head(ItemBuilder.HEAD_SORT)
                 .name(plugin.getMessages().component("gui.diplomacy-select.sort.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy-select.sort." + sortMode.name().toLowerCase(java.util.Locale.ROOT), player))
                 .build());
-        inventory.setItem(SLOT_FILTER, ItemBuilder.of(Material.COMPARATOR)
+        inventory.setItem(SLOT_FILTER, ItemBuilder.head(ItemBuilder.HEAD_FILTER)
                 .name(plugin.getMessages().component("gui.diplomacy-select.filter.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy-select.filter." + filterMode.name().toLowerCase(java.util.Locale.ROOT), player))
-                .build());
-        inventory.setItem(SLOT_REFRESH, ItemBuilder.of(Material.SUNFLOWER)
-                .name(plugin.getMessages().component("gui.diplomacy-select.refresh.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy-select.refresh.lore", player))
                 .build());
 
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
@@ -197,11 +192,6 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
             open();
             return;
         }
-        if (slot == SLOT_REFRESH) {
-            open();
-            return;
-        }
-
         int maxPage = Math.max(0, (visibleClans.size() - 1) / CONTENT_SLOTS.length);
         if (slot == SLOT_PREVIOUS && currentPage > 0) { currentPage--; open(); return; }
         if (slot == SLOT_NEXT && currentPage < maxPage) { currentPage++; open(); return; }
@@ -215,12 +205,17 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
             UUID targetId = UUID.fromString(rawId);
             plugin.getClanManager().getClanById(targetId).ifPresent(targetClan -> {
                 if (rightClick) {
+                    if (!sourceClan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.TRADE)) {
+                        plugin.getMessages().send(player, "general.no-permission");
+                        return;
+                    }
                     if (plugin.getClanTradeManager().tradeBlocked(sourceClan.id(), targetClan.id())) {
                         plugin.getMessages().send(player, "trade.blocked");
                         return;
                     }
                     player.closeInventory();
-                    ClanTradeOfferMenu.open(plugin, sourceClan, targetClan, player, 0L);
+                    plugin.getClanTradeManager().proposeTradeAsync(sourceClan, player.getUniqueId(), targetClan)
+                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
                 } else {
                     plugin.getGuiManager().openDiplomacy(player, sourceClan, targetClan);
                 }

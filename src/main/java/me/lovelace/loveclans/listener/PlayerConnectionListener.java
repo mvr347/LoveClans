@@ -33,6 +33,7 @@ public final class PlayerConnectionListener implements Listener {
         plugin.getChatInputListener(playerId);
 
         plugin.getGuiManager().clearPlayerCache(playerId);
+        plugin.getClanTradeSessionManager().handlePlayerQuit(player);
 
         // Deliberately not gated on the player still being in a clan: they may have been
         // kicked/left while carrying a captured banner (see CombatListener.onDeath for the

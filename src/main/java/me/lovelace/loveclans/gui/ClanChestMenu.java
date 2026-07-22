@@ -21,8 +21,8 @@ import java.util.Map;
  * Real, drag-and-drop clan item storage (§2.3 "Предметы"). Unlocked slots (the first
  * {@code chestRows()*9}) are live storage; further rows show a plain locked icon and can't hold
  * items - unlocking them is done via the "Сундук" upgrade (see ClanUpgradesMenu), not from here.
- * Self-registers as a listener scoped to its own inventory instance (mirrors
- * {@link ClanTerritoriesSelectionGui}), unregistering and persisting contents on close.
+ * Self-registers as a listener scoped to its own inventory instance, unregistering and
+ * persisting contents on close.
  */
 public final class ClanChestMenu implements Listener {
 

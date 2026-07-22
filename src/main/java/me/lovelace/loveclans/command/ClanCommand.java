@@ -670,7 +670,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.not-in-clan");
             return;
         }
-        plugin.getGuiManager().openClanTerritoriesMenu(player, optionalClan.get());
+        plugin.getGuiManager().openClanCapitalManagementMenu(player, optionalClan.get());
     }
 
     private void openUpgrades(Player player) {
@@ -717,7 +717,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Clan sourceClan = sourceClanOpt.get();
         String sub = args[1].toLowerCase(Locale.ROOT);
 
-        if (sub.equals("review") || sub.equals("accept") || sub.equals("decline") || sub.equals("cancel")) {
+        if (sub.equals("accept") || sub.equals("decline") || sub.equals("cancel")) {
             if (args.length < 3) {
                 plugin.getMessages().send(player, "clan.help.trade");
                 return;
@@ -730,9 +730,9 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 return;
             }
             switch (sub) {
-                case "review" -> plugin.getGuiManager().openTradeReview(player, tradeId);
+                // Accepting doesn't move anything by itself - it opens the live, two-sided
+                // negotiation window (see ClanTradeSessionMenu), which sends its own messages.
                 case "accept" -> plugin.getClanTradeManager().acceptTradeAsync(tradeId, sourceClan, player.getUniqueId())
-                        .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(player, "trade.accepted-confirm")))
                         .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
                 case "decline" -> plugin.getClanTradeManager().declineTradeAsync(tradeId, sourceClan, player.getUniqueId())
                         .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(player, "trade.declined-confirm")))
@@ -748,20 +748,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         if (targetClan.id().equals(sourceClan.id())) {
             throw new IllegalStateException("general.error");
         }
-        long money = 0;
-        if (args.length >= 3) {
-            try {
-                money = Long.parseLong(args[2]);
-            } catch (NumberFormatException exception) {
-                plugin.getMessages().send(player, "general.invalid-number");
-                return;
-            }
-            if (money < 0) {
-                plugin.getMessages().send(player, "general.invalid-number");
-                return;
-            }
-        }
-        ClanTradeOfferMenu.open(plugin, sourceClan, targetClan, player, money);
+        plugin.getClanTradeManager().proposeTradeAsync(sourceClan, player.getUniqueId(), targetClan)
+                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
     }
 
     private void openSpirit(Player player) {

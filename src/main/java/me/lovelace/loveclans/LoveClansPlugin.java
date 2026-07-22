@@ -22,6 +22,7 @@ import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.manager.ContractManager;
 import me.lovelace.loveclans.manager.ClanTradeManager;
+import me.lovelace.loveclans.manager.ClanTradeSessionManager;
 import me.lovelace.loveclans.manager.DiplomacyManager;
 import me.lovelace.loveclans.manager.PerkManager;
 import me.lovelace.loveclans.manager.RaidManager;
@@ -78,6 +79,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private ContractManager contractManager;
     private DiplomacyManager diplomacyManager;
     private ClanTradeManager clanTradeManager;
+    private ClanTradeSessionManager clanTradeSessionManager;
     private CitizensIntegration citizensIntegration;
     private ClanProtectionListener clanProtectionListener;
     private BukkitTask heartbeatTask;
@@ -113,6 +115,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         contractManager = new ContractManager(this, storage);
         diplomacyManager = new DiplomacyManager(this, storage);
         clanTradeManager = new ClanTradeManager(this, storage);
+        clanTradeSessionManager = new ClanTradeSessionManager(this);
 
         clanManager.loadAsync().thenCompose(v -> diplomacyManager.loadAsync()).thenRunAsync(() -> {
             runSync(() -> {
@@ -247,11 +250,18 @@ public final class LoveClansPlugin extends JavaPlugin {
     public void onDisable() {
         // Drop the cross-plugin callback so LoveTrades doesn't keep calling into a disabled
         // plugin's ClanManager/WarManager if LoveClans is reloaded without a full server restart.
-        if (Bukkit.getPluginManager().isPluginEnabled("LoveTrades")) {
-            org.bukkit.plugin.Plugin loveTradesPlugin = Bukkit.getPluginManager().getPlugin("LoveTrades");
-            if (loveTradesPlugin instanceof me.lovelace.loveTrades.LoveTrades loveTrades) {
-                loveTrades.setClanIntegration(null);
+        // LoveTrades#setClanIntegration(null) is known to NPE internally on some LoveTrades builds
+        // (it dereferences the argument unconditionally) - wrapped so that a bug in a third-party
+        // plugin can never abort the rest of our own shutdown (task cancellation, DB close, etc.).
+        try {
+            if (Bukkit.getPluginManager().isPluginEnabled("LoveTrades")) {
+                org.bukkit.plugin.Plugin loveTradesPlugin = Bukkit.getPluginManager().getPlugin("LoveTrades");
+                if (loveTradesPlugin instanceof me.lovelace.loveTrades.LoveTrades loveTrades) {
+                    loveTrades.setClanIntegration(null);
+                }
             }
+        } catch (Exception e) {
+            getLogger().warning("Не удалось сбросить интеграцию LoveTrades при отключении: " + e.getMessage());
         }
         if (heartbeatTask != null) {
             heartbeatTask.cancel();
@@ -352,6 +362,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public ClanTradeManager getClanTradeManager() {
         return clanTradeManager;
+    }
+
+    public ClanTradeSessionManager getClanTradeSessionManager() {
+        return clanTradeSessionManager;
     }
 
     public CitizensIntegration getCitizensIntegration() {

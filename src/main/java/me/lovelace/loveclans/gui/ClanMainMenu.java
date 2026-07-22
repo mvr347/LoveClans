@@ -75,18 +75,18 @@ public final class ClanMainMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component(canManageDiplomacy ? "gui.main.diplomacy.lore" : "gui.main.diplomacy.no-permission-lore", player));
         inventory.setItem(21, diplomacyItem.build());
 
-        boolean territoriesInactive = atWar || !canManageTerritories;
-        ItemBuilder territoriesItem = territoriesInactive
+        boolean clanHouseInactive = atWar || !canManageTerritories;
+        ItemBuilder clanHouseItem = clanHouseInactive
                 ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                : ItemBuilder.head(ItemBuilder.HEAD_TERRITORIES);
-        territoriesItem.name(plugin.getMessages().component("gui.main.territories.name", player))
+                : ItemBuilder.head(ItemBuilder.HEAD_CAPITAL);
+        clanHouseItem.name(plugin.getMessages().component("gui.main.territories.name", player))
                 .lore(plugin.getMessages().component("gui.main.territories.lore", player));
         if (atWar) {
-            territoriesItem.lore(plugin.getMessages().component("gui.capital.war-blocked", player));
+            clanHouseItem.lore(plugin.getMessages().component("gui.capital.war-blocked", player));
         } else if (!canManageTerritories) {
-            territoriesItem.lore(plugin.getMessages().component("gui.main.territories.no-permission-lore", player));
+            clanHouseItem.lore(plugin.getMessages().component("gui.main.territories.no-permission-lore", player));
         }
-        inventory.setItem(23, territoriesItem.build());
+        inventory.setItem(23, clanHouseItem.build());
 
         boolean upgradesInactive = atWar || !canUpgrade;
         ItemBuilder upgradesItem = upgradesInactive
@@ -155,12 +155,12 @@ public final class ClanMainMenu implements InventoryHolder {
                 }
             }
             case 23 -> {
-                // Территории — особый случай: даже без права CLAIM меню всё равно открывается,
-                // но в режиме просмотра/телепортации (см. ClanTerritoriesSelectionGui.isManagement).
+                // Клановый дом — особый случай: даже без права CLAIM меню всё равно открывается,
+                // но в режиме просмотра/телепортации (см. ClanCapitalManagementMenu.isManagement).
                 if (plugin.getClanManager().inAnyConflict(clan.id())) {
                     plugin.getMessages().send(clicker, "gui.capital.war-blocked");
                 } else {
-                    plugin.getGuiManager().openClanTerritoriesMenu(clicker, clan);
+                    plugin.getGuiManager().openClanCapitalManagementMenu(clicker, clan);
                 }
             }
             case 25 -> {
