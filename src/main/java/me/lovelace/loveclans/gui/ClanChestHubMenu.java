@@ -17,7 +17,7 @@ import java.util.Map;
  * Физическое хранилище (ClanChestMenu) и деньги (ClanChestMoneyMenu) — отдельные подменю.
  */
 public final class ClanChestHubMenu {
-    private static final int INFO_SLOT = 4;
+    private static final int INFO_SLOT = 0;
     private static final int MONEY_SLOT = 11;
     private static final int ITEMS_SLOT = 15;
     private static final int TRADE_SLOT = 13;
@@ -31,12 +31,12 @@ public final class ClanChestHubMenu {
     }
 
     public void open(Player player, Clan clan) {
-        Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.CHEST_HUB, clan.id()), 27,
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.CHEST_HUB, clan.id());
+        Inventory inventory = Bukkit.createInventory(holder, 27,
                 plugin.getMessages().component("gui.chest-title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
+        holder.setInventory(inventory);
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame27(inventory);
 
         boolean taxApplicable = plugin.getClanManager().isTaxApplicable(clan);
         boolean locked = clan.isChestTaxLocked();

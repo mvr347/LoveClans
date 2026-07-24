@@ -55,11 +55,13 @@ public final class ClanColorPickerMenu {
     }
 
     public void open(Player player, Clan clan) {
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.COLOR_PICKER, clan.id());
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.COLOR_PICKER, clan.id()), 45,
+                holder, 45,
                 plugin.getMessages().component("gui.color-picker.title", player));
+        holder.setInventory(inventory);
 
-        fillGlass(inventory);
+        fillFrame(inventory);
 
         List<ColorOption> options = loadOptions();
         for (int i = 0; i < Math.min(options.size(), COLOR_SLOTS.length); i++) {
@@ -118,11 +120,13 @@ public final class ClanColorPickerMenu {
         return list;
     }
 
-    private void fillGlass(Inventory inventory) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
-                    .name(Component.empty())
-                    .build());
+    /** Rule 8: only header (0-8) and footer (36-44) are pure frame — rows 9-35 host the color grid. */
+    private void fillFrame(Inventory inventory) {
+        for (int slot = 0; slot <= 8; slot++) {
+            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
+        }
+        for (int slot = 36; slot <= 44; slot++) {
+            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
     }
 }

@@ -8,7 +8,6 @@ import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -19,19 +18,23 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Compact contract picker (§1.4) - one weekly slot and two daily slots. A clan can run one active
- * weekly and one active daily contract at the same time (§1.1), each with its own claim button, so
- * unlike the original single-contract layout this menu tracks two independent progress states.
+ * Compact contract picker (§1.4) - one weekly slot and one daily slot, each paired with its own
+ * claim button directly next to it. A clan can run one active weekly and one active daily contract
+ * at the same time (§1.1). gui_gen 27-slot standard: slot 0 is the thematic quest-board head (this
+ * screen isn't a player profile), row 1-8 and 18-24 are frame, and the four content buttons live
+ * packed together in 9-17 with weekly/claim-weekly/daily/claim-daily as adjacent pairs - each claim
+ * button sits right next to the slot whose progress it claims, so there's no column mismatch between
+ * what's being tracked and what claims it (the old 36-slot layout put claim buttons on a different
+ * row than the contract they belonged to).
  */
 public final class ClanContractsMenu {
+    private static final int SLOT_INFO = 0;
     private static final int SLOT_WEEKLY = 11;
-    private static final int SLOT_DAILY_1 = 13;
-    private static final int SLOT_DAILY_2 = 15;
-    private static final int SLOT_INFO = 4;
-    private static final int SLOT_CLAIM_WEEKLY = 20;
-    private static final int SLOT_CLAIM_DAILY = 24;
-    private static final int SLOT_BACK = 34;
-    private static final int SLOT_CLOSE = 35;
+    private static final int SLOT_CLAIM_WEEKLY = 12;
+    private static final int SLOT_DAILY = 13;
+    private static final int SLOT_DAILY_2_OR_CLAIM = 14;
+    private static final int SLOT_BACK = 25;
+    private static final int SLOT_CLOSE = 26;
 
     private final LoveClansPlugin plugin;
 
@@ -40,27 +43,32 @@ public final class ClanContractsMenu {
     }
 
     public void open(Player player, Clan clan) {
-        Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.CONTRACTS, clan.id()), 36,
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.CONTRACTS, clan.id());
+        Inventory inventory = Bukkit.createInventory(holder, 27,
                 plugin.getMessages().component("gui.contracts-title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
+        holder.setInventory(inventory);
 
-        fillGlass(inventory);
+        GuiFrames.fillFrame27(inventory);
 
         Optional<ClanQuestProgress> weekly = plugin.getContractManager().activeWeekly(clan.id());
         Optional<ClanQuestProgress> daily = plugin.getContractManager().activeDaily(clan.id());
 
         inventory.setItem(SLOT_INFO, buildInfoItem(weekly, daily, player));
         inventory.setItem(SLOT_WEEKLY, buildWeeklySlot(weekly, player));
+        inventory.setItem(SLOT_CLAIM_WEEKLY, buildClaimItem(weekly, player));
 
         List<ClanContractDefinition> rotation = plugin.getContractManager().dailyRotation();
         if (daily.isPresent()) {
-            inventory.setItem(SLOT_DAILY_1, buildDailyProgressItem(daily.get(), player));
+            inventory.setItem(SLOT_DAILY, buildDailyProgressItem(daily.get(), player));
+            inventory.setItem(SLOT_DAILY_2_OR_CLAIM, buildClaimItem(daily, player));
         } else {
-            inventory.setItem(SLOT_DAILY_1, rotation.size() > 0 ? buildDailyPickItem(rotation.get(0), player) : null);
-            inventory.setItem(SLOT_DAILY_2, rotation.size() > 1 ? buildDailyPickItem(rotation.get(1), player) : null);
+            if (!rotation.isEmpty()) {
+                inventory.setItem(SLOT_DAILY, buildDailyPickItem(rotation.get(0), player));
+            }
+            if (rotation.size() > 1) {
+                inventory.setItem(SLOT_DAILY_2_OR_CLAIM, buildDailyPickItem(rotation.get(1), player));
+            }
         }
-
-        inventory.setItem(SLOT_CLAIM_WEEKLY, buildClaimItem(weekly, player));
-        inventory.setItem(SLOT_CLAIM_DAILY, buildClaimItem(daily, player));
 
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
@@ -169,12 +177,6 @@ public final class ClanContractsMenu {
                     .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
             return;
         }
-        if (slot == SLOT_CLAIM_DAILY) {
-            plugin.getContractManager().claimDailyAsync(clan, player.getUniqueId())
-                    .thenRun(() -> plugin.runSync(() -> open(player, clan)))
-                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
-            return;
-        }
         if (slot == SLOT_WEEKLY && plugin.getContractManager().activeWeekly(clan.id()).isEmpty()) {
             plugin.getContractManager().selectWeeklyAsync(clan, player.getUniqueId())
                     .thenAccept(progress -> plugin.runSync(() -> {
@@ -184,9 +186,19 @@ public final class ClanContractsMenu {
                     .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
             return;
         }
-        if ((slot == SLOT_DAILY_1 || slot == SLOT_DAILY_2) && plugin.getContractManager().activeDaily(clan.id()).isEmpty()) {
+
+        boolean dailyActive = plugin.getContractManager().activeDaily(clan.id()).isPresent();
+
+        if (slot == SLOT_DAILY_2_OR_CLAIM && dailyActive) {
+            plugin.getContractManager().claimDailyAsync(clan, player.getUniqueId())
+                    .thenRun(() -> plugin.runSync(() -> open(player, clan)))
+                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+            return;
+        }
+
+        if ((slot == SLOT_DAILY || slot == SLOT_DAILY_2_OR_CLAIM) && !dailyActive) {
             List<ClanContractDefinition> rotation = plugin.getContractManager().dailyRotation();
-            int index = slot == SLOT_DAILY_1 ? 0 : 1;
+            int index = slot == SLOT_DAILY ? 0 : 1;
             if (index >= rotation.size()) return;
             plugin.getContractManager().selectDailyAsync(clan, player.getUniqueId(), rotation.get(index).id())
                     .thenAccept(progress -> plugin.runSync(() -> {
@@ -194,14 +206,6 @@ public final class ClanContractsMenu {
                         open(player, clan);
                     }))
                     .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
-        }
-    }
-
-    private void fillGlass(Inventory inventory) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
-                    .name(Component.empty())
-                    .build());
         }
     }
 }

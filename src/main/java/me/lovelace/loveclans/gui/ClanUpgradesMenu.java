@@ -42,11 +42,13 @@ public final class ClanUpgradesMenu {
     }
 
     public void open(Player player, Clan clan) {
-        Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.UPGRADES, clan.id()), 45,
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.UPGRADES, clan.id());
+        Inventory inventory = Bukkit.createInventory(holder, 45,
                 plugin.getMessages().component("gui.upgrades-title",
                         Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
+        holder.setInventory(inventory);
 
-        fillGlass(inventory);
+        fillFrame(inventory);
 
         long currentExp = clan.experience();
         long expForCurrent = plugin.getClanManager().experienceForLevel(clan.level());
@@ -55,7 +57,8 @@ public final class ClanUpgradesMenu {
         long progress = currentExp - expForCurrent;
         double percent = required > 0 ? (double) progress / required * 100 : 100.0;
 
-        inventory.setItem(4, ItemBuilder.head(ItemBuilder.HEAD_LEVEL_INFO)
+        // Слот 0: голова "уровень клана" — тематический профиль этого экрана (не игрока).
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_LEVEL_INFO)
                 .name(plugin.getMessages().component("gui.upgrades.level-info.name", player))
                 .lore(plugin.getMessages().components("gui.upgrades.level-info.lore", Map.of(
                         "level", String.valueOf(clan.level()),
@@ -203,11 +206,14 @@ public final class ClanUpgradesMenu {
         };
     }
 
-    private void fillGlass(Inventory inventory) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
-                    .name(Component.empty())
-                    .build());
+    /** Rule 8: rows 9-17 (perks) and 18-26 (upgrades) host content — only header (1-8, slot 0
+     *  is the level head) and footer (36-44) are pure frame. */
+    private void fillFrame(Inventory inventory) {
+        for (int slot = 1; slot <= 8; slot++) {
+            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
+        }
+        for (int slot = 36; slot <= 44; slot++) {
+            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
     }
 }

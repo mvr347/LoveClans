@@ -52,8 +52,10 @@ public final class ClanLettersMenu {
     }
 
     private void render(Player player, Clan sourceClan, Clan targetClan, List<ClanLetter> letters) {
-        Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.LETTERS, targetClan.id()), 54,
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.LETTERS, targetClan.id());
+        Inventory inventory = Bukkit.createInventory(holder, 54,
                 plugin.getMessages().component("gui.letters.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player));
+        holder.setInventory(inventory);
 
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());

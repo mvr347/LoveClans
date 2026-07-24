@@ -57,11 +57,13 @@ public final class ClanApplicationsMenu {
         int page = Math.max(0, Math.min(requestedPage, maxPage));
         pageByPlayer.put(player.getUniqueId(), page);
 
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.APPLICATIONS, clan.id());
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.APPLICATIONS, clan.id()),
+                holder,
                 invSize,
                 plugin.getMessages().component("gui.applications.title",
                         Map.of("clan", clan.name(), "color", clan.tagColor()), player));
+        holder.setInventory(inventory);
 
         fillGlass(inventory);
 

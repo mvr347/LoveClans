@@ -24,16 +24,28 @@ public final class ClanRankPermissionsMenu {
         this.plugin = plugin;
     }
 
+    // gui_gen 54-слотовое: 10 прав клана не влезают в 9 слотов рабочей зоны 27-слотового
+    // (9-17), поэтому меню переведено на 54-слотовое. Все 10 иконок пакуются подряд в
+    // рабочей зоне (19-25, затем 28-30), без стекла между ними и без стекла на неиспользуемых
+    // стенках/хвосте зоны (правило 8).
+    private static final int[] CONTENT_SLOTS = {19, 20, 21, 22, 23, 24, 25, 28, 29, 30};
+
     public void open(Player player, Clan clan, ClanRank rank) {
         openRanks.put(player.getUniqueId(), rank);
 
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.RANK_PERMISSIONS, clan.id());
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.RANK_PERMISSIONS, clan.id()), 27,
+                holder, 54,
                 plugin.getMessages().component("gui.rank-permissions.title", Map.of("rank", rank.displayName()), player));
+        holder.setInventory(inventory);
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame54(inventory);
+        // Слот 0: тематическая голова ранга (не профиль игрока — это экран настроек ранга).
+        inventory.setItem(0, ItemBuilder.head(rankHeadFor(rank))
+                .name(plugin.getMessages().component("gui.rank-permissions.title", Map.of("rank", rank.displayName()), player))
+                .build());
+        // Слоты 2-7: у этого экрана нет вкладок/разделов — остаются стеклом (правило 8).
+        for (int slot = 2; slot <= 7; slot++) inventory.setItem(slot, GuiFrames.glassPane());
 
         ClanPermission[] permissions = ClanPermission.values();
         for (int i = 0; i < permissions.length; i++) {
@@ -60,25 +72,34 @@ public final class ClanRankPermissionsMenu {
             if (enabled) builder.glow(true);
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, permission.name()));
-            inventory.setItem(10 + i, builder.build());
+            inventory.setItem(CONTENT_SLOTS[i], builder.build());
         }
 
-        inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(52, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
-        inventory.setItem(26, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
     }
 
+    private String rankHeadFor(ClanRank rank) {
+        return switch (rank) {
+            case RECRUIT -> ItemBuilder.HEAD_RANK_RECRUIT;
+            case MEMBER -> ItemBuilder.HEAD_RANK_CLANSMAN;
+            case GUARDIAN -> ItemBuilder.HEAD_RANK_GUARDIAN;
+            default -> ItemBuilder.HEAD_SETTINGS;
+        };
+    }
+
     public void handleInventoryClick(Player player, Clan clan, int slot, org.bukkit.inventory.ItemStack clickedItem) {
-        if (slot == 26) {
+        if (slot == 53) {
             player.closeInventory();
             return;
         }
-        if (slot == 25) {
+        if (slot == 52) {
             plugin.getGuiManager().openRoleSettings(player, clan);
             return;
         }
