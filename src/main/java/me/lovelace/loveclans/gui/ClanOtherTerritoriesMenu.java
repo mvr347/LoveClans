@@ -25,10 +25,9 @@ public class ClanOtherTerritoriesMenu implements InventoryHolder {
     private Inventory inventory;
     private int page = 0;
     private final List<ClanTerritory> otherTerritories;
-    private static final int ITEMS_PER_PAGE = 28; // 4 rows of 7 slots (excluding borders)
-    // Framed content grid — columns 0 and 8 of each row stay reserved for the border/pagination.
+    private static final int ITEMS_PER_PAGE = 21; // 3 rows of 7 slots — gui_gen 54-slot working zone (18-44)
+    // gui_gen 54-slot working zone is 18-44 only (three rows) — row 1 (9-17) is always frame.
     private static final int[] CONTENT_SLOTS = {
-            10, 11, 12, 13, 14, 15, 16,
             19, 20, 21, 22, 23, 24, 25,
             28, 29, 30, 31, 32, 33, 34,
             37, 38, 39, 40, 41, 42, 43
@@ -47,10 +46,7 @@ public class ClanOtherTerritoriesMenu implements InventoryHolder {
     public void open() {
         this.inventory = Bukkit.createInventory(this, 54, plugin.getMessages().component("gui.other-territories.title", Map.of("clan", clan.name()), player));
 
-        // Fill background
-        for (int i = 0; i < 54; i++) {
-            inventory.setItem(i, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame54(inventory);
 
         // Display territories for current page
         int start = page * ITEMS_PER_PAGE;

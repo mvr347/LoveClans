@@ -68,7 +68,13 @@ public final class ClanInfoMenu implements InventoryHolder {
                 plugin.getMessages().component("gui.info.title",
                         Map.of("tag", clan.tag(), "color", clan.tagColor(), "name", clan.name()), player));
 
-        for (int slot = 0; slot < size; slot++) {
+        // Rule 8: only the header row (0-8, holds leader head/info/apply as control-row content)
+        // and the footer row (last 9 slots) are pure frame — the member grid and pagination row
+        // in between are working zone and must stay glass-free where unused.
+        for (int slot = 0; slot <= 8; slot++) {
+            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
+        }
+        for (int slot = size - 9; slot < size; slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
 

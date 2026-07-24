@@ -217,18 +217,26 @@ public final class ClanApplicationsMenu {
         pageByPlayer.remove(playerId);
     }
 
+    // 36-slot would reserve the same single 7-item content row as 27-slot once row 1 (9-17) is
+    // correctly treated as frame (rule 4.1) instead of content, so it offers no extra capacity -
+    // skipped in favor of jumping straight to 45 (14 items across two working-zone rows).
     private static int computeSize(int totalItems) {
         if (totalItems <= 7) return 27;
-        if (totalItems <= 14) return 36;
-        if (totalItems <= 21) return 45;
+        if (totalItems <= 14) return 45;
         return 54;
     }
 
+    /**
+     * gui_gen: in a 27-slot menu, 9-17 IS the content zone (rule 4). In anything bigger, 9-17 is
+     * always frame (rule 4.1) and the working zone starts at 18 - so content rows start at slot 9
+     * only for the exact 27-slot case, and at slot 18 for every larger size this menu scales into.
+     */
     private static int[] computeContentSlots(int invSize) {
         List<Integer> slots = new ArrayList<>();
-        int contentRowCount = (invSize / 9) - 2;
+        int contentRowCount = invSize == 27 ? 1 : (invSize / 9) - 3;
+        int firstRowStart = invSize == 27 ? 9 : 18;
         for (int row = 0; row < contentRowCount; row++) {
-            int rowStart = 9 + row * 9;
+            int rowStart = firstRowStart + row * 9;
             for (int col = 1; col <= 7; col++) {
                 slots.add(rowStart + col);
             }
@@ -236,11 +244,16 @@ public final class ClanApplicationsMenu {
         return slots.stream().mapToInt(i -> i).toArray();
     }
 
+    /** gui_gen: 27-slot uses fillFrame27 (9-17 is content there). Anything bigger scales the
+     *  54-slot frame (header, row 1 always-glass, footer) truncated to the menu's actual size. */
     private void fillGlass(Inventory inventory) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
-                    .name(Component.empty())
-                    .build());
+        int size = inventory.getSize();
+        if (size == 27) {
+            GuiFrames.fillFrame27(inventory);
+            return;
         }
+        for (int slot = 1; slot <= 8; slot++) inventory.setItem(slot, GuiFrames.glassPane());
+        for (int slot = 9; slot <= 17; slot++) inventory.setItem(slot, GuiFrames.glassPane());
+        for (int slot = size - 9; slot < size; slot++) inventory.setItem(slot, GuiFrames.glassPane());
     }
 }
