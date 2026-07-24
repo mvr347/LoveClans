@@ -35,30 +35,33 @@ public final class ClanMemberDetailMenu {
         OfflinePlayer offline = Bukkit.getOfflinePlayer(targetId);
         String name = offline.getName() != null ? offline.getName() : targetId.toString().substring(0, 8);
 
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.MEMBER_DETAIL, clan.id());
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.MEMBER_DETAIL, clan.id()), 27,
+                holder, 27,
                 plugin.getMessages().component("gui.member-detail.title", Map.of("player", name), player));
+        holder.setInventory(inventory);
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame27(inventory);
 
+        // Слот 0: голова изучаемого участника — "профиль косвенно" (это не сам игрок,
+        // открывающий меню, а третье лицо, которым он управляет).
         ItemBuilder head = ItemBuilder.of(Material.PLAYER_HEAD)
                 .name(plugin.getMessages().component("gui.member-detail.name", Map.of("player", name), player))
                 .lore(plugin.getMessages().component("gui.member-detail.rank", Map.of("rank", member.rank().displayName()), player));
         head.mutate(meta -> {
             if (meta instanceof SkullMeta skullMeta) skullMeta.setOwningPlayer(offline);
         });
-        inventory.setItem(4, head.build());
+        inventory.setItem(0, head.build());
 
         boolean isLeader = clan.member(player.getUniqueId())
                 .map(m -> m.rank() == ClanRank.LEADER)
                 .orElse(false);
         boolean isSelf = member.playerId().equals(player.getUniqueId());
 
-        // Слоты 11/13/15 — передача лидерства/повышение/понижение. Кнопки отображаются всегда
-        // (не пропадают), но становятся неактивными (серый череп + причина в lore), если действие
-        // сейчас недоступно — так игрок видит весь набор возможностей, а не гадает, почему кнопки нет.
+        // Слоты 11-14 (впритык, без стекла между ними, правило 4) — передача лидерства,
+        // повышение, понижение, кик. Кнопки отображаются всегда (не пропадают), но становятся
+        // неактивными (серый череп + причина в lore), если действие сейчас недоступно — так
+        // игрок видит весь набор возможностей, а не гадает, почему кнопки нет.
         boolean canTransfer = isLeader && !isSelf;
         inventory.setItem(11, canTransfer
                 ? item(ItemBuilder.HEAD_EXPAND, "gui.member-detail.transfer.name", "gui.member-detail.transfer.lore", player, targetId)
@@ -66,18 +69,20 @@ public final class ClanMemberDetailMenu {
                         isSelf ? "gui.member-detail.transfer.disabled-self" : "gui.member-detail.transfer.disabled-not-leader", player));
 
         boolean canPromote = !isSelf && member.rank().nextRank() != null && member.rank().nextRank() != ClanRank.LEADER;
-        inventory.setItem(13, canPromote
+        inventory.setItem(12, canPromote
                 ? item(ItemBuilder.HEAD_INFO, "gui.member-detail.promote.name", "gui.member-detail.promote.lore", player, targetId)
                 : inactiveItem("gui.member-detail.promote.name", "gui.member-detail.promote.disabled-max-rank", player));
 
         boolean canDemote = !isSelf && member.rank().previousRank() != null;
-        inventory.setItem(15, canDemote
+        inventory.setItem(13, canDemote
                 ? item(ItemBuilder.HEAD_BACK, "gui.member-detail.demote.name", "gui.member-detail.demote.lore", player, targetId)
                 : inactiveItem("gui.member-detail.demote.name", "gui.member-detail.demote.disabled-min-rank", player));
 
-        if (!isSelf && member.rank() != ClanRank.LEADER) {
-            inventory.setItem(16, item(ItemBuilder.HEAD_BARRIER, "gui.member-detail.kick.name", "gui.member-detail.kick.lore", player, targetId));
-        }
+        boolean canKick = !isSelf && member.rank() != ClanRank.LEADER;
+        inventory.setItem(14, canKick
+                ? item(ItemBuilder.HEAD_BARRIER, "gui.member-detail.kick.name", "gui.member-detail.kick.lore", player, targetId)
+                : inactiveItem("gui.member-detail.kick.name",
+                        isSelf ? "gui.member-detail.kick.disabled-self" : "gui.member-detail.kick.disabled-leader", player));
 
         inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
@@ -133,7 +138,7 @@ public final class ClanMemberDetailMenu {
         ClanRank targetRank = targetMemberOpt.get().rank();
 
         switch (slot) {
-            case 13 -> {
+            case 12 -> {
                 ClanRank newRank = targetRank.nextRank();
                 if (newRank != null && newRank != ClanRank.LEADER) {
                     plugin.getClanManager().setRankAsync(clan, player.getUniqueId(), targetId, newRank)
@@ -141,7 +146,7 @@ public final class ClanMemberDetailMenu {
                             .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
                 }
             }
-            case 15 -> {
+            case 13 -> {
                 ClanRank newRank = targetRank.previousRank();
                 if (newRank != null) {
                     plugin.getClanManager().setRankAsync(clan, player.getUniqueId(), targetId, newRank)
@@ -149,7 +154,7 @@ public final class ClanMemberDetailMenu {
                             .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
                 }
             }
-            case 16 -> {
+            case 14 -> {
                 String targetName = nameOf(targetId);
                 plugin.getClanManager().removeMemberAsync(clan, player.getUniqueId(), targetId, true)
                         .thenRun(() -> plugin.runSync(() -> {

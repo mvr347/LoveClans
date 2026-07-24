@@ -19,11 +19,13 @@ public final class ClanSettingsMenu {
     }
 
     public void open(Player player, Clan clan) {
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.SETTINGS, clan.id());
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.SETTINGS, clan.id()), 36,
+                holder, 36,
                 plugin.getMessages().component("gui.settings.title", Map.of("clan", clan.name(), "color", clan.tagColor()), player));
+        holder.setInventory(inventory);
 
-        fillGlass(inventory);
+        fillFrame(inventory);
 
         inventory.setItem(10, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTY3ZDgxM2FlN2ZmZTViZTk1MWE0ZjQxZjJhYTYxOWE1ZTM4OTRlODVlYTVkNDk4NmY4NDk0OWM2M2Q3NjcyZSJ9fX0=")
                 .name(plugin.getMessages().component("gui.settings.rename.name", player))
@@ -204,14 +206,14 @@ public final class ClanSettingsMenu {
         }
     }
 
-    private void fillGlass(Inventory inventory) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            // Only fill empty slots, do not overwrite existing items
-            if (inventory.getItem(slot) == null) {
-                inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
-                        .name(Component.empty())
-                        .build());
-            }
+    /** Rule 8: rows 9-17 and 18-26 host content (rename/tag/banner/color/status/roles) and must
+     *  stay glass-free where unused. Only the header row (0-8) and footer row (27-35) are frame. */
+    private void fillFrame(Inventory inventory) {
+        for (int slot = 0; slot <= 8; slot++) {
+            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
+        }
+        for (int slot = 27; slot <= 35; slot++) {
+            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
     }
 }

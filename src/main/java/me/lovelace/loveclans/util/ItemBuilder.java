@@ -1,7 +1,6 @@
 package me.lovelace.loveclans.util;
 
-import com.destroystokyo.paper.profile.PlayerProfile;
-import com.destroystokyo.paper.profile.ProfileProperty;
+import com.google.gson.JsonParser;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -10,8 +9,13 @@ import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
+import org.bukkit.profile.PlayerProfile;
 
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -138,12 +142,32 @@ public final class ItemBuilder {
         ItemBuilder builder = new ItemBuilder(Material.PLAYER_HEAD);
         builder.mutate(meta -> {
             if (meta instanceof SkullMeta skullMeta) {
-                PlayerProfile profile = Bukkit.createProfile(UUID.randomUUID());
-                profile.setProperty(new ProfileProperty("textures", base64));
-                skullMeta.setPlayerProfile(profile);
+                URL skinUrl = extractSkinUrl(base64);
+                if (skinUrl != null) {
+                    // Bukkit.createPlayerProfile()/setOwnerProfile() - актуальный стандартный
+                    // Bukkit API. Устаревшая пара Bukkit.createProfile()/setPlayerProfile()
+                    // (com.destroystokyo.paper.profile.PlayerProfile) на части серверных сборок
+                    // Paper не применяет текстуру - голова рендерится обычным Steve/Alex.
+                    PlayerProfile profile = Bukkit.createPlayerProfile(UUID.randomUUID());
+                    profile.getTextures().setSkin(skinUrl);
+                    skullMeta.setOwnerProfile(profile);
+                }
             }
         });
         return builder;
+    }
+
+    private static URL extractSkinUrl(String base64Texture) {
+        try {
+            String json = new String(Base64.getDecoder().decode(base64Texture), StandardCharsets.UTF_8);
+            String url = JsonParser.parseString(json).getAsJsonObject()
+                    .getAsJsonObject("textures")
+                    .getAsJsonObject("SKIN")
+                    .get("url").getAsString();
+            return new URL(url);
+        } catch (IllegalArgumentException | IllegalStateException | NullPointerException | MalformedURLException e) {
+            return null;
+        }
     }
 
     public ItemBuilder name(Component name) {

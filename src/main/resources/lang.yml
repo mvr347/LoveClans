@@ -594,6 +594,8 @@ gui:
     kick:
       name: "<red>Исключить"
       lore: "<gray>Исключить участника из клана."
+      disabled-self: "<red>Нельзя исключить самого себя."
+      disabled-leader: "<red>Нельзя исключить главу клана."
   members:
     invite:
       name: "<green>Пригласить игрока"

@@ -13,7 +13,7 @@ import java.util.Map;
 
 /** Money side of the clan chest (§2.3): balance display plus deposit/withdraw chat prompts. */
 public final class ClanChestMoneyMenu {
-    private static final int BALANCE_SLOT = 4;
+    private static final int BALANCE_SLOT = 0;
     private static final int DEPOSIT_SLOT = 11;
     private static final int WITHDRAW_SLOT = 15;
     private static final int BACK_SLOT = 25;
@@ -26,12 +26,12 @@ public final class ClanChestMoneyMenu {
     }
 
     public void open(Player player, Clan clan) {
-        Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.CHEST_MONEY, clan.id()), 27,
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.CHEST_MONEY, clan.id());
+        Inventory inventory = Bukkit.createInventory(holder, 27,
                 plugin.getMessages().component("gui.chest-money-title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
+        holder.setInventory(inventory);
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame27(inventory);
 
         inventory.setItem(BALANCE_SLOT, ItemBuilder.of(Material.GOLD_INGOT)
                 .name(plugin.getMessages().component("gui.chest.money.balance.name", player))

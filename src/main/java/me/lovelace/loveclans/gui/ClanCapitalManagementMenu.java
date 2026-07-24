@@ -39,9 +39,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         this.inventory = Bukkit.createInventory(this, 27, plugin.getMessages().component("gui.capital.title",
                 Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
-        for (int i = 0; i < 27; i++) {
-            inventory.setItem(i, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame27(inventory);
 
         boolean isAtWar = plugin.getClanManager().inAnyConflict(clan.id());
         boolean isLeader = clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.LEADER).orElse(false);

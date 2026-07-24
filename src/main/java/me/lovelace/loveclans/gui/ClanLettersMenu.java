@@ -24,11 +24,9 @@ import java.util.Map;
  */
 public final class ClanLettersMenu {
     private static final int WRITE_SLOT = 4;
-    // Framed content grid — columns 0 and 8 of each row stay reserved for the border, matching
-    // every other grid menu in this plugin (was previously a flat 9-44 range that bled letters
-    // into the border/footer columns).
+    // gui_gen 54-slot working zone is 18-44 only (three rows) — row 1 (9-17) is always frame,
+    // never content, unlike the 27-slot menu's 9-17 content zone. Don't confuse the two.
     private static final int[] CONTENT_SLOTS = {
-            10, 11, 12, 13, 14, 15, 16,
             19, 20, 21, 22, 23, 24, 25,
             28, 29, 30, 31, 32, 33, 34,
             37, 38, 39, 40, 41, 42, 43
@@ -52,12 +50,12 @@ public final class ClanLettersMenu {
     }
 
     private void render(Player player, Clan sourceClan, Clan targetClan, List<ClanLetter> letters) {
-        Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.LETTERS, targetClan.id()), 54,
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.LETTERS, targetClan.id());
+        Inventory inventory = Bukkit.createInventory(holder, 54,
                 plugin.getMessages().component("gui.letters.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player));
+        holder.setInventory(inventory);
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame54(inventory);
 
         inventory.setItem(WRITE_SLOT, ItemBuilder.of(Material.WRITABLE_BOOK)
                 .name(plugin.getMessages().component("gui.letters.write.name", player))

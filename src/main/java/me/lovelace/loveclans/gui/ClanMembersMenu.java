@@ -36,8 +36,10 @@ public final class ClanMembersMenu {
         // Ensure minimum 3 rows (27 slots) and maximum 6 rows (54 slots)
         int inventorySize = Math.max(27, Math.min(54, requiredRows * 9));
 
-        Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.MEMBERS, clan.id()), inventorySize,
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.MEMBERS, clan.id());
+        Inventory inventory = Bukkit.createInventory(holder, inventorySize,
                 plugin.getMessages().component("gui.members-title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
+        holder.setInventory(inventory);
 
         // Стеклом закрываем только верхний и нижний ряд (служебные), а не зону с головами игроков —
         // там пустые слоты должны оставаться пустыми, без стеклянных панелей вокруг голов.
