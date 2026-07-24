@@ -35,11 +35,13 @@ public final class ClanTerritoriesMenu {
         if (contentRows == 0) contentRows = 1;
         int inventorySize = Math.max(27, Math.min(54, (contentRows + 2) * 9));
 
-        Inventory inventory = Bukkit.createInventory(new ClanMenuHolder(ClanMenuType.TERRITORIES, clan.id()), inventorySize,
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.TERRITORIES, clan.id());
+        Inventory inventory = Bukkit.createInventory(holder, inventorySize,
                 plugin.getMessages().component("gui.territories-title",
                         Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
+        holder.setInventory(inventory);
 
-        fillGlass(inventory);
+        fillFrame(inventory, inventorySize);
 
         if (territories.isEmpty()) {
             inventory.setItem(inventorySize / 2, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
@@ -186,13 +188,14 @@ public final class ClanTerritoriesMenu {
         }
     }
 
-    private void fillGlass(Inventory inventory) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            if (inventory.getItem(slot) == null) {
-                inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
-                        .name(Component.empty())
-                        .build());
-            }
+    /** Rule 8: only the header row (0-8) and footer row (last 9 slots) are pure frame here —
+     *  the territory grid rows in between are content zone and must stay glass-free where empty. */
+    private void fillFrame(Inventory inventory, int size) {
+        for (int slot = 0; slot <= 8; slot++) {
+            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
+        }
+        for (int slot = size - 9; slot < size; slot++) {
+            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
     }
 }

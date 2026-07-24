@@ -21,13 +21,14 @@ public final class ClanRoleSettingsMenu {
     }
 
     public void open(Player player, Clan clan) {
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.ROLE_SETTINGS, clan.id());
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.ROLE_SETTINGS, clan.id()), 27,
+                holder, 27,
                 plugin.getMessages().component("gui.role-settings.title", player));
+        holder.setInventory(inventory);
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame27(inventory);
+        inventory.setItem(0, GuiFrames.glassPane());
 
         ClanRank[] ranks = { ClanRank.RECRUIT, ClanRank.MEMBER, ClanRank.GUARDIAN };
         int[] slots = { 11, 13, 15 };

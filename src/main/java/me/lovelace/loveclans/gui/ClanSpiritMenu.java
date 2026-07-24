@@ -31,9 +31,7 @@ public class ClanSpiritMenu implements InventoryHolder {
         this.inventory = Bukkit.createInventory(this, 54, plugin.getMessages().component("gui.spirit.title",
                 Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
-        for (int i = 0; i < 54; i++) {
-            inventory.setItem(i, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame54(inventory);
 
         // Center Info
         int currentLevel = clan.spirit().level();
@@ -53,7 +51,9 @@ public class ClanSpiritMenu implements InventoryHolder {
             infoItem.lore(plugin.getMessages().component("gui.spirit.info.exp", Map.of("current", String.valueOf(currentExp), "next", String.valueOf(nextExp)), player))
                     .lore(plugin.getMessages().component("gui.spirit.info.progress", Map.of("bar", progressStr), player));
         }
-        inventory.setItem(13, infoItem.glow(true).build());
+        // Слот 0: тематическая голова "дух клана" (не игрок) — слот 13 лежал бы в рамочной
+        // строке 9-17 54-слотового меню, где контент запрещён (правило 4.1).
+        inventory.setItem(0, infoItem.glow(true).build());
 
         // Buffs List
         ItemBuilder buffsItem = ItemBuilder.head(ItemBuilder.HEAD_ACTIVE_BUFFS)

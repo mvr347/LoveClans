@@ -35,9 +35,7 @@ public final class ClanMainMenu implements InventoryHolder {
         this.inventory = Bukkit.createInventory(this, 54,
                 plugin.getMessages().component("gui.main.title", Map.of("clan", clan.name(), "color", clan.tagColor()), player));
 
-        for (int i = 0; i < 54; i++) {
-            inventory.setItem(i, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame54(inventory);
 
         // Row 0, slot 0 — clan info (same slot used for player profile in chained menus)
         inventory.setItem(0, ItemBuilder.of(clan.emblem())

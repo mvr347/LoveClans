@@ -19,11 +19,12 @@ import java.util.Map;
 public final class ClanColorPickerMenu {
     private record ColorOption(String tag, String headTexture, String name) {}
 
-    // Framed content grid (3 rows x 7 columns) — enough for all 16 configured colors.
+    // gui_gen 54-slot working zone is 18-44 only (three rows of 7) — row 1 (9-17) is always
+    // frame, so 3 content rows need the full 54-slot menu, not 45.
     private static final int[] COLOR_SLOTS = {
-            10, 11, 12, 13, 14, 15, 16,
             19, 20, 21, 22, 23, 24, 25,
-            28, 29, 30, 31, 32, 33, 34
+            28, 29, 30, 31, 32, 33, 34,
+            37, 38, 39, 40, 41, 42, 43
     };
 
     // Жёстко заданный список из 15 цветов с текстурами шерсти для выбора цвета тега клана.
@@ -55,11 +56,13 @@ public final class ClanColorPickerMenu {
     }
 
     public void open(Player player, Clan clan) {
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.COLOR_PICKER, clan.id());
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.COLOR_PICKER, clan.id()), 45,
+                holder, 54,
                 plugin.getMessages().component("gui.color-picker.title", player));
+        holder.setInventory(inventory);
 
-        fillGlass(inventory);
+        GuiFrames.fillFrame54(inventory);
 
         List<ColorOption> options = loadOptions();
         for (int i = 0; i < Math.min(options.size(), COLOR_SLOTS.length); i++) {
@@ -74,10 +77,10 @@ public final class ClanColorPickerMenu {
             inventory.setItem(COLOR_SLOTS[i], builder.build());
         }
 
-        inventory.setItem(43, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(52, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
-        inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
@@ -85,11 +88,11 @@ public final class ClanColorPickerMenu {
     }
 
     public void handleInventoryClick(Player player, Clan clan, int slot, ItemStack clickedItem) {
-        if (slot == 44) {
+        if (slot == 53) {
             player.closeInventory();
             return;
         }
-        if (slot == 43) {
+        if (slot == 52) {
             plugin.getGuiManager().openSettings(player, clan);
             return;
         }
@@ -116,13 +119,5 @@ public final class ClanColorPickerMenu {
             list.add(new ColorOption(tag, headTexture, name));
         }
         return list;
-    }
-
-    private void fillGlass(Inventory inventory) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
-                    .name(Component.empty())
-                    .build());
-        }
     }
 }

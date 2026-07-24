@@ -42,9 +42,7 @@ public final class ClanSpiritAbilityMenu implements InventoryHolder {
                 plugin.getMessages().component("gui.spirit.ability-menu.title",
                         Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame27(inventory);
 
         SpiritAbility current = clan.spirit().ability();
         long now = System.currentTimeMillis();

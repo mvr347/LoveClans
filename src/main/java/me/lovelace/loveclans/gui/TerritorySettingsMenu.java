@@ -31,9 +31,7 @@ public class TerritorySettingsMenu implements InventoryHolder {
         String titleName = territory.name() != null ? territory.name() : territory.key().chunkX() + "," + territory.key().chunkZ();
         this.inventory = Bukkit.createInventory(this, 27, plugin.getMessages().component("gui.territory-settings.title", Map.of("chunk", titleName), player));
 
-        for (int i = 0; i < 27; i++) {
-            inventory.setItem(i, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame27(inventory);
 
         // Rename Private
         inventory.setItem(11, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTY3ZDgxM2FlN2ZmZTViZTk1MWE0ZjQxZjJhYTYxOWE1ZTM4OTRlODVlYTVkNDk4NmY4NDk0OWM2M2Q3NjcyZSJ9fX0=")

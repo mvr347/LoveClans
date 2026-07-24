@@ -24,12 +24,11 @@ import java.util.UUID;
 public final class PlayerApplicationsMenu implements InventoryHolder {
     private static final String APPLICATION_TAG = "app:";
     private static final String INVITE_TAG = "invite:";
-    // Framed content grid — columns 0 and 8 of each row stay reserved for the border, matching
-    // every other grid menu in this plugin.
+    // gui_gen 54-slot working zone is 18-44 only (three rows of 7) — row 1 (9-17) is always frame.
     private static final int[] CONTENT_SLOTS = {
-            10, 11, 12, 13, 14, 15, 16,
             19, 20, 21, 22, 23, 24, 25,
-            28, 29, 30, 31, 32, 33, 34
+            28, 29, 30, 31, 32, 33, 34,
+            37, 38, 39, 40, 41, 42, 43
     };
 
     private final LoveClansPlugin plugin;
@@ -53,12 +52,10 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
         combined.addAll(applications);
         combined.addAll(invites);
 
-        this.inventory = Bukkit.createInventory(this, 45,
+        this.inventory = Bukkit.createInventory(this, 54,
                 plugin.getMessages().component("gui.player-applications.title", player));
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame54(inventory);
 
         int end = Math.min(combined.size(), CONTENT_SLOTS.length);
         for (int index = 0; index < end; index++) {
@@ -99,7 +96,7 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
                     .build());
         }
 
-        inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
@@ -108,7 +105,7 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
 
     public void handleInventoryClick(InventoryClickEvent event) {
         int slot = event.getRawSlot();
-        if (slot == 44) {
+        if (slot == 53) {
             player.closeInventory();
             return;
         }

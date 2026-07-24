@@ -21,8 +21,10 @@ public final class ClanConfirmMenu {
     }
 
     public void open(Player player, Clan clan, Component title, Component lore) {
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.CONFIRM, clan.id());
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.CONFIRM, clan.id()), InventoryType.HOPPER, title);
+                holder, InventoryType.HOPPER, title);
+        holder.setInventory(inventory);
 
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());

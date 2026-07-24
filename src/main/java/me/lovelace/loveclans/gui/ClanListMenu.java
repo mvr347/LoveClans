@@ -29,9 +29,8 @@ import java.util.Optional;
  * Diplomacy &amp; Trade browser (§6.1/{@link ClanDiplomacySelectMenu}).
  */
 public final class ClanListMenu implements InventoryHolder {
-    // Framed content grid — columns 0 and 8 of each row stay reserved for the border/pagination.
+    // gui_gen 54-slot working zone is 18-44 only (three rows) — row 1 (9-17) is always frame.
     private static final int[] CONTENT_SLOTS = {
-            10, 11, 12, 13, 14, 15, 16,
             19, 20, 21, 22, 23, 24, 25,
             28, 29, 30, 31, 32, 33, 34,
             37, 38, 39, 40, 41, 42, 43
@@ -293,9 +292,9 @@ public final class ClanListMenu implements InventoryHolder {
         new ClanInfoMenu(plugin, player, clickedClan).open();
     }
 
+    /** Rule 8/4.1: header (0-8), row 1 (9-17, always frame in 54-slot menus) and footer (45-53)
+     *  are the only pure-frame slots — the working zone (18-44) hosts the clan grid. */
     private void fillGlass(Inventory inventory) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        GuiFrames.fillFrame54(inventory);
     }
 }

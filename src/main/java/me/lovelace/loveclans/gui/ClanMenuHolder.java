@@ -8,6 +8,7 @@ import java.util.UUID;
 public class ClanMenuHolder implements InventoryHolder {
     private final ClanMenuType type;
     private final UUID clanId;
+    private Inventory inventory;
 
     public ClanMenuHolder(ClanMenuType type, UUID clanId) {
         this.type = type;
@@ -22,8 +23,12 @@ public class ClanMenuHolder implements InventoryHolder {
         return clanId;
     }
 
+    public void setInventory(Inventory inventory) {
+        this.inventory = inventory;
+    }
+
     @Override
     public Inventory getInventory() {
-        return null;
+        return inventory;
     }
 }

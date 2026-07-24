@@ -33,7 +33,7 @@ public final class ClanCreateMenu implements InventoryHolder {
         this.inventory = Bukkit.createInventory(this, 27,
                 plugin.getMessages().component("gui.create.title", player));
 
-        fillGlass(inventory);
+        GuiFrames.fillFrame27(inventory);
 
         String nameDisplay = name.isEmpty() ? plugin.getMessages().raw("gui.create.name.not-set") : name;
         inventory.setItem(10, ItemBuilder.head(HEAD_NAME)
@@ -135,14 +135,6 @@ public final class ClanCreateMenu implements InventoryHolder {
                     });
                     return null;
                 });
-    }
-
-    private void fillGlass(Inventory inventory) {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE)
-                    .name(Component.empty())
-                    .build());
-        }
     }
 
     @Override

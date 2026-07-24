@@ -48,11 +48,16 @@ public final class ClanDiplomacyMenu {
     }
 
     public void open(Player player, Clan sourceClan, Clan targetClan) {
+        ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.DIPLOMACY, targetClan.id());
         Inventory inventory = Bukkit.createInventory(
-                new ClanMenuHolder(ClanMenuType.DIPLOMACY, targetClan.id()), INVENTORY_SIZE,
+                holder, INVENTORY_SIZE,
                 plugin.getMessages().component("gui.diplomacy.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player));
+        holder.setInventory(inventory);
 
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
+        // Rule 8: only the unused header row (0-8) is pure frame here — every other row hosts
+        // content, so it must never be blanket-glassed (glass in the content rows was exactly
+        // the "странное расположение" bug: stray glass panes sitting between action buttons).
+        for (int slot = 0; slot <= 8; slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
 
