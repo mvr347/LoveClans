@@ -20,6 +20,7 @@ import me.lovelace.loveclans.listener.ShieldColorListener;
 import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
+import me.lovelace.loveclans.manager.PlayerPreferencesManager;
 import me.lovelace.loveclans.manager.ContractManager;
 import me.lovelace.loveclans.manager.ClanTradeManager;
 import me.lovelace.loveclans.manager.ClanTradeSessionManager;
@@ -71,6 +72,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private SpiritManager spiritManager;
     private PerkManager perkManager;
     private AfkManager afkManager;
+    private PlayerPreferencesManager playerPreferencesManager;
     private ArtifactManager artifactManager;
     private GuiManager guiManager;
     private ShieldColorManager shieldColorManager;
@@ -106,6 +108,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         spiritManager = new SpiritManager(this);
         perkManager = new PerkManager(this);
         afkManager = new AfkManager(this);
+        playerPreferencesManager = new PlayerPreferencesManager(this);
         artifactManager = new ArtifactManager(this);
         guiManager = new GuiManager(this);
         shieldColorManager = new ShieldColorManager(this);
@@ -279,6 +282,9 @@ public final class LoveClansPlugin extends JavaPlugin {
             successionManager.stop();
         }
         LoveClansAPI.shutdown();
+        if (playerPreferencesManager != null) {
+            playerPreferencesManager.save();
+        }
         if (databaseManager != null) {
             databaseManager.close();
         }
@@ -326,6 +332,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public PerkManager getPerkManager() {
         return perkManager;
+    }
+
+    public PlayerPreferencesManager getPlayerPreferencesManager() {
+        return playerPreferencesManager;
     }
 
     public AfkManager getAfkManager() {
