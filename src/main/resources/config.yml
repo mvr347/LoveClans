@@ -597,7 +597,11 @@ leveling:
   multiplier: 1.83
   territory-claim-exp: 150
   war-win-exp: 1200
-  ritual-exp: 250
+  # Опыт за проведённый ритуал, отдельно по каждому типу.
+  ritual-exp:
+    harvest: 250
+    war_drum: 350
+    guardian: 300
 
 upgrades:
   MEMBERS:
@@ -637,8 +641,8 @@ mechanics:
   spirit:
     enabled: true
     tick-seconds: 15
-    base-radius: 48
-    level-radius-bonus: 4
+    # Радиуса у ауры духа нет: баффы действуют на территории клана целиком
+    # (SpiritManager определяет зону через getClanAt, а не через расстояние).
     buffs:
       1:
         - "SPEED:0"
