@@ -281,6 +281,18 @@ public final class LoveClansPlugin extends JavaPlugin {
         if (successionManager != null) {
             successionManager.stop();
         }
+        // Конфликты живут только в памяти и нигде не сохраняются, поэтому их состояние в мире
+        // нужно свернуть здесь: иначе осадные костры остаются стоять навсегда, а выставленный
+        // войной флаг is_under_siege (он персистится уже на стороне LoveClaims) снять будет некому.
+        if (warManager != null) {
+            warManager.shutdown();
+        }
+        if (siegeManager != null) {
+            siegeManager.shutdown();
+        }
+        if (raidManager != null) {
+            raidManager.shutdown();
+        }
         LoveClansAPI.shutdown();
         if (playerPreferencesManager != null) {
             playerPreferencesManager.save();
