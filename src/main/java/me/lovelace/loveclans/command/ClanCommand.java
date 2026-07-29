@@ -909,10 +909,73 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 });
     }
 
+    /**
+     * {@code /clan siege fortify <номер лагеря>} — укрепление осадного лагеря за счёт
+     * клановой казны. Раньше лагерь сносился одним ударом и восстанавливался по таймеру,
+     * так что защите нечего было противопоставить, кроме дежурства у костра.
+     */
+    private void fortifyCamp(Player player, String[] args) {
+        if (args.length < 3) {
+            plugin.getMessages().send(player, "siege.fortify.usage");
+            return;
+        }
+        Optional<Clan> clanOpt = requireClan(player);
+        if (clanOpt.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        Clan clan = clanOpt.get();
+
+        int campIndex;
+        try {
+            campIndex = Integer.parseInt(args[2]) - 1;
+        } catch (NumberFormatException exception) {
+            plugin.getMessages().send(player, "siege.fortify.usage");
+            return;
+        }
+
+        Optional<UUID> siegeIdOpt = plugin.getSiegeManager().activeSiegeIdForAttacker(clan.id());
+        if (siegeIdOpt.isEmpty()) {
+            plugin.getMessages().send(player, "siege.fortify.no-siege");
+            return;
+        }
+        UUID siegeId = siegeIdOpt.get();
+
+        int level = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
+        long cost = plugin.getConfig().getLong("siege.fortification.cost", 500L)
+                * Math.max(1, level + 1);
+        if (clan.chestMoney() < cost) {
+            plugin.getMessages().send(player, "siege.fortify.not-enough",
+                    Map.of("cost", String.valueOf(cost)));
+            return;
+        }
+
+        if (!plugin.getSiegeManager().fortifyCamp(siegeId, campIndex)) {
+            plugin.getMessages().send(player, "siege.fortify.max-level");
+            return;
+        }
+
+        clan.addChestMoney(-cost);
+        plugin.getStorage().updateClanChestMoney(clan.id(), clan.chestMoney()).exceptionally(throwable -> {
+            plugin.getLogger().log(java.util.logging.Level.WARNING,
+                "Не удалось списать казну за укрепление лагеря", throwable);
+            return null;
+        });
+
+        plugin.getMessages().send(player, "siege.fortify.done", Map.of(
+                "index", String.valueOf(campIndex + 1),
+                "hits", String.valueOf(plugin.getSiegeManager().hitsRequired(siegeId, campIndex)),
+                "cost", String.valueOf(cost)));
+    }
+
     private void siege(Player player, String[] args) {
         requirePermission(player, Permissions.WAR);
         if (args.length < 2) {
             plugin.getMessages().send(player, "clan.help.siege");
+            return;
+        }
+        if (args[1].equalsIgnoreCase("fortify")) {
+            fortifyCamp(player, args);
             return;
         }
         Optional<Clan> optionalAttacker = requireClan(player);

@@ -404,20 +404,7 @@ gui:
       title: "<gold>Подтвердите смену названия"
     transfer:
       title: "<gold>Подтвердите передачу лидерства"
-    history:
-  header: "<prefix><gold>История конфликтов клана <tag>:"
-  entry: "<gray>  <kind> с <yellow><opponent></yellow> — <outcome><gray>, <days> дн. назад"
-  summary: "<gray>  Итого: <green><won> побед</green>, <red><lost> поражений</red>"
-  empty: "<prefix><gray>Конфликтов пока не было."
-  kind-war: "Война"
-  kind-siege: "Осада"
-  kind-raid: "Набег"
-  outcome-win: "<green>победа</green>"
-  outcome-loss: "<red>поражение</red>"
-  outcome-draw: "<yellow>ничья</yellow>"
-  rematch-bonus: "<prefix><gold>Реванш! <gray>Ваш клан получает <yellow>+<percent>%</yellow> к очкам в этой войне."
-
-war:
+    war:
       title: "<red>Объявить войну клану <color><tag></color>?"
     siege:
       title: "<red>Устроить осаду клана <color><tag></color>?"
@@ -920,6 +907,19 @@ territory:
   unclaimed-success: "<prefix><yellow>Захват территории <white><x>, <z></white> снят."
   world-not-found: "<prefix><red>Мир дома клана больше не существует."
 
+history:
+  header: "<prefix><gold>История конфликтов клана <tag>:"
+  entry: "<gray>  <kind> с <yellow><opponent></yellow> — <outcome><gray>, <days> дн. назад"
+  summary: "<gray>  Итого: <green><won> побед</green>, <red><lost> поражений</red>"
+  empty: "<prefix><gray>Конфликтов пока не было."
+  kind-war: "Война"
+  kind-siege: "Осада"
+  kind-raid: "Набег"
+  outcome-win: "<green>победа</green>"
+  outcome-loss: "<red>поражение</red>"
+  outcome-draw: "<yellow>ничья</yellow>"
+  rematch-bonus: "<prefix><gold>Реванш! <gray>Ваш клан получает <yellow>+<percent>%</yellow> к очкам в этой войне."
+
 war:
   already-at-war: "<prefix><red>Ваш клан уже находится в состоянии войны с этим кланом."
   banner-dropped: "<prefix><yellow>Вы потеряли захваченное знамя."
@@ -970,6 +970,12 @@ war:
     cancelled-subtitle: "<gray>Клан <color><tag></color> был расформирован"
 
 siege:
+  fortify:
+    usage: "<prefix><yellow>Использование: /clan siege fortify <номер лагеря>"
+    no-siege: "<prefix><red>Ваш клан сейчас не ведёт осаду."
+    not-enough: "<prefix><red>В казне клана недостаточно средств: нужно <cost>."
+    max-level: "<prefix><red>Этот лагерь укреплён до предела."
+    done: "<prefix><green>Лагерь <index> укреплён за <cost>. Теперь его снос требует <hits> ударов."
   max-sieges-reached: "<prefix><red>Достигнут лимит одновременных осад."
   already-in-siege: "<prefix><red>Один из кланов уже участвует в осаде."
   war-in-progress: "<prefix><red>Нельзя начать осаду - один из кланов уже воюет."
@@ -989,6 +995,7 @@ siege:
     not-your-camp: "<prefix><red>Разрушать этот осадный лагерь может только клан-защитник."
     broken-attacker: "<prefix><yellow>Защитники разрушили осадный лагерь #<index>! Он восстановится через некоторое время."
     broken-defender: "<prefix><green>Вы разрушили осадный лагерь #<index>!"
+    weakened: "<prefix><yellow>Лагерь #<index> укреплён: <hits>/<required> ударов."
   end:
     victory-title: "<green><bold>Осада прорвана!"
     victory-subtitle: "<gray>Ваш клан захватил территорию клана <color><tag></color>"
