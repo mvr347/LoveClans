@@ -7,6 +7,7 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
+import org.bukkit.util.BoundingBox;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.model.war.ClanWar;
@@ -48,6 +49,8 @@ public final class WarManager {
     private final Map<UUID, BannerProgress> bannerProgress = new ConcurrentHashMap<>();
     /** Войны, где один из кланов идёт на реванш: id войны -> клан, которому положена прибавка. */
     private final Map<UUID, UUID> rematchClaims = new ConcurrentHashMap<>();
+    /** Когда по этой войне в последний раз начисляли очки за удержание спорной территории. */
+    private final Map<UUID, Long> lastControlAward = new ConcurrentHashMap<>();
     // Боевой таймер (§3.2): босс-бар и разовое предупреждение "за минуту", показываемые обеим
     // сторонам, пока война находится в состоянии PREPARING (объявлена, но ещё не началась).
     private final Map<UUID, BossBar> pendingBossBars = new ConcurrentHashMap<>();
@@ -212,6 +215,8 @@ public final class WarManager {
                 endSiege(war);
                 resetBannerHits(war.id());
                 rematchClaims.remove(war.id());
+            lastControlAward.remove(war.id());
+                lastControlAward.remove(war.id());
                 archiveWar(war, result);
 
                 long reward = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
@@ -576,6 +581,8 @@ public final class WarManager {
                 broadcastCapitulationCountdown(war, remainingMs);
             }
 
+            tickTerritoryControl(war, now);
+
             if (war.endsAt() <= now) {
                 WarResult result = war.attackerScore() > war.defenderScore()
                         ? WarResult.ATTACKER_WIN
@@ -583,6 +590,56 @@ public final class WarManager {
                 endWarAsync(war.id(), result);
             }
         }
+    }
+
+    /**
+     * Очки за удержание спорной территории. До этого единственным источником очков были
+     * убийства, и война сводилась к дефматчу: клану, слабому в PvP, нечего было
+     * противопоставить. Очки идут только когда на территории есть бойцы одной стороны и
+     * нет другой — за пустую территорию награды нет, за спорную тоже.
+     */
+    private void tickTerritoryControl(ClanWar war, long now) {
+        int score = plugin.getConfig().getInt("war.objectives.control-score", 1);
+        int everySeconds = plugin.getConfig().getInt("war.objectives.control-tick-seconds", 30);
+        if (score <= 0 || everySeconds <= 0) {
+            return;
+        }
+
+        Long last = lastControlAward.get(war.id());
+        if (last != null && now - last < everySeconds * 1000L) {
+            return;
+        }
+
+        Optional<ClanTerritory> territoryOpt = resolveContestedTerritory(war);
+        if (territoryOpt.isEmpty()) {
+            return;
+        }
+        BoundingBox box = territoryOpt.get().boundingBox();
+
+        Optional<WarClans> clansOpt = resolveWarClans(war);
+        if (clansOpt.isEmpty()) {
+            return;
+        }
+        long attackers = onlineMembers(clansOpt.get().attacker())
+                .filter(p -> box.contains(p.getLocation().toVector()))
+                .count();
+        long defenders = onlineMembers(clansOpt.get().defender())
+                .filter(p -> box.contains(p.getLocation().toVector()))
+                .count();
+
+        lastControlAward.put(war.id(), now);
+        if (attackers > 0 && defenders == 0) {
+            addScore(war.attackerClanId(), war.defenderClanId(), score);
+            announceControl(clansOpt.get().attacker(), score);
+        } else if (defenders > 0 && attackers == 0) {
+            addScore(war.defenderClanId(), war.attackerClanId(), score);
+            announceControl(clansOpt.get().defender(), score);
+        }
+    }
+
+    private void announceControl(Clan clan, int score) {
+        onlineMembers(clan).forEach(player -> plugin.getMessages().send(player, "war.objectives.control-held",
+                Map.of("score", String.valueOf(score))));
     }
 
     private void tickPendingWar(ClanWar war, long now) {

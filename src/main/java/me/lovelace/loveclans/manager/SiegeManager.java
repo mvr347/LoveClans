@@ -318,6 +318,14 @@ public final class SiegeManager {
             onlineMembers(clans.defender()).forEach(p -> plugin.getMessages().send(p, "siege.camp.broken-defender",
                     Map.of("index", String.valueOf(campIndex + 1))));
         });
+
+        // Снос лагеря — вклад в войну, если осада идёт внутри войны этих же кланов.
+        // addScore сам проверит, есть ли между ними активная война, и ничего не сделает,
+        // если осада самостоятельная.
+        int campScore = plugin.getConfig().getInt("war.objectives.camp-break-score", 3);
+        if (campScore > 0) {
+            plugin.getWarManager().addScore(siege.defenderClanId(), siege.attackerClanId(), campScore);
+        }
         return true;
     }
 

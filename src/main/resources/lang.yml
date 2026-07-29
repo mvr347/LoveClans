@@ -921,6 +921,8 @@ history:
   rematch-bonus: "<prefix><gold>Реванш! <gray>Ваш клан получает <yellow>+<percent>%</yellow> к очкам в этой войне."
 
 war:
+  objectives:
+    control-held: "<prefix><green>Территория удержана: <yellow>+<score></yellow> к очкам войны."
   already-at-war: "<prefix><red>Ваш клан уже находится в состоянии войны с этим кланом."
   banner-dropped: "<prefix><yellow>Вы потеряли захваченное знамя."
   cannot-claim: "<prefix><red>Нельзя захватывать территории во время войны."
