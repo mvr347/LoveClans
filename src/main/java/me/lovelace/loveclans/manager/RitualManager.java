@@ -52,7 +52,19 @@ public final class RitualManager {
             clan.setSpirit(clan.spirit().awakenUntil(ritual.endsAt()));
             applyRitualEffects(clan, ritual);
             return ritual;
-        }).thenCompose(ritual -> plugin.getClanManager().addExperienceAsync(clan, type.experienceReward()).thenApply(ignored -> ritual));
+        }).thenCompose(ritual -> plugin.getClanManager().addExperienceAsync(clan, ritualExperience(type)).thenApply(ignored -> ritual));
+    }
+
+    /**
+     * Опыт за проведённый ритуал. Раньше бралась только захардкоженная в {@link RitualType}
+     * величина, а ключ {@code leveling.ritual-exp} в config.yml не читался вовсе. Теперь награда
+     * настраивается по каждому типу ритуала, а значением по умолчанию остаётся прежнее из enum -
+     * то есть без правки конфига баланс не меняется.
+     */
+    private long ritualExperience(RitualType type) {
+        return plugin.getConfig().getLong(
+                "leveling.ritual-exp." + type.name().toLowerCase(java.util.Locale.ROOT),
+                type.experienceReward());
     }
 
     public Optional<ClanRitual> activeRitual(UUID clanId) {

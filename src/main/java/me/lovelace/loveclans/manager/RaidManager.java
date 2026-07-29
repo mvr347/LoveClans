@@ -319,6 +319,18 @@ public final class RaidManager {
         }
     }
 
+    /**
+     * Снимает все активные набеги при выключении плагина. В отличие от войны и осады набег не
+     * трогает мир, поэтому убрать нужно только босс-бары ожидания - иначе они остаются висеть
+     * у игроков до перезахода.
+     */
+    public void shutdown() {
+        for (ClanRaid raid : activeRaids()) {
+            activeRaids.remove(raid.id());
+            clearPendingPhase(raid.id(), resolveClans(raid).orElse(null));
+        }
+    }
+
     public void tick() {
         long now = System.currentTimeMillis();
         long cooldownMillis = cooldownDuration().toMillis();

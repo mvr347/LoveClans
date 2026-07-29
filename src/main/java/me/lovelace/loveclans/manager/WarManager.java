@@ -89,11 +89,21 @@ public final class WarManager {
 
     public CompletableFuture<ClanWar> startWarAsync(Clan attacker, Clan defender, TerritoryKey territory) {
         return plugin.supplySync(() -> {
-            if (activeWars.size() >= 3) {
+            if (activeWars.size() >= plugin.getConfig().getInt("war.max-concurrent", 3)) {
                 throw new IllegalStateException("war.max-wars-reached");
             }
             if (areAtWar(attacker.id(), defender.id())) {
                 throw new IllegalStateException("war.already-at-war");
+            }
+            // Осада/набег выставляют своё состояние на тех же кланах и территориях, поэтому война
+            // поверх них приводит к конфликту осадных режимов (одна закончится и снимет siege mode,
+            // пока вторая ещё идёт). SiegeManager и RaidManager симметрично отказывают в старте,
+            // если уже идёт война, - без этой проверки ограничение обходилось порядком объявления.
+            if (plugin.getSiegeManager().isInSiege(attacker.id()) || plugin.getSiegeManager().isInSiege(defender.id())) {
+                throw new IllegalStateException("siege.already-in-siege");
+            }
+            if (plugin.getRaidManager().isInRaid(attacker.id()) || plugin.getRaidManager().isInRaid(defender.id())) {
+                throw new IllegalStateException("raid.already-in-raid");
             }
             if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
                 throw new IllegalStateException("war.cannot-declare-on-ally");
@@ -125,7 +135,8 @@ public final class WarManager {
                 if (Bukkit.getPlayer(memberId) != null) defenderOnline++;
             }
 
-            if (attackerOnline < 3 || defenderOnline < 3) {
+            int minOnline = plugin.getConfig().getInt("war.min-online", 3);
+            if (attackerOnline < minOnline || defenderOnline < minOnline) {
                 throw new IllegalStateException("war.not-enough-members");
             }
 
@@ -561,6 +572,30 @@ public final class WarManager {
         }
     }
 
+    /**
+     * Сворачивает все активные войны при выключении плагина: снимает осадный режим с оспариваемых
+     * территорий, восстанавливает сломанные знамёна и изымает боевые компасы.
+     *
+     * <p>Критично именно для осадного режима: LoveClaims хранит флаг {@code is_under_siege} в своей
+     * БД, а войны нигде не персистятся. Без этой уборки территория остаётся помеченной как
+     * осаждаемая навсегда - после рестарта войны уже нет, и снять флаг нечем.
+     *
+     * <p>Намеренно не вызывает {@link #endWarAsync}: на выключении не нужно назначать победителя,
+     * начислять опыт и рассылать {@link ClanWarEndEvent} в уже отключающиеся плагины.
+     */
+    public void shutdown() {
+        for (ClanWar war : activeWars()) {
+            activeWars.remove(war.id());
+            clearPendingPhase(war.id(), resolveWarClans(war).orElse(null));
+            if (war.capturedBannerBy() != null) {
+                restoreBannerBlock(war);
+            }
+            confiscateWarItems(war);
+            endSiege(war);
+            resetBannerHits(war.id());
+        }
+    }
+
     public void tick() {
         long now = System.currentTimeMillis();
         long cooldownMillis = warCooldownDuration().toMillis();
@@ -579,6 +614,10 @@ public final class WarManager {
                     continue;
                 }
                 broadcastCapitulationCountdown(war, remainingMs);
+                // Пока идёт отсчёт капитуляции, таймер войны её не обрывает: иначе истечение
+                // duration-minutes посреди отсчёта завершало бы войну по очкам, и уже сломанное
+                // знамя молча переставало что-либо решать.
+                continue;
             }
 
             tickTerritoryControl(war, now);

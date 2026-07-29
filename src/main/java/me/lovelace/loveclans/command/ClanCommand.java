@@ -35,12 +35,12 @@ import java.util.stream.Collectors;
 
 public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
-            "help", "disband", "invite", "accept", "leave", "kick", "promote", "demote",
+            "help", "disband", "invite", "invites", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
             "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "letters", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
-            "help", "create", "accept", "list", "info"
+            "help", "create", "accept", "invites", "list", "info"
     );
     private static final List<String> ROOT_ADMIN = List.of(
             "artifact", "reload", "admin"
@@ -124,6 +124,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "create" -> openCreateGui(requirePlayer(sender));
                 case "disband" -> disband(requirePlayer(sender));
                 case "invite" -> invite(requirePlayer(sender), args);
+                case "invites" -> toggleInvites(requirePlayer(sender));
                 case "accept" -> accept(requirePlayer(sender), args);
                 case "leave" -> leave(requirePlayer(sender));
                 case "kick" -> kick(requirePlayer(sender), args);
@@ -489,6 +490,12 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                     plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                     return null;
                 });
+    }
+
+    private void toggleInvites(Player player) {
+        requirePermission(player, Permissions.INVITES_TOGGLE);
+        boolean nowEnabled = plugin.getPlayerPreferencesManager().toggleInvitesEnabled(player.getUniqueId());
+        plugin.getMessages().send(player, nowEnabled ? "clan.invites-toggled-on" : "clan.invites-toggled-off");
     }
 
     private void accept(Player player, String[] args) {
