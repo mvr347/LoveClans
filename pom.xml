@@ -109,13 +109,13 @@
         <dependency>
             <groupId>com.github.mvr347</groupId>
             <artifactId>LoveClaims</artifactId>
-            <version>a72a0987ed</version>
+            <version>6d9148fa9e</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.github.mvr347</groupId>
             <artifactId>LoveTrades</artifactId>
-            <version>6c6209b3cb</version>
+            <version>238b2ba534</version>
             <scope>provided</scope>
         </dependency>
 
