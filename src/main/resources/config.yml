@@ -597,7 +597,11 @@ leveling:
   multiplier: 1.83
   territory-claim-exp: 150
   war-win-exp: 1200
-  ritual-exp: 250
+  # Опыт за проведённый ритуал, отдельно по каждому типу.
+  ritual-exp:
+    harvest: 250
+    war_drum: 350
+    guardian: 300
 
 upgrades:
   MEMBERS:
@@ -637,8 +641,8 @@ mechanics:
   spirit:
     enabled: true
     tick-seconds: 15
-    base-radius: 48
-    level-radius-bonus: 4
+    # Радиуса у ауры духа нет: баффы действуют на территории клана целиком
+    # (SpiritManager определяет зону через getClanAt, а не через расстояние).
     buffs:
       1:
         - "SPEED:0"
@@ -691,6 +695,10 @@ war:
   pre-start-minutes: 10
   duration-minutes: 30
   cooldown-hours: 24
+  # Сколько войн может идти на сервере одновременно.
+  max-concurrent: 3
+  # Сколько участников с каждой стороны должно быть онлайн, чтобы объявить войну.
+  min-online: 3
   # Сколько времени вражеский клан должен непрерывно удерживать сломанное знамя территории,
   # прежде чем клан-защитник автоматически проигрывает войну и распускается.
   banner-capture-minutes: 3
@@ -701,11 +709,15 @@ war:
   banner-break-progress-reset-seconds: 15
 
 # Осада (§3) — второй тип конфликта клана: атакующие ставят осадные лагеря вокруг территории
-# защитника, каждый лагерь должен продержаться duration-minutes без разрушения, чтобы осада
+# защитника, каждый лагерь должен продержаться camp-hold-minutes без разрушения, чтобы осада
 # прорвалась. Как и война, начинается не сразу, а после pre-start-minutes (босс-бар).
 siege:
   pre-start-minutes: 20
+  # Общий лимит времени на осаду: если атакующие не удержали лагеря за это время, побеждает защитник.
   duration-minutes: 20
+  # Сколько все лагеря должны простоять одновременно, чтобы осада прорвалась. Всегда меньше
+  # duration-minutes - иначе у атакующего физически не остаётся времени на победу.
+  camp-hold-minutes: 10
   cooldown-hours: 24
   min-attacker-online: 1
   min-defender-online: 5

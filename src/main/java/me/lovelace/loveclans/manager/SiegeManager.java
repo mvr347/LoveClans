@@ -62,6 +62,17 @@ public final class SiegeManager {
         return Duration.ofMinutes(plugin.getConfig().getLong("siege.duration-minutes", 20));
     }
 
+    /**
+     * Сколько лагеря должны непрерывно простоять, чтобы осада прорвалась. Обязательно меньше
+     * общей длительности осады: если бы они совпадали, условие победы атакующего и таймаут
+     * защитника срабатывали бы в один и тот же тик, и исход зависел бы от порядка проверок.
+     */
+    private Duration campHoldDuration() {
+        long holdMinutes = plugin.getConfig().getLong("siege.camp-hold-minutes", 10);
+        long totalMinutes = plugin.getConfig().getLong("siege.duration-minutes", 20);
+        return Duration.ofMinutes(Math.max(1, Math.min(holdMinutes, totalMinutes - 1)));
+    }
+
     private Duration cooldownDuration() {
         return Duration.ofHours(plugin.getConfig().getLong("siege.cooldown-hours", 24));
     }
@@ -86,6 +97,9 @@ public final class SiegeManager {
             }
             if (plugin.getWarManager().isAtWar(attacker.id()) || plugin.getWarManager().isAtWar(defender.id())) {
                 throw new IllegalStateException("siege.war-in-progress");
+            }
+            if (plugin.getRaidManager().isInRaid(attacker.id()) || plugin.getRaidManager().isInRaid(defender.id())) {
+                throw new IllegalStateException("raid.already-in-raid");
             }
             if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
                 throw new IllegalStateException("war.cannot-declare-on-ally");
@@ -353,10 +367,20 @@ public final class SiegeManager {
 
         Clan winner = result == SiegeResult.ATTACKER_WIN ? attacker : defender;
         Clan loser = result == SiegeResult.ATTACKER_WIN ? defender : attacker;
-        onlineMembers(winner).forEach(p -> plugin.getMessages().sendTitle(p, "siege.end.victory-title", "siege.end.victory-subtitle",
-                Map.of("tag", loser.tag(), "color", loser.tagColor())));
-        onlineMembers(loser).forEach(p -> plugin.getMessages().sendTitle(p, "siege.end.defeat-title", "siege.end.defeat-subtitle",
-                Map.of("tag", winner.tag(), "color", winner.tagColor())));
+
+        // Тексты у победы атакующего и отражённой осады разные ("территория захвачена" против
+        // "осада провалилась"), поэтому нельзя переиспользовать одну пару ключей для обоих исходов.
+        if (result == SiegeResult.ATTACKER_WIN) {
+            onlineMembers(attacker).forEach(p -> plugin.getMessages().sendTitle(p, "siege.end.victory-title", "siege.end.victory-subtitle",
+                    Map.of("tag", defender.tag(), "color", defender.tagColor())));
+            onlineMembers(defender).forEach(p -> plugin.getMessages().sendTitle(p, "siege.end.defeat-title", "siege.end.defeat-subtitle",
+                    Map.of("tag", attacker.tag(), "color", attacker.tagColor())));
+        } else {
+            onlineMembers(defender).forEach(p -> plugin.getMessages().sendTitle(p, "siege.end.repelled-title", "siege.end.repelled-subtitle",
+                    Map.of("tag", attacker.tag(), "color", attacker.tagColor())));
+            onlineMembers(attacker).forEach(p -> plugin.getMessages().sendTitle(p, "siege.end.failed-title", "siege.end.failed-subtitle",
+                    Map.of("tag", defender.tag(), "color", defender.tagColor())));
+        }
 
         long reward = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
         plugin.getClanManager().addExperienceAsync(winner, reward).exceptionally(t -> {
@@ -372,9 +396,42 @@ public final class SiegeManager {
             return null;
         });
 
-        if (result == SiegeResult.ATTACKER_WIN && plugin.getConfig().getBoolean("siege.reward-artifact", true)) {
-            grantRandomArtifact(attacker);
+        if (result == SiegeResult.ATTACKER_WIN) {
+            transferChestSpoils(attacker, defender);
+            if (plugin.getConfig().getBoolean("siege.reward-artifact", true)) {
+                grantRandomArtifact(attacker);
+            }
         }
+    }
+
+    /**
+     * Переносит долю сундука защитника победившему атакующему (siege.win-chest-percent-min/max).
+     * Эти ключи были описаны в config.yml, но нигде не читались - награда сундуком за победу в
+     * осаде просто не выдавалась.
+     */
+    private void transferChestSpoils(Clan attacker, Clan defender) {
+        int min = plugin.getConfig().getInt("siege.win-chest-percent-min", 25);
+        int max = Math.max(min, plugin.getConfig().getInt("siege.win-chest-percent-max", 30));
+        int percent = min + (max > min ? ThreadLocalRandom.current().nextInt(max - min + 1) : 0);
+        long amount = Math.round(defender.chestMoney() * (percent / 100.0));
+        if (amount <= 0) {
+            return;
+        }
+        defender.addChestMoney(-amount);
+        attacker.addChestMoney(amount);
+
+        plugin.getStorage().updateClanChestMoney(defender.id(), defender.chestMoney()).exceptionally(t -> {
+            plugin.getLogger().warning("Failed to persist siege chest loss for clan " + defender.id() + ": " + t.getMessage());
+            return null;
+        });
+        plugin.getStorage().updateClanChestMoney(attacker.id(), attacker.chestMoney()).exceptionally(t -> {
+            plugin.getLogger().warning("Failed to persist siege chest spoils for clan " + attacker.id() + ": " + t.getMessage());
+            return null;
+        });
+
+        Map<String, String> placeholders = Map.of("amount", String.valueOf(amount), "percent", String.valueOf(percent));
+        onlineMembers(attacker).forEach(p -> plugin.getMessages().send(p, "siege.chest-spoils-attacker", placeholders));
+        onlineMembers(defender).forEach(p -> plugin.getMessages().send(p, "siege.chest-spoils-defender", placeholders));
     }
 
     private void grantRandomArtifact(Clan clan) {
@@ -400,6 +457,26 @@ public final class SiegeManager {
         for (ClanSiege siege : activeSieges()) {
             if (!siege.involves(clanId)) continue;
             endSiege(siege, SiegeResult.CANCELLED);
+        }
+    }
+
+    /**
+     * Снимает все активные осады при выключении плагина. Осады нигде не персистятся, поэтому без
+     * этой уборки установленные в мире осадные костры остаются навсегда: после рестарта
+     * activeSieges пуст, и удалять их уже некому.
+     *
+     * <p>Намеренно не вызывает {@link #endSiege} - на этапе выключения не нужно ни объявлять
+     * победителя, ни начислять награды, ни рассылать события в уже отключающиеся плагины.
+     */
+    public void shutdown() {
+        for (ClanSiege siege : activeSieges()) {
+            activeSieges.remove(siege.id());
+            clearPendingPhase(siege.id(), resolveClans(siege).orElse(null));
+            for (SiegeCamp camp : siege.camps()) {
+                if (!camp.broken()) {
+                    removeCampBlock(camp);
+                }
+            }
         }
     }
 
@@ -442,7 +519,7 @@ public final class SiegeManager {
     }
 
     private void tickActive(ClanSiege siege, long now) {
-        long durationMs = siegeDuration().toMillis();
+        long holdMs = campHoldDuration().toMillis();
         boolean allCampsHeld = true;
         List<SiegeCamp> updatedCamps = null;
 
@@ -451,12 +528,16 @@ public final class SiegeManager {
             if (camp.broken()) {
                 allCampsHeld = false;
                 if (camp.respawnAt() <= now) {
-                    SiegeCamp respawned = camp.respawned(now);
-                    placeCamp(siege.id(), camp.index(), Bukkit.getWorld(camp.world()), camp.x(), camp.y(), camp.z(), now);
-                    if (updatedCamps == null) updatedCamps = new ArrayList<>(siege.camps());
-                    updatedCamps.set(i, respawned);
+                    // Мир мог быть выгружен с момента установки лагеря - без этой проверки
+                    // placeCamp падал бы с NPE каждый тик и вешал весь цикл осад.
+                    World campWorld = Bukkit.getWorld(camp.world());
+                    if (campWorld != null) {
+                        placeCamp(siege.id(), camp.index(), campWorld, camp.x(), camp.y(), camp.z(), now);
+                        if (updatedCamps == null) updatedCamps = new ArrayList<>(siege.camps());
+                        updatedCamps.set(i, camp.respawned(now));
+                    }
                 }
-            } else if (now - camp.standingSince() < durationMs) {
+            } else if (now - camp.standingSince() < holdMs) {
                 allCampsHeld = false;
             }
         }
@@ -470,6 +551,15 @@ public final class SiegeManager {
 
         if (allCampsHeld && !siege.camps().isEmpty()) {
             endSiege(siege, SiegeResult.ATTACKER_WIN);
+            return;
+        }
+
+        // Таймаут осады: если атакующие не удержали все лагеря за отведённое время, побеждает
+        // защитник. Без этой ветки активная осада не завершалась никогда - endsAt проверялся
+        // только в PREPARING-фазе, а SiegeResult.DEFENDER_WIN не использовался нигде, из-за чего
+        // защитник, ломающий по лагерю раз в camp-respawn-minutes, держал осаду бесконечно.
+        if (siege.endsAt() <= now) {
+            endSiege(siege, SiegeResult.DEFENDER_WIN);
         }
     }
 

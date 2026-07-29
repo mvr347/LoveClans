@@ -48,6 +48,9 @@ public final class PlaceholderAPIHook extends PlaceholderExpansion {
         if (key.equals("in_clan")) {
             return String.valueOf(clanOptional.isPresent());
         }
+        if (key.equals("invites_enabled")) {
+            return plugin.getPlayerPreferencesManager().isInvitesEnabled(player.getUniqueId()) ? "yes" : "no";
+        }
         if (clanOptional.isEmpty()) {
             return "";
         }

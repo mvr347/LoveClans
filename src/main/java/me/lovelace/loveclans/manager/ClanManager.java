@@ -411,6 +411,9 @@ public final class ClanManager {
             if (isClanFull(clan)) {
                 throw new IllegalStateException("clan.member-limit-reached");
             }
+            if (!plugin.getPlayerPreferencesManager().isInvitesEnabled(invitedPlayerId)) {
+                throw new IllegalStateException("clan.invites-disabled");
+            }
             long expiresAt = System.currentTimeMillis() + plugin.getConfig().getLong("clans.invite-expire-seconds", 120L) * 1000L;
             ClanInvite invite = new ClanInvite(clan.id(), invitedPlayerId, inviterId, expiresAt);
             invitesByPlayer.computeIfAbsent(invitedPlayerId, ignored -> new ArrayList<>()).removeIf(old -> old.clanId().equals(clan.id()) || old.expired(System.currentTimeMillis()));

@@ -7,6 +7,7 @@ public final class Permissions {
     public static final String CREATE = "loveclans.create";
     public static final String DISBAND = "loveclans.disband";
     public static final String INVITE = "loveclans.invite";
+    public static final String INVITES_TOGGLE = "loveclans.invitestoggle";
     public static final String ACCEPT = "loveclans.accept";
     public static final String LEAVE = "loveclans.leave";
     public static final String KICK = "loveclans.kick";
