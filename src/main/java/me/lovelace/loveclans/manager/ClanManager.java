@@ -1184,7 +1184,34 @@ public final class ClanManager {
             return clan;
         }).thenCompose(c -> storage.updateClanInfluenceStats(c.id(), c.warsWon(), c.warsLost(), c.siegesWon(),
                         c.siegesLost(), c.raidsWon(), c.raidsLost(), c.influence())
-                .thenApply(ignored -> c));
+                .thenApply(ignored -> c))
+                .thenApply(c -> {
+                    reportClanStateToCore(c);
+                    return c;
+                });
+    }
+
+    /**
+     * Сообщает ядру текущее состояние клана для топов LoveLeaderboards, если LoveCore
+     * установлен. {@code recalculateInfluenceAsync} — единственная точка, где влияние клана
+     * пересчитывается (и по событиям, и в периодическом распаде из
+     * {@code refreshConflictFreshness}), поэтому здесь же удобно отчитаться и об остальных
+     * метриках состояния — они всё равно меняются вместе с влиянием чаще, чем стоит заводить
+     * под каждую отдельную точку вызова.
+     */
+    private void reportClanStateToCore(Clan clan) {
+        if (Bukkit.getPluginManager().getPlugin("LoveCore") == null) {
+            return;
+        }
+        try {
+            dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.stats.StatBus.class).ifPresent(bus -> {
+                bus.setClan(clan.id(), dev.lovelace.lovecore.api.stats.Metrics.CLAN_INFLUENCE, clan.influence());
+                bus.setClan(clan.id(), dev.lovelace.lovecore.api.stats.Metrics.CLAN_WEALTH, clan.chestMoney());
+                bus.setClan(clan.id(), dev.lovelace.lovecore.api.stats.Metrics.CLAN_TERRITORIES, clan.territories().size());
+            });
+        } catch (Throwable t) {
+            plugin.getLogger().warning("Не удалось отчитаться перед LoveCore о состоянии клана: " + t.getMessage());
+        }
     }
 
     public CompletableFuture<Clan> recordWarResultAsync(Clan clan, boolean won) {
