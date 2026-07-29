@@ -527,6 +527,19 @@ public final class LoveClansPlugin extends JavaPlugin {
             getLogger().info("Клановая интеграция с LoveTrades подключена (враги не торгуют, союзники получают скидку).");
         }
         new LoveHuntBountyBridge(this).register();
+
+        if (Bukkit.getPluginManager().getPlugin("LoveCore") != null) {
+            try {
+                Bukkit.getServicesManager().register(
+                        dev.lovelace.lovecore.api.social.ProfileOracle.class,
+                        new me.lovelace.loveclans.integration.LoveClansProfileOracle(this),
+                        this,
+                        org.bukkit.plugin.ServicePriority.High);
+                getLogger().info("LoveCore integration: ProfileOracle registered.");
+            } catch (Throwable t) {
+                getLogger().warning("Не удалось зарегистрировать ProfileOracle в LoveCore: " + t.getMessage());
+            }
+        }
     }
 
     private Throwable unwrap(Throwable throwable) {
