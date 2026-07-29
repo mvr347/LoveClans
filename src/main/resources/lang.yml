@@ -877,6 +877,7 @@ territory:
   advancedclaims-disabled: "<prefix><red>Интеграция с LoveClaims отключена, захват территорий недоступен."
   already-claimed: "<prefix><red>Эта территория уже захвачена другим кланом."
   already-claimed-by-advancedclaims: "<prefix><red>Эта территория уже защищена через LoveClaims."
+  overlaps-claim: "<prefix><red>Здесь нельзя ставить знамя: земля пересекает существующий приват."
   banner-given: "<prefix><green>Вам выдано знамя захвата."
   banner:
     cannot-drop: "<prefix><red>Вы не можете выбросить это знамя."

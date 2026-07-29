@@ -69,21 +69,55 @@ public final class AdvancedClaimsHook {
         return enabled && api != null;
     }
 
-    public Optional<UUID> createOrAttachClaim(Clan clan, ClanTerritory territory) {
+    /** Чем закончилась попытка завести приват под клановую территорию. */
+    public enum AttachResult {
+        /** Приват создан. */
+        CREATED,
+        /** Интеграция выключена — территория берётся без привата, как было до неё. */
+        SKIPPED,
+        /** LoveClaims отказал: земля занята чужим приватом либо вызов не удался. */
+        REFUSED
+    }
+
+    /**
+     * Отличать отказ от выключенной интеграции обязательно: раньше и то, и другое возвращалось
+     * пустым Optional, и клан забирал территорию даже когда приват завести не удалось —
+     * то есть считал своей землю, которая в реестре приватов принадлежит другому.
+     */
+    public record ClaimAttachment(AttachResult result, UUID claimId) {
+
+        static ClaimAttachment created(UUID claimId) {
+            return new ClaimAttachment(AttachResult.CREATED, claimId);
+        }
+
+        static ClaimAttachment skipped() {
+            return new ClaimAttachment(AttachResult.SKIPPED, null);
+        }
+
+        static ClaimAttachment refused() {
+            return new ClaimAttachment(AttachResult.REFUSED, null);
+        }
+
+        public boolean isRefused() {
+            return result == AttachResult.REFUSED;
+        }
+    }
+
+    public ClaimAttachment createOrAttachClaim(Clan clan, ClanTerritory territory) {
         if (!enabled() || !plugin.getConfig().getBoolean("integration.advanced-claims.auto-claim-chunk", true)) {
-            return Optional.empty();
+            return ClaimAttachment.skipped();
         }
         // Защита от дурачков: Проверка на null для входных параметров
         if (clan == null || territory == null) {
             plugin.getLogger().warning("createOrAttachClaim called with null clan or territory.");
-            return Optional.empty();
+            return ClaimAttachment.refused();
         }
 
         TerritoryKey key = territory.key();
         World world = Bukkit.getWorld(key.world());
         if (world == null) {
             plugin.getLogger().warning("createOrAttachClaim called for a non-existent world: " + key.world());
-            return Optional.empty();
+            return ClaimAttachment.refused();
         }
 
         BoundingBox box;
@@ -111,15 +145,18 @@ public final class AdvancedClaimsHook {
             claim = api.createClanClaim(world, box, clan.id(), centerLoc, clanOwnerDisplayName(clan));
         } catch (RuntimeException exception) {
             plugin.getLogger().log(Level.WARNING, "AdvancedClaims call failed for createClanClaim: " + exception.getMessage(), exception);
-            return Optional.empty();
+            return ClaimAttachment.refused();
         }
         if (claim == null) {
-            return Optional.empty();
+            // LoveClaims отказал — обычно потому, что границы пересекают чужой приват.
+            // Приваты клана и игрока не вкладываются друг в друга, поэтому территорию
+            // здесь брать нельзя.
+            return ClaimAttachment.refused();
         }
 
         UUID claimId = claim.getId();
         syncClanTrust(clan, territory.withAdvancedClaimId(claimId));
-        return Optional.of(claimId);
+        return ClaimAttachment.created(claimId);
     }
 
     /**

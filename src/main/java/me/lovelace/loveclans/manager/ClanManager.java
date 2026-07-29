@@ -877,8 +877,14 @@ public final class ClanManager {
         }
 
         return plugin.supplySync(() -> {
-            UUID claimId = plugin.getAdvancedClaimsHook().createOrAttachClaim(clan, territory).orElse(null);
-            return territory.withAdvancedClaimId(claimId);
+            var attachment = plugin.getAdvancedClaimsHook().createOrAttachClaim(clan, territory);
+            if (attachment.isRefused()) {
+                // Земля уже занята чужим приватом: приваты клана и игрока не вкладываются
+                // друг в друга. Раньше территория всё равно записывалась клану, и он считал
+                // своей землю, которая в реестре приватов принадлежит другому.
+                throw new IllegalStateException("territory.overlaps-claim");
+            }
+            return territory.withAdvancedClaimId(attachment.claimId());
         }).thenCompose(savedTerritory -> {
             clan.addTerritory(savedTerritory);
             indexTerritory(savedTerritory, clan.id());
@@ -1020,8 +1026,8 @@ public final class ClanManager {
             if (territory.advancedClaimId() != null) {
                 plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
             } else if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
-                // advancedClaimId отсутствует (например, если createOrAttachClaim вернул Optional.empty()
-                // при создании территории) — ищем и удаляем приват LoveClaims по локации знамени,
+                // advancedClaimId отсутствует (территория взята при выключенной интеграции
+                // с LoveClaims) — ищем и удаляем приват LoveClaims по локации знамени,
                 // иначе он останется висеть в кэше/БД и заблокирует повторный захват этой точки.
                 World bannerWorld = Bukkit.getWorld(territory.key().world());
                 if (bannerWorld != null) {
