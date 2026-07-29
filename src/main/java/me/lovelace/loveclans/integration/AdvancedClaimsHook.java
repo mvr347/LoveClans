@@ -245,7 +245,7 @@ public final class AdvancedClaimsHook {
         findClaim(territory.advancedClaimId()).ifPresent(claim -> {
             for (ClanMember member : clan.members().values()) {
                 OfflinePlayer player = Bukkit.getOfflinePlayer(member.playerId());
-                updatePlayerTrust(claim, player, member.rank());
+                updatePlayerTrust(claim, player, member.rank(), clan);
             }
         });
     }
@@ -258,6 +258,17 @@ public final class AdvancedClaimsHook {
      * @param rank Ранг игрока в клане
      */
     public void updatePlayerTrust(Claim claim, OfflinePlayer player, ClanRank rank) {
+        updatePlayerTrust(claim, player, rank, null);
+    }
+
+    /**
+     * То же, но с оглядкой на право BUILD этого ранга в клане. Раньше право BUILD нигде не
+     * проверялось: доступ на клановой земле определялся только рангом, и снять у ранга
+     * строительство через меню прав было невозможно — галочка стояла, а стройка шла.
+     *
+     * @param clan клан, чьи права рангов учитываются; {@code null} — считать по одному рангу
+     */
+    public void updatePlayerTrust(Claim claim, OfflinePlayer player, ClanRank rank, Clan clan) {
         if (!enabled()) {
             return;
         }
@@ -267,7 +278,7 @@ public final class AdvancedClaimsHook {
             return;
         }
         try {
-            api.addPlayerToClaim(claim, player, trustLevel(rank));
+            api.addPlayerToClaim(claim, player, trustLevel(rank, clan));
         } catch (RuntimeException exception) {
             plugin.getLogger().log(Level.WARNING, "AdvancedClaims call failed for addPlayerToClaim: " + exception.getMessage(), exception);
         }
@@ -312,7 +323,20 @@ public final class AdvancedClaimsHook {
         }
     }
 
-    private TrustLevel trustLevel(ClanRank rank) {
+    private TrustLevel trustLevel(ClanRank rank, Clan clan) {
+        TrustLevel resolved = configuredTrustLevel(rank);
+
+        // Глава строит всегда; остальным ранг понижается до CONTAINER, если право BUILD снято
+        // в меню прав клана. Иначе настройка прав была бы наполовину декоративной.
+        if (clan != null && rank != ClanRank.LEADER
+                && resolved == TrustLevel.BUILD
+                && !clan.getPermission(rank, me.lovelace.loveclans.model.ClanPermission.BUILD)) {
+            return TrustLevel.CONTAINER;
+        }
+        return resolved;
+    }
+
+    private TrustLevel configuredTrustLevel(ClanRank rank) {
         TrustLevel defaultTrustLevel;
         // Определяем дефолтный TrustLevel в зависимости от ClanRank
         if (rank == null) {
