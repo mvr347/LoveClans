@@ -69,6 +69,10 @@
 
     <repositories>
         <repository>
+            <id>devs-beer</id>
+            <url>https://repo.devs.beer/releases</url>
+        </repository>
+        <repository>
             <id>papermc-repo</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
@@ -105,22 +109,23 @@
         <dependency>
             <groupId>com.github.mvr347</groupId>
             <artifactId>LoveClaims</artifactId>
+            <version>6d9148fa9e</version>
             <version>0778441189</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.github.mvr347</groupId>
             <artifactId>LoveTrades</artifactId>
-            <version>6c6209b3cb</version>
+            <version>238b2ba534</version>
             <scope>provided</scope>
         </dependency>
 
         <!-- ItemsAdder API - soft dependency, used to charge clan creation cost and
              back the clan bank/treasury with custom items -->
         <dependency>
-            <groupId>com.github.LoneDev6</groupId>
-            <artifactId>api-itemsadder</artifactId>
-            <version>3.6.3</version>
+            <groupId>beer.devs</groupId>
+            <artifactId>itemsadder-api</artifactId>
+            <version>4.0.18-beta-10</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

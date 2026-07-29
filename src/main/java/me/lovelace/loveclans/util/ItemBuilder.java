@@ -89,6 +89,12 @@ public final class ItemBuilder {
     public static final String HEAD_EMBARGO = HEAD_BARRIER;
     public static final String HEAD_BLOCKADE = HEAD_BARRIER;
 
+    /**
+     * Иконка денег в клановых меню. Своей текстуры под монеты в наборе пока нет, поэтому
+     * временно берём текстуру торговли — заменить здесь одной строкой, когда появится своя.
+     */
+    public static final String HEAD_CHEST_MONEY = HEAD_TRADE;
+
     // Rank management icons (Recruit / Clansman / Guardian)
     public static final String HEAD_RANK_RECRUIT = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZmIwZmQ2MGQ3MjI0MTlhNzg1N2Y3Mjg2YzIzZjcyYzIxOTMzMDM4ZmM0MTQwNDljZGU2NTZmNGU4MzI4ZTU0NiJ9fX0=";
     public static final String HEAD_RANK_CLANSMAN = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZGFlZjZhZTE2OWNjNGYzZTM5Yzc2ZDA5NzE5OTNiOTJhYmU1MTBkOTZjOWJiNDk3YzFhYjlhMmI0YzJkYThhMSJ9fX0=";

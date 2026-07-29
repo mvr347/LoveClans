@@ -8,6 +8,7 @@ import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.diplomacy.ClanLetter;
+import me.lovelace.loveclans.model.history.ConflictRecord;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.model.trade.ClanTrade;
@@ -17,6 +18,7 @@ import org.bukkit.Material;
 
 import java.util.AbstractMap;
 import java.util.Collection;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -122,4 +124,14 @@ public interface ClanStorage {
     CompletableFuture<Void> saveTradeAsync(ClanTrade trade);
 
     CompletableFuture<Collection<ClanTrade>> loadPendingTradesAsync();
+
+    // --- Архив конфликтов: войны, осады и набеги переживают перезапуск ---
+
+    CompletableFuture<Void> saveConflictAsync(ConflictRecord record);
+
+    /** Все конфликты клана, новые первыми. */
+    CompletableFuture<List<ConflictRecord>> loadConflictsForClanAsync(UUID clanId, int limit);
+
+    /** Конфликты только между этими двумя кланами, новые первыми. */
+    CompletableFuture<List<ConflictRecord>> loadConflictsBetweenAsync(UUID first, UUID second, int limit);
 }

@@ -86,13 +86,31 @@ public final class Clan {
         for (ClanUpgrade upgrade : ClanUpgrade.values()) {
             upgrades.put(upgrade, 0);
         }
-        // Default permissions
+        // Права по умолчанию. Глава получает всё неявно (см. hasPermission), остальные ранги
+        // раздаются лесенкой: раньше Хранитель получал сразу все права и был вторым главой —
+        // мог распустить настройки, распоряжаться казной и объявлять войну, — а у Со-клановца
+        // было единственное право BUILD, которое к тому же нигде не проверялось.
         for (ClanRank rank : ClanRank.values()) {
             permissions.put(rank, EnumSet.noneOf(ClanPermission.class));
         }
-        // Guildmaster has all permissions implicitly, but let's set defaults for Guardian
-        permissions.get(ClanRank.GUARDIAN).addAll(EnumSet.allOf(ClanPermission.class));
-        permissions.get(ClanRank.MEMBER).add(ClanPermission.BUILD);
+
+        // Новичок: осматривается, ничего не может.
+
+        // Со-клановец: строит на своей земле и тянет клановые обеты.
+        permissions.get(ClanRank.MEMBER).addAll(EnumSet.of(
+                ClanPermission.BUILD,
+                ClanPermission.CONTRACTS));
+
+        // Хранитель: работа с людьми и землёй плюс торговля.
+        // Казна, настройки, апгрейды и дипломатия остаются за главой — это решения,
+        // которые нельзя откатить, и раздавать их по умолчанию неправильно.
+        permissions.get(ClanRank.GUARDIAN).addAll(EnumSet.of(
+                ClanPermission.BUILD,
+                ClanPermission.CONTRACTS,
+                ClanPermission.INVITE,
+                ClanPermission.KICK,
+                ClanPermission.CLAIM,
+                ClanPermission.TRADE));
     }
 
     public static Clan create(UUID id, String name, String tag, String tagColor, Material emblem, UUID founderId, int chestRows, boolean open) {

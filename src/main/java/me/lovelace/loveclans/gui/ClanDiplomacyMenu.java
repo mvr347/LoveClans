@@ -9,7 +9,6 @@ import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
@@ -25,21 +24,25 @@ import java.util.Optional;
  * churn).
  */
 public final class ClanDiplomacyMenu {
-    private static final int SLOT_ALLY = 10;
-    private static final int SLOT_NEUTRAL = 13;
-    private static final int SLOT_ENEMY = 16;
-    private static final int SLOT_EMBARGO = 19;
-    private static final int SLOT_BLOCKADE = 20;
-    private static final int SLOT_LETTERS = 22;
-    private static final int SLOT_TRADE = 28;
-    private static final int SLOT_WAR = 30;
-    private static final int SLOT_SIEGE = 32;
-    private static final int SLOT_RAID = 34;
-    private static final int SLOT_PEACE = 38;
-    private static final int SLOT_INFO = 40;
-    private static final int SLOT_BACK = 43;
-    private static final int SLOT_CLOSE = 44;
-    private static final int INVENTORY_SIZE = 45;
+    // Раскладка gui_gen v1.4. Меню было на 45 слотов — размер вне стандарта, из-за чего
+    // рамка, рабочая зона и футер не совпадали с остальными меню клана. Переведено на 54:
+    // голова в слоте 0, переключатели отношений и разделы в шапке (2-7), необратимые
+    // действия — в рабочей зоне, назад и закрытие — в футере (52, 53).
+    private static final int SLOT_INFO = 0;
+    private static final int SLOT_ALLY = 2;
+    private static final int SLOT_NEUTRAL = 3;
+    private static final int SLOT_ENEMY = 4;
+    private static final int SLOT_EMBARGO = 5;
+    private static final int SLOT_BLOCKADE = 6;
+    private static final int SLOT_LETTERS = 7;
+    private static final int SLOT_TRADE = 20;
+    private static final int SLOT_WAR = 22;
+    private static final int SLOT_SIEGE = 24;
+    private static final int SLOT_RAID = 30;
+    private static final int SLOT_PEACE = 32;
+    private static final int SLOT_BACK = 52;
+    private static final int SLOT_CLOSE = 53;
+    private static final int INVENTORY_SIZE = 54;
 
     private final LoveClansPlugin plugin;
 
@@ -54,12 +57,9 @@ public final class ClanDiplomacyMenu {
                 plugin.getMessages().component("gui.diplomacy.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player));
         holder.setInventory(inventory);
 
-        // Rule 8: only the unused header row (0-8) is pure frame here — every other row hosts
-        // content, so it must never be blanket-glassed (glass in the content rows was exactly
-        // the "странное расположение" bug: stray glass panes sitting between action buttons).
-        for (int slot = 0; slot <= 8; slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
+        // Рамка: стекло в 1-8, 9-17 и 45-52. Рабочая зона (18-44) не трогается, поэтому
+        // пустые слоты между кнопками остаются пустыми, а не забиваются стеклом (правило 8).
+        GuiFrames.fillFrame54(inventory);
 
         DiplomacyRelation current = sourceClan.relationTo(targetClan.id());
 
@@ -122,7 +122,7 @@ public final class ClanDiplomacyMenu {
         inventory.setItem(SLOT_RAID, buildRaidItem(player, targetClan, inConflict).build());
 
         if (inConflict) {
-            inventory.setItem(SLOT_PEACE, ItemBuilder.of(Material.WHITE_BANNER)
+            inventory.setItem(SLOT_PEACE, ItemBuilder.head(ItemBuilder.HEAD_RELATION_FRIENDLY)
                     .name(plugin.getMessages().component("gui.diplomacy.peace.name", player))
                     .lore(plugin.getMessages().component("gui.diplomacy.peace.lore", player))
                     .glow(true)
@@ -133,7 +133,9 @@ public final class ClanDiplomacyMenu {
                     .build());
         }
 
-        inventory.setItem(SLOT_INFO, ItemBuilder.of(targetClan.emblem().name().endsWith("_BANNER") ? targetClan.emblem() : Material.WHITE_BANNER)
+        // Слот 0 — голова темы меню: чей это клан. Эмблема-баннер сюда не годится,
+        // стандарт держит в контенте только головы.
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_DIPLOMACY)
                 .name(plugin.getMessages().component("gui.diplomacy.info.name",
                         Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player))
                 .lore(plugin.getMessages().components("gui.diplomacy.info.lore", Map.of(
@@ -179,7 +181,7 @@ public final class ClanDiplomacyMenu {
                     .lore(plugin.getMessages().component(inConflict
                             ? "gui.diplomacy.war.unavailable-conflict" : "gui.diplomacy.war.unavailable-location", player));
         }
-        return ItemBuilder.of(Material.NETHERITE_SWORD)
+        return ItemBuilder.head(ItemBuilder.HEAD_RELATION_HOSTILE)
                 .name(plugin.getMessages().component("gui.diplomacy.war.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.war.lore", player));
     }
@@ -192,7 +194,7 @@ public final class ClanDiplomacyMenu {
                     .lore(plugin.getMessages().component(inConflict
                             ? "gui.diplomacy.siege.unavailable-conflict" : "gui.diplomacy.siege.unavailable-location", player));
         }
-        return ItemBuilder.of(Material.SPYGLASS)
+        return ItemBuilder.head(ItemBuilder.HEAD_BLOCKADE)
                 .name(plugin.getMessages().component("gui.diplomacy.siege.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.siege.lore", player));
     }
@@ -203,7 +205,7 @@ public final class ClanDiplomacyMenu {
                     .name(plugin.getMessages().component("gui.diplomacy.raid.name", player))
                     .lore(plugin.getMessages().component("gui.diplomacy.raid.unavailable-conflict", player));
         }
-        return ItemBuilder.of(Material.LEATHER_BOOTS)
+        return ItemBuilder.head(ItemBuilder.HEAD_ABILITY_BERSERKER)
                 .name(plugin.getMessages().component("gui.diplomacy.raid.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.raid.lore", player));
     }

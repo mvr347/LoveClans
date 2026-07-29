@@ -6,7 +6,6 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.HandlerList;
@@ -33,16 +32,19 @@ import java.util.UUID;
  * just clan-vs-clan.
  */
 public final class ClanTradeSessionMenu implements Listener {
-    private static final int[] ITEMS_A = {9, 10, 11, 12, 18, 19, 20, 21, 27, 28, 29, 30};
-    private static final int[] ITEMS_B = {14, 15, 16, 17, 23, 24, 25, 26, 32, 33, 34, 35};
-    private static final int INFO_A_SLOT = 0;
-    private static final int INFO_B_SLOT = 8;
-    private static final int TRADE_ICON_SLOT = 4;
-    private static final int MONEY_A_SLOT = 38;
-    private static final int MONEY_B_SLOT = 42;
-    private static final int READY_A_SLOT = 45;
-    private static final int CLOSE_SLOT = 49;
-    private static final int READY_B_SLOT = 53;
+    // Раскладка gui_gen v1.4. Раньше половины сторон занимали строку 9-17, которая по
+    // стандарту целиком стеклянная, кнопки готовности стояли в футере поверх рамки, а
+    // закрытие висело в слоте 49 вместо 53. Теперь предметы живут только в рабочей зоне
+    // (18-44) двумя столбцами по три, средний столбец 22/31/40 остаётся пустым разделителем —
+    // стеклом его забивать нельзя (правило 8).
+    private static final int[] ITEMS_A = {19, 20, 21, 28, 29, 30, 37, 38, 39};
+    private static final int[] ITEMS_B = {23, 24, 25, 32, 33, 34, 41, 42, 43};
+    private static final int TRADE_ICON_SLOT = 0;
+    private static final int INFO_A_SLOT = 2;
+    private static final int MONEY_A_SLOT = 3;
+    private static final int MONEY_B_SLOT = 5;
+    private static final int INFO_B_SLOT = 6;
+    private static final int CLOSE_SLOT = 53;
     private static final int INVENTORY_SIZE = 54;
 
     private final LoveClansPlugin plugin;
@@ -55,8 +57,6 @@ public final class ClanTradeSessionMenu implements Listener {
     private final String clanBTag;
     private final String clanATagColor;
     private final String clanBTagColor;
-    private final Material clanAEmblem;
-    private final Material clanBEmblem;
     private final Inventory inventory;
 
     private long moneyA = 0L;
@@ -77,8 +77,6 @@ public final class ClanTradeSessionMenu implements Listener {
         this.clanBTag = clanB.tag();
         this.clanATagColor = clanA.tagColor();
         this.clanBTagColor = clanB.tagColor();
-        this.clanAEmblem = clanA.emblem();
-        this.clanBEmblem = clanB.emblem();
         this.inventory = Bukkit.createInventory(null, INVENTORY_SIZE,
                 plugin.getMessages().component("gui.trade-session.title",
                         Map.of("tagA", clanA.tag(), "tagB", clanB.tag()), playerA));
@@ -94,40 +92,33 @@ public final class ClanTradeSessionMenu implements Listener {
     }
 
     private void setupStaticSlots() {
-        for (int slot = 0; slot < inventory.getSize(); slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
-        for (int slot : ITEMS_A) inventory.setItem(slot, null);
-        for (int slot : ITEMS_B) inventory.setItem(slot, null);
+        // Заливаем только рамку: 1-8, 9-17 и 45-52. Рабочая зона остаётся пустой, поэтому
+        // слоты под предметы не нужно расчищать отдельно, а средний столбец не зарастает стеклом.
+        GuiFrames.fillFrame54(inventory);
         inventory.setItem(TRADE_ICON_SLOT, ItemBuilder.head(ItemBuilder.HEAD_TRADE)
                 .name(plugin.getMessages().component("gui.trade-session.icon.name")).build());
         render();
     }
 
     private void render() {
-        inventory.setItem(INFO_A_SLOT, ItemBuilder.of(clanAEmblem.name().endsWith("_BANNER") ? clanAEmblem : Material.WHITE_BANNER)
+        // Сторона и её готовность — одна кнопка: клик по своей стороне переключает готовность.
+        // Раньше готовность жила отдельными кнопками в футере, где по стандарту только рамка.
+        inventory.setItem(INFO_A_SLOT, ItemBuilder.head(readyA ? ItemBuilder.HEAD_WOOL_LIME : ItemBuilder.HEAD_WOOL_RED)
                 .name(plugin.getMessages().component("gui.trade-session.side.name", Map.of("tag", clanATag, "color", clanATagColor)))
                 .lore(plugin.getMessages().component(readyA ? "gui.trade-session.side.ready" : "gui.trade-session.side.not-ready"))
                 .build());
-        inventory.setItem(INFO_B_SLOT, ItemBuilder.of(clanBEmblem.name().endsWith("_BANNER") ? clanBEmblem : Material.WHITE_BANNER)
+        inventory.setItem(INFO_B_SLOT, ItemBuilder.head(readyB ? ItemBuilder.HEAD_WOOL_LIME : ItemBuilder.HEAD_WOOL_RED)
                 .name(plugin.getMessages().component("gui.trade-session.side.name", Map.of("tag", clanBTag, "color", clanBTagColor)))
                 .lore(plugin.getMessages().component(readyB ? "gui.trade-session.side.ready" : "gui.trade-session.side.not-ready"))
                 .build());
 
-        inventory.setItem(MONEY_A_SLOT, ItemBuilder.of(Material.GOLD_INGOT)
+        inventory.setItem(MONEY_A_SLOT, ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.trade-session.money.name"))
                 .lore(plugin.getMessages().component("gui.trade-session.money.lore", Map.of("amount", String.valueOf(moneyA))))
                 .build());
-        inventory.setItem(MONEY_B_SLOT, ItemBuilder.of(Material.GOLD_INGOT)
+        inventory.setItem(MONEY_B_SLOT, ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.trade-session.money.name"))
                 .lore(plugin.getMessages().component("gui.trade-session.money.lore", Map.of("amount", String.valueOf(moneyB))))
-                .build());
-
-        inventory.setItem(READY_A_SLOT, ItemBuilder.head(readyA ? ItemBuilder.HEAD_WOOL_LIME : ItemBuilder.HEAD_WOOL_RED)
-                .name(plugin.getMessages().component(readyA ? "gui.trade-session.ready.on" : "gui.trade-session.ready.off"))
-                .build());
-        inventory.setItem(READY_B_SLOT, ItemBuilder.head(readyB ? ItemBuilder.HEAD_WOOL_LIME : ItemBuilder.HEAD_WOOL_RED)
-                .name(plugin.getMessages().component(readyB ? "gui.trade-session.ready.on" : "gui.trade-session.ready.off"))
                 .build());
 
         inventory.setItem(CLOSE_SLOT, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
@@ -183,12 +174,12 @@ public final class ClanTradeSessionMenu implements Listener {
             abort((Player) event.getWhoClicked());
             return;
         }
-        if (rawSlot == READY_A_SLOT) {
+        if (rawSlot == INFO_A_SLOT) {
             event.setCancelled(true);
             if (isA) { readyA = !readyA; onReadyChanged(); }
             return;
         }
-        if (rawSlot == READY_B_SLOT) {
+        if (rawSlot == INFO_B_SLOT) {
             event.setCancelled(true);
             if (isB) { readyB = !readyB; onReadyChanged(); }
             return;

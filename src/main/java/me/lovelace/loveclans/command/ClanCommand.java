@@ -4,6 +4,7 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.api.events.ClanDiplomacyChangeEvent;
 import me.lovelace.loveclans.gui.*;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.model.history.ConflictRecord;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.DiplomacyRelation;
@@ -159,6 +160,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "ritual" -> ritual(requirePlayer(sender), args);
                 case "vote" -> vote(requirePlayer(sender), args);
                 case "artifact" -> artifact(sender, args);
+                case "history" -> history(sender, args);
                 case "reload" -> reload(sender);
                 case "admin" -> admin(sender, args);
                 case "settings" -> openSettings(requirePlayer(sender));
@@ -572,6 +574,75 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 });
     }
 
+    /**
+     * История конфликтов: {@code /clan history} — свои войны, осады и набеги,
+     * {@code /clan history <тег>} — только противостояние с этим кланом.
+     * До появления архива конфликт исчезал бесследно после завершения.
+     */
+    private void history(CommandSender sender, String[] args) {
+        Optional<Clan> own = sender instanceof Player player
+                ? plugin.getClanManager().getPlayerClan(player.getUniqueId())
+                : Optional.empty();
+        if (own.isEmpty()) {
+            plugin.getMessages().send(sender, "clan.no-clan");
+            return;
+        }
+        Clan clan = own.get();
+        int limit = plugin.getConfig().getInt("history.command-entries", 10);
+
+        if (args.length >= 2) {
+            Optional<Clan> other = plugin.getClanManager().getClanByTag(args[1]);
+            if (other.isEmpty()) {
+                plugin.getMessages().send(sender, "clan.not-found");
+                return;
+            }
+            plugin.getConflictArchive().historyBetween(clan.id(), other.get().id(), limit)
+                    .thenAccept(records -> sendHistory(sender, clan, records));
+            return;
+        }
+
+        plugin.getConflictArchive().historyOf(clan.id(), limit)
+                .thenAccept(records -> sendHistory(sender, clan, records));
+    }
+
+    private void sendHistory(CommandSender sender, Clan clan, List<ConflictRecord> records) {
+        plugin.runSync(() -> {
+            if (records.isEmpty()) {
+                plugin.getMessages().send(sender, "history.empty");
+                return;
+            }
+            plugin.getMessages().send(sender, "history.header", Map.of("tag", clan.tag()));
+
+            int won = 0;
+            int lost = 0;
+            for (ConflictRecord record : records) {
+                if (record.wonBy(clan.id())) {
+                    won++;
+                } else if (record.lostBy(clan.id())) {
+                    lost++;
+                }
+                String opponentTag = plugin.getClanManager().getClanById(record.opponentOf(clan.id()))
+                        .map(Clan::tag)
+                        .orElse("?");
+                String outcome = record.winnerClanId() == null
+                        ? "history.outcome-draw"
+                        : record.wonBy(clan.id()) ? "history.outcome-win" : "history.outcome-loss";
+                plugin.getMessages().send(sender, "history.entry", Map.of(
+                        "kind", plugin.getMessages().raw("history.kind-" + record.kind().name().toLowerCase(Locale.ROOT)),
+                        "opponent", opponentTag,
+                        "outcome", plugin.getMessages().raw(outcome),
+                        "days", String.valueOf(daysAgo(record.endedAt()))));
+            }
+            plugin.getMessages().send(sender, "history.summary", Map.of(
+                    "won", String.valueOf(won),
+                    "lost", String.valueOf(lost)));
+        });
+    }
+
+    private static long daysAgo(long timestamp) {
+        return Math.max(0L, (System.currentTimeMillis() - timestamp) / 86_400_000L);
+    }
+
     private void info(CommandSender sender, String[] args) {
         Optional<Clan> clan;
         if (args.length >= 2) {
@@ -845,10 +916,73 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 });
     }
 
+    /**
+     * {@code /clan siege fortify <номер лагеря>} — укрепление осадного лагеря за счёт
+     * клановой казны. Раньше лагерь сносился одним ударом и восстанавливался по таймеру,
+     * так что защите нечего было противопоставить, кроме дежурства у костра.
+     */
+    private void fortifyCamp(Player player, String[] args) {
+        if (args.length < 3) {
+            plugin.getMessages().send(player, "siege.fortify.usage");
+            return;
+        }
+        Optional<Clan> clanOpt = requireClan(player);
+        if (clanOpt.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        Clan clan = clanOpt.get();
+
+        int campIndex;
+        try {
+            campIndex = Integer.parseInt(args[2]) - 1;
+        } catch (NumberFormatException exception) {
+            plugin.getMessages().send(player, "siege.fortify.usage");
+            return;
+        }
+
+        Optional<UUID> siegeIdOpt = plugin.getSiegeManager().activeSiegeIdForAttacker(clan.id());
+        if (siegeIdOpt.isEmpty()) {
+            plugin.getMessages().send(player, "siege.fortify.no-siege");
+            return;
+        }
+        UUID siegeId = siegeIdOpt.get();
+
+        int level = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
+        long cost = plugin.getConfig().getLong("siege.fortification.cost", 500L)
+                * Math.max(1, level + 1);
+        if (clan.chestMoney() < cost) {
+            plugin.getMessages().send(player, "siege.fortify.not-enough",
+                    Map.of("cost", String.valueOf(cost)));
+            return;
+        }
+
+        if (!plugin.getSiegeManager().fortifyCamp(siegeId, campIndex)) {
+            plugin.getMessages().send(player, "siege.fortify.max-level");
+            return;
+        }
+
+        clan.addChestMoney(-cost);
+        plugin.getStorage().updateClanChestMoney(clan.id(), clan.chestMoney()).exceptionally(throwable -> {
+            plugin.getLogger().log(java.util.logging.Level.WARNING,
+                "Не удалось списать казну за укрепление лагеря", throwable);
+            return null;
+        });
+
+        plugin.getMessages().send(player, "siege.fortify.done", Map.of(
+                "index", String.valueOf(campIndex + 1),
+                "hits", String.valueOf(plugin.getSiegeManager().hitsRequired(siegeId, campIndex)),
+                "cost", String.valueOf(cost)));
+    }
+
     private void siege(Player player, String[] args) {
         requirePermission(player, Permissions.WAR);
         if (args.length < 2) {
             plugin.getMessages().send(player, "clan.help.siege");
+            return;
+        }
+        if (args[1].equalsIgnoreCase("fortify")) {
+            fortifyCamp(player, args);
             return;
         }
         Optional<Clan> optionalAttacker = requireClan(player);

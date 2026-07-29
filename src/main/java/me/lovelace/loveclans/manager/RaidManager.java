@@ -5,6 +5,7 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.raid.ClanRaid;
+import me.lovelace.loveclans.model.history.ConflictKind;
 import me.lovelace.loveclans.model.raid.RaidResult;
 import me.lovelace.loveclans.model.raid.RaidState;
 import net.kyori.adventure.bossbar.BossBar;
@@ -279,6 +280,10 @@ public final class RaidManager {
             onlineMembers(attacker).forEach(p -> plugin.getMessages().sendTitle(p, "raid.end.failed-title", "raid.end.failed-subtitle",
                     Map.of("tag", defender.tag(), "color", defender.tagColor())));
         }
+
+        plugin.getConflictArchive().record(ConflictKind.RAID, raid.attackerClanId(), raid.defenderClanId(),
+                result == RaidResult.ATTACKER_WIN ? raid.attackerClanId() : raid.defenderClanId(),
+                0, 0, raid.startedAt());
 
         plugin.getClanManager().recordRaidResultAsync(attacker, result == RaidResult.ATTACKER_WIN).exceptionally(t -> {
             plugin.getLogger().warning("Failed to record raid result for clan " + attacker.id() + ": " + t.getMessage());

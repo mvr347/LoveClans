@@ -9,6 +9,7 @@ import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.model.artifact.ArtifactType;
 import me.lovelace.loveclans.model.siege.ClanSiege;
+import me.lovelace.loveclans.model.history.ConflictKind;
 import me.lovelace.loveclans.model.siege.SiegeCamp;
 import me.lovelace.loveclans.model.siege.SiegeResult;
 import me.lovelace.loveclans.model.siege.SiegeState;
@@ -75,6 +76,40 @@ public final class SiegeManager {
 
     private Duration cooldownDuration() {
         return Duration.ofHours(plugin.getConfig().getLong("siege.cooldown-hours", 24));
+    }
+
+    /** Уровень укрепления лагерей: id осады -> индекс лагеря -> уровень. Оплачен атакующими. */
+    private final Map<UUID, Map<Integer, Integer>> campFortification = new ConcurrentHashMap<>();
+    /** Накопленные удары по лагерю: сбрасываются, когда лагерь сломан или восстановлен. */
+    private final Map<UUID, Map<Integer, Integer>> campHits = new ConcurrentHashMap<>();
+
+    /** Сколько ударов нужно, чтобы снести лагерь: базовый один плюс по одному за уровень укрепления. */
+    public int hitsRequired(UUID siegeId, int campIndex) {
+        int perLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.hits-per-level", 1));
+        return 1 + fortificationLevel(siegeId, campIndex) * perLevel;
+    }
+
+    public int fortificationLevel(UUID siegeId, int campIndex) {
+        return campFortification.getOrDefault(siegeId, Map.of()).getOrDefault(campIndex, 0);
+    }
+
+    /**
+     * Поднимает укрепление лагеря на уровень. Осада и индекс проверяются здесь же,
+     * чтобы нельзя было укрепить чужой или несуществующий лагерь.
+     */
+    public boolean fortifyCamp(UUID siegeId, int campIndex) {
+        ClanSiege siege = activeSieges.get(siegeId);
+        if (siege == null || siege.state() != SiegeState.ACTIVE || campIndex < 0 || campIndex >= siege.camps().size()) {
+            return false;
+        }
+        int max = Math.max(0, plugin.getConfig().getInt("siege.fortification.max-level", 3));
+        Map<Integer, Integer> levels = campFortification.computeIfAbsent(siegeId, id -> new ConcurrentHashMap<>());
+        int current = levels.getOrDefault(campIndex, 0);
+        if (current >= max) {
+            return false;
+        }
+        levels.put(campIndex, current + 1);
+        return true;
     }
 
     private Duration campRespawnDuration() {
@@ -271,6 +306,21 @@ public final class SiegeManager {
         if (camp.broken()) {
             return false;
         }
+        // Укреплённый лагерь не сносится с одного удара: защитникам приходится вкладывать
+        // в него время, а атакующим есть смысл тратить казну на укрепление.
+        int required = hitsRequired(siegeId, campIndex);
+        Map<Integer, Integer> hits = campHits.computeIfAbsent(siegeId, id -> new ConcurrentHashMap<>());
+        int accumulated = hits.merge(campIndex, 1, Integer::sum);
+        if (accumulated < required) {
+            resolveClans(siege).ifPresent(clans -> onlineMembers(clans.defender())
+                    .forEach(p -> plugin.getMessages().send(p, "siege.camp.weakened", Map.of(
+                            "index", String.valueOf(campIndex + 1),
+                            "hits", String.valueOf(accumulated),
+                            "required", String.valueOf(required)))));
+            return true;
+        }
+        hits.remove(campIndex);
+
         long now = System.currentTimeMillis();
         ClanSiege updated = siege.withCamp(camp.brokenNow(now, campRespawnDuration().toMillis()));
         activeSieges.put(siegeId, updated);
@@ -282,6 +332,14 @@ public final class SiegeManager {
             onlineMembers(clans.defender()).forEach(p -> plugin.getMessages().send(p, "siege.camp.broken-defender",
                     Map.of("index", String.valueOf(campIndex + 1))));
         });
+
+        // Снос лагеря — вклад в войну, если осада идёт внутри войны этих же кланов.
+        // addScore сам проверит, есть ли между ними активная война, и ничего не сделает,
+        // если осада самостоятельная.
+        int campScore = plugin.getConfig().getInt("war.objectives.camp-break-score", 3);
+        if (campScore > 0) {
+            plugin.getWarManager().addScore(siege.defenderClanId(), siege.attackerClanId(), campScore);
+        }
         return true;
     }
 
@@ -323,6 +381,17 @@ public final class SiegeManager {
         return activeSieges.values().stream().filter(s -> s.between(first, second)).findFirst();
     }
 
+    /** Осада, которую этот клан ведёт как атакующий — нужна для укрепления лагерей. */
+    public Optional<UUID> activeSiegeIdForAttacker(UUID clanId) {
+        if (clanId == null) {
+            return Optional.empty();
+        }
+        return activeSieges.values().stream()
+                .filter(siege -> siege.state() == SiegeState.ACTIVE && clanId.equals(siege.attackerClanId()))
+                .map(ClanSiege::id)
+                .findFirst();
+    }
+
     public Collection<ClanSiege> activeSieges() {
         return List.copyOf(activeSieges.values());
     }
@@ -348,6 +417,8 @@ public final class SiegeManager {
 
     private void endSiege(ClanSiege siege, SiegeResult result) {
         activeSieges.remove(siege.id());
+        campFortification.remove(siege.id());
+        campHits.remove(siege.id());
         Optional<SiegeClans> clansOpt = resolveClans(siege);
         clearPendingPhase(siege.id(), clansOpt.orElse(null));
         for (SiegeCamp camp : siege.camps()) {
@@ -402,6 +473,9 @@ public final class SiegeManager {
                 grantRandomArtifact(attacker);
             }
         }
+
+        plugin.getConflictArchive().record(ConflictKind.SIEGE, siege.attackerClanId(), siege.defenderClanId(),
+                winner.id(), 0, 0, siege.startedAt());
     }
 
     /**

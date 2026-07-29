@@ -58,6 +58,11 @@ public final class DatabaseManager implements AutoCloseable {
         return Objects.requireNonNull(executor, "DatabaseManager is not initialized");
     }
 
+    /** Логгер плагина — хранилищу он нужен, чтобы не глушить испорченные данные молча. */
+    java.util.logging.Logger logger() {
+        return plugin.getLogger();
+    }
+
     public DatabaseType type() {
         return type;
     }
@@ -137,25 +142,25 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
             // Migrations
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN is_open TINYINT NOT NULL DEFAULT 1"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN upgrade_points INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_online_time BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_last_decay BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN home_location TEXT"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_ability VARCHAR(32)"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN spirit_ability_chosen_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN wars_won INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN wars_lost INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN sieges_won INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN sieges_lost INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN raids_won INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN raids_lost INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN influence BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN perk VARCHAR(32)"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN perk_chosen_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN chest_money BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN last_tax_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clans ADD COLUMN chest_tax_locked TINYINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            addColumnIfMissing(connection, statement, "clans", "is_open", "TINYINT NOT NULL DEFAULT 1");
+            addColumnIfMissing(connection, statement, "clans", "upgrade_points", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "spirit_online_time", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "spirit_last_decay", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "home_location", "TEXT");
+            addColumnIfMissing(connection, statement, "clans", "spirit_ability", "VARCHAR(32)");
+            addColumnIfMissing(connection, statement, "clans", "spirit_ability_chosen_at", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "wars_won", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "wars_lost", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "sieges_won", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "sieges_lost", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "raids_won", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "raids_lost", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "influence", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "perk", "VARCHAR(32)");
+            addColumnIfMissing(connection, statement, "clans", "perk_chosen_at", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "chest_money", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "last_tax_at", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "chest_tax_locked", "TINYINT NOT NULL DEFAULT 0");
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_members (
@@ -169,7 +174,7 @@ public final class DatabaseManager implements AutoCloseable {
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);
-             try { statement.executeUpdate("ALTER TABLE clan_members ADD COLUMN contribution INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+             addColumnIfMissing(connection, statement, "clan_members", "contribution", "INT NOT NULL DEFAULT 0");
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_territories (
@@ -284,10 +289,10 @@ public final class DatabaseManager implements AutoCloseable {
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);
-            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN target INT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN reward_xp BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN started_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
-            try { statement.executeUpdate("ALTER TABLE clan_contracts ADD COLUMN expires_at BIGINT NOT NULL DEFAULT 0"); } catch (SQLException ignored) {}
+            addColumnIfMissing(connection, statement, "clan_contracts", "target", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clan_contracts", "reward_xp", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clan_contracts", "started_at", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clan_contracts", "expires_at", "BIGINT NOT NULL DEFAULT 0");
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_daily_contracts (
@@ -353,9 +358,63 @@ public final class DatabaseManager implements AutoCloseable {
                         resolved_at BIGINT NOT NULL DEFAULT 0
                     )
                     """);
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_conflicts (
+                        id VARCHAR(36) PRIMARY KEY,
+                        kind VARCHAR(16) NOT NULL,
+                        attacker_clan_id VARCHAR(36) NOT NULL,
+                        defender_clan_id VARCHAR(36) NOT NULL,
+                        winner_clan_id VARCHAR(36),
+                        attacker_score INT NOT NULL DEFAULT 0,
+                        defender_score INT NOT NULL DEFAULT 0,
+                        started_at BIGINT NOT NULL,
+                        ended_at BIGINT NOT NULL
+                    )
+                    """);
+            // Кланы удаляются, а их история остаётся: внешних ключей тут намеренно нет,
+            // иначе распад клана стирал бы и противостояния, в которых он участвовал.
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_conflicts_attacker ON clan_conflicts(attacker_clan_id)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_conflicts_defender ON clan_conflicts(defender_clan_id)");
         } catch (SQLException exception) {
             throw new StorageException("Unable to create database schema", exception);
         }
+    }
+
+    /**
+     * Добавляет колонку, если её ещё нет. Раньше каждая миграция была отдельным
+     * ALTER TABLE в try с пустым catch: так глушился не только ожидаемый «колонка
+     * уже есть», но и любой настоящий сбой — плагин молча стартовал с неполной
+     * схемой и падал позже в неожиданном месте.
+     *
+     * Наличие колонки проверяется через метаданные JDBC, поэтому проверка одинаково
+     * работает и на SQLite, и на MySQL.
+     */
+    private void addColumnIfMissing(Connection connection, Statement statement,
+                                    String table, String column, String definition) throws SQLException {
+        if (columnExists(connection, table, column)) {
+            return;
+        }
+        try {
+            statement.executeUpdate("ALTER TABLE " + table + " ADD COLUMN " + column + " " + definition);
+        } catch (SQLException exception) {
+            // Колонку мог добавить параллельный старт другого узла — это не ошибка.
+            if (columnExists(connection, table, column)) {
+                return;
+            }
+            plugin.getLogger().log(Level.WARNING,
+                "Не удалось добавить колонку " + table + "." + column + " — схема осталась неполной", exception);
+        }
+    }
+
+    private boolean columnExists(Connection connection, String table, String column) throws SQLException {
+        try (var columns = connection.getMetaData().getColumns(null, null, table, null)) {
+            while (columns.next()) {
+                if (column.equalsIgnoreCase(columns.getString("COLUMN_NAME"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
