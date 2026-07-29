@@ -158,4 +158,31 @@ public final class LoveClansAPI {
     public ItemStack createArtifact(ArtifactType type) {
         return plugin.getArtifactManager().createArtifact(type);
     }
+
+    // --- Клановая казна: нужна соседним плагинам, оплачивающим действия из общих денег ---
+
+    /** Сколько денег лежит в клановой казне. */
+    public long getChestMoney(Clan clan) {
+        return clan == null ? 0L : clan.chestMoney();
+    }
+
+    /**
+     * Списывает сумму из клановой казны, если её хватает. Возвращает false, когда денег
+     * недостаточно, — вызывающему не нужно самому проверять баланс и ловить гонку между
+     * проверкой и списанием.
+     */
+    public CompletableFuture<Boolean> spendChestMoneyAsync(Clan clan, long amount) {
+        if (clan == null || amount <= 0) {
+            return CompletableFuture.completedFuture(false);
+        }
+        return plugin.supplySync(() -> {
+            if (clan.chestMoney() < amount) {
+                return false;
+            }
+            clan.addChestMoney(-amount);
+            return true;
+        }).thenCompose(spent -> spent
+                ? plugin.getStorage().updateClanChestMoney(clan.id(), clan.chestMoney()).thenApply(ignored -> true)
+                : CompletableFuture.completedFuture(false));
+    }
 }
