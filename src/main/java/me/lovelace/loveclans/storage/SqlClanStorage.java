@@ -37,6 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 public final class SqlClanStorage implements ClanStorage {
@@ -71,7 +72,14 @@ public final class SqlClanStorage implements ClanStorage {
                             if (rawAbility != null) {
                                 spiritAbility = me.lovelace.loveclans.model.spirit.SpiritAbility.valueOf(rawAbility);
                             }
-                        } catch (SQLException | IllegalArgumentException ignored) {}
+                        } catch (SQLException ignored) {
+                            // Колонки может не быть на старой схеме — способность просто не выбрана.
+                        } catch (IllegalArgumentException exception) {
+                            // А вот неизвестное значение в колонке — это уже испорченные данные:
+                            // способность клана тихо пропадала, и понять почему было нельзя.
+                            database.logger().log(Level.WARNING,
+                                "Неизвестная способность духа в базе — клан загружен без неё", exception);
+                        }
                         long abilityChosenAt = 0L;
                         try {
                             abilityChosenAt = result.getLong("spirit_ability_chosen_at");
@@ -994,7 +1002,12 @@ public final class SqlClanStorage implements ClanStorage {
                     ClanRank rank = ClanRank.valueOf(result.getString("rank"));
                     ClanPermission permission = ClanPermission.valueOf(result.getString("permission"));
                     clan.setPermission(rank, permission, true);
-                } catch (IllegalArgumentException ignored) {}
+                } catch (IllegalArgumentException exception) {
+                    // Неизвестный ранг или право в базе: строка молча выбрасывалась, и клан
+                    // оставался с урезанными правами без единой записи в логе.
+                    database.logger().log(Level.WARNING,
+                        "Неизвестный ранг или право в clan_permissions — строка пропущена", exception);
+                }
             }
         } catch (SQLException ignored) {
             // Table might not exist yet if plugin just updated
