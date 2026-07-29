@@ -9,6 +9,7 @@ import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.model.artifact.ArtifactType;
 import me.lovelace.loveclans.model.siege.ClanSiege;
+import me.lovelace.loveclans.model.history.ConflictKind;
 import me.lovelace.loveclans.model.siege.SiegeCamp;
 import me.lovelace.loveclans.model.siege.SiegeResult;
 import me.lovelace.loveclans.model.siege.SiegeState;
@@ -375,6 +376,9 @@ public final class SiegeManager {
         if (result == SiegeResult.ATTACKER_WIN && plugin.getConfig().getBoolean("siege.reward-artifact", true)) {
             grantRandomArtifact(attacker);
         }
+
+        plugin.getConflictArchive().record(ConflictKind.SIEGE, siege.attackerClanId(), siege.defenderClanId(),
+                winner.id(), 0, 0, siege.startedAt());
     }
 
     private void grantRandomArtifact(Clan clan) {

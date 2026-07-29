@@ -10,6 +10,7 @@ import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.model.war.ClanWar;
+import me.lovelace.loveclans.model.history.ConflictKind;
 import me.lovelace.loveclans.model.war.WarResult;
 import me.lovelace.loveclans.model.war.WarState;
 import me.lovelace.loveclans.util.ClanItemFactory;
@@ -45,6 +46,8 @@ public final class WarManager {
     // всегда обновлялись/удалялись вместе и не могли разойтись.
     private record BannerProgress(int hits, long lastHitAt) {}
     private final Map<UUID, BannerProgress> bannerProgress = new ConcurrentHashMap<>();
+    /** Войны, где один из кланов идёт на реванш: id войны -> клан, которому положена прибавка. */
+    private final Map<UUID, UUID> rematchClaims = new ConcurrentHashMap<>();
     // Боевой таймер (§3.2): босс-бар и разовое предупреждение "за минуту", показываемые обеим
     // сторонам, пока война находится в состоянии PREPARING (объявлена, но ещё не началась).
     private final Map<UUID, BossBar> pendingBossBars = new ConcurrentHashMap<>();
@@ -177,6 +180,7 @@ public final class WarManager {
         activeWars.put(activated.id(), activated);
 
         distributeWarCompasses(activated);
+        checkRematch(activated);
         resolveContestedTerritory(activated).ifPresent(t ->
                 plugin.getAdvancedClaimsHook().setSiegeMode(t.advancedClaimId(), true));
         announceWarStart(activated, warClansOpt.get().attacker(), warClansOpt.get().defender());
@@ -207,6 +211,8 @@ public final class WarManager {
                 confiscateWarItems(war);
                 endSiege(war);
                 resetBannerHits(war.id());
+                rematchClaims.remove(war.id());
+                archiveWar(war, result);
 
                 long reward = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
                 if (result == WarResult.ATTACKER_WIN) {
@@ -284,6 +290,8 @@ public final class WarManager {
             confiscateWarItems(war);
             endSiege(war);
             resetBannerHits(war.id());
+            rematchClaims.remove(war.id());
+            archiveWar(war, WarResult.DRAW);
 
             return null;
         });
@@ -310,10 +318,71 @@ public final class WarManager {
     }
 
     public void addKillScore(UUID killerClanId, UUID victimClanId) {
-        activeWar(killerClanId, victimClanId).ifPresent(war -> {
-            ClanWar updated = killerClanId.equals(war.attackerClanId()) ? war.addAttackerScore(1) : war.addDefenderScore(1);
+        addScore(killerClanId, victimClanId, 1);
+    }
+
+    /**
+     * Начисляет очки войны с учётом прибавки за реванш. Все источники очков должны идти
+     * через этот метод, иначе реванш будет работать только для убийств.
+     */
+    public void addScore(UUID scoringClanId, UUID opponentClanId, int amount) {
+        if (amount <= 0) {
+            return;
+        }
+        activeWar(scoringClanId, opponentClanId).ifPresent(war -> {
+            int awarded = applyRematchBonus(war.id(), scoringClanId, amount);
+            ClanWar updated = scoringClanId.equals(war.attackerClanId())
+                    ? war.addAttackerScore(awarded)
+                    : war.addDefenderScore(awarded);
             activeWars.put(war.id(), updated);
         });
+    }
+
+    /**
+     * Прибавка клану, который в прошлый раз проиграл этому же противнику. Округляем вверх,
+     * иначе при мелких начислениях бонус пропадал бы целиком.
+     */
+    private int applyRematchBonus(UUID warId, UUID scoringClanId, int amount) {
+        if (!scoringClanId.equals(rematchClaims.get(warId))) {
+            return amount;
+        }
+        double percent = plugin.getConfig().getDouble("history.rematch-bonus-percent", 15.0);
+        if (percent <= 0) {
+            return amount;
+        }
+        return (int) Math.ceil(amount * (1.0 + percent / 100.0));
+    }
+
+    /**
+     * Смотрит в архив: если клан проиграл прошлый конфликт этому же противнику, война
+     * для него становится реваншем с прибавкой к очкам. До появления архива история
+     * противостояния нигде не хранилась, и такой бонус выдать было не из чего.
+     */
+    private void checkRematch(ClanWar war) {
+        double percent = plugin.getConfig().getDouble("history.rematch-bonus-percent", 15.0);
+        if (percent <= 0) {
+            return;
+        }
+        plugin.getConflictArchive().historyBetween(war.attackerClanId(), war.defenderClanId(), 1)
+                .thenAccept(records -> {
+                    if (records.isEmpty()) {
+                        return;
+                    }
+                    var previous = records.get(0);
+                    UUID avenger = previous.lostBy(war.attackerClanId()) ? war.attackerClanId()
+                            : previous.lostBy(war.defenderClanId()) ? war.defenderClanId()
+                            : null;
+                    if (avenger == null) {
+                        return;
+                    }
+                    plugin.runSync(() -> {
+                        rematchClaims.put(war.id(), avenger);
+                        plugin.getClanManager().getClanById(avenger).ifPresent(clan ->
+                                onlineMembers(clan).forEach(player -> plugin.getMessages().send(player,
+                                        "history.rematch-bonus",
+                                        Map.of("percent", String.valueOf((int) Math.round(percent))))));
+                    });
+                });
     }
 
     public void setBannerCapture(UUID warId, UUID playerId) {
@@ -694,6 +763,23 @@ public final class WarManager {
             return Optional.empty();
         }
         return Optional.of(new WarClans(attackerOpt.get(), defenderOpt.get()));
+    }
+
+    /**
+     * Кладёт завершённую войну в архив. Отменённые войны не записываются: они ничем
+     * не закончились, и в истории противостояния им не место.
+     */
+    private void archiveWar(ClanWar war, WarResult result) {
+        if (result == WarResult.CANCELLED) {
+            return;
+        }
+        UUID winner = switch (result) {
+            case ATTACKER_WIN -> war.attackerClanId();
+            case DEFENDER_WIN -> war.defenderClanId();
+            default -> null;
+        };
+        plugin.getConflictArchive().record(ConflictKind.WAR, war.attackerClanId(), war.defenderClanId(),
+                winner, war.attackerScore(), war.defenderScore(), war.startedAt());
     }
 
     private void announceWarEnd(ClanWar war, WarResult result) {

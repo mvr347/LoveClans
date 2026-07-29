@@ -11,6 +11,8 @@ import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.diplomacy.ClanLetter;
+import me.lovelace.loveclans.model.history.ConflictKind;
+import me.lovelace.loveclans.model.history.ConflictRecord;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.model.trade.ClanTrade;
@@ -1237,5 +1239,99 @@ public final class SqlClanStorage implements ClanStorage {
             // Log error
             return null;
         }
+    }
+
+    // --- Архив конфликтов ---
+
+    @Override
+    public CompletableFuture<Void> saveConflictAsync(ConflictRecord record) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = "INSERT INTO clan_conflicts (id, kind, attacker_clan_id, defender_clan_id, winner_clan_id, " +
+                    "attacker_score, defender_score, started_at, ended_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, record.id().toString());
+                statement.setString(2, record.kind().name());
+                statement.setString(3, record.attackerClanId().toString());
+                statement.setString(4, record.defenderClanId().toString());
+                if (record.winnerClanId() == null) {
+                    statement.setNull(5, Types.VARCHAR);
+                } else {
+                    statement.setString(5, record.winnerClanId().toString());
+                }
+                statement.setInt(6, record.attackerScore());
+                statement.setInt(7, record.defenderScore());
+                statement.setLong(8, record.startedAt());
+                statement.setLong(9, record.endedAt());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save conflict " + record.id(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<List<ConflictRecord>> loadConflictsForClanAsync(UUID clanId, int limit) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT * FROM clan_conflicts WHERE attacker_clan_id = ? OR defender_clan_id = ? " +
+                    "ORDER BY ended_at DESC LIMIT ?";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, clanId.toString());
+                statement.setString(2, clanId.toString());
+                statement.setInt(3, Math.max(1, limit));
+                return readConflicts(statement);
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load conflicts for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<List<ConflictRecord>> loadConflictsBetweenAsync(UUID first, UUID second, int limit) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT * FROM clan_conflicts WHERE (attacker_clan_id = ? AND defender_clan_id = ?) " +
+                    "OR (attacker_clan_id = ? AND defender_clan_id = ?) ORDER BY ended_at DESC LIMIT ?";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, first.toString());
+                statement.setString(2, second.toString());
+                statement.setString(3, second.toString());
+                statement.setString(4, first.toString());
+                statement.setInt(5, Math.max(1, limit));
+                return readConflicts(statement);
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load conflicts between " + first + " and " + second, exception);
+            }
+        }, database.executor());
+    }
+
+    private List<ConflictRecord> readConflicts(PreparedStatement statement) throws SQLException {
+        List<ConflictRecord> records = new ArrayList<>();
+        try (ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                ConflictKind kind;
+                try {
+                    kind = ConflictKind.valueOf(result.getString("kind"));
+                } catch (IllegalArgumentException exception) {
+                    database.logger().log(Level.WARNING,
+                        "Неизвестный тип конфликта в архиве — запись пропущена", exception);
+                    continue;
+                }
+                String winner = result.getString("winner_clan_id");
+                records.add(new ConflictRecord(
+                        UUID.fromString(result.getString("id")),
+                        kind,
+                        UUID.fromString(result.getString("attacker_clan_id")),
+                        UUID.fromString(result.getString("defender_clan_id")),
+                        winner == null ? null : UUID.fromString(winner),
+                        result.getInt("attacker_score"),
+                        result.getInt("defender_score"),
+                        result.getLong("started_at"),
+                        result.getLong("ended_at")
+                ));
+            }
+        }
+        return records;
     }
 }

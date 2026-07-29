@@ -20,6 +20,7 @@ import me.lovelace.loveclans.listener.ShieldColorListener;
 import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
+import me.lovelace.loveclans.manager.ConflictArchive;
 import me.lovelace.loveclans.manager.ContractManager;
 import me.lovelace.loveclans.manager.ClanTradeManager;
 import me.lovelace.loveclans.manager.ClanTradeSessionManager;
@@ -47,6 +48,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import me.lovelace.loveclans.model.Clan;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -61,6 +64,7 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     private DatabaseManager databaseManager;
     private ClanStorage storage;
+    private ConflictArchive conflictArchive;
     private MessageService messages;
     private ClanManager clanManager;
     private WarManager warManager;
@@ -98,6 +102,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         storage = new SqlClanStorage(databaseManager);
 
         clanManager = new ClanManager(this, storage);
+        conflictArchive = new ConflictArchive(this);
         warManager = new WarManager(this);
         siegeManager = new SiegeManager(this);
         raidManager = new RaidManager(this);
@@ -176,6 +181,12 @@ public final class LoveClansPlugin extends JavaPlugin {
                         getLogger().log(java.util.logging.Level.SEVERE, "Contract tick failed", t);
                     }
                 }, contractTickTicks, contractTickTicks);
+
+                // Свежесть боевых заслуг: победы выветриваются просто от хода времени,
+                // а не только когда случился новый конфликт, поэтому её приходится
+                // пересчитывать по таймеру, а не по событию.
+                long freshnessTicks = 20L * 60L * Math.max(5, getConfig().getInt("history.freshness-refresh-minutes", 30));
+                Bukkit.getScheduler().runTaskTimer(this, this::refreshConflictFreshness, 20L * 30L, freshnessTicks);
 
                 heartbeatTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
                     try {
@@ -298,6 +309,27 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public ClanManager getClanManager() {
         return clanManager;
+    }
+
+    /**
+     * Пересчитывает свежесть заслуг всех кланов и обновляет кэшированное влияние.
+     * Без этого распад влияния случался бы только в момент нового конфликта.
+     */
+    private void refreshConflictFreshness() {
+        for (Clan clan : clanManager.getAllClans()) {
+            UUID clanId = clan.id();
+            conflictArchive.refreshFreshnessAsync(clanId).thenAccept(ignored -> runSync(() ->
+                    clanManager.getClanById(clanId).ifPresent(current ->
+                            clanManager.recalculateInfluenceAsync(current).exceptionally(throwable -> {
+                                getLogger().log(java.util.logging.Level.WARNING,
+                                    "Не удалось пересчитать влияние клана после распада заслуг", throwable);
+                                return null;
+                            }))));
+        }
+    }
+
+    public ConflictArchive getConflictArchive() {
+        return conflictArchive;
     }
 
     public WarManager getWarManager() {

@@ -1142,16 +1142,28 @@ public final class ClanManager {
     public long computeInfluence(Clan clan) {
         if (clan == null) return 0L;
         var cfg = plugin.getConfig();
-        long value = 0L;
-        value += (long) clan.members().size() * cfg.getInt("influence.member-weight", 10);
-        value += (long) clan.level() * cfg.getInt("influence.level-weight", 5);
-        value += (long) totalUpgradeLevelsInvested(clan) * cfg.getInt("influence.upgrade-point-weight", 20);
-        value += (long) clan.warsWon() * cfg.getInt("influence.war-win-weight", 50);
-        value -= (long) clan.warsLost() * cfg.getInt("influence.war-loss-weight", 25);
-        value += (long) clan.siegesWon() * cfg.getInt("influence.siege-win-weight", 75);
-        value -= (long) clan.siegesLost() * cfg.getInt("influence.siege-loss-weight", 40);
-        value += (long) clan.raidsWon() * cfg.getInt("influence.raid-win-weight", 30);
-        value -= (long) clan.raidsLost() * cfg.getInt("influence.raid-loss-weight", 15);
+
+        // Текущее состояние клана — размер, уровень, вложенные апгрейды. Не выветривается.
+        long standing = 0L;
+        standing += (long) clan.members().size() * cfg.getInt("influence.member-weight", 10);
+        standing += (long) clan.level() * cfg.getInt("influence.level-weight", 5);
+        standing += (long) totalUpgradeLevelsInvested(clan) * cfg.getInt("influence.upgrade-point-weight", 20);
+
+        // Боевые заслуги. Победы выветриваются со временем, иначе клан, отвоевавший
+        // своё год назад, вечно стоял бы наверху списка. Поражения не выветриваются:
+        // сбрасывать их вместе с победами значило бы прощать разгром за давностью лет.
+        long wins = 0L;
+        wins += (long) clan.warsWon() * cfg.getInt("influence.war-win-weight", 50);
+        wins += (long) clan.siegesWon() * cfg.getInt("influence.siege-win-weight", 75);
+        wins += (long) clan.raidsWon() * cfg.getInt("influence.raid-win-weight", 30);
+
+        long losses = 0L;
+        losses += (long) clan.warsLost() * cfg.getInt("influence.war-loss-weight", 25);
+        losses += (long) clan.siegesLost() * cfg.getInt("influence.siege-loss-weight", 40);
+        losses += (long) clan.raidsLost() * cfg.getInt("influence.raid-loss-weight", 15);
+
+        double freshness = plugin.getConflictArchive().freshnessOf(clan.id());
+        long value = standing + Math.round(wins * freshness) - losses;
         return Math.max(0L, value);
     }
 

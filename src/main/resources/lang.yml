@@ -404,7 +404,20 @@ gui:
       title: "<gold>Подтвердите смену названия"
     transfer:
       title: "<gold>Подтвердите передачу лидерства"
-    war:
+    history:
+  header: "<prefix><gold>История конфликтов клана <tag>:"
+  entry: "<gray>  <kind> с <yellow><opponent></yellow> — <outcome><gray>, <days> дн. назад"
+  summary: "<gray>  Итого: <green><won> побед</green>, <red><lost> поражений</red>"
+  empty: "<prefix><gray>Конфликтов пока не было."
+  kind-war: "Война"
+  kind-siege: "Осада"
+  kind-raid: "Набег"
+  outcome-win: "<green>победа</green>"
+  outcome-loss: "<red>поражение</red>"
+  outcome-draw: "<yellow>ничья</yellow>"
+  rematch-bonus: "<prefix><gold>Реванш! <gray>Ваш клан получает <yellow>+<percent>%</yellow> к очкам в этой войне."
+
+war:
       title: "<red>Объявить войну клану <color><tag></color>?"
     siege:
       title: "<red>Устроить осаду клана <color><tag></color>?"

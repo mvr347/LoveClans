@@ -358,6 +358,23 @@ public final class DatabaseManager implements AutoCloseable {
                         resolved_at BIGINT NOT NULL DEFAULT 0
                     )
                     """);
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_conflicts (
+                        id VARCHAR(36) PRIMARY KEY,
+                        kind VARCHAR(16) NOT NULL,
+                        attacker_clan_id VARCHAR(36) NOT NULL,
+                        defender_clan_id VARCHAR(36) NOT NULL,
+                        winner_clan_id VARCHAR(36),
+                        attacker_score INT NOT NULL DEFAULT 0,
+                        defender_score INT NOT NULL DEFAULT 0,
+                        started_at BIGINT NOT NULL,
+                        ended_at BIGINT NOT NULL
+                    )
+                    """);
+            // Кланы удаляются, а их история остаётся: внешних ключей тут намеренно нет,
+            // иначе распад клана стирал бы и противостояния, в которых он участвовал.
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_conflicts_attacker ON clan_conflicts(attacker_clan_id)");
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_conflicts_defender ON clan_conflicts(defender_clan_id)");
         } catch (SQLException exception) {
             throw new StorageException("Unable to create database schema", exception);
         }
