@@ -28,12 +28,9 @@ clans:
     # также разрешены пробелы, цифры, дефис и подчёркивание.
     pattern: "^[\\p{L}\\p{N} _-]+$"
   creation-cooldown-seconds: 86400
-  # creation-cost — количество предмета creation-cost-item, списываемое с игрока при создании клана.
-  # Экономика ItemsAdder, а не Vault: на сервере нет плагина-экономики, и добавлять его не нужно.
-  creation-cost: 10000
-  # creation-cost-item — ItemsAdder ID предмета (namespace:id), которым оплачивается создание клана.
-  # Если оставить пустым, плата за создание не взимается (штраф отключён), даже если creation-cost > 0.
-  creation-cost-item: ""
+  # creation-cost — сумма в единой валюте экосистемы (LoveCore.LoveEconomy, монеты ItemsAdder
+  # в инвентаре), списываемая с игрока при создании клана. 0 — плата отключена.
+  creation-cost: 0
   rejoin-cooldown-seconds: 3600
   default-tag-color: "<gold>"
   # dye-color — имя org.bukkit.DyeColor, используется для окраски щитов в цвет клана (см. ShieldColorManager).
