@@ -1,6 +1,7 @@
 package me.lovelace.loveclans.manager;
 
 import dev.lovelace.lovecore.api.LoveCore;
+import dev.lovelace.lovecore.api.economy.Denomination;
 import dev.lovelace.lovecore.api.economy.LoveEconomy;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.api.events.ClanClaimEvent;
@@ -105,17 +106,34 @@ public final class ClanManager {
         if (currencyItem == null || currencyItem.isBlank()) {
             return CompletableFuture.completedFuture(null);
         }
+
+        // The legacy /clan bank ledger counted currencyItem items 1:1 as "money" — the old,
+        // now-removed flat ItemsAdderEconomyService had no denominations. Chest money is now
+        // expressed in LoveEconomy value units instead, so a migrated balance must be multiplied
+        // by that coin's current value, or it silently deflates: e.g. 500 legacy gold_coin (worth
+        // 500 under the old flat economy) would otherwise land as 500 value units — only 10 gold
+        // coins' worth — since gold_coin is denominated at 50, not 1.
+        long coinValue = LoveCore.service(LoveEconomy.class)
+                .map(economy -> economy.denominations().stream()
+                        .filter(d -> matchesCurrencyItem(d.itemId(), currencyItem))
+                        .mapToLong(Denomination::value)
+                        .findFirst()
+                        .orElse(1L))
+                .orElse(1L);
+
         List<CompletableFuture<Void>> migrations = new ArrayList<>();
         for (Clan clan : clansById.values()) {
             if (clan.chestMoney() > 0) {
                 continue;
             }
-            migrations.add(storage.migrateLegacyBankMoneyAsync(clan.id(), currencyItem).thenCompose(amount -> {
-                if (amount <= 0) {
+            migrations.add(storage.migrateLegacyBankMoneyAsync(clan.id(), currencyItem).thenCompose(rawAmount -> {
+                if (rawAmount <= 0) {
                     return CompletableFuture.completedFuture(null);
                 }
-                clan.addChestMoney(amount);
-                plugin.getLogger().info("Migrated " + amount + "x " + currencyItem + " from the old clan bank into the chest for clan " + clan.id());
+                long convertedAmount = rawAmount * coinValue;
+                clan.addChestMoney(convertedAmount);
+                plugin.getLogger().info("Migrated " + rawAmount + "x " + currencyItem + " (" + convertedAmount
+                        + " value units at " + coinValue + "/coin) from the old clan bank into the chest for clan " + clan.id());
                 return storage.updateClanChestMoney(clan.id(), clan.chestMoney());
             }).exceptionally(t -> {
                 plugin.getLogger().warning("Failed to migrate legacy bank money for clan " + clan.id() + ": " + t.getMessage());
@@ -123,6 +141,15 @@ public final class ClanManager {
             }));
         }
         return CompletableFuture.allOf(migrations.toArray(new CompletableFuture[0]));
+    }
+
+    private boolean matchesCurrencyItem(String denominationItemId, String currencyItemId) {
+        return shortItemId(denominationItemId).equalsIgnoreCase(shortItemId(currencyItemId));
+    }
+
+    private String shortItemId(String id) {
+        int idx = id.indexOf(':');
+        return idx >= 0 ? id.substring(idx + 1) : id;
     }
 
     /**
