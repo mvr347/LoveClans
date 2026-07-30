@@ -655,7 +655,11 @@ public final class WarManager {
         if (territoryOpt.isEmpty()) {
             return;
         }
-        BoundingBox box = territoryOpt.get().boundingBox();
+        Optional<BoundingBox> boxOpt = plugin.getAdvancedClaimsHook().boundingBoxOf(territoryOpt.get());
+        if (boxOpt.isEmpty()) {
+            return;
+        }
+        BoundingBox box = boxOpt.get();
 
         Optional<WarClans> clansOpt = resolveWarClans(war);
         if (clansOpt.isEmpty()) {

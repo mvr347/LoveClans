@@ -942,12 +942,6 @@ public final class SqlClanStorage implements ClanStorage {
                         UUID.fromString(result.getString("id")),
                         clan.id(),
                         result.getString("world"),
-                        result.getInt("min_x"),
-                        result.getInt("min_y"),
-                        result.getInt("min_z"),
-                        result.getInt("max_x"),
-                        result.getInt("max_y"),
-                        result.getInt("max_z"),
                         result.getString("advanced_claim_id") == null ? null : UUID.fromString(result.getString("advanced_claim_id")),
                         UUID.fromString(result.getString("claimed_by")),
                         result.getLong("claimed_at"),
@@ -1085,12 +1079,17 @@ public final class SqlClanStorage implements ClanStorage {
             statement.setString(paramIndex++, territory.id().toString());
             statement.setString(paramIndex++, territory.clanId().toString());
             statement.setString(paramIndex++, territory.world());
-            statement.setInt(paramIndex++, territory.minX());
-            statement.setInt(paramIndex++, territory.minY());
-            statement.setInt(paramIndex++, territory.minZ());
-            statement.setInt(paramIndex++, territory.maxX());
-            statement.setInt(paramIndex++, territory.maxY());
-            statement.setInt(paramIndex++, territory.maxZ());
+            // min_x..max_z остались в схеме как NOT NULL (SQLite не умеет дёшево снять это
+            // ограничение без пересборки таблицы), но больше не значат ничего — геометрия
+            // территории теперь всегда приходит из LoveClaims через advanced_claim_id, см.
+            // AdvancedClaimsHook#boundingBoxOf. Пишем 0, чтобы не тащить формулу центр±радиус
+            // ещё и в слой хранения.
+            statement.setInt(paramIndex++, 0);
+            statement.setInt(paramIndex++, 0);
+            statement.setInt(paramIndex++, 0);
+            statement.setInt(paramIndex++, 0);
+            statement.setInt(paramIndex++, 0);
+            statement.setInt(paramIndex++, 0);
             if (territory.advancedClaimId() == null) {
                 statement.setNull(paramIndex++, Types.VARCHAR);
             } else {

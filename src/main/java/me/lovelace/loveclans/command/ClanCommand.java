@@ -886,19 +886,19 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         // случайный чанк, где стоит атакующий, ни на что не влияет (компас/захват знамени не
         // находят подходящую территорию и молча ничего не выдают игрокам).
         //
-        // Важно: находим территорию по фактическому bounding box'у (territory.boundingBox()),
-        // а не по TerritoryKey.fromLocation(player.getLocation()). Территория может занимать
-        // несколько чанков (integration.advanced-claims.claim-radius по умолчанию 35 => ~71x71
-        // блоков), а ClanTerritory#key() всегда фиксирован на чанке МИНИМАЛЬНОГО угла территории.
+        // Важно: находим территорию по фактической геометрии из LoveClaims
+        // (AdvancedClaimsHook#contains), а не по TerritoryKey.fromLocation(player.getLocation()).
+        // Территория может занимать несколько чанков (integration.advanced-claims.claim-radius
+        // по умолчанию 35 => ~71x71 блоков), а ClanTerritory#key() фиксирован на чанке знамени.
         // Если бы мы просто брали чанк игрока, WarManager.resolveContestedTerritory (сверяющий
         // territory.key() с contestedTerritory) не нашёл бы территорию всякий раз, когда игрок
-        // стоит не в том самом угловом чанке - хотя formально он внутри defender'а по getClanAt.
+        // стоит не в чанке знамени - хотя formально он внутри defender'а по getClanAt.
         boolean withinDefenderTerritory = plugin.getClanManager().getClanAt(player.getLocation())
                 .map(owner -> owner.id().equals(defender.id()))
                 .orElse(false);
         Optional<ClanTerritory> contestedTerritory = withinDefenderTerritory
                 ? defender.territories().stream()
-                        .filter(t -> t.boundingBox().contains(player.getLocation().toVector()))
+                        .filter(t -> plugin.getAdvancedClaimsHook().contains(t, player.getLocation()))
                         .findFirst()
                 : Optional.empty();
         if (contestedTerritory.isEmpty()) {
@@ -994,13 +994,13 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Clan defender = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
 
         // Same "must be standing inside the defender's territory" requirement as /clan war -
-        // see the comment there for why boundingBox() is used instead of TerritoryKey.fromLocation.
+        // see the comment there for why AdvancedClaimsHook#contains is used instead of TerritoryKey.fromLocation.
         boolean withinDefenderTerritory = plugin.getClanManager().getClanAt(player.getLocation())
                 .map(owner -> owner.id().equals(defender.id()))
                 .orElse(false);
         Optional<ClanTerritory> contestedTerritory = withinDefenderTerritory
                 ? defender.territories().stream()
-                        .filter(t -> t.boundingBox().contains(player.getLocation().toVector()))
+                        .filter(t -> plugin.getAdvancedClaimsHook().contains(t, player.getLocation()))
                         .findFirst()
                 : Optional.empty();
         if (contestedTerritory.isEmpty()) {

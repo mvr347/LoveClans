@@ -176,6 +176,11 @@ public final class DatabaseManager implements AutoCloseable {
                     """);
              addColumnIfMissing(connection, statement, "clan_members", "contribution", "INT NOT NULL DEFAULT 0");
 
+            // min_x..max_z больше не читаются приложением — геометрия территории теперь всегда
+            // приходит из LoveClaims через advanced_claim_id (AdvancedClaimsHook#boundingBoxOf).
+            // Колонки остались NOT NULL и в схеме (SqlClanStorage пишет туда 0), потому что
+            // SQLite не умеет дёшево снять NOT NULL без пересборки таблицы — так безопаснее,
+            // чем рисковать миграцией существующих баз ради вычищения мёртвых столбцов.
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_territories (
                         id VARCHAR(36) PRIMARY KEY,

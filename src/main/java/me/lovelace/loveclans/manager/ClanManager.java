@@ -10,6 +10,7 @@ import me.lovelace.loveclans.api.events.ClanMemberJoinEvent;
 import me.lovelace.loveclans.api.events.ClanMemberLeaveEvent;
 import me.lovelace.loveclans.api.events.ClanRankChangeEvent;
 import me.lovelace.loveclans.api.events.ClanUnclaimEvent;
+import me.lovelace.loveclans.integration.AdvancedClaimsHook;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanApplication;
 import me.lovelace.loveclans.model.ClanInvite;
@@ -120,6 +121,50 @@ public final class ClanManager {
             }));
         }
         return CompletableFuture.allOf(migrations.toArray(new CompletableFuture[0]));
+    }
+
+    /**
+     * One-time startup migration: территории, заведённые до того, как LoveClaims стал
+     * обязательным для клановых территорий (интеграция была выключена или недоступна на момент
+     * захвата), не имеют {@code advancedClaimId} — а значит, и геометрии. Пытается довести
+     * каждую такую территорию до нормального состояния тем же вызовом, которым обычно
+     * заводится приват при захвате.
+     *
+     * <p>Если LoveClaims отказывает (например, участок с тех пор перекрыт чужим приватом) —
+     * территория остаётся неиндексированной и предупреждение попадает в лог; клан её не теряет,
+     * но она не участвует в войнах/осадах/защите, пока админ не разберётся вручную.</p>
+     */
+    public void migrateTerritoriesWithoutClaim() {
+        if (!plugin.getAdvancedClaimsHook().enabled()) {
+            return;
+        }
+        int migrated = 0;
+        int failed = 0;
+        for (Clan clan : clansById.values()) {
+            for (ClanTerritory territory : List.copyOf(clan.territories())) {
+                if (territory.advancedClaimId() != null) {
+                    continue;
+                }
+                var attachment = plugin.getAdvancedClaimsHook().createOrAttachClaim(clan, territory);
+                if (attachment.result() != AdvancedClaimsHook.AttachResult.CREATED) {
+                    failed++;
+                    plugin.getLogger().warning("Territory " + territory.id() + " of clan " + clan.id()
+                            + " still has no LoveClaims claim after migration attempt (result: " + attachment.result() + ").");
+                    continue;
+                }
+                ClanTerritory updated = territory.withAdvancedClaimId(attachment.claimId());
+                clan.addTerritory(updated);
+                indexTerritory(updated, clan.id());
+                storage.saveTerritoryAsync(updated).exceptionally(t -> {
+                    plugin.getLogger().warning("Failed to persist migrated territory " + updated.id() + ": " + t.getMessage());
+                    return null;
+                });
+                migrated++;
+            }
+        }
+        if (migrated > 0 || failed > 0) {
+            plugin.getLogger().info("Territory-claim migration: " + migrated + " attached, " + failed + " still without a claim.");
+        }
     }
 
     public Optional<Clan> getClanById(UUID clanId) {
@@ -868,7 +913,7 @@ public final class ClanManager {
         String bannerType = pendingClaim.bannerType();
         ItemStack bannerItem = clanItemFactory.createBannerByType(bannerType, clan.id(), clan.name());
 
-        ClanTerritory territory = new ClanTerritory(clan.id(), location.getWorld().getName(), pendingClaim.visualizationBox(), player.getUniqueId(), System.currentTimeMillis())
+        ClanTerritory territory = new ClanTerritory(clan.id(), location.getWorld().getName(), player.getUniqueId(), System.currentTimeMillis())
                 .withBannerCoords(location.getBlockX(), location.getBlockY(), location.getBlockZ())
                 .withCapital(bannerType.equals("CAPITAL"));
 
@@ -881,11 +926,15 @@ public final class ClanManager {
 
         return plugin.supplySync(() -> {
             var attachment = plugin.getAdvancedClaimsHook().createOrAttachClaim(clan, territory);
-            if (attachment.isRefused()) {
-                // Земля уже занята чужим приватом: приваты клана и игрока не вкладываются
-                // друг в друга. Раньше территория всё равно записывалась клану, и он считал
-                // своей землю, которая в реестре приватов принадлежит другому.
-                throw new IllegalStateException("territory.overlaps-claim");
+            if (attachment.result() != AdvancedClaimsHook.AttachResult.CREATED) {
+                // Клановая территория без привата LoveClaims не существует — геометрия
+                // территории (война/осада/защита) теперь берётся только оттуда. REFUSED —
+                // земля занята чужим приватом (приваты клана и игрока не вкладываются друг в
+                // друга); SKIPPED — LoveClaims недоступен прямо сейчас. Раньше в обоих случаях
+                // территория всё равно записывалась клану без геометрии.
+                throw new IllegalStateException(attachment.result() == AdvancedClaimsHook.AttachResult.REFUSED
+                        ? "territory.overlaps-claim"
+                        : "territory.advancedclaims-disabled");
             }
             return territory.withAdvancedClaimId(attachment.claimId());
         }).thenCompose(savedTerritory -> {
@@ -1609,6 +1658,22 @@ public final class ClanManager {
         }
     }
 
+    /**
+     * Переиндексирует чанки всех территорий всех загруженных кланов. Территории индексируются
+     * по геометрии из LoveClaims ({@link #territoryChunks}), поэтому если на момент {@link
+     * #loadAsync()} хук ещё не был готов (см. {@code LoveClansPlugin#retryAdvancedClaimsHook}),
+     * все территории останутся неиндексированными до вызова этого метода вручную — LoveClansPlugin
+     * зовёт его из колбэка успешной повторной попытки.
+     */
+    public void reindexAllTerritories() {
+        clanByTerritory.clear();
+        for (Clan clan : clansById.values()) {
+            for (ClanTerritory territory : clan.territories()) {
+                indexTerritory(territory, clan.id());
+            }
+        }
+    }
+
     private void unindexClan(Clan clan) {
         if (clan == null) return;
         chestCache.remove(clan.id());
@@ -1649,11 +1714,21 @@ public final class ClanManager {
      * Возвращает список ключей всех чанков, которые пересекает область территории.
      */
     private List<TerritoryKey> territoryChunks(ClanTerritory territory) {
+        Optional<BoundingBox> box = plugin.getAdvancedClaimsHook().boundingBoxOf(territory);
+        if (box.isEmpty()) {
+            // LoveClaims сейчас недоступен или приват был удалён в обход LoveClans — территория
+            // не индексируется ни в один чанк, пока геометрия не появится снова. Молча считать
+            // её покрывающей один чанк (как раньше — по territory.key()) означало бы отдать
+            // остальную площадь территории как ничейную землю.
+            plugin.getLogger().warning("Territory " + territory.id() + " has no resolvable geometry "
+                    + "(LoveClaims claim " + territory.advancedClaimId() + " not found) — not indexed.");
+            return List.of();
+        }
         List<TerritoryKey> keys = new ArrayList<>();
-        int minCX = territory.minX() >> 4;
-        int maxCX = territory.maxX() >> 4;
-        int minCZ = territory.minZ() >> 4;
-        int maxCZ = territory.maxZ() >> 4;
+        int minCX = (int) box.get().getMinX() >> 4;
+        int maxCX = (int) box.get().getMaxX() >> 4;
+        int minCZ = (int) box.get().getMinZ() >> 4;
+        int maxCZ = (int) box.get().getMaxZ() >> 4;
         for (int cx = minCX; cx <= maxCX; cx++) {
             for (int cz = minCZ; cz <= maxCZ; cz++) {
                 keys.add(new TerritoryKey(territory.world(), cx, cz));

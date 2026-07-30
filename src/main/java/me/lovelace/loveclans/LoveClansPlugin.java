@@ -125,6 +125,26 @@ public final class LoveClansPlugin extends JavaPlugin {
         clanTradeManager = new ClanTradeManager(this, storage);
         clanTradeSessionManager = new ClanTradeSessionManager(this);
 
+        // Хук LoveClaims инициализируется здесь, ДО clanManager.loadAsync() — территории
+        // индексируют свои чанки по геометрии из LoveClaims (territoryChunks -> boundingBoxOf),
+        // и если хук поднять позже загрузки, каждая территория на сервере окажется
+        // непроиндексированной до первого /clan reload. softdepend гарантирует, что LoveClaims
+        // уже прошёл собственный onEnable к этому моменту — обычно этого достаточно; на случай,
+        // если LoveClaimsAPI всё же не готов (см. комментарий в initialize()), есть повторная
+        // попытка, которая при успехе сама переиндексирует уже загруженные территории.
+        try {
+            if (Bukkit.getPluginManager().isPluginEnabled("LoveClaims")) {
+                advancedClaimsHook.initialize();
+                if (advancedClaimsHook.enabled()) {
+                    getLogger().info("Успешная интеграция с LoveClaimsAPI!");
+                } else {
+                    retryAdvancedClaimsHook(LOVECLAIMS_INIT_RETRY_ATTEMPTS);
+                }
+            }
+        } catch (Throwable t) {
+            getLogger().warning("Не удалось инициализировать хук LoveClaims: " + t.getMessage());
+        }
+
         clanManager.loadAsync().thenCompose(v -> diplomacyManager.loadAsync()).thenRunAsync(() -> {
             runSync(() -> {
                 LoveClansAPI.init(this);
@@ -143,21 +163,11 @@ public final class LoveClansPlugin extends JavaPlugin {
                     return null;
                 });
 
-                try {
-                    if (Bukkit.getPluginManager().isPluginEnabled("LoveClaims")) {
-                        advancedClaimsHook.initialize();
-                        if (advancedClaimsHook.enabled()) {
-                            getLogger().info("Успешная интеграция с LoveClaimsAPI!");
-                        } else {
-                            // LoveClaimsAPI может не успеть инициализироваться к этому моменту
-                            // (асинхронная загрузка приватов внутри LoveClaims). Пробуем ещё раз
-                            // несколько раз с задержкой, не блокируя запуск нашего плагина.
-                            retryAdvancedClaimsHook(LOVECLAIMS_INIT_RETRY_ATTEMPTS);
-                        }
-                    }
-                } catch (Throwable t) {
-                    getLogger().warning("Не удалось инициализировать хук LoveClaims: " + t.getMessage());
-                }
+                // Территории без advancedClaimId (заведены до того, как LoveClaims стал
+                // обязательным для клановых территорий) — довести до нормального состояния,
+                // если ядро сейчас доступно. Не влияет на территории с уже проставленным
+                // claim'ом — метод пропускает их сразу.
+                clanManager.migrateTerritoriesWithoutClaim();
 
                 spiritManager.start();
                 successionManager.start();
@@ -254,6 +264,11 @@ public final class LoveClansPlugin extends JavaPlugin {
             advancedClaimsHook.initialize();
             if (advancedClaimsHook.enabled()) {
                 getLogger().info("Успешная интеграция с LoveClaimsAPI (повторная попытка)!");
+                // Территории, загруженные до этой попытки, индексировались вхолостую
+                // (territoryChunks не мог получить геометрию) — досчитываем сейчас, и заодно
+                // довозаём claim тем территориям, что были заведены совсем без него.
+                clanManager.reindexAllTerritories();
+                clanManager.migrateTerritoriesWithoutClaim();
             } else {
                 retryAdvancedClaimsHook(attemptsLeft - 1);
             }
