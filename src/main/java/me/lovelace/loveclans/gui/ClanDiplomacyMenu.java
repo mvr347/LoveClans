@@ -219,7 +219,7 @@ public final class ClanDiplomacyMenu {
             return Optional.empty();
         }
         return defender.territories().stream()
-                .filter(t -> t.boundingBox().contains(player.getLocation().toVector()))
+                .filter(t -> plugin.getAdvancedClaimsHook().contains(t, player.getLocation()))
                 .findFirst()
                 .map(ClanTerritory::key);
     }

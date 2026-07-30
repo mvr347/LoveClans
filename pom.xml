@@ -109,7 +109,6 @@
         <dependency>
             <groupId>com.github.mvr347</groupId>
             <artifactId>LoveClaims</artifactId>
-            <version>6d9148fa9e</version>
             <version>0778441189</version>
             <scope>provided</scope>
         </dependency>
@@ -117,6 +116,12 @@
             <groupId>com.github.mvr347</groupId>
             <artifactId>LoveTrades</artifactId>
             <version>238b2ba534</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.mvr347.LoveCore</groupId>
+            <artifactId>lovecore-api</artifactId>
+            <version>fe15e0144e</version>
             <scope>provided</scope>
         </dependency>
 

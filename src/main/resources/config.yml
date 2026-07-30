@@ -763,8 +763,10 @@ raid:
 
 integration:
   advanced-claims:
+    # Клановая территория без привата LoveClaims не существует — этот флаг больше не значит
+    # "не заводить приват, но территорию всё равно взять": выключить его означает выключить
+    # захват территорий вообще (см. territory.advancedclaims-disabled).
     enabled: true
-    auto-claim-chunk: true
     claim-radius: 35 # Radius for LoveClaims (71x71x71 area)
     border-display-ticks: 100 # Duration in ticks for showing claim border (5 seconds)
     trust-mapping:

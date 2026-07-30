@@ -365,7 +365,7 @@ public class ClanProtectionListener implements Listener {
                 if (!enemy.getWorld().equals(world)) {
                     continue;
                 }
-                if (territory.boundingBox().contains(enemy.getLocation().toVector())) {
+                if (plugin.getAdvancedClaimsHook().contains(territory, enemy.getLocation())) {
                     applyGlowPulse(enemy);
                 }
             }

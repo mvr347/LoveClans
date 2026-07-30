@@ -240,14 +240,17 @@ public final class SiegeManager {
     }
 
     private Location territoryCenter(ClanTerritory territory) {
-        World world = Bukkit.getWorld(territory.key().world());
+        World world = Bukkit.getWorld(territory.world());
         if (world == null) {
             return null;
         }
         if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
             return new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
         }
-        var box = territory.boundingBox();
+        var box = plugin.getAdvancedClaimsHook().boundingBoxOf(territory).orElse(null);
+        if (box == null) {
+            return null;
+        }
         return new Location(world, box.getCenterX(), box.getCenterY(), box.getCenterZ());
     }
 

@@ -11,6 +11,7 @@ softdepend:
   - ItemsAdder
   - Citizens
   - LoveHunt
+  - LoveCore
 
 commands:
   loveclan:

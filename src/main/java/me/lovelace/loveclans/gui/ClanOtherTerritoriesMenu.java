@@ -151,8 +151,20 @@ public class ClanOtherTerritoriesMenu implements InventoryHolder {
             plugin.getMessages().send(clicker, "territory.world-not-found");
             return;
         }
-        int centerX = (territory.minX() + territory.maxX()) / 2;
-        int centerZ = (territory.minZ() + territory.maxZ()) / 2;
+        int centerX;
+        int centerZ;
+        if (territory.bannerX() != null && territory.bannerZ() != null) {
+            centerX = territory.bannerX();
+            centerZ = territory.bannerZ();
+        } else {
+            var box = plugin.getAdvancedClaimsHook().boundingBoxOf(territory).orElse(null);
+            if (box == null) {
+                plugin.getMessages().send(clicker, "territory.world-not-found");
+                return;
+            }
+            centerX = (int) box.getCenterX();
+            centerZ = (int) box.getCenterZ();
+        }
         int safeY = world.getHighestBlockYAt(centerX, centerZ) + 1;
         org.bukkit.Location location = new org.bukkit.Location(world, centerX + 0.5, safeY, centerZ + 0.5);
         clicker.closeInventory();

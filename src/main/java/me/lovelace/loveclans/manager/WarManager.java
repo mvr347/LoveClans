@@ -241,6 +241,7 @@ public final class WarManager {
                             plugin.getLogger().warning("Failed to record war win for clan " + clan.id() + ": " + t.getMessage());
                             return null;
                         });
+                        reportWarWinToCore(clan.id());
                     });
                     plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(clan ->
                             plugin.getClanManager().recordWarResultAsync(clan, false).exceptionally(t -> {
@@ -268,6 +269,7 @@ public final class WarManager {
                             plugin.getLogger().warning("Failed to record war win for clan " + clan.id() + ": " + t.getMessage());
                             return null;
                         });
+                        reportWarWinToCore(clan.id());
                     });
                     plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(clan ->
                             plugin.getClanManager().recordWarResultAsync(clan, false).exceptionally(t -> {
@@ -653,7 +655,11 @@ public final class WarManager {
         if (territoryOpt.isEmpty()) {
             return;
         }
-        BoundingBox box = territoryOpt.get().boundingBox();
+        Optional<BoundingBox> boxOpt = plugin.getAdvancedClaimsHook().boundingBoxOf(territoryOpt.get());
+        if (boxOpt.isEmpty()) {
+            return;
+        }
+        BoundingBox box = boxOpt.get();
 
         Optional<WarClans> clansOpt = resolveWarClans(war);
         if (clansOpt.isEmpty()) {
@@ -977,5 +983,22 @@ public final class WarManager {
                 .map(ClanMember::playerId)
                 .map(Bukkit::getPlayer)
                 .filter(Objects::nonNull);
+    }
+
+    /**
+     * Сообщает ядру о выигранной войне, если LoveCore установлен. Проверка присутствия
+     * плагина обязательна: классы {@code lovecore-api} подключены только в scope provided —
+     * без ядра на сервере их вообще нет на classpath.
+     */
+    private void reportWarWinToCore(UUID clanId) {
+        if (Bukkit.getPluginManager().getPlugin("LoveCore") == null) {
+            return;
+        }
+        try {
+            dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.stats.StatBus.class)
+                    .ifPresent(bus -> bus.recordClan(clanId, dev.lovelace.lovecore.api.stats.Metrics.CLAN_WARS_WON, 1));
+        } catch (Throwable t) {
+            plugin.getLogger().warning("Не удалось отчитаться перед LoveCore о выигранной войне: " + t.getMessage());
+        }
     }
 }

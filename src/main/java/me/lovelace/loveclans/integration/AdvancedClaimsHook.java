@@ -8,7 +8,6 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
-import me.lovelace.loveclans.model.TerritoryKey;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.OfflinePlayer;
@@ -97,14 +96,16 @@ public final class AdvancedClaimsHook {
         static ClaimAttachment refused() {
             return new ClaimAttachment(AttachResult.REFUSED, null);
         }
-
-        public boolean isRefused() {
-            return result == AttachResult.REFUSED;
-        }
     }
 
+    /**
+     * Заводит приват LoveClaims под клановую территорию. Клановая территория без привата не
+     * существует — геометрия территории (для войн, осад, защиты) теперь берётся только отсюда,
+     * см. {@link #boundingBoxOf(ClanTerritory)}. Поэтому в отличие от прежней версии это больше
+     * не мягкая попытка: если ядро выключено или LoveClaims отказал, территорию брать нельзя.
+     */
     public ClaimAttachment createOrAttachClaim(Clan clan, ClanTerritory territory) {
-        if (!enabled() || !plugin.getConfig().getBoolean("integration.advanced-claims.auto-claim-chunk", true)) {
+        if (!enabled()) {
             return ClaimAttachment.skipped();
         }
         // Защита от дурачков: Проверка на null для входных параметров
@@ -113,30 +114,26 @@ public final class AdvancedClaimsHook {
             return ClaimAttachment.refused();
         }
 
-        TerritoryKey key = territory.key();
-        World world = Bukkit.getWorld(key.world());
+        World world = Bukkit.getWorld(territory.world());
         if (world == null) {
-            plugin.getLogger().warning("createOrAttachClaim called for a non-existent world: " + key.world());
+            plugin.getLogger().warning("createOrAttachClaim called for a non-existent world: " + territory.world());
             return ClaimAttachment.refused();
         }
 
-        BoundingBox box;
-        Location centerLoc;
-
-        if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
-            int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
-            box = new BoundingBox(
-                    territory.bannerX() - radius, world.getMinHeight(), territory.bannerZ() - radius,
-                    territory.bannerX() + radius, world.getMaxHeight(), territory.bannerZ() + radius
-            );
-            centerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
-        } else {
-            // Fallback to old chunk logic if for some reason no banner coords
-            int minX = key.chunkX() << 4;
-            int minZ = key.chunkZ() << 4;
-            box = new BoundingBox(minX, world.getMinHeight(), minZ, minX + 15, world.getMaxHeight(), minZ + 15);
-            centerLoc = world.getHighestBlockAt(minX + 8, minZ + 8).getLocation();
+        if (territory.bannerX() == null || territory.bannerY() == null || territory.bannerZ() == null) {
+            // Баннер всегда ставится в ClanManager#confirmPendingClaim до вызова этого метода —
+            // если координат нет, значит территория заведена в обход обычного потока (или
+            // повреждена), а геометрию посчитать не от чего.
+            plugin.getLogger().warning("createOrAttachClaim: territory " + territory.id() + " has no banner coordinates.");
+            return ClaimAttachment.refused();
         }
+
+        int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
+        BoundingBox box = new BoundingBox(
+                territory.bannerX() - radius, world.getMinHeight(), territory.bannerZ() - radius,
+                territory.bannerX() + radius, world.getMaxHeight(), territory.bannerZ() + radius
+        );
+        Location centerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
 
         // Use createClanClaim instead of createClaim for clan territories.
         // The owner is the clan's UUID, not the leader's.
@@ -157,6 +154,26 @@ public final class AdvancedClaimsHook {
         UUID claimId = claim.getId();
         syncClanTrust(clan, territory.withAdvancedClaimId(claimId));
         return ClaimAttachment.created(claimId);
+    }
+
+    /**
+     * Геометрия территории — единственный источник истины теперь LoveClaims. Пусто означает
+     * либо ядро/LoveClaims недоступны прямо сейчас, либо приват был удалён в обход LoveClans;
+     * вызывающий обязан считать это «геометрия неизвестна», а не «территория без границ».
+     */
+    public Optional<BoundingBox> boundingBoxOf(ClanTerritory territory) {
+        if (territory == null || territory.advancedClaimId() == null) {
+            return Optional.empty();
+        }
+        return findClaim(territory.advancedClaimId()).map(Claim::getBoundingBox);
+    }
+
+    /** Внутри территории ли точка — false, если геометрия сейчас недоступна (см. {@link #boundingBoxOf}). */
+    public boolean contains(ClanTerritory territory, Location location) {
+        if (location == null) {
+            return false;
+        }
+        return boundingBoxOf(territory).map(box -> box.contains(location.toVector())).orElse(false);
     }
 
     /**
