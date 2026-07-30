@@ -2,7 +2,6 @@ package me.lovelace.loveclans;
 
 import me.lovelace.loveclans.api.LoveClansAPI;
 import me.lovelace.loveclans.command.ClanCommand;
-import me.lovelace.loveclans.economy.ItemsAdderEconomyService;
 import me.lovelace.loveclans.manager.GuiManager;
 import me.lovelace.loveclans.integration.AdvancedClaimsHook;
 import me.lovelace.loveclans.integration.CitizensIntegration;
@@ -81,7 +80,6 @@ public final class LoveClansPlugin extends JavaPlugin {
     private GuiManager guiManager;
     private ShieldColorManager shieldColorManager;
     private AdvancedClaimsHook advancedClaimsHook;
-    private ItemsAdderEconomyService itemsAdderEconomyService;
     private ContractManager contractManager;
     private DiplomacyManager diplomacyManager;
     private ClanTradeManager clanTradeManager;
@@ -118,7 +116,6 @@ public final class LoveClansPlugin extends JavaPlugin {
         guiManager = new GuiManager(this);
         shieldColorManager = new ShieldColorManager(this);
         advancedClaimsHook = new AdvancedClaimsHook(this);
-        itemsAdderEconomyService = new ItemsAdderEconomyService();
         citizensIntegration = new CitizensIntegration();
         contractManager = new ContractManager(this, storage);
         diplomacyManager = new DiplomacyManager(this, storage);
@@ -415,10 +412,6 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public AdvancedClaimsHook getAdvancedClaimsHook() {
         return advancedClaimsHook;
-    }
-
-    public ItemsAdderEconomyService getItemsAdderEconomyService() {
-        return itemsAdderEconomyService;
     }
 
     public ContractManager getContractManager() {

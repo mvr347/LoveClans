@@ -1,5 +1,7 @@
 package me.lovelace.loveclans.manager;
 
+import dev.lovelace.lovecore.api.LoveCore;
+import dev.lovelace.lovecore.api.economy.LoveEconomy;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.api.events.ClanClaimEvent;
 import me.lovelace.loveclans.api.events.ClanCreateEvent;
@@ -355,21 +357,22 @@ public final class ClanManager {
                 throw new IllegalStateException("clan.founder-has-capital-banner");
             }
 
-            // Плата за создание клана взимается в кастомных предметах ItemsAdder (на сервере нет
-            // экономики Vault, и добавлять её не нужно). Если creation-cost-item не задан, плата
-            // отключена. Проверяем наличие средств до создания клана, списываем — уже после успешного
-            // создания, чтобы не забирать предметы при отмене события/ошибке.
+            // Плата за создание клана взимается в единой валюте экосистемы (LoveCore.LoveEconomy —
+            // монеты ItemsAdder в инвентаре). creation-cost = 0 отключает плату. Проверяем наличие
+            // средств до создания клана, списываем — уже после успешного создания, чтобы не забирать
+            // предметы при отмене события/ошибке.
             long creationCost = plugin.getConfig().getLong("clans.creation-cost", 0L);
-            String creationCostItem = plugin.getConfig().getString("clans.creation-cost-item", "");
-            boolean chargeCreationCost = creationCost > 0 && creationCostItem != null && !creationCostItem.isBlank();
+            boolean chargeCreationCost = creationCost > 0;
+            Optional<LoveEconomy> creationEconomy = Optional.empty();
             if (chargeCreationCost) {
                 if (founder == null) {
                     throw new IllegalStateException("general.players-only");
                 }
-                if (!plugin.getItemsAdderEconomyService().isAvailable()) {
+                creationEconomy = LoveCore.service(LoveEconomy.class);
+                if (creationEconomy.isEmpty()) {
                     throw new IllegalStateException("clan.creation-economy-unavailable");
                 }
-                if (!plugin.getItemsAdderEconomyService().hasItem(founder, creationCostItem, creationCost)) {
+                if (!creationEconomy.get().has(founder, creationCost)) {
                     throw new IllegalStateException("clan.creation-insufficient-funds");
                 }
             }
@@ -388,7 +391,7 @@ public final class ClanManager {
             indexClan(clan);
 
             if (chargeCreationCost) {
-                plugin.getItemsAdderEconomyService().withdraw(founder, creationCostItem, creationCost);
+                creationEconomy.get().charge(founder, creationCost);
             }
             if (cooldownSeconds > 0) {
                 creationCooldowns.put(founderId, System.currentTimeMillis());
@@ -1308,14 +1311,12 @@ public final class ClanManager {
             if (amount <= 0) {
                 throw new IllegalStateException("chest.invalid-amount");
             }
-            String currencyItem = chestCurrencyItem();
-            if (!plugin.getItemsAdderEconomyService().isAvailable()) {
-                throw new IllegalStateException("clan.creation-economy-unavailable");
-            }
-            if (!plugin.getItemsAdderEconomyService().hasItem(player, currencyItem, amount)) {
+            LoveEconomy economy = LoveCore.service(LoveEconomy.class)
+                    .orElseThrow(() -> new IllegalStateException("clan.creation-economy-unavailable"));
+            if (!economy.has(player, amount)) {
                 throw new IllegalStateException("chest.insufficient-items");
             }
-            plugin.getItemsAdderEconomyService().withdraw(player, currencyItem, amount);
+            economy.charge(player, amount);
             return null;
         }).thenCompose(ignored -> {
             long newBalance = clan.addChestMoney(amount);
@@ -1345,11 +1346,10 @@ public final class ClanManager {
             if (clan.chestMoney() < amount) {
                 throw new IllegalStateException("chest.insufficient-items");
             }
-            if (!plugin.getItemsAdderEconomyService().isAvailable()) {
-                throw new IllegalStateException("clan.creation-economy-unavailable");
-            }
+            LoveEconomy economy = LoveCore.service(LoveEconomy.class)
+                    .orElseThrow(() -> new IllegalStateException("clan.creation-economy-unavailable"));
             clan.addChestMoney(-amount);
-            plugin.getItemsAdderEconomyService().give(player, chestCurrencyItem(), amount);
+            economy.give(player, amount);
             return null;
         }).thenCompose(ignored -> storage.updateClanChestMoney(clan.id(), clan.chestMoney()));
     }

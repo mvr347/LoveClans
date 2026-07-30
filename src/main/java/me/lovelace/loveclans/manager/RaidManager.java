@@ -208,7 +208,9 @@ public final class RaidManager {
                 throw new IllegalStateException("raid.nothing-left");
             }
             defender.addChestMoney(-take);
-            plugin.getItemsAdderEconomyService().give(looter, plugin.getClanManager().chestCurrencyItem(), take);
+            dev.lovelace.lovecore.api.LoveCore
+                    .service(dev.lovelace.lovecore.api.economy.LoveEconomy.class)
+                    .ifPresent(economy -> economy.give(looter, take));
             activeRaids.put(current.id(), current.withMoneyLooted(take));
             return new MoneyLootResult(defender, take);
         }).thenCompose(result -> plugin.getStorage().updateClanChestMoney(result.defender().id(), result.defender().chestMoney())
