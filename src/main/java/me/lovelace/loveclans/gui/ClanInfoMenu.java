@@ -119,7 +119,7 @@ public final class ClanInfoMenu implements InventoryHolder {
 
         int contentStartSlot = 2 * 9;
         if (memberCount == 0) {
-            inventory.setItem(contentStartSlot + 4, ItemBuilder.of(Material.PAPER)
+            inventory.setItem(contentStartSlot + 4, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.info.no-members.name", player))
                     .lore(plugin.getMessages().component("gui.info.no-members.lore", player))
                     .build());
@@ -148,10 +148,6 @@ public final class ClanInfoMenu implements InventoryHolder {
             } else {
                 prevSlot = -1;
             }
-            inventory.setItem(paginationRowStart + 4, ItemBuilder.of(Material.PAPER)
-                    .name(plugin.getMessages().component("gui.info.page-indicator",
-                            Map.of("page", String.valueOf(currentPage + 1), "max", String.valueOf(totalPages)), player))
-                    .build());
             if (currentPage < totalPages - 1) {
                 nextSlot = paginationRowStart + 8;
                 inventory.setItem(nextSlot, ItemBuilder.head(ItemBuilder.HEAD_NEXT)

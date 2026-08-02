@@ -29,17 +29,20 @@ public final class ClanDiplomacyMenu {
     // голова в слоте 0, переключатели отношений и разделы в шапке (2-7), необратимые
     // действия — в рабочей зоне, назад и закрытие — в футере (52, 53).
     private static final int SLOT_INFO = 0;
-    private static final int SLOT_ALLY = 2;
-    private static final int SLOT_NEUTRAL = 3;
-    private static final int SLOT_ENEMY = 4;
-    private static final int SLOT_EMBARGO = 5;
-    private static final int SLOT_BLOCKADE = 6;
-    private static final int SLOT_LETTERS = 7;
-    private static final int SLOT_TRADE = 20;
-    private static final int SLOT_WAR = 22;
-    private static final int SLOT_SIEGE = 24;
-    private static final int SLOT_RAID = 30;
-    private static final int SLOT_PEACE = 32;
+    // Шапка: только разделы. Отношения, эмбарго и блокада переехали в рабочую зону —
+    // раньше они стояли наверху и мешались с разделами.
+    private static final int SLOT_LETTERS = 2;
+    // Рабочая зона, ряд 1 — состояние отношений.
+    private static final int SLOT_RELATIONS = 20;
+    private static final int SLOT_EMBARGO = 22;
+    private static final int SLOT_BLOCKADE = 24;
+    // Рабочая зона, ряд 2 — действия.
+    private static final int SLOT_TRADE = 28;
+    private static final int SLOT_WAR = 30;
+    private static final int SLOT_SIEGE = 32;
+    private static final int SLOT_RAID = 34;
+    // Рабочая зона, ряд 3 — выход из конфликта.
+    private static final int SLOT_PEACE = 40;
     private static final int SLOT_BACK = 52;
     private static final int SLOT_CLOSE = 53;
     private static final int INVENTORY_SIZE = 54;
@@ -63,25 +66,13 @@ public final class ClanDiplomacyMenu {
 
         DiplomacyRelation current = sourceClan.relationTo(targetClan.id());
 
-        // ALLY = дружеские, NEUTRAL = нейтральные, ENEMY = враждебные отношения.
-        // Активное отношение подсвечиваем свечением (glow), а не сменой текстуры головы.
-        ItemBuilder allyItem = ItemBuilder.head(ItemBuilder.HEAD_RELATION_FRIENDLY)
-                .name(plugin.getMessages().component("gui.diplomacy.ally.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.ally.lore", player));
-        if (current == DiplomacyRelation.ALLY) allyItem.glow(true);
-        inventory.setItem(SLOT_ALLY, allyItem.build());
-
-        ItemBuilder neutralItem = ItemBuilder.head(ItemBuilder.HEAD_RELATION_NEUTRAL)
-                .name(plugin.getMessages().component("gui.diplomacy.neutral.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.neutral.lore", player));
-        if (current == DiplomacyRelation.NEUTRAL) neutralItem.glow(true);
-        inventory.setItem(SLOT_NEUTRAL, neutralItem.build());
-
-        ItemBuilder enemyItem = ItemBuilder.head(ItemBuilder.HEAD_RELATION_HOSTILE)
-                .name(plugin.getMessages().component("gui.diplomacy.enemy.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.enemy.lore", player));
-        if (current == DiplomacyRelation.ENEMY) enemyItem.glow(true);
-        inventory.setItem(SLOT_ENEMY, enemyItem.build());
+        // Все три варианта отношений живут в отдельном подменю — здесь только их текущее
+        // состояние и вход в выбор.
+        ItemBuilder relationsItem = ItemBuilder.head(relationHead(current))
+                .name(plugin.getMessages().component("gui.diplomacy.relations.name", player))
+                .lore(plugin.getMessages().components("gui.diplomacy.relations.lore",
+                        Map.of("relation", plugin.getMessages().relationName(current)), player));
+        inventory.setItem(SLOT_RELATIONS, relationsItem.build());
 
         boolean embargoed = plugin.getDiplomacyManager().isEmbargoed(sourceClan.id(), targetClan.id());
         ItemBuilder embargoItem = ItemBuilder.head(ItemBuilder.HEAD_EMBARGO)
@@ -142,7 +133,7 @@ public final class ClanDiplomacyMenu {
                         "level", String.valueOf(targetClan.level()),
                         "influence", String.valueOf(targetClan.influence()),
                         "members", String.valueOf(targetClan.members().size()),
-                        "relation", current.name()
+                        "relation", plugin.getMessages().relationName(current)
                 ), player))
                 .build());
 
@@ -154,6 +145,15 @@ public final class ClanDiplomacyMenu {
                 .build());
 
         player.openInventory(inventory);
+    }
+
+    /** Кнопка «Отношения» носит текстуру текущего состояния, чтобы читаться с одного взгляда. */
+    private String relationHead(DiplomacyRelation relation) {
+        return switch (relation) {
+            case ALLY -> ItemBuilder.HEAD_RELATION_FRIENDLY;
+            case ENEMY -> ItemBuilder.HEAD_RELATION_HOSTILE;
+            case NEUTRAL -> ItemBuilder.HEAD_RELATION_NEUTRAL;
+        };
     }
 
     private ItemBuilder buildTradeItem(Clan sourceClan, Clan targetClan, Player player) {
@@ -240,6 +240,10 @@ public final class ClanDiplomacyMenu {
             plugin.getGuiManager().openDiplomacySelect(player, sourceClan);
             return;
         }
+        if (slot == SLOT_RELATIONS) {
+            plugin.getGuiManager().openRelations(player, sourceClan, targetClan);
+            return;
+        }
         if (slot == SLOT_EMBARGO) {
             handleEmbargoToggle(player, sourceClan, targetClan);
             return;
@@ -280,52 +284,7 @@ public final class ClanDiplomacyMenu {
         }
         if (slot == SLOT_PEACE) {
             handlePeace(player, sourceClan, targetClan);
-            return;
         }
-
-        DiplomacyRelation relation = switch (slot) {
-            case SLOT_ALLY -> DiplomacyRelation.ALLY;
-            case SLOT_NEUTRAL -> DiplomacyRelation.NEUTRAL;
-            case SLOT_ENEMY -> DiplomacyRelation.ENEMY;
-            default -> null;
-        };
-        if (relation == null) return;
-
-        if (relation == DiplomacyRelation.ALLY) {
-            if (sourceClan.relationTo(targetClan.id()) == DiplomacyRelation.ALLY) {
-                plugin.getClanManager().setDiplomacyAsync(sourceClan, targetClan, DiplomacyRelation.NEUTRAL, player.getUniqueId())
-                        .thenAccept(updated -> plugin.runSync(() -> {
-                            plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "relation", "NEUTRAL"));
-                            open(player, updated, targetClan);
-                        }))
-                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
-                return;
-            }
-            if (plugin.getClanManager().hasPendingAllianceFrom(targetClan.id(), sourceClan.id())) {
-                plugin.getClanManager().acceptAllianceAsync(sourceClan, targetClan, player.getUniqueId())
-                        .thenRun(() -> plugin.runSync(() -> {
-                            plugin.getMessages().send(player, "diplomacy.alliance-accepted", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()));
-                            plugin.getClanManager().getOnlineLeader(targetClan).ifPresent(leader ->
-                                    plugin.getMessages().send(leader, "diplomacy.alliance-accepted-by", Map.of("tag", sourceClan.tag(), "color", sourceClan.tagColor())));
-                            open(player, sourceClan, targetClan);
-                        }))
-                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
-                return;
-            }
-            plugin.getClanManager().addAllianceRequest(sourceClan.id(), targetClan.id());
-            plugin.getMessages().send(player, "diplomacy.alliance-sent", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()));
-            plugin.getClanManager().getOnlineLeader(targetClan).ifPresent(leader ->
-                    plugin.getMessages().sendClickableAlliance(leader, sourceClan.tag(), sourceClan.tagColor()));
-            open(player, sourceClan, targetClan);
-            return;
-        }
-
-        plugin.getClanManager().setDiplomacyAsync(sourceClan, targetClan, relation, player.getUniqueId())
-                .thenAccept(updated -> plugin.runSync(() -> {
-                    plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "relation", relation.name()));
-                    open(player, updated, targetClan);
-                }))
-                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
     }
 
     private void handleEmbargoToggle(Player player, Clan sourceClan, Clan targetClan) {

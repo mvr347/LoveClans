@@ -5,7 +5,6 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
@@ -33,17 +32,17 @@ public final class ClanChestMoneyMenu {
 
         GuiFrames.fillFrame27(inventory);
 
-        inventory.setItem(BALANCE_SLOT, ItemBuilder.of(Material.GOLD_INGOT)
+        inventory.setItem(BALANCE_SLOT, ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.chest.money.balance.name", player))
                 .lore(plugin.getMessages().component("gui.chest.money.balance.lore", Map.of("amount", String.valueOf(clan.chestMoney())), player))
                 .build());
 
-        inventory.setItem(DEPOSIT_SLOT, ItemBuilder.of(Material.LIME_DYE)
+        inventory.setItem(DEPOSIT_SLOT, ItemBuilder.head(ItemBuilder.HEAD_DEPOSIT)
                 .name(plugin.getMessages().component("gui.chest.money.deposit.name", player))
                 .lore(plugin.getMessages().component("gui.chest.money.deposit.lore", player))
                 .build());
 
-        inventory.setItem(WITHDRAW_SLOT, ItemBuilder.of(Material.RED_DYE)
+        inventory.setItem(WITHDRAW_SLOT, ItemBuilder.head(ItemBuilder.HEAD_WITHDRAW)
                 .name(plugin.getMessages().component("gui.chest.money.withdraw.name", player))
                 .lore(plugin.getMessages().component("gui.chest.money.withdraw.lore", player))
                 .build());

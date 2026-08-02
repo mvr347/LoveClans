@@ -98,7 +98,7 @@ public final class ClanApplicationsMenu {
                 OfflinePlayer invited = Bukkit.getOfflinePlayer(invite.invitedPlayer());
                 String invitedName = invited.getName() == null ? invite.invitedPlayer().toString() : invited.getName();
 
-                inventory.setItem(targetSlot, ItemBuilder.of(Material.PAPER)
+                inventory.setItem(targetSlot, ItemBuilder.head(ItemBuilder.HEAD_INVITE_ITEM)
                         .name(plugin.getMessages().component("gui.applications.invite-item.name",
                                 Map.of("player", invitedName), player))
                         .lore(plugin.getMessages().component("gui.applications.invite-item.status", player))

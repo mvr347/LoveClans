@@ -6,7 +6,6 @@ import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
@@ -57,13 +56,13 @@ public final class ClanLettersMenu {
 
         GuiFrames.fillFrame54(inventory);
 
-        inventory.setItem(WRITE_SLOT, ItemBuilder.of(Material.WRITABLE_BOOK)
+        inventory.setItem(WRITE_SLOT, ItemBuilder.head(ItemBuilder.HEAD_LETTER_WRITE)
                 .name(plugin.getMessages().component("gui.letters.write.name", player))
                 .lore(plugin.getMessages().component("gui.letters.write.lore", player))
                 .build());
 
         if (letters.isEmpty()) {
-            inventory.setItem(CONTENT_SLOTS[CONTENT_SLOTS.length / 2], ItemBuilder.of(Material.PAPER)
+            inventory.setItem(CONTENT_SLOTS[CONTENT_SLOTS.length / 2], ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("diplomacy.letter.empty-list", player))
                     .build());
         } else {
@@ -72,7 +71,8 @@ public final class ClanLettersMenu {
                 ClanLetter letter = letters.get(i);
                 boolean fromUs = letter.fromClanId().equals(sourceClan.id());
                 String preview = letter.message().length() > 30 ? letter.message().substring(0, 30) + "..." : letter.message();
-                ItemBuilder item = ItemBuilder.of(fromUs ? Material.PAPER : (letter.read() ? Material.MAP : Material.FILLED_MAP))
+                ItemBuilder item = ItemBuilder.head(fromUs ? ItemBuilder.HEAD_LETTER_SENT
+                        : (letter.read() ? ItemBuilder.HEAD_LETTER_READ : ItemBuilder.HEAD_LETTER_UNREAD))
                         .name(plugin.getMessages().component(fromUs ? "gui.letters.item.sent-name" : "gui.letters.item.received-name",
                                 Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player))
                         .lore(plugin.getMessages().component("gui.letters.item.preview", Map.of("text", preview), player))

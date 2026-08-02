@@ -5,9 +5,7 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPerk;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.util.ItemBuilder;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
@@ -15,8 +13,15 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class ClanUpgradesMenu {
-    private static final int[] UPGRADE_SLOTS = {20, 22, 24, 26};
-    private static final int[] PERK_SLOTS = {11, 13, 15};
+    // Раскладка gui_gen v1.4. Меню было на 45 слотов — размер вне стандарта, из-за чего
+    // рамка и рабочая зона не совпадали с остальными меню клана. Переведено на 54:
+    // голова уровня в слоте 0, улучшения и выбор перка — в рабочей зоне, назад и
+    // закрытие — в футере (52, 53).
+    private static final int[] UPGRADE_SLOTS = {19, 21, 23, 25};
+    private static final int SLOT_PERK = 31;
+    private static final int SLOT_BACK = 52;
+    private static final int SLOT_CLOSE = 53;
+    private static final int INVENTORY_SIZE = 54;
 
     private final LoveClansPlugin plugin;
 
@@ -33,22 +38,14 @@ public final class ClanUpgradesMenu {
         };
     }
 
-    private Material iconFor(ClanPerk perk) {
-        return switch (perk) {
-            case HARVESTER -> Material.WHEAT;
-            case MINER -> Material.DIAMOND_PICKAXE;
-            case WARRIOR -> Material.IRON_SWORD;
-        };
-    }
-
     public void open(Player player, Clan clan) {
         ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.UPGRADES, clan.id());
-        Inventory inventory = Bukkit.createInventory(holder, 45,
+        Inventory inventory = Bukkit.createInventory(holder, INVENTORY_SIZE,
                 plugin.getMessages().component("gui.upgrades-title",
                         Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
         holder.setInventory(inventory);
 
-        fillFrame(inventory);
+        GuiFrames.fillFrame54(inventory);
 
         long currentExp = clan.experience();
         long expForCurrent = plugin.getClanManager().experienceForLevel(clan.level());
@@ -95,12 +92,12 @@ public final class ClanUpgradesMenu {
             inventory.setItem(UPGRADE_SLOTS[i], builder.build());
         }
 
-        renderPerks(inventory, player, clan);
+        renderPerkButton(inventory, player, clan);
 
-        inventory.setItem(43, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
-        inventory.setItem(44, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+        inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
@@ -108,12 +105,17 @@ public final class ClanUpgradesMenu {
     }
 
     public void handleInventoryClick(Player player, int slot) {
-        if (slot == 44) {
+        if (slot == SLOT_CLOSE) {
             player.closeInventory();
             return;
         }
-        if (slot == 43) {
+        if (slot == SLOT_BACK) {
             plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> plugin.getGuiManager().openMain(player, clan));
+            return;
+        }
+        if (slot == SLOT_PERK) {
+            plugin.getClanManager().getPlayerClan(player.getUniqueId())
+                    .ifPresent(clan -> plugin.getGuiManager().openPerks(player, clan));
             return;
         }
 
@@ -131,89 +133,29 @@ public final class ClanUpgradesMenu {
             return;
         }
 
-        for (int i = 0; i < PERK_SLOTS.length; i++) {
-            if (slot != PERK_SLOTS[i]) continue;
-            ClanPerk perk = ClanPerk.values()[i];
-            plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> {
-                if (clan.level() < plugin.getClanManager().perkUnlockLevel()) {
-                    plugin.getMessages().send(player, "gui.upgrades.perk-locked");
-                    return;
-                }
-                if (clan.perk().map(p -> p == perk).orElse(false)) {
-                    return;
-                }
-                plugin.getClanManager().choosePerkAsync(clan, player.getUniqueId(), perk)
-                        .thenAccept(updated -> plugin.runSync(() -> {
-                            plugin.getMessages().send(player, "gui.upgrades.perk-selected", Map.of("perk", perk.displayName()));
-                            open(player, updated);
-                        }))
-                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
-            });
-            return;
-        }
     }
 
-    private void renderPerks(Inventory inventory, Player player, Clan clan) {
+    /** Один вход в подменю перков: показывает выбранный перк, выбор — внутри. */
+    private void renderPerkButton(Inventory inventory, Player player, Clan clan) {
         int unlockLevel = plugin.getClanManager().perkUnlockLevel();
         boolean locked = clan.level() < unlockLevel;
-
         Optional<ClanPerk> current = clan.perk();
-        long respecCost = plugin.getClanManager().perkRespecCost();
-        ClanPerk[] perks = ClanPerk.values();
-        for (int i = 0; i < PERK_SLOTS.length && i < perks.length; i++) {
-            ClanPerk perk = perks[i];
-            boolean active = current.map(p -> p == perk).orElse(false);
 
-            // Перки всегда видны и просматриваемы (лор/описание), но неактивны (серая иконка,
-            // клик ничего не делает - см. handleInventoryClick), если клан ниже требуемого уровня
-            // или это уже выбранный перк.
-            ItemBuilder builder = ItemBuilder.of(locked ? Material.GRAY_DYE : iconFor(perk))
-                    .name(plugin.getMessages().component("gui.upgrades.perks." + perk.name().toLowerCase() + ".name", player))
-                    .lore(plugin.getMessages().components("gui.upgrades.perks." + perk.name().toLowerCase() + ".lore",
-                            perkLorePlaceholders(perk), player));
+        ItemBuilder builder = ItemBuilder.head(locked ? ItemBuilder.HEAD_INACTIVE : ItemBuilder.HEAD_SPIRIT_ABILITIES)
+                .name(plugin.getMessages().component("gui.upgrades.perk-button.name", player))
+                .lore(plugin.getMessages().components("gui.upgrades.perk-button.lore", Map.of(
+                        "perk", current.map(ClanPerk::displayName)
+                                .orElseGet(() -> plugin.getMessages().raw("gui.upgrades.perk-button.none"))
+                ), player));
 
-            if (locked) {
-                builder.lore(plugin.getMessages().component("gui.upgrades.perks.locked.lore",
-                        Map.of("level", String.valueOf(unlockLevel)), player));
-            } else if (active) {
-                builder.lore(plugin.getMessages().component("gui.upgrades.perks.active", player)).glow(true);
-            } else if (current.isPresent()) {
-                builder.lore(plugin.getMessages().component("gui.upgrades.perks.click-to-change",
-                        Map.of("cost", String.valueOf(respecCost)), player));
-            } else {
-                builder.lore(plugin.getMessages().component("gui.upgrades.perks.click-to-select", player));
-            }
-
-            inventory.setItem(PERK_SLOTS[i], builder.build());
+        if (locked) {
+            builder.lore(plugin.getMessages().component("gui.upgrades.perks.locked.lore",
+                    Map.of("level", String.valueOf(unlockLevel)), player));
+        } else {
+            builder.lore(plugin.getMessages().component("gui.upgrades.perk-button.open", player));
         }
+
+        inventory.setItem(SLOT_PERK, builder.build());
     }
 
-    private Map<String, String> perkLorePlaceholders(ClanPerk perk) {
-        return switch (perk) {
-            case HARVESTER -> Map.of(
-                    "percent", String.valueOf(plugin.getConfig().getInt("perks.harvester.crop-growth-bonus-percent", 40)),
-                    "hearts", String.valueOf(plugin.getConfig().getInt("perks.harvester.pvp-bonus-hearts", 2)),
-                    "yield", String.valueOf(plugin.getConfig().getInt("perks.harvester.harvest-yield-bonus-percent", 10))
-            );
-            case MINER -> Map.of(
-                    "percent", String.valueOf(plugin.getConfig().getInt("perks.miner.resource-yield-bonus-percent", 25)),
-                    "rare", String.valueOf(plugin.getConfig().getInt("perks.miner.rare-drop-bonus-percent", 15))
-            );
-            case WARRIOR -> Map.of(
-                    "percent", String.valueOf(plugin.getConfig().getInt("perks.warrior.siege-duration-reduction-percent", 25)),
-                    "banner", String.valueOf(plugin.getConfig().getInt("perks.warrior.banner-damage-bonus-percent", 10))
-            );
-        };
-    }
-
-    /** Rule 8: rows 9-17 (perks) and 18-26 (upgrades) host content — only header (1-8, slot 0
-     *  is the level head) and footer (36-44) are pure frame. */
-    private void fillFrame(Inventory inventory) {
-        for (int slot = 1; slot <= 8; slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
-        for (int slot = 36; slot <= 44; slot++) {
-            inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
-        }
-    }
 }

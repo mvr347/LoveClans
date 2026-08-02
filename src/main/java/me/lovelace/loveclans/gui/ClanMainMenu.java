@@ -153,7 +153,7 @@ public final class ClanMainMenu implements InventoryHolder {
                 }
             }
             case 23 -> {
-                // Клановый дом — особый случай: даже без права CLAIM меню всё равно открывается,
+                // Клановый спавн — особый случай: даже без права CLAIM меню всё равно открывается,
                 // но в режиме просмотра/телепортации (см. ClanCapitalManagementMenu.isManagement).
                 if (plugin.getClanManager().inAnyConflict(clan.id())) {
                     plugin.getMessages().send(clicker, "gui.capital.war-blocked");

@@ -98,9 +98,9 @@ clan:
   creation-economy-unavailable: "<prefix><red>Оплата создания клана временно недоступна (ItemsAdder не найден)."
   creation-insufficient-funds: "<prefix><red>Недостаточно предметов для оплаты создания клана."
   disbanded: "<prefix><yellow>Ваш клан был распущен."
-  founder-has-capital-banner: "<prefix><red>У вас уже есть знамя столицы. Сначала установите его или избавьтесь от него."
+  founder-has-capital-banner: "<prefix><red>У вас уже есть знамя клановой территории. Сначала установите его или избавьтесь от него."
   home:
-    not-set: "<prefix><red>Дом клана не установлен."
+    not-set: "<prefix><red>Клановый спавн не установлен."
   info:
     header: "<prefix><gold>Информация о клане <white><tag></white>:"
     line: "<gray><key>: <white><value>"
@@ -131,7 +131,7 @@ clan:
   rank-too-low: "<prefix><red>Ваш ранг в клане слишком низок для этого действия."
   rejoin-cooldown: "<prefix><red>Вы не можете повторно вступить в этот клан так скоро после выхода."
   tag-exists: "<prefix><red>Клан с таким тегом уже существует."
-  transfer-requires-capital: "<prefix><red>Нельзя передать лидерство — у клана не установлена столица."
+  transfer-requires-capital: "<prefix><red>Нельзя передать лидерство — у клана не установлена клановая территория."
   help:
     accept: "<gray>/clan accept <tag> <white>- принять приглашение в клан"
     admin: "<gray>/clansadmin <reload|delete|setspirit> <white>- административные команды"
@@ -164,8 +164,12 @@ diplomacy:
   alliance-sent: "<prefix><green>Предложение о союзе отправлено клану <color><tag></color>."
   no-other-clans: "<prefix><gray>Других кланов пока не существует."
   no-pending-request: "<prefix><red>Нет ожидающих запросов от клана <color><tag></color>."
-  requires-home: "<prefix><red>Для этого действия у вашего клана должен быть установлен дом."
+  requires-home: "<prefix><red>Для этого действия у вашего клана должен быть установлен клановый спавн."
   updated: "<prefix><green>Отношения с кланом <color><tag></color> изменены на <yellow><relation></yellow>."
+  relation:
+    NEUTRAL: "<yellow>Нейтралитет"
+    ALLY: "<green>Союз"
+    ENEMY: "<red>Вражда"
   conflict-in-progress: "<prefix><red>Недоступно во время войны/осады/набега с этим кланом."
   embargo:
     already-active: "<prefix><red>Эмбарго с этим кланом уже действует."
@@ -201,7 +205,7 @@ gui:
   previous-page: "<gray>« Предыдущая страница"
   members-title: "<color><tag> <white>- Участники"
   territories-title: "<gray>Территории клана <color><tag>"
-  territories-selection-title: "<gray>Управление столицей клана <white><clan>"
+  territories-selection-title: "<gray>Управление клановой территорией <white><clan>"
   upgrades-title: "<gray>Улучшения клана <color><tag>"
   chest-title: "<gray>Сундук клана <color><tag>"
   chest-items-title: "<gray>Сундук клана <color><tag> <white>- Предметы"
@@ -318,25 +322,25 @@ gui:
     accepted: "<prefix><green>Заявка игрока <yellow><player></yellow> принята."
     rejected: "<prefix><yellow>Заявка игрока <yellow><player></yellow> отклонена."
   capital:
-    title: "<gray>Клановый дом <color><tag>"
-    no-permission: "<prefix><red>У вас нет прав для управления клановым домом."
-    no-permission-lore: "<red>У вас нет прав для управления клановым домом."
-    no-house-lore: "<red>Сначала создайте клановый дом."
+    title: "<gray>Клановый спавн <color><tag>"
+    no-permission: "<prefix><red>У вас нет прав для управления клановым спавном."
+    no-permission-lore: "<red>У вас нет прав для управления клановым спавном."
+    no-house-lore: "<red>Сначала создайте клановый спавн."
     war-blocked: "<prefix><red>Это действие недоступно во время войны."
     disband:
-      name: "<red>Распустить клановый дом"
-      lore: "<gray>Снести клановый дом и вернуть знамя."
-      action: "<prefix><yellow>Клановый дом был распущен."
+      name: "<red>Свернуть клановый спавн"
+      lore: "<gray>Свернуть клановый спавн и вернуть знамя."
+      action: "<prefix><yellow>Клановый спавн свёрнут."
     move-home:
       name: "<gold>Перенести клановый спавн"
       lore: "<gray>Перенести точку возрождения клана сюда."
       confirm-prompt: "<prefix><yellow>Вы уверены, что хотите перенести клановый спавн в текущее место?"
       action: "<prefix><green>Клановый спавн перенесён."
     relocate-territory:
-      name: "<gold>Перенести территорию дома"
-      lore: "<gray>Снести приват кланового дома и получить знамя обратно для переноса."
-      confirm-prompt: "<prefix><yellow>Вы уверены? Приват кланового дома будет снесён, а знамя возвращено вам для переноса."
-      action: "<prefix><green>Территория кланового дома перенесена. Разместите знамя в новом месте."
+      name: "<gold>Перенести клановую территорию"
+      lore: "<gray>Снести приват кланового спавна и получить знамя обратно для переноса."
+      confirm-prompt: "<prefix><yellow>Вы уверены? Приват кланового спавна будет снесён, а знамя возвращено вам для переноса."
+      action: "<prefix><green>Клановая территория перенесена. Разместите знамя в новом месте."
   clan-list:
     title: "<gold>Список кланов <white>- Страница <page>/<max>"
     empty:
@@ -401,7 +405,7 @@ gui:
     disband:
       title: "<red>Подтвердите распуск клана"
     disband-capital:
-      title: "<red>Подтвердите распуск столицы"
+      title: "<red>Подтвердите сворачивание клановой территории"
     leave:
       title: "<gold>Подтвердите выход из клана"
     rename:
@@ -446,6 +450,12 @@ gui:
       not-ready: "<red>✗ Сначала введите название и тег"
   diplomacy:
     title: "<gray>Дипломатия с кланом <color><tag>"
+    relations:
+      name: "<gold>Отношения"
+      lore:
+        - "<gray>Текущие: <white><relation>"
+        - "<gray>ЛКМ - выбрать союз, нейтралитет или вражду"
+      title: "<gray>Отношения с кланом <color><tag>"
     ally:
       name: "<green>Союз"
       lore: "<gray>Нажмите, чтобы предложить союз."
@@ -541,7 +551,6 @@ gui:
     no-members:
       name: "<gray>Участников пока нет"
       lore: "<gray>В этом клане ещё никто не состоит."
-    page-indicator: "<gold>Страница <white><page></white>/<max>"
   main:
     title: "<color><clan> <white>- Меню клана"
     info:
@@ -553,8 +562,8 @@ gui:
       name: "<gold>Участники"
       lore: "<gray>Список участников клана."
     territories:
-      name: "<gold>Клановый дом"
-      lore: "<gray>Управление клановым домом и территориями клана."
+      name: "<gold>Клановый спавн"
+      lore: "<gray>Управление клановым спавном и территориями клана."
       no-permission-lore: "<red>Нет прав на управление — откроется в режиме просмотра/телепортации."
     upgrades:
       name: "<gold>Улучшения"
@@ -601,6 +610,12 @@ gui:
       disabled-self: "<red>Нельзя исключить самого себя."
       disabled-leader: "<red>Нельзя исключить главу клана."
   members:
+    info:
+      name: "<color><name> <white>[<tag>]"
+      lore:
+        - "<gray>Уровень: <white><level>"
+        - "<gray>Участников: <white><current></white>/<max>"
+        - "<gray>Глава: <white><leader>"
     invite:
       name: "<green>Пригласить игрока"
       lore: "<gray>Нажмите, чтобы пригласить нового участника."
@@ -612,13 +627,6 @@ gui:
       status: "<gray>Статус: <white><status>"
       contribution: "<gray>Вклад: <white><amount>"
       hint: "<gray>ЛКМ - изменить ранг, ПКМ - исключить"
-  other-territories:
-    title: "<gray>Остальные территории клана <white><clan>"
-    item:
-      name: "<gold>Чанк <white><x>, <z>"
-      world: "<gray>Мир: <white><world>"
-      claimed-at: "<gray>Захвачен: <white><date>"
-      unclaim-hint: "<gray>ПКМ - снять захват"
   player-applications:
     title: "<gold>Мои заявки и приглашения"
     application-item:
@@ -737,24 +745,18 @@ gui:
       name: "<gold>Знамя захвата"
       lore: "<gray>Используйте знамя, чтобы захватить территорию."
     capital:
-      name: "<gold>Клановый дом"
-      no-permission: "<prefix><red>У вас нет прав для управления клановым домом."
-      no-permission-management: "<prefix><red>У вас нет прав для управления клановым домом."
-      not-created: "<gray>Клановый дом ещё не создан."
-      get-banner: "<gold>Получить знамя кланового дома"
-      get-banner-lore: "<gray>Нажмите, чтобы получить знамя для установки кланового дома."
-      place-it: "<gray>Установите знамя, чтобы создать клановый дом."
-      already-have-banner: "<prefix><red>У вас уже есть знамя кланового дома в инвентаре."
+      name: "<gold>Клановый спавн"
+      no-permission: "<prefix><red>У вас нет прав для управления клановым спавном."
+      no-permission-management: "<prefix><red>У вас нет прав для управления клановым спавном."
+      not-created: "<gray>Клановый спавн ещё не создан."
+      get-banner: "<gold>Получить знамя кланового спавна"
+      get-banner-lore: "<gray>Нажмите, чтобы получить знамя для установки кланового спавна."
+      place-it: "<gray>Установите знамя, чтобы создать клановый спавн."
+      already-have-banner: "<prefix><red>У вас уже есть знамя кланового спавна в инвентаре."
       already-have-banner-item: "<red>Знамя уже получено"
       info:
         coords: "<gray>Координаты: <white><x>, <y>, <z>"
         created: "<gray>Создан: <white><date>"
-    other:
-      name: "<gold>Остальные территории"
-      info: "<gray>Просмотр остальных (не главных) территорий вашего клана."
-      none: "<gray>Нет территорий"
-      none-lore: "<gray>У клана нет других захваченных территорий."
-      no-territories: "<prefix><gray>У этого клана нет территорий."
   territory-settings:
     title: "<gray>Настройки чанка <white><chunk>"
     pvp:
@@ -794,7 +796,14 @@ gui:
     success: "<prefix><green>Улучшение <gold><upgrade></gold> успешно применено."
     not-enough-points: "<prefix><red>Недостаточно очков улучшений."
     max-level-reached: "<prefix><red>Это улучшение уже достигло максимального уровня."
+    perk-button:
+      name: "<gold>Перк клана"
+      lore:
+        - "<gray>Выбран: <white><perk>"
+      none: "<gray>не выбран"
+      open: "<gray>ЛКМ - выбрать перк"
     perks:
+      title: "<gray>Перк клана <color><tag>"
       locked:
         name: "<dark_gray>Перки клана заблокированы"
         lore: "<gray>Открываются на <white><level></white> уровне клана."
@@ -828,11 +837,11 @@ gui:
 
 item:
   capital-banner:
-    name: "<gold>Знамя столицы <white><clan>"
+    name: "<gold>Знамя клановой территории <white><clan>"
     lore:
-      type: "<gray>Тип: <white>Знамя столицы"
+      type: "<gray>Тип: <white>Знамя клановой территории"
       clan: "<gray>Клан: <white><clan>"
-      info: "<gray>Установите это знамя, чтобы создать столицу клана."
+      info: "<gray>Установите это знамя, чтобы создать клановую территорию."
   territory-banner:
     name: "<gold>Знамя территории <white><clan>"
     lore:
@@ -891,8 +900,8 @@ territory:
     cannot-break-peace: "<prefix><red>Нельзя ломать знамя территории в мирное время."
   capital:
     cannot-break-bearing-block: "<prefix><red>Невозможно сломать блок, удерживающий знамя."
-    cannot-break-peace: "<prefix><red>Нельзя ломать столицу в мирное время."
-    not-found: "<prefix><red>Столица клана не найдена."
+    cannot-break-peace: "<prefix><red>Нельзя ломать клановую территорию в мирное время."
+    not-found: "<prefix><red>Клановая территория не найдена."
   claim-cancelled: "<prefix><yellow>Захват территории отменён."
   claim-confirm-chat: "<prefix><yellow>Подтвердите захват территории, нажав на подсказку выше."
   claim-confirm-subtitle: "<yellow>Нажмите, чтобы подтвердить"
@@ -910,7 +919,7 @@ territory:
     no-permission: "<prefix><red>У вас нет прав для снятия захвата этой территории."
   unclaimed: "<prefix><yellow>Захват территории снят."
   unclaimed-success: "<prefix><yellow>Захват территории <white><x>, <z></white> снят."
-  world-not-found: "<prefix><red>Мир дома клана больше не существует."
+  world-not-found: "<prefix><red>Мир кланового спавна больше не существует."
 
 history:
   header: "<prefix><gold>История конфликтов клана <tag>:"

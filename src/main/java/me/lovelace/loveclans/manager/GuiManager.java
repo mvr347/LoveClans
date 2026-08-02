@@ -11,6 +11,8 @@ import me.lovelace.loveclans.gui.ClanConfirmMenu;
 import me.lovelace.loveclans.gui.ClanContractsMenu;
 import me.lovelace.loveclans.gui.ClanCreateMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacyMenu;
+import me.lovelace.loveclans.gui.ClanRelationMenu;
+import me.lovelace.loveclans.gui.ClanPerkMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacySelectMenu;
 import me.lovelace.loveclans.gui.ClanInfoMenu;
 import me.lovelace.loveclans.gui.ClanListMenu;
@@ -19,7 +21,6 @@ import me.lovelace.loveclans.gui.ClanMemberDetailMenu;
 import me.lovelace.loveclans.gui.ClanMembersMenu;
 import me.lovelace.loveclans.gui.ClanMenuHolder;
 import me.lovelace.loveclans.gui.ClanMenuType;
-import me.lovelace.loveclans.gui.ClanOtherTerritoriesMenu;
 import me.lovelace.loveclans.gui.ClanRankPermissionsMenu;
 import me.lovelace.loveclans.gui.ClanRoleSettingsMenu;
 import me.lovelace.loveclans.gui.ClanSettingsMenu;
@@ -49,6 +50,8 @@ public class GuiManager implements Listener {
     private final LoveClansPlugin plugin;
     private final NamespacedKey memberKey;
     private final ClanDiplomacyMenu diplomacyMenu;
+    private final ClanRelationMenu relationMenu;
+    private final ClanPerkMenu perkMenu;
     private final ClanTerritoriesMenu territoriesMenu;
     private final ClanMembersMenu membersMenu;
     private final ClanUpgradesMenu upgradesMenu;
@@ -71,6 +74,8 @@ public class GuiManager implements Listener {
         this.plugin = plugin;
         this.memberKey = new NamespacedKey(plugin, "gui_member");
         this.diplomacyMenu = new ClanDiplomacyMenu(plugin);
+        this.relationMenu = new ClanRelationMenu(plugin);
+        this.perkMenu = new ClanPerkMenu(plugin);
         this.territoriesMenu = new ClanTerritoriesMenu(plugin);
         this.membersMenu = new ClanMembersMenu(plugin);
         this.upgradesMenu = new ClanUpgradesMenu(plugin);
@@ -132,6 +137,10 @@ public class GuiManager implements Listener {
         upgradesMenu.open(player, clan);
     }
 
+    public void openPerks(Player player, Clan clan) {
+        perkMenu.open(player, clan);
+    }
+
     public void openSettings(Player player, Clan clan) {
         settingsMenu.open(player, clan);
     }
@@ -180,10 +189,6 @@ public class GuiManager implements Listener {
         new ClanCapitalManagementMenu(plugin, clan, player).open();
     }
 
-    public void openClanOtherTerritoriesMenu(Player player, Clan clan) {
-        new ClanOtherTerritoriesMenu(plugin, clan, player).open();
-    }
-
     public void openTerritories(Player player, Clan clan) {
         territoriesMenu.open(player, clan);
     }
@@ -196,6 +201,10 @@ public class GuiManager implements Listener {
 
     public void openDiplomacy(Player player, Clan sourceClan, Clan targetClan) {
         diplomacyMenu.open(player, sourceClan, targetClan);
+    }
+
+    public void openRelations(Player player, Clan sourceClan, Clan targetClan) {
+        relationMenu.open(player, sourceClan, targetClan);
     }
 
     public void openDiplomacySelect(Player player, Clan sourceClan) {
@@ -236,13 +245,6 @@ public class GuiManager implements Listener {
             if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
             event.setCancelled(true);
             capitalMenu.handleInventoryClick(player, event.getRawSlot());
-            return;
-        }
-
-        if (holder instanceof ClanOtherTerritoriesMenu otherMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
-            event.setCancelled(true);
-            otherMenu.handleInventoryClick(player, event.getRawSlot());
             return;
         }
 
@@ -326,6 +328,8 @@ public class GuiManager implements Listener {
                     case SETTINGS -> settingsMenu.handleInventoryClick(player, clan, slot);
                     case APPLICATIONS -> applicationsMenu.handleInventoryClick(event, player, clan);
                     case DIPLOMACY -> diplomacyMenu.handleInventoryClick(player, clan, slot);
+                    case RELATIONS -> relationMenu.handleInventoryClick(player, clan, slot);
+                    case PERKS -> perkMenu.handleInventoryClick(player, clan, slot);
                     case MEMBER_DETAIL -> memberDetailMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case COLOR_PICKER -> colorPickerMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case ROLE_SETTINGS -> roleSettingsMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());

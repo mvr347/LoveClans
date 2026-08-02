@@ -709,8 +709,8 @@ public final class ClanManager {
             if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
                 throw new IllegalStateException("general.no-permission");
             }
-            // Передача лидерства запрещена, если у клана ещё не установлена столица —
-            // без столицы клан считается не до конца сформированным.
+            // Передача лидерства запрещена, если у клана ещё не установлена клановая территория —
+            // без неё клан считается не до конца сформированным.
             if (clan.getCapitalTerritory().isEmpty()) {
                 throw new IllegalStateException("clan.transfer-requires-capital");
             }
@@ -981,7 +981,7 @@ public final class ClanManager {
                 org.bukkit.block.Block placedBlock = location.getBlock();
                 placedBlock.setType(bannerItem.getType());
                 // Переносим клановые NBT-теги (тип баннера + ID клана) на установленный блок.
-                // Без этого блок-баннер не опознаётся как клановый, и меню территории/столицы
+                // Без этого блок-баннер не опознаётся как клановый, и меню клановой территории
                 // не открывается при правом клике (ClanProtectionListener читает PDC блока).
                 org.bukkit.block.BlockState placedState = placedBlock.getState();
                 if (placedState instanceof org.bukkit.block.Banner bannerState) {
