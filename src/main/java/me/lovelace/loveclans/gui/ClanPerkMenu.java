@@ -5,7 +5,6 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPerk;
 import me.lovelace.loveclans.util.ItemBuilder;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
@@ -33,12 +32,11 @@ public final class ClanPerkMenu {
         this.plugin = plugin;
     }
 
-    /** Иконки перков остались материалами: подходящих голов в наборе плагина пока нет. */
-    private Material iconFor(ClanPerk perk) {
+    private String headFor(ClanPerk perk) {
         return switch (perk) {
-            case HARVESTER -> Material.WHEAT;
-            case MINER -> Material.DIAMOND_PICKAXE;
-            case WARRIOR -> Material.IRON_SWORD;
+            case HARVESTER -> ItemBuilder.HEAD_PERK_HARVESTER;
+            case MINER -> ItemBuilder.HEAD_PERK_MINER;
+            case WARRIOR -> ItemBuilder.HEAD_PERK_WARRIOR;
         };
     }
 
@@ -72,7 +70,7 @@ public final class ClanPerkMenu {
             // Перки всегда видны и просматриваемы (лор/описание), но неактивны (серая иконка,
             // клик ничего не делает - см. handleInventoryClick), если клан ниже требуемого уровня
             // или это уже выбранный перк.
-            ItemBuilder builder = ItemBuilder.of(locked ? Material.GRAY_DYE : iconFor(perk))
+            ItemBuilder builder = ItemBuilder.head(locked ? ItemBuilder.HEAD_INACTIVE : headFor(perk))
                     .name(plugin.getMessages().component("gui.upgrades.perks." + perk.name().toLowerCase() + ".name", player))
                     .lore(plugin.getMessages().components("gui.upgrades.perks." + perk.name().toLowerCase() + ".lore",
                             perkLorePlaceholders(perk), player));
