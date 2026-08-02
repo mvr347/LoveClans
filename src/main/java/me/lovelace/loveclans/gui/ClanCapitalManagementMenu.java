@@ -19,8 +19,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Клановый дом (бывшая «Столица») — открывается напрямую из главного меню клана.
- * Если столица ещё не создана, вместо управления показывается получение баннера
+ * Клановый спавн и клановая территория — открывается напрямую из главного меню клана.
+ * Если клановая территория ещё не создана, вместо управления показывается получение баннера
  * (перенесено из бывшего ClanTerritoriesSelectionGui, который эта менюха заменила).
  */
 public class ClanCapitalManagementMenu implements InventoryHolder {
@@ -45,7 +45,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         boolean isLeader = clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.LEADER).orElse(false);
         boolean isAssistant = clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.GUARDIAN).orElse(false);
         boolean canManage = isLeader || isAssistant;
-        // Право CLAIM (настраиваемое per-ранг) даёт доступ к получению/установке баннера клан. дома,
+        // Право CLAIM (настраиваемое per-ранг) даёт доступ к получению/установке баннера,
         // отдельно от canManage (жёстко LEADER/GUARDIAN), которое требуется для сноса/переноса —
         // то же разделение прав, что было в ClanTerritoriesSelectionGui.
         boolean isManagement = clan.hasPermission(player.getUniqueId(), ClanPermission.CLAIM);
@@ -66,7 +66,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.capital.war-blocked", player))
                         .build();
             } else {
-                moveHomeItem = ItemBuilder.of(Material.COMPASS)
+                moveHomeItem = ItemBuilder.head(ItemBuilder.HEAD_CLAN_SPAWN)
                         .name(plugin.getMessages().component("gui.capital.move-home.name", player))
                         .lore(plugin.getMessages().component("gui.capital.move-home.lore", player))
                         .build();
@@ -86,7 +86,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.capital.war-blocked", player))
                         .build();
             } else {
-                relocateItem = ItemBuilder.of(Material.ENDER_CHEST)
+                relocateItem = ItemBuilder.head(ItemBuilder.HEAD_RELOCATE_TERRITORY)
                         .name(plugin.getMessages().component("gui.capital.relocate-territory.name", player))
                         .lore(plugin.getMessages().component("gui.capital.relocate-territory.lore", player))
                         .build();
@@ -106,16 +106,16 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.capital.war-blocked", player))
                         .build();
             } else {
-                disbandItem = ItemBuilder.of(Material.LAVA_BUCKET)
+                disbandItem = ItemBuilder.head(ItemBuilder.HEAD_COLLAPSE)
                         .name(plugin.getMessages().component("gui.capital.disband.name", player))
                         .lore(plugin.getMessages().component("gui.capital.disband.lore", player))
                         .build();
             }
             inventory.setItem(14, disbandItem);
         } else {
-            // Столица (клан. дом) ещё не создана — показываем получение/установку баннера,
+            // Клановая территория ещё не создана — показываем получение/установку баннера,
             // как раньше делал ClanTerritoriesSelectionGui. Слоты 10/12/14 (перенос спавна/переезд/
-            // роспуск) неприменимы без дома — показываем их неактивными с причиной, а не голым
+            // сворачивание) неприменимы без неё — показываем их неактивными с причиной, а не голым
             // стеклом, как остальные неактивные кнопки в этом меню.
             ItemStack bannerItem;
             if (isManagement) {
@@ -172,13 +172,13 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         boolean hasCapital = clan.territories().stream().anyMatch(ClanTerritory::isCapital);
 
         switch (slot) {
-            case 25: // Back button — клан. дом теперь открывается напрямую из главного меню
+            case 25: // Back button — меню теперь открывается напрямую из главного меню клана
                 plugin.getGuiManager().openMain(clicker, clan);
                 break;
             case 26: // Close button
                 clicker.closeInventory();
                 break;
-            case 13: // Получить/установить баннер клан. дома (только если столица ещё не создана)
+            case 13: // Получить/установить баннер (только если клановая территория ещё не создана)
                 if (hasCapital || !isManagement) return;
                 ItemStack clicked = clicker.getOpenInventory().getTopInventory().getItem(13);
                 if (clicked != null && clicked.getType() == Material.RED_BANNER) {

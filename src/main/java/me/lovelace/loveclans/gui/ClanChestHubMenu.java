@@ -6,7 +6,6 @@ import me.lovelace.loveclans.util.ItemBuilder;
 import me.lovelace.loveclans.util.TimeUtil;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
@@ -42,7 +41,7 @@ public final class ClanChestHubMenu {
         boolean locked = clan.isChestTaxLocked();
         int unlockLevel = plugin.getConfig().getInt("clans.chest.tax.tax-free-until-level", 3);
 
-        ItemBuilder info = ItemBuilder.of(locked ? Material.BARRIER : Material.CHEST)
+        ItemBuilder info = ItemBuilder.head(locked ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST)
                 .name(plugin.getMessages().component("gui.chest.info.name", player))
                 .lore(plugin.getMessages().components("gui.chest.info.lore", Map.of(
                         "money", String.valueOf(clan.chestMoney()),
@@ -62,7 +61,7 @@ public final class ClanChestHubMenu {
         }
         inventory.setItem(INFO_SLOT, info.build());
 
-        inventory.setItem(MONEY_SLOT, ItemBuilder.of(Material.GOLD_INGOT)
+        inventory.setItem(MONEY_SLOT, ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.chest.money-button.name", player))
                 .lore(plugin.getMessages().component("gui.chest.money-button.lore", Map.of("amount", String.valueOf(clan.chestMoney())), player))
                 .build());
@@ -73,7 +72,7 @@ public final class ClanChestHubMenu {
                     .lore(plugin.getMessages().components("gui.chest.locked-warning.lore", Map.of(), player))
                     .build());
         } else {
-            inventory.setItem(ITEMS_SLOT, ItemBuilder.of(Material.CHEST)
+            inventory.setItem(ITEMS_SLOT, ItemBuilder.head(ItemBuilder.HEAD_CHEST)
                     .name(plugin.getMessages().component("gui.chest.items-button.name", player))
                     .lore(plugin.getMessages().component("gui.chest.items-button.lore", player))
                     .build());

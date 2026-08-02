@@ -82,6 +82,21 @@ public final class ItemBuilder {
     // Diplomacy select menu utility icons (sort / filter / empty-state) and menu action icons
     // (trade / letters / embargo / blockade) - replaced plain vanilla materials so the whole
     // diplomacy flow is heads-only, matching the rest of the plugin.
+    public static final String HEAD_CHEST = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMmE3ODQ4ZGZlNTk3OTk1ZDA0ZTgyMmFjNTM4NzhhMjllZDgxZTFmMTUyODQ4ZjE4MjNjYjM1MjljNDdlMWNlZiJ9fX0=";
+    public static final String HEAD_CHEST_LOCKED = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMzNhZjNiZmRmNDg2ZWVmZjc4YzQ5ZGE0MDA5MDdiNDVhNGM0ZGI0ZDZmYjE1OTkwOWEzMjE3ZTA2OWM2NDBiMSJ9fX0=";
+    public static final String HEAD_DEPOSIT = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvM2VkZDIwYmU5MzUyMDk0OWU2Y2U3ODlkYzRmNDNlZmFlYjI4YzcxN2VlNmJmY2JiZTAyNzgwMTQyZjcxNiJ9fX0=";
+    public static final String HEAD_WITHDRAW = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYmQ4YTk5ZGIyYzM3ZWM3MWQ3MTk5Y2Q1MjYzOTk4MWE3NTEzY2U5Y2NhOTYyNmEzOTM2Zjk2NWIxMzExOTMifX19";
+
+    public static final String HEAD_CLAN_SPAWN = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMWZiNWM2ZDdjNDJlYjVmMzMzOTc3NjJhYWNiNGRjMWY4MmEzNDY3ZDk0MmQ0MjQ5YTM5OTgwZTg4MjhkNzYxMSJ9fX0=";
+    public static final String HEAD_RELOCATE_TERRITORY = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNmVlZjdlNTZjZGU3NDA3NzJkZmI3NmRkZDJmNTg0YmU4OTA3Yjg1OTc2NjhlNDAyNjM0OTg2NDY5MjMwYWE0OSJ9fX0=";
+    public static final String HEAD_COLLAPSE = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNzQzNzM0NmQ4YmRhNzhkNTI1ZDE5ZjU0MGE5NWU0ZTc5ZGFlZGE3OTVjYmM1YTEzMjU2MjM2MzEyY2YifX19";
+
+    public static final String HEAD_LETTER_WRITE = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvODY3MjA4NWZmNWRmMGVlODUyMTM2ZTJkNDFhNzY5MjI5MjkxZDY2NmIyOGU5ZmIwNGQ2YzkyZjE1OGU0MmJiIn19fQ==";
+    public static final String HEAD_LETTER_SENT = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOTZkN2I3MjA0YmVhMWZmMGRmNzkzMGJkNDU1OWEzMGI1ZWE1NTllNTYyNDI5NDY5NGU4NjdiZjdiNWFlMDM2MSJ9fX0=";
+    public static final String HEAD_LETTER_READ = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvY2ZlYmM3M2E4ZDBiNWVlYzAzZTk4YTMyOTZjYjgxZjMyNTM4MGQ5NjcwOTdlN2Q1NThjMDkxYmI4NDZlOTg4YyJ9fX0=";
+    public static final String HEAD_LETTER_UNREAD = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZWM1YzkzYzI1NDRiOWVjMzg5ODA4MzVjNjY2MThiOWY5NDc4NDhjNjM5YjZhODBhMGE2OTU5MDFlNzU3OWJjZCJ9fX0=";
+    public static final String HEAD_INVITE_ITEM = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvODNkODc0ZWI4YzRjNjk3YjNmODMyYmQ4NzQ0MjZmZGY2ZDIxYmFlMzM5ZjMxNzExMDgxZmRlNTk4MzgzODZlMSJ9fX0=";
+
     public static final String HEAD_PERK_HARVESTER = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMjkxODBjMDVjY2I1YTVlNjQzNWFhNWMxOTg3NDIxNjZhYjk4MTkwNGM1NmJlODY5NDNmOGZhYzE1MzQ2OTBmNiJ9fX0=";
     public static final String HEAD_PERK_MINER = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOTE1ZmNlYmJiZTAyZmRiNzJhY2QyMDk1ZDllZGZjZWEwOTVlNjA0YjM2ODJkYjg4OTYzYjViODNiMjkzOWI2NyJ9fX0=";
     public static final String HEAD_PERK_WARRIOR = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYzIyNjg1ODY3OGM3NGNlYzAxYWJiNmUwMjFjN2ZjODliZTBmODI5ZmNhYzk0N2RjOTQyMWVhZDMzODg2N2VjZCJ9fX0=";
@@ -93,11 +108,8 @@ public final class ItemBuilder {
     public static final String HEAD_EMBARGO = HEAD_BARRIER;
     public static final String HEAD_BLOCKADE = HEAD_BARRIER;
 
-    /**
-     * Иконка денег в клановых меню. Своей текстуры под монеты в наборе пока нет, поэтому
-     * временно берём текстуру торговли — заменить здесь одной строкой, когда появится своя.
-     */
-    public static final String HEAD_CHEST_MONEY = HEAD_TRADE;
+    /** Иконка денег в клановых меню. */
+    public static final String HEAD_CHEST_MONEY = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvM2QyNGRjNTgwNjljMTIxMmI1MjlhNGFlNWQ0ZTczYmUwOTkwZDQ2ZmU5MzcxYjFmNzllODE2NGI0Mjg1OWFjOCJ9fX0=";
 
     // Rank management icons (Recruit / Clansman / Guardian)
     public static final String HEAD_RANK_RECRUIT = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZmIwZmQ2MGQ3MjI0MTlhNzg1N2Y3Mjg2YzIzZjcyYzIxOTMzMDM4ZmM0MTQwNDljZGU2NTZmNGU4MzI4ZTU0NiJ9fX0=";
