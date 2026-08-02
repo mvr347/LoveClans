@@ -1137,7 +1137,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Clan source = optionalSource.get();
         Clan target = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
         plugin.getClanManager().setDiplomacyAsync(source, target, relation, player.getUniqueId())
-                .thenAccept(clan -> plugin.runSync(() -> plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", target.tag(), "color", target.tagColor(), "relation", relation.name()))))
+                .thenAccept(clan -> plugin.runSync(() -> plugin.getMessages().send(player, "diplomacy.updated", Map.of("tag", target.tag(), "color", target.tagColor(), "relation", plugin.getMessages().relationName(relation)))))
                 .exceptionally(throwable -> {
                     plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                     return null;
@@ -1350,7 +1350,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             }
             
             plugin.getClanManager().setDiplomacyAsync(clan1, clan2, relation, null) // null actorId
-                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.diplo-updated", Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor(), "relation", relation.name()))))
+                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.diplo-updated", Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor(), "relation", plugin.getMessages().relationName(relation)))))
                 .exceptionally(ex -> {
                     plugin.runSync(() -> plugin.sendOperationError(sender, ex));
                     return null;

@@ -166,6 +166,10 @@ diplomacy:
   no-pending-request: "<prefix><red>Нет ожидающих запросов от клана <color><tag></color>."
   requires-home: "<prefix><red>Для этого действия у вашего клана должен быть установлен дом."
   updated: "<prefix><green>Отношения с кланом <color><tag></color> изменены на <yellow><relation></yellow>."
+  relation:
+    NEUTRAL: "<yellow>Нейтралитет"
+    ALLY: "<green>Союз"
+    ENEMY: "<red>Вражда"
   conflict-in-progress: "<prefix><red>Недоступно во время войны/осады/набега с этим кланом."
   embargo:
     already-active: "<prefix><red>Эмбарго с этим кланом уже действует."
@@ -446,6 +450,12 @@ gui:
       not-ready: "<red>✗ Сначала введите название и тег"
   diplomacy:
     title: "<gray>Дипломатия с кланом <color><tag>"
+    relations:
+      name: "<gold>Отношения"
+      lore:
+        - "<gray>Текущие: <white><relation>"
+        - "<gray>ЛКМ - выбрать союз, нейтралитет или вражду"
+      title: "<gray>Отношения с кланом <color><tag>"
     ally:
       name: "<green>Союз"
       lore: "<gray>Нажмите, чтобы предложить союз."
@@ -601,6 +611,12 @@ gui:
       disabled-self: "<red>Нельзя исключить самого себя."
       disabled-leader: "<red>Нельзя исключить главу клана."
   members:
+    info:
+      name: "<color><name> <white>[<tag>]"
+      lore:
+        - "<gray>Уровень: <white><level>"
+        - "<gray>Участников: <white><current></white>/<max>"
+        - "<gray>Глава: <white><leader>"
     invite:
       name: "<green>Пригласить игрока"
       lore: "<gray>Нажмите, чтобы пригласить нового участника."
@@ -612,13 +628,6 @@ gui:
       status: "<gray>Статус: <white><status>"
       contribution: "<gray>Вклад: <white><amount>"
       hint: "<gray>ЛКМ - изменить ранг, ПКМ - исключить"
-  other-territories:
-    title: "<gray>Остальные территории клана <white><clan>"
-    item:
-      name: "<gold>Чанк <white><x>, <z>"
-      world: "<gray>Мир: <white><world>"
-      claimed-at: "<gray>Захвачен: <white><date>"
-      unclaim-hint: "<gray>ПКМ - снять захват"
   player-applications:
     title: "<gold>Мои заявки и приглашения"
     application-item:
@@ -749,12 +758,6 @@ gui:
       info:
         coords: "<gray>Координаты: <white><x>, <y>, <z>"
         created: "<gray>Создан: <white><date>"
-    other:
-      name: "<gold>Остальные территории"
-      info: "<gray>Просмотр остальных (не главных) территорий вашего клана."
-      none: "<gray>Нет территорий"
-      none-lore: "<gray>У клана нет других захваченных территорий."
-      no-territories: "<prefix><gray>У этого клана нет территорий."
   territory-settings:
     title: "<gray>Настройки чанка <white><chunk>"
     pvp:
@@ -794,7 +797,14 @@ gui:
     success: "<prefix><green>Улучшение <gold><upgrade></gold> успешно применено."
     not-enough-points: "<prefix><red>Недостаточно очков улучшений."
     max-level-reached: "<prefix><red>Это улучшение уже достигло максимального уровня."
+    perk-button:
+      name: "<gold>Перк клана"
+      lore:
+        - "<gray>Выбран: <white><perk>"
+      none: "<gray>не выбран"
+      open: "<gray>ЛКМ - выбрать перк"
     perks:
+      title: "<gray>Перк клана <color><tag>"
       locked:
         name: "<dark_gray>Перки клана заблокированы"
         lore: "<gray>Открываются на <white><level></white> уровне клана."

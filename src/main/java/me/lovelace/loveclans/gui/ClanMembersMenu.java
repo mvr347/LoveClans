@@ -45,6 +45,22 @@ public final class ClanMembersMenu {
         // там пустые слоты должны оставаться пустыми, без стеклянных панелей вокруг голов.
         fillGlassExcludingContent(inventory, 9, inventorySize - 9);
 
+        // Слот 0 — голова темы меню с карточкой клана. Раньше он оставался стеклом,
+        // и меню участников открывалось без указания, чей это клан.
+        String leaderName = clan.leaderId()
+                .map(id -> Bukkit.getOfflinePlayer(id).getName())
+                .orElse(null);
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_MEMBERS)
+                .name(plugin.getMessages().component("gui.members.info.name",
+                        Map.of("name", clan.name(), "tag", clan.tag(), "color", clan.tagColor()), player))
+                .lore(plugin.getMessages().components("gui.members.info.lore", Map.of(
+                        "level", String.valueOf(clan.level()),
+                        "current", String.valueOf(clan.members().size()),
+                        "max", String.valueOf(plugin.getClanManager().maxMembers(clan)),
+                        "leader", leaderName == null ? "—" : leaderName
+                ), player))
+                .build());
+
         boolean canInvite = clan.member(player.getUniqueId())
                 .map(m -> m.rank().atLeast(ClanRank.GUARDIAN))
                 .orElse(false);

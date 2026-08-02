@@ -1,6 +1,7 @@
 package me.lovelace.loveclans.service;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.model.DiplomacyRelation;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -107,6 +108,19 @@ public final class MessageService {
 
         raw = applyPlaceholders(player, raw);
         return miniMessage.deserialize(raw, TagResolver.resolver(resolvers));
+    }
+
+    /**
+     * Человекочитаемое название отношений. Раньше в интерфейс подставлялось
+     * {@code DiplomacyRelation.name()}, и игрок видел непереведённое "NEUTRAL".
+     * Само значение enum по-прежнему используется для хранения в БД — переводим
+     * только то, что показываем.
+     */
+    public String relationName(DiplomacyRelation relation) {
+        if (relation == null) {
+            return raw("diplomacy.relation.NEUTRAL");
+        }
+        return raw("diplomacy.relation." + relation.name());
     }
 
     public String raw(String key) {

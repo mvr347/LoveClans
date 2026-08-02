@@ -136,7 +136,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
                     .name(plugin.getMessages().component("gui.diplomacy-select.clan-item.name",
                             Map.of("tag", target.tag(), "color", target.tagColor(), "name", target.name()), player))
                     .lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.relation",
-                            Map.of("relation", sourceClan.relationTo(target.id()).name()), player))
+                            Map.of("relation", plugin.getMessages().relationName(sourceClan.relationTo(target.id()))), player))
                     .lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.hint", player));
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, target.id().toString()));

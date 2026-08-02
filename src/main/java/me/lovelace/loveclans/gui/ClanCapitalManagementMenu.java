@@ -153,13 +153,6 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                     .build());
         }
 
-        // Slot 16: Остальные территории клана — всегда доступно для просмотра
-        boolean hasOtherTerritories = clan.territories().stream().anyMatch(t -> !t.isCapital());
-        inventory.setItem(16, ItemBuilder.head(hasOtherTerritories ? ItemBuilder.HEAD_MORE_TERRITORIES : ItemBuilder.HEAD_INACTIVE)
-                .name(plugin.getMessages().component("gui.territories.other.name", player))
-                .lore(plugin.getMessages().component(hasOtherTerritories ? "gui.territories.other.info" : "gui.territories.other.none-lore", player))
-                .build());
-
         inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
@@ -184,9 +177,6 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                 break;
             case 26: // Close button
                 clicker.closeInventory();
-                break;
-            case 16: // Остальные территории клана
-                plugin.getGuiManager().openClanOtherTerritoriesMenu(clicker, clan);
                 break;
             case 13: // Получить/установить баннер клан. дома (только если столица ещё не создана)
                 if (hasCapital || !isManagement) return;
