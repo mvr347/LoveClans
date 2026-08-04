@@ -52,8 +52,26 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
 
         Optional<ClanTerritory> capitalTerritoryOpt = clan.territories().stream().filter(ClanTerritory::isCapital).findFirst();
 
+        // Слот 0: голова темы меню — раньше оставался пустым (AIR), как и в других
+        // менюхах, где стандарт требует профиль/тему, а не голое стекло.
+        ItemBuilder infoItem = ItemBuilder.head(ItemBuilder.HEAD_CAPITAL)
+                .name(plugin.getMessages().component("gui.capital.info.name",
+                        Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
         if (capitalTerritoryOpt.isPresent()) {
-            // Slot 10: Move Home Point
+            ClanTerritory territory = capitalTerritoryOpt.get();
+            infoItem.lore(plugin.getMessages().components("gui.capital.info.lore-set", Map.of(
+                    "world", territory.world(),
+                    "x", String.valueOf(territory.bannerX()),
+                    "y", String.valueOf(territory.bannerY()),
+                    "z", String.valueOf(territory.bannerZ())
+            ), player));
+        } else {
+            infoItem.lore(plugin.getMessages().components("gui.capital.info.lore-unset", Map.of(), player));
+        }
+        inventory.setItem(0, infoItem.build());
+
+        if (capitalTerritoryOpt.isPresent()) {
+            // Slot 11: Move Home Point
             ItemStack moveHomeItem;
             if (!canManage) {
                 moveHomeItem = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
@@ -71,9 +89,9 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.capital.move-home.lore", player))
                         .build();
             }
-            inventory.setItem(10, moveHomeItem);
+            inventory.setItem(11, moveHomeItem);
 
-            // Slot 12: Relocate Capital Territory
+            // Slot 13: Relocate Capital Territory
             ItemStack relocateItem;
             if (!canManage) {
                 relocateItem = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
@@ -91,9 +109,9 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.capital.relocate-territory.lore", player))
                         .build();
             }
-            inventory.setItem(12, relocateItem);
+            inventory.setItem(13, relocateItem);
 
-            // Slot 14: Disband Capital Base
+            // Slot 15: Disband Capital Base
             ItemStack disbandItem;
             if (!canManage) {
                 disbandItem = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
@@ -111,10 +129,10 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.capital.disband.lore", player))
                         .build();
             }
-            inventory.setItem(14, disbandItem);
+            inventory.setItem(15, disbandItem);
         } else {
             // Клановая территория ещё не создана — показываем получение/установку баннера,
-            // как раньше делал ClanTerritoriesSelectionGui. Слоты 10/12/14 (перенос спавна/переезд/
+            // как раньше делал ClanTerritoriesSelectionGui. Слоты 11/13/15 (перенос спавна/переезд/
             // сворачивание) неприменимы без неё — показываем их неактивными с причиной, а не голым
             // стеклом, как остальные неактивные кнопки в этом меню.
             ItemStack bannerItem;
@@ -137,17 +155,17 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.territories.capital.no-permission-management", player))
                         .build();
             }
-            inventory.setItem(13, bannerItem);
+            inventory.setItem(14, bannerItem);
 
-            inventory.setItem(10, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+            inventory.setItem(11, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.capital.move-home.name", player))
                     .lore(plugin.getMessages().component("gui.capital.no-house-lore", player))
                     .build());
-            inventory.setItem(12, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+            inventory.setItem(13, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.capital.relocate-territory.name", player))
                     .lore(plugin.getMessages().component("gui.capital.no-house-lore", player))
                     .build());
-            inventory.setItem(14, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+            inventory.setItem(15, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.capital.disband.name", player))
                     .lore(plugin.getMessages().component("gui.capital.no-house-lore", player))
                     .build());
@@ -178,9 +196,9 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
             case 26: // Close button
                 clicker.closeInventory();
                 break;
-            case 13: // Получить/установить баннер (только если клановая территория ещё не создана)
+            case 14: // Получить/установить баннер (только если клановая территория ещё не создана)
                 if (hasCapital || !isManagement) return;
-                ItemStack clicked = clicker.getOpenInventory().getTopInventory().getItem(13);
+                ItemStack clicked = clicker.getOpenInventory().getTopInventory().getItem(14);
                 if (clicked != null && clicked.getType() == Material.RED_BANNER) {
                     boolean hasBanner = plugin.getClanManager().getClanItemFactory().hasExistingBanner(clicker, "CAPITAL", clan.id());
                     if (hasBanner) {
@@ -193,7 +211,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                     }
                 }
                 break;
-            case 10: // Relocate clan spawn
+            case 11: // Relocate clan spawn
                 if (!hasCapital) return;
                 if (!canManage) {
                     plugin.getMessages().send(clicker, "gui.capital.no-permission");
@@ -207,7 +225,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(clicker, t)); return null; }),
                         () -> plugin.getMessages().send(clicker, "general.chat-input-cancelled"));
                 break;
-            case 12: // Relocate Capital Territory
+            case 13: // Relocate Capital Territory
                 if (!hasCapital) return;
                 if (!canManage) {
                     plugin.getMessages().send(clicker, "gui.capital.no-permission");
@@ -224,7 +242,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(clicker, t)); return null; }),
                         () -> plugin.getMessages().send(clicker, "general.chat-input-cancelled"));
                 break;
-            case 14: // Disband Capital Base
+            case 15: // Disband Capital Base
                 if (!hasCapital) return;
                 if (!canManage) {
                     plugin.getMessages().send(clicker, "gui.capital.no-permission");

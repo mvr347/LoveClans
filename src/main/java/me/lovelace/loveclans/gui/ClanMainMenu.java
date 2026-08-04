@@ -37,8 +37,14 @@ public final class ClanMainMenu implements InventoryHolder {
 
         GuiFrames.fillFrame54(inventory);
 
-        // Row 0, slot 0 — clan info (same slot used for player profile in chained menus)
-        inventory.setItem(0, ItemBuilder.of(clan.emblem())
+        // Row 0, slot 0 — clan info (same slot used for player profile in chained menus).
+        // A non-banner emblem (misconfigured clans.default-emblem, or a legacy/corrupted row)
+        // would otherwise leave this slot showing whatever that material's icon is - or nothing
+        // at all for Material.AIR. Same fallback ClanDiplomacySelectMenu already applies when
+        // rendering other clans' emblems; this was the one place still missing it.
+        Material clanEmblem = clan.emblem() != null && clan.emblem().name().endsWith("_BANNER")
+                ? clan.emblem() : Material.WHITE_BANNER;
+        inventory.setItem(0, ItemBuilder.of(clanEmblem)
                 .name(plugin.getMessages().component("gui.main.info.name", Map.of("clan", clan.name(), "color", clan.tagColor()), player))
                 .lore(plugin.getMessages().component("gui.main.info.tag",
                         Map.of("tag", clan.tag()), player))

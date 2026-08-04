@@ -61,6 +61,21 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
         String lbl = label.toLowerCase(Locale.ROOT);
 
+        // /clansadmin, /loveclansadmin, /ca — a separate plugin.yml command routed to this
+        // same executor, but with no dispatch branch of its own: every invocation fell
+        // through into the player-facing checks below (args.length == 0 -> clans list for
+        // any admin not currently in a clan), and the /clan admin <action> subcommands this
+        // alias exists to reach were unreachable through it entirely. Re-shape into the same
+        // args admin() already expects from "/clan admin <action> ..." and let it flow
+        // through the normal switch below, so it inherits that command's own permission
+        // check and error handling instead of duplicating them here.
+        if (lbl.equals("clansadmin") || lbl.equals("loveclansadmin") || lbl.equals("ca")) {
+            String[] adminArgs = new String[args.length + 1];
+            adminArgs[0] = "admin";
+            System.arraycopy(args, 0, adminArgs, 1, args.length);
+            args = adminArgs;
+        }
+
         // /clans, /loveclans or /clan list — open clan list
         if (lbl.equals("clans") || lbl.equals("loveclans") || (args.length > 0 && args[0].equalsIgnoreCase("list"))) {
             if (sender instanceof Player player) {

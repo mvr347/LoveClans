@@ -323,6 +323,13 @@ gui:
     rejected: "<prefix><yellow>Заявка игрока <yellow><player></yellow> отклонена."
   capital:
     title: "<gray>Клановый спавн <color><tag>"
+    info:
+      name: "<color><tag> <white>- Клановая территория"
+      lore-set:
+        - "<gray>Мир: <white><world>"
+        - "<gray>Координаты: <white><x>, <y>, <z>"
+      lore-unset:
+        - "<gray>Территория ещё не создана."
     no-permission: "<prefix><red>У вас нет прав для управления клановым спавном."
     no-permission-lore: "<red>У вас нет прав для управления клановым спавном."
     no-house-lore: "<red>Сначала создайте клановый спавн."
