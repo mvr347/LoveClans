@@ -66,7 +66,7 @@ public class ClanSpiritMenu implements InventoryHolder {
                     Map.of("level", String.valueOf(level.getLevel()), "name", level.getName(), "description", level.getDescription()),
                     player));
         }
-        inventory.setItem(30, buffsItem.build());
+        inventory.setItem(21, buffsItem.build());
 
         // Unique Ability (Level 10) - always clickable, even before unlocking
         me.lovelace.loveclans.model.spirit.SpiritAbility chosenAbility = clan.spirit().ability();
@@ -85,7 +85,7 @@ public class ClanSpiritMenu implements InventoryHolder {
                     .lore(me.lovelace.loveclans.util.AbilityLoreFormatter.format(chosenAbility.description()))
                     .glow(true);
         }
-        inventory.setItem(32, abilityItem.build());
+        inventory.setItem(23, abilityItem.build());
 
         // Top Contributors
         List<ClanMember> topContributors = clan.members().values().stream()
@@ -107,7 +107,7 @@ public class ClanSpiritMenu implements InventoryHolder {
                 rank++;
             }
         }
-        inventory.setItem(40, topItem.build());
+        inventory.setItem(31, topItem.build());
 
         inventory.setItem(52, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
@@ -128,7 +128,7 @@ public class ClanSpiritMenu implements InventoryHolder {
             plugin.getGuiManager().openMain(player, clan);
             return;
         }
-        if (slot == 32) {
+        if (slot == 23) {
             new ClanSpiritAbilityMenu(plugin, player, clan).open();
         }
     }

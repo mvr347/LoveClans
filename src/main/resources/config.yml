@@ -30,7 +30,8 @@ clans:
   creation-cooldown-seconds: 86400
   # creation-cost — сумма в единой валюте экосистемы (LoveCore.LoveEconomy, монеты ItemsAdder
   # в инвентаре), списываемая с игрока при создании клана. 0 — плата отключена.
-  creation-cost: 0
+  # 250 = 5 золотых монет (gold_coin = 50 в LoveCore.economy.denominations).
+  creation-cost: 250
   rejoin-cooldown-seconds: 3600
   default-tag-color: "<gold>"
   # dye-color — имя org.bukkit.DyeColor, используется для окраски щитов в цвет клана (см. ShieldColorManager).

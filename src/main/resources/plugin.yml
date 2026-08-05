@@ -28,7 +28,7 @@ commands:
     aliases: [ clans ]
   loveclansadmin:
     description: Admin commands for LoveClans plugin.
-    usage: /loveclansadmin <reload|delete|setspirit>
+    usage: /loveclansadmin <createnpc|removenpc|disband|war|diplo|exp|points> ... (same as /clan admin)
     aliases: [ clansadmin, ca ]
 
 permissions:

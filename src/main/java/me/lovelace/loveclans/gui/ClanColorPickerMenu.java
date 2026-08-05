@@ -19,13 +19,16 @@ import java.util.Map;
 public final class ClanColorPickerMenu {
     private record ColorOption(String tag, String headTexture, String name) {}
 
-    // gui_gen 54-slot working zone is 18-44 only (three rows of 7) — row 1 (9-17) is always
-    // frame, so 3 content rows need the full 54-slot menu, not 45.
+    // Только 16 цветов — три полных ряда по 7 (54-слотовый шаблон) оставляли третий ряд
+    // почти пустым. На 45 слотах, используя полную ширину строк без боковых стенок
+    // (правило 4 их не требует — «могут быть пусто»), 16 цветов помещаются в два ряда.
     private static final int[] COLOR_SLOTS = {
-            19, 20, 21, 22, 23, 24, 25,
-            28, 29, 30, 31, 32, 33, 34,
-            37, 38, 39, 40, 41, 42, 43
+            18, 19, 20, 21, 22, 23, 24, 25, 26,
+            27, 28, 29, 30, 31, 32, 33, 34, 35
     };
+    private static final int SLOT_BACK = 43;
+    private static final int SLOT_CLOSE = 44;
+    private static final int INVENTORY_SIZE = 45;
 
     // Жёстко заданный список из 15 цветов с текстурами шерсти для выбора цвета тега клана.
     // Ключ конфигурации (clans.available-colors.<key>) используется только для получения tag/name,
@@ -58,11 +61,11 @@ public final class ClanColorPickerMenu {
     public void open(Player player, Clan clan) {
         ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.COLOR_PICKER, clan.id());
         Inventory inventory = Bukkit.createInventory(
-                holder, 54,
+                holder, INVENTORY_SIZE,
                 plugin.getMessages().component("gui.color-picker.title", player));
         holder.setInventory(inventory);
 
-        GuiFrames.fillFrame54(inventory);
+        fillFrame(inventory);
 
         List<ColorOption> options = loadOptions();
         for (int i = 0; i < Math.min(options.size(), COLOR_SLOTS.length); i++) {
@@ -77,22 +80,37 @@ public final class ClanColorPickerMenu {
             inventory.setItem(COLOR_SLOTS[i], builder.build());
         }
 
-        inventory.setItem(52, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+        inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
-        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+        inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
     }
 
+    /**
+     * 0-17 и 36-42 — стекло (шапка + разделитель, футер кроме кнопок). Слот 0 тоже стекло —
+     * меню не привязано к конкретному клану идентичностью, только к выбору цвета, поэтому
+     * профильная голова здесь не нужна (тот же приём, что в ClanRoleSettingsMenu).
+     * Рабочая зона 18-35 не трогается.
+     */
+    private void fillFrame(Inventory inventory) {
+        for (int slot = 0; slot <= 17; slot++) {
+            inventory.setItem(slot, GuiFrames.glassPane());
+        }
+        for (int slot = 36; slot < SLOT_BACK; slot++) {
+            inventory.setItem(slot, GuiFrames.glassPane());
+        }
+    }
+
     public void handleInventoryClick(Player player, Clan clan, int slot, ItemStack clickedItem) {
-        if (slot == 53) {
+        if (slot == SLOT_CLOSE) {
             player.closeInventory();
             return;
         }
-        if (slot == 52) {
+        if (slot == SLOT_BACK) {
             plugin.getGuiManager().openSettings(player, clan);
             return;
         }
