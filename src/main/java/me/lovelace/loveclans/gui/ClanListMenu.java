@@ -36,11 +36,11 @@ public final class ClanListMenu implements InventoryHolder {
             37, 38, 39, 40, 41, 42, 43
     };
     private static final int SLOT_MY_CLAN = 0;
-    private static final int SLOT_FILTER = 2;
-    private static final int SLOT_SORT = 3;
+    private static final int SLOT_FILTER = 3;
+    private static final int SLOT_SORT = 5;
     private static final int SLOT_PREVIOUS = 36;
     private static final int SLOT_NEXT = 44;
-    private static final int SLOT_MY_APPLICATIONS = 47;
+    private static final int SLOT_MY_APPLICATIONS = 52;
     private static final int SLOT_CLOSE = 53;
 
     private enum SortMode {
@@ -128,6 +128,13 @@ public final class ClanListMenu implements InventoryHolder {
                             "influence", String.valueOf(clan.influence()),
                             "members", String.valueOf(clan.members().size())
                     ), player))
+                    .build());
+        } else {
+            // Клана нет — слот 0 просто информирует об этом (некликабельно, см.
+            // handleInventoryClick: SLOT_MY_CLAN там уже no-op без клана).
+            inventory.setItem(SLOT_MY_CLAN, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.clan-list.no-clan.name", player))
+                    .lore(plugin.getMessages().component("gui.clan-list.no-clan.lore", player))
                     .build());
         }
 

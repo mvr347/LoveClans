@@ -361,6 +361,9 @@ gui:
         - "<gray>Влияние: <white><influence>"
         - "<gray>Участников: <white><members>"
         - "<green>ЛКМ - открыть меню клана"
+    no-clan:
+      name: "<red>У вас ещё нет клана"
+      lore: "<gray>Используйте /clan create, чтобы создать свой клан."
     my-applications:
       name: "<yellow>Мои заявки"
       lore: "<gray>Активных заявок: <white><count>"
@@ -550,6 +553,7 @@ gui:
     status:
       open: "<gray>Статус: <green>Открытый клан"
       closed: "<gray>Статус: <red>Закрытый клан"
+    created-at: "<gray>Основан: <white><date>"
     apply:
       name: "<green>Подать заявку"
       lore: "<gray>Нажмите, чтобы подать заявку на вступление."
