@@ -20,6 +20,10 @@ general:
   unknown-command: "<prefix><red>Неизвестная команда. Используйте /clan help."
   reloaded: "<prefix><green>Конфигурация и язык плагина успешно перезагружены."
   chat-input-cancelled: "<prefix><yellow>Ввод отменён."
+  # /clan admin, /clan reload и /clan artifact переехали под единую /loveclansadmin -
+  # вместо того чтобы команда молча ничего не делала для тех, кто по привычке набирает
+  # старый путь, она указывает, куда переехало нужное действие.
+  command-moved: "<prefix><yellow>Эта команда переехала: используйте <aqua><command></aqua>.</yellow>"
 
 admin:
   diplo-updated: "<prefix><green>Отношения между <color1><clan1></color1> и <color2><clan2></color2> изменены на <yellow><relation></yellow>."
@@ -134,19 +138,25 @@ clan:
   tag-exists: "<prefix><red>Клан с таким тегом уже существует."
   transfer-requires-capital: "<prefix><red>Нельзя передать лидерство — у клана не установлена клановая территория."
   help:
+    # Заголовок/подвал списка команд /clan help - единый формат со списком команд
+    # /loveclansadmin help (clan.help.admin-*) и с командами других плагинов Love*.
+    header: "<dark_gray>========== <aqua>LoveClans Помощь</aqua> ==========</dark_gray>"
+    footer: "<dark_gray>=========================================</dark_gray>"
     accept: "<gray>/clan accept <tag> <white>- принять приглашение в клан"
-    admin: "<gray>/clansadmin <reload|delete|setspirit> <white>- административные команды"
-    admin-diplo: "<gray>/clansadmin diplo <clan1> <clan2> <relation> <white>- изменить отношения между кланами"
-    admin-war: "<gray>/clansadmin war <start|end> <clan1> <clan2> <white>- управление войнами"
-    artifact: "<gray>/clan artifact <white>- использовать артефакт клана"
+    # Разовая ссылка на новую единую админ-команду - выводится в /clan help только тем,
+    # у кого есть loveclans.admin, полный список её подкоманд смотрите в /loveclansadmin help.
+    admin: "<gray>/loveclansadmin <white>- административные команды (см. /loveclansadmin help)"
+    artifact: "<gray>/loveclansadmin artifact <type> <white>- выдать себе клановый артефакт"
     console: "<gray>Эта команда доступна только в игре."
+    create: "<gray>/clan create <tag> <name> <white>- создать клан"
     diplomacy: "<gray>/diplo [tag] <white>- открыть меню дипломатии клана"
-    in-clan: "<gray>Используйте /clan menu, чтобы открыть меню вашего клана."
+    info: "<gray>/clan info [tag] <white>- информация о клане"
     invite: "<gray>/clan invite <player> <white>- пригласить игрока в клан"
     invites: "<gray>/clan invites <white>- включить/отключить приём приглашений в кланы"
     kick: "<gray>/clan kick <player> <white>- исключить игрока из клана"
-    leader: "<gray>Используйте /clan menu, чтобы открыть меню вашего клана. Как глава, вам также доступны /clan invite, /clan kick, /clan rank, /clan war, /clan disband."
-    not-in-clan: "<gray>Используйте /clan create <tag> <name>, чтобы создать клан."
+    list: "<gray>/clan list <white>- список кланов"
+    menu: "<gray>/clan menu <white>- открыть меню клана"
+    disband: "<gray>/clan disband <white>- распустить клан (только глава)"
     rank: "<gray>/clan rank <player> <rank> <white>- изменить ранг участника"
     ritual: "<gray>/clan ritual <type> <white>- провести ритуал клана"
     vote: "<gray>/clan vote <white>- проголосовать за нового главу клана"
@@ -155,6 +165,17 @@ clan:
     raid: "<gray>/clan raid <tag|loot <сумма>|items> <white>- устроить набег или вынести добычу"
     letters: "<gray>/clan letters <tag> <white>- переписка с кланом"
     trade: "<gray>/clan trade <tag> <white>- отправить запрос на обмен клану; /clan trade <accept|decline|cancel> <id>"
+    # Подкоманды /loveclansadmin (алиасы /clansadmin, /ca) - тот же заголовок/подвал,
+    # что и у /clan help, чтобы весь список команд плагина выглядел единообразно.
+    admin-header: "<dark_gray>========== <aqua>LoveClans Admin</aqua> ==========</dark_gray>"
+    admin-footer: "<dark_gray>=========================================</dark_gray>"
+    admin-reload: "<gray>/loveclansadmin reload <white>- перезагрузить конфигурацию и язык плагина"
+    admin-npc: "<gray>/loveclansadmin createnpc contracts <white>- привязать NPC обетов (смотрите на него); <gray>removenpc <id> <white>- отвязать"
+    admin-disband: "<gray>/loveclansadmin disband <tag> <white>- распустить клан"
+    admin-war: "<gray>/loveclansadmin war <start|end> <clan1> <clan2> <white>- управление войной между кланами"
+    admin-diplo: "<gray>/loveclansadmin diplo <clan1> <clan2> <relation> <white>- изменить отношения между кланами"
+    admin-exp: "<gray>/loveclansadmin exp <add|remove|set> <tag> <amount> <white>- изменить опыт клана"
+    admin-points: "<gray>/loveclansadmin points <add|remove|set> <tag> <amount> <white>- изменить очки улучшений клана"
 
 diplomacy:
   alliance-accepted: "<prefix><green>Вы заключили союз с кланом <color><tag></color>."

@@ -17,7 +17,9 @@ commands:
   loveclan:
     description: Main clans command.
     usage: /loveclan
-    aliases: [ clan, c ]
+    # клан - кириллический алиас в стиле /loveauth (auth/авторизация/регистрация/вход) и
+    # прямого примера владельца плагина (/clan <-> /клан).
+    aliases: [ clan, c, клан ]
   diplo:
     description: Open clan diplomacy menu.
     usage: /diplo [tag]
@@ -25,10 +27,10 @@ commands:
   loveclans:
     description: Open clan list.
     usage: /loveclans
-    aliases: [ clans ]
+    aliases: [ clans, кланы ]
   loveclansadmin:
-    description: Admin commands for LoveClans plugin.
-    usage: /loveclansadmin <createnpc|removenpc|disband|war|diplo|exp|points> ... (same as /clan admin)
+    description: Unified admin command for LoveClans plugin.
+    usage: /loveclansadmin <reload|createnpc|removenpc|disband|war|diplo|exp|points|artifact|help>
     aliases: [ clansadmin, ca ]
 
 permissions:

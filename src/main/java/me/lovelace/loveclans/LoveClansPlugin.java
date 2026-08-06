@@ -2,6 +2,7 @@ package me.lovelace.loveclans;
 
 import me.lovelace.loveclans.api.LoveClansAPI;
 import me.lovelace.loveclans.command.ClanCommand;
+import me.lovelace.loveclans.command.ClansAdminCommand;
 import me.lovelace.loveclans.manager.GuiManager;
 import me.lovelace.loveclans.integration.AdvancedClaimsHook;
 import me.lovelace.loveclans.integration.CitizensIntegration;
@@ -501,10 +502,15 @@ public final class LoveClansPlugin extends JavaPlugin {
             clansCommand.setExecutor(executor);
             clansCommand.setTabCompleter(executor);
         }
+
+        // Единая административная команда - раньше /loveclansadmin (и алиасы /clansadmin, /ca)
+        // делили исполнитель с игровой /loveclan и лишь переупаковывали свои аргументы под
+        // "/clan admin ...", из-за чего reload вообще был недостижим через этот путь.
+        ClansAdminCommand adminExecutor = new ClansAdminCommand(this);
         PluginCommand adminCommand = getCommand("loveclansadmin");
         if (adminCommand != null) {
-            adminCommand.setExecutor(executor);
-            adminCommand.setTabCompleter(executor);
+            adminCommand.setExecutor(adminExecutor);
+            adminCommand.setTabCompleter(adminExecutor);
         }
     }
 
