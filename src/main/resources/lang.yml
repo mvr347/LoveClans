@@ -116,10 +116,11 @@ clan:
   invite-received: "<prefix><color><tag></color> приглашает вас присоединиться к клану!"
   application-received: "<prefix><yellow><player></yellow> подал заявку на вступление в клан <color><tag></color>."
   joined: "<prefix><green>Вы вступили в клан <color><tag></color>!"
-  joined-broadcast: "<prefix><yellow><player></yellow> вступил в клан!"
+  joined-broadcast: "<prefix><gold><rank></gold> <yellow><player></yellow> вошёл в игру!"
   kicked: "<prefix><yellow>Игрок <player> был исключён из клана."
   leadership-transferred-broadcast: "<prefix><gold><player></gold> теперь новый глава клана!"
   left: "<prefix><yellow>Вы покинули клан."
+  left-broadcast: "<prefix><gold><rank></gold> <yellow><player></yellow> вышел из игры!"
   list:
     empty: "<prefix><gray>Список кланов пуст."
   member-limit-reached: "<prefix><red>Достигнут лимит участников клана."
@@ -360,6 +361,9 @@ gui:
         - "<gray>Влияние: <white><influence>"
         - "<gray>Участников: <white><members>"
         - "<green>ЛКМ - открыть меню клана"
+    no-clan:
+      name: "<red>У вас ещё нет клана"
+      lore: "<gray>Используйте /clan create, чтобы создать свой клан."
     my-applications:
       name: "<yellow>Мои заявки"
       lore: "<gray>Активных заявок: <white><count>"
@@ -549,6 +553,7 @@ gui:
     status:
       open: "<gray>Статус: <green>Открытый клан"
       closed: "<gray>Статус: <red>Закрытый клан"
+    created-at: "<gray>Основан: <white><date>"
     apply:
       name: "<green>Подать заявку"
       lore: "<gray>Нажмите, чтобы подать заявку на вступление."
@@ -920,6 +925,11 @@ territory:
   invalid-world: "<prefix><red>В этом мире захват территорий запрещён."
   limit-reached: "<prefix><red>Достигнут лимит территорий для вашего клана."
   not-claimed: "<prefix><red>Эта территория не захвачена вашим кланом."
+  home-teleport:
+    started: "<prefix><yellow>Телепортация домой начнётся через <white><seconds></white> сек. Не двигайтесь!"
+    bossbar: "<gold>Телепортация домой: <white><time></white> сек."
+    cancelled-manual: "<prefix><yellow>Телепортация домой отменена."
+    cancelled-moved: "<prefix><red>Телепортация домой отменена — вы сдвинулись с места."
   teleported: "<prefix><green>Вы телепортированы на территорию клана."
   too-close-to-spawn: "<prefix><red>Эта территория находится слишком близко к спавну."
   unclaim:

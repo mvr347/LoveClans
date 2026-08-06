@@ -56,6 +56,9 @@ clans:
   default-emblem: WHITE_BANNER
   invite-expire-seconds: 120
   friendly-fire: false
+  # Прогрев телепорта "/clan home" в секундах — во время него игрок видит боссбар с обратным
+  # отсчётом; движение или повторный вызов /clan home отменяет телепорт. 0 — телепорт мгновенный.
+  home-teleport-warmup-seconds: 60
 
   # Общий клановый сундук (§2, /clan chest) — единое хранилище денег (currency-item, отдельный
   # слот) и предметов (обычное хранилище). Заменяет прежний отдельный /clan bank. Новые ряды

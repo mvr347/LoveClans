@@ -4,6 +4,7 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanPermission;
+import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -15,6 +16,7 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.SkullMeta;
 
+import java.text.SimpleDateFormat;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -22,7 +24,8 @@ import java.util.Map;
 public final class ClanInfoMenu implements InventoryHolder {
     private static final int PER_ROW = 7;
     private static final int MAX_CONTENT_ROWS = 3;
-    private static final int APPLY_SLOT = 7;
+    private static final int SLOT_ICON = 0;
+    private static final int SLOT_LEADER = 4;
 
     private final LoveClansPlugin plugin;
     private final Player player;
@@ -36,8 +39,10 @@ public final class ClanInfoMenu implements InventoryHolder {
     private int totalPages;
     private int backSlot;
     private int closeSlot;
+    private int applySlot = -1;
     private int prevSlot = -1;
     private int nextSlot = -1;
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy");
 
     public ClanInfoMenu(LoveClansPlugin plugin, Player player, Clan clan) {
         this.plugin = plugin;
@@ -78,17 +83,9 @@ public final class ClanInfoMenu implements InventoryHolder {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
 
-        clan.leaderId().ifPresent(leaderId -> {
-            OfflinePlayer leader = Bukkit.getOfflinePlayer(leaderId);
-            String leaderName = leader.getName() != null ? leader.getName() : leaderId.toString().substring(0, 8);
-            ItemBuilder leaderHead = ItemBuilder.of(Material.PLAYER_HEAD)
-                    .name(plugin.getMessages().component("gui.info.leader", Map.of("player", leaderName), player));
-            leaderHead.mutate(meta -> {
-                if (meta instanceof SkullMeta skullMeta) skullMeta.setOwningPlayer(leader);
-            });
-            inventory.setItem(1, leaderHead.build());
-        });
-
+        // Слот 0 — иконка/баннер клана; та же информация (уровень/влияние/участники/статус),
+        // теперь ещё и с датой основания клана, которая раньше нигде в этой панели не
+        // показывалась. Раньше эта карточка занимала слот 4 — его теперь отдали голове лидера.
         Material emblemMaterial = clan.emblem().name().endsWith("_BANNER") ? clan.emblem() : Material.WHITE_BANNER;
         ItemBuilder info = ItemBuilder.of(emblemMaterial)
                 .name(plugin.getMessages().component("gui.info.name",
@@ -98,24 +95,33 @@ public final class ClanInfoMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component("gui.info.members",
                         Map.of("current", String.valueOf(memberCount),
                                 "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player))
-                .lore(plugin.getMessages().component(clan.isOpen() ? "gui.info.status.open" : "gui.info.status.closed", player));
-        inventory.setItem(4, info.build());
+                .lore(plugin.getMessages().component(clan.isOpen() ? "gui.info.status.open" : "gui.info.status.closed", player))
+                .lore(plugin.getMessages().component("gui.info.created-at",
+                        Map.of("date", dateFormat.format(new java.util.Date(clan.createdAt()))), player));
+        inventory.setItem(SLOT_ICON, info.build());
 
-        boolean inAnyClan = plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent();
+        // Слот 4 — голова лидера (раньше была в слоте 1). Лидер также остаётся в общем списке
+        // участников ниже (sortedMembers строится из clan.members(), который его уже включает) —
+        // эта голова лишь выделяет его отдельно, а не заменяет его карточку в списке.
+        clan.leaderId().ifPresent(leaderId -> {
+            OfflinePlayer leader = Bukkit.getOfflinePlayer(leaderId);
+            String leaderName = leader.getName() != null ? leader.getName() : leaderId.toString().substring(0, 8);
+            ItemBuilder leaderHead = ItemBuilder.of(Material.PLAYER_HEAD)
+                    .name(plugin.getMessages().component("gui.info.leader", Map.of("player", leaderName), player));
+            leaderHead.mutate(meta -> {
+                if (meta instanceof SkullMeta skullMeta) skullMeta.setOwningPlayer(leader);
+            });
+            inventory.setItem(SLOT_LEADER, leaderHead.build());
+        });
 
-        if (!inAnyClan) {
-            if (clan.isOpen()) {
-                inventory.setItem(APPLY_SLOT, ItemBuilder.head(ItemBuilder.HEAD_INVITE)
-                        .name(plugin.getMessages().component("gui.info.apply.name", player))
-                        .lore(plugin.getMessages().component("gui.info.apply.lore", player))
-                        .build());
-            } else {
-                inventory.setItem(APPLY_SLOT, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                        .name(plugin.getMessages().component("gui.info.apply-closed.name", player))
-                        .lore(plugin.getMessages().component("gui.info.apply-closed.lore", player))
-                        .build());
-            }
-        }
+        // "Подать заявку" виден только если смотрящий ещё не в клане (ни в этом, ни в другом)
+        // и не является лидером просматриваемого клана — второе тут избыточно (лидер клана уже
+        // состоит в клане), но проверяем явно для ясности и на случай рассинхронизации данных.
+        boolean alreadyInClan = plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent();
+        boolean isLeaderOfViewedClan = clan.member(player.getUniqueId())
+                .map(member -> member.rank() == ClanRank.LEADER)
+                .orElse(false);
+        boolean canApply = !alreadyInClan && !isLeaderOfViewedClan;
 
         int contentStartSlot = 2 * 9;
         if (memberCount == 0) {
@@ -162,6 +168,25 @@ public final class ClanInfoMenu implements InventoryHolder {
 
         backSlot = size - 2;
         closeSlot = size - 1;
+
+        // "Подать заявку" сидит сразу перед "Назад" в footer'е (было — в header'е, слот 7).
+        applySlot = size - 3;
+        if (canApply) {
+            if (clan.isOpen()) {
+                inventory.setItem(applySlot, ItemBuilder.head(ItemBuilder.HEAD_INVITE)
+                        .name(plugin.getMessages().component("gui.info.apply.name", player))
+                        .lore(plugin.getMessages().component("gui.info.apply.lore", player))
+                        .build());
+            } else {
+                inventory.setItem(applySlot, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                        .name(plugin.getMessages().component("gui.info.apply-closed.name", player))
+                        .lore(plugin.getMessages().component("gui.info.apply-closed.lore", player))
+                        .build());
+            }
+        } else {
+            applySlot = -1;
+        }
+
         inventory.setItem(backSlot, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
@@ -207,9 +232,12 @@ public final class ClanInfoMenu implements InventoryHolder {
             open();
             return;
         }
-        if (slot == APPLY_SLOT) {
+        if (slot == applySlot && applySlot >= 0) {
             boolean inAnyClan = plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent();
-            if (inAnyClan || !clan.isOpen()) return;
+            boolean isLeaderOfViewedClan = clan.member(player.getUniqueId())
+                    .map(member -> member.rank() == ClanRank.LEADER)
+                    .orElse(false);
+            if (inAnyClan || isLeaderOfViewedClan || !clan.isOpen()) return;
 
             plugin.getClanManager().applyToClanAsync(clan, player.getUniqueId())
                     .thenRun(() -> plugin.runSync(() -> {
