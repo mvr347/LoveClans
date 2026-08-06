@@ -116,10 +116,11 @@ clan:
   invite-received: "<prefix><color><tag></color> приглашает вас присоединиться к клану!"
   application-received: "<prefix><yellow><player></yellow> подал заявку на вступление в клан <color><tag></color>."
   joined: "<prefix><green>Вы вступили в клан <color><tag></color>!"
-  joined-broadcast: "<prefix><yellow><player></yellow> вступил в клан!"
+  joined-broadcast: "<prefix><gold><rank></gold> <yellow><player></yellow> вошёл в игру!"
   kicked: "<prefix><yellow>Игрок <player> был исключён из клана."
   leadership-transferred-broadcast: "<prefix><gold><player></gold> теперь новый глава клана!"
   left: "<prefix><yellow>Вы покинули клан."
+  left-broadcast: "<prefix><gold><rank></gold> <yellow><player></yellow> вышел из игры!"
   list:
     empty: "<prefix><gray>Список кланов пуст."
   member-limit-reached: "<prefix><red>Достигнут лимит участников клана."

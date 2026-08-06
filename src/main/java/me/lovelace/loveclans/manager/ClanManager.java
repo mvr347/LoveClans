@@ -612,7 +612,7 @@ public final class ClanManager {
             for (UUID memberId : clan.members().keySet()) {
                 Player clanMember = Bukkit.getPlayer(memberId);
                 if (clanMember != null) {
-                    plugin.getMessages().send(clanMember, "clan.joined-broadcast", Map.of("player", playerName));
+                    plugin.getMessages().send(clanMember, "clan.joined-broadcast", Map.of("player", playerName, "rank", member.rank().displayName()));
                 }
             }
 
@@ -643,6 +643,9 @@ public final class ClanManager {
                 rejoinCooldowns.computeIfAbsent(playerId, ignored -> new ConcurrentHashMap<>())
                         .put(clan.id(), System.currentTimeMillis() + cooldownSeconds * 1000L);
             }
+            ClanRank departedRank = target.rank();
+            String departedName = Bukkit.getOfflinePlayer(playerId).getName();
+            if (departedName == null) departedName = playerId.toString();
             clan.removeMember(playerId);
             clanByPlayer.remove(playerId);
 
@@ -651,6 +654,15 @@ public final class ClanManager {
                 if (territory.advancedClaimId() != null) {
                     plugin.getAdvancedClaimsHook().findClaim(territory.advancedClaimId()).ifPresent(claimObject ->
                             plugin.getAdvancedClaimsHook().removePlayerTrust(claimObject, offlinePlayer));
+                }
+            }
+
+            // Симметрично clan.joined-broadcast — оповещаем оставшихся участников об уходе
+            // (добровольном или по кику), с тем же форматом "Роль Ник вошёл/вышел".
+            for (UUID memberId : clan.members().keySet()) {
+                Player clanMember = Bukkit.getPlayer(memberId);
+                if (clanMember != null) {
+                    plugin.getMessages().send(clanMember, "clan.left-broadcast", Map.of("player", departedName, "rank", departedRank.displayName()));
                 }
             }
 
