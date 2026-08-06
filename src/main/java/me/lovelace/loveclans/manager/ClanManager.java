@@ -972,8 +972,13 @@ public final class ClanManager {
             indexTerritory(savedTerritory, clan.id());
 
             if (bannerType.equals("CAPITAL")) {
-                clan.setHomeLocation(location);
-                return storage.updateClanHomeLocation(clan.id(), location).thenCompose(v -> storage.saveTerritoryAsync(savedTerritory)).thenApply(v -> savedTerritory);
+                // Клановый спавн ставится там, где стоял игрок, подтверждая захват — то есть
+                // перед баннером, лицом к нему, а не в блок самого баннера. Это то же место,
+                // что использует ручной перенос спавна (relocateHomeAsync ниже, "Перенести
+                // спавн" в ClanCapitalManagementMenu), так что оба пути остаются согласованными.
+                Location homeLocation = player.getLocation();
+                clan.setHomeLocation(homeLocation);
+                return storage.updateClanHomeLocation(clan.id(), homeLocation).thenCompose(v -> storage.saveTerritoryAsync(savedTerritory)).thenApply(v -> savedTerritory);
             }
             return storage.saveTerritoryAsync(savedTerritory).thenApply(v -> savedTerritory);
         }).thenApply(savedTerritory -> {
