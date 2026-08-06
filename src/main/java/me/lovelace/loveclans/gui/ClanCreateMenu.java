@@ -1,6 +1,7 @@
 package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.textures.HeadTextures;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -12,11 +13,6 @@ import org.bukkit.inventory.InventoryHolder;
 import java.util.Map;
 
 public final class ClanCreateMenu implements InventoryHolder {
-    private static final String HEAD_OPEN = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOTQ4YmI0ZTQ0MzVjMmMyMWQ3ZjYxODNiMzhhMmI3MzcyNjUzZjM1NDBiZTAyMjU5ZGQ0N2JmNTI0OTJkZTY2OSJ9fX0=";
-    private static final String HEAD_CLOSED = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZmJmNDZiZjM5ZGZjNzE4ZTdlYTMxZGI0MzQ3N2ZjNmI3ZGNhNTg4ZmUwYTc4OTFkNDgxYzVkZGE5ZTE2ZjUyMCJ9fX0=";
-    private static final String HEAD_NAME = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTY3ZDgxM2FlN2ZmZTViZTk1MWE0ZjQxZjJhYTYxOWE1ZTM4OTRlODVlYTVkNDk4NmY4NDk0OWM2M2Q3NjcyZSJ9fX0=";
-    private static final String HEAD_TAG = "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNzFiYzJiY2ZiMmJkMzc1OWU2YjFlODZmYzdhNzk1ODVlMTEyN2RkMzU3ZmMyMDI4OTNmOWRlMjQxYmM5ZTUzMCJ9fX0=";
-
     private final LoveClansPlugin plugin;
     private final Player player;
     private Inventory inventory;
@@ -36,18 +32,18 @@ public final class ClanCreateMenu implements InventoryHolder {
         GuiFrames.fillFrame27(inventory);
 
         String nameDisplay = name.isEmpty() ? plugin.getMessages().raw("gui.create.name.not-set") : name;
-        inventory.setItem(10, ItemBuilder.head(HEAD_NAME)
+        inventory.setItem(10, ItemBuilder.head(HeadTextures.HEAD_NAME)
                 .name(plugin.getMessages().component("gui.create.name.button", player))
                 .lore(plugin.getMessages().component("gui.create.name.lore", Map.of("value", nameDisplay), player))
                 .build());
 
         String tagDisplay = tag.isEmpty() ? plugin.getMessages().raw("gui.create.tag.not-set") : tag;
-        inventory.setItem(12, ItemBuilder.head(HEAD_TAG)
+        inventory.setItem(12, ItemBuilder.head(HeadTextures.HEAD_TAG)
                 .name(plugin.getMessages().component("gui.create.tag.button", player))
                 .lore(plugin.getMessages().component("gui.create.tag.lore", Map.of("value", tagDisplay), player))
                 .build());
 
-        inventory.setItem(14, ItemBuilder.head(open ? HEAD_OPEN : HEAD_CLOSED)
+        inventory.setItem(14, ItemBuilder.head(open ? HeadTextures.HEAD_OPEN : HeadTextures.HEAD_CLOSED)
                 .name(plugin.getMessages().component(open ? "gui.create.type.open" : "gui.create.type.closed", player))
                 .lore(plugin.getMessages().components("gui.create.type.lore", player))
                 .build());

@@ -4,6 +4,7 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
+import me.lovelace.loveclans.textures.HeadTextures;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -34,7 +35,7 @@ public class TerritorySettingsMenu implements InventoryHolder {
         GuiFrames.fillFrame27(inventory);
 
         // Rename Private
-        inventory.setItem(11, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTY3ZDgxM2FlN2ZmZTViZTk1MWE0ZjQxZjJhYTYxOWE1ZTM4OTRlODVlYTVkNDk4NmY4NDk0OWM2M2Q3NjcyZSJ9fX0=")
+        inventory.setItem(11, ItemBuilder.head(HeadTextures.HEAD_NAME)
                 .name(plugin.getMessages().component("gui.territory-settings.rename-private.name", player))
                 .lore(plugin.getMessages().component("gui.territory-settings.rename-private.lore", player))
                 .build());

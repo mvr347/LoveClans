@@ -2,6 +2,7 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.textures.HeadTextures;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -27,12 +28,12 @@ public final class ClanSettingsMenu {
 
         fillFrame(inventory);
 
-        inventory.setItem(10, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTY3ZDgxM2FlN2ZmZTViZTk1MWE0ZjQxZjJhYTYxOWE1ZTM4OTRlODVlYTVkNDk4NmY4NDk0OWM2M2Q3NjcyZSJ9fX0=")
+        inventory.setItem(10, ItemBuilder.head(HeadTextures.HEAD_NAME)
                 .name(plugin.getMessages().component("gui.settings.rename.name", player))
                 .lore(plugin.getMessages().component("gui.settings.rename.lore", player))
                 .build());
 
-        inventory.setItem(12, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNzFiYzJiY2ZiMmJkMzc1OWU2YjFlODZmYzdhNzk1ODVlMTEyN2RkMzU3ZmMyMDI4OTNmOWRlMjQxYmM5ZTUzMCJ9fX0=")
+        inventory.setItem(12, ItemBuilder.head(HeadTextures.HEAD_TAG)
                 .name(plugin.getMessages().component("gui.settings.change-tag.name", player))
                 .lore(plugin.getMessages().component("gui.settings.change-tag.lore", player))
                 .build());
@@ -43,7 +44,7 @@ public final class ClanSettingsMenu {
                 .lore(plugin.getMessages().component("gui.settings.change-banner.lore", player))
                 .build());
 
-        inventory.setItem(16, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZGIyNDllODhhZmEzMGZjODM3YjgyMTczYTMwNDgzNDU4ZDRlOWEzM2M3ZWMyNWU1NTEzODdlOGU1NGEwMThhZSJ9fX0=")
+        inventory.setItem(16, ItemBuilder.head(HeadTextures.HEAD_COLOR)
                 .name(plugin.getMessages().component("gui.settings.change-color.name", player))
                 .lore(plugin.getMessages().component("gui.settings.change-color.lore",
                         Map.of("preview", clan.coloredTag()), player))
@@ -51,18 +52,18 @@ public final class ClanSettingsMenu {
 
         // Open/closed status
         if (clan.isOpen()) {
-            inventory.setItem(19, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOTQ4YmI0ZTQ0MzVjMmMyMWQ3ZjYxODNiMzhhMmI3MzcyNjUzZjM1NDBiZTAyMjU5ZGQ0N2JmNTI0OTJkZTY2OSJ9fX0=")
+            inventory.setItem(19, ItemBuilder.head(HeadTextures.HEAD_OPEN)
                     .name(plugin.getMessages().component("gui.settings.status.open.name", player))
                     .lore(plugin.getMessages().component("gui.settings.status.open.lore", player))
                     .build());
         } else {
-            inventory.setItem(19, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZmJmNDZiZjM5ZGZjNzE4ZTdlYTMxZGI0MzQ3N2ZjNmI3ZGNhNTg4ZmUwYTc4OTFkNDgxYzVkZGE5ZTE2ZjUyMCJ9fX0=")
+            inventory.setItem(19, ItemBuilder.head(HeadTextures.HEAD_CLOSED)
                     .name(plugin.getMessages().component("gui.settings.status.closed.name", player))
                     .lore(plugin.getMessages().component("gui.settings.status.closed.lore", player))
                     .build());
         }
 
-        inventory.setItem(22, ItemBuilder.head("eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZDVmODcyZTMxYTQzZWU4YTY1Y2FjY2Y3M2I5NDJjOTdmMmNmODJjYzdjYmRhN2M5NzUyODc0MDliYzhlMjQxNCJ9fX0=")
+        inventory.setItem(22, ItemBuilder.head(HeadTextures.HEAD_ROLES)
                 .name(plugin.getMessages().component("gui.settings.roles.name", player))
                 .lore(plugin.getMessages().component("gui.settings.roles.lore", player))
                 .build());
