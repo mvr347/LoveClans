@@ -10,6 +10,7 @@ import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.model.war.ClanWar;
 import me.lovelace.loveclans.util.ClanItemFactory;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.World;
@@ -28,6 +29,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent; // New import
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent; // New import
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -146,6 +148,32 @@ public class ClanProtectionListener implements Listener {
                 plugin.getLogger().info("Cancelled pending claim for " + player.getName() + " due to logout.");
             });
         }
+        // Прогрев "/clan home" не переживает логаут — тихо отменяем, чтобы не осталась
+        // висящая задача/боссбар (сообщение об отмене всё равно некому показывать).
+        if (clanManager.hasPendingHomeTeleport(player.getUniqueId())) {
+            clanManager.cancelHomeTeleport(player.getUniqueId(), null);
+        }
+    }
+
+    /**
+     * Движение во время прогрева "/clan home" отменяет телепорт — так же, как это обычно
+     * работает у любых других задержанных телепортов ("не двигайся, а то собьёшь"). Сравниваем
+     * координаты блока, а не сырые from/to, чтобы одна лишь смена угла обзора (осмотреться на
+     * месте) не засчитывалась как движение и не отменяла прогрев впустую.
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerMove(PlayerMoveEvent event) {
+        Player player = event.getPlayer();
+        if (!clanManager.hasPendingHomeTeleport(player.getUniqueId())) {
+            return;
+        }
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (to == null) return;
+        if (from.getBlockX() == to.getBlockX() && from.getBlockY() == to.getBlockY() && from.getBlockZ() == to.getBlockZ()) {
+            return; // Только осмотрелся — не движение.
+        }
+        clanManager.cancelHomeTeleport(player.getUniqueId(), "territory.home-teleport.cancelled-moved");
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)

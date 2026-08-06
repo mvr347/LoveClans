@@ -920,6 +920,11 @@ territory:
   invalid-world: "<prefix><red>В этом мире захват территорий запрещён."
   limit-reached: "<prefix><red>Достигнут лимит территорий для вашего клана."
   not-claimed: "<prefix><red>Эта территория не захвачена вашим кланом."
+  home-teleport:
+    started: "<prefix><yellow>Телепортация домой начнётся через <white><seconds></white> сек. Не двигайтесь!"
+    bossbar: "<gold>Телепортация домой: <white><time></white> сек."
+    cancelled-manual: "<prefix><yellow>Телепортация домой отменена."
+    cancelled-moved: "<prefix><red>Телепортация домой отменена — вы сдвинулись с места."
   teleported: "<prefix><green>Вы телепортированы на территорию клана."
   too-close-to-spawn: "<prefix><red>Эта территория находится слишком близко к спавну."
   unclaim:

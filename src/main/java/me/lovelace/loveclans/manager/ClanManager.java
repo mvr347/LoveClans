@@ -27,6 +27,7 @@ import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.storage.ClanStorage;
 import me.lovelace.loveclans.util.ClanItemFactory;
 import me.lovelace.loveclans.util.InventorySerialization;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -36,6 +37,7 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.BoundingBox;
 
 import java.time.Duration;
@@ -67,6 +69,11 @@ public final class ClanManager {
     // Отметки времени последнего создания клана каждым игроком, для clans.creation-cooldown-seconds.
     private final Map<UUID, Long> creationCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, ItemStack[]> chestCache = new ConcurrentHashMap<>();
+    // Активные прогревы телепорта "/clan home" — отменяются движением игрока или повторным
+    // вызовом команды (см. ClanProtectionListener#onPlayerMove и #home ниже).
+    private final Map<UUID, HomeTeleportWarmup> pendingHomeTeleports = new ConcurrentHashMap<>();
+
+    private record HomeTeleportWarmup(BukkitTask task, BossBar bossBar, long endsAt, long durationMillis) {}
 
     public ClanManager(LoveClansPlugin plugin, ClanStorage storage) {
         this.plugin = plugin;
@@ -1025,6 +1032,83 @@ public final class ClanManager {
 
     public boolean hasPendingClaim(UUID playerId) {
         return pendingClaims.containsKey(playerId);
+    }
+
+    public boolean hasPendingHomeTeleport(UUID playerId) {
+        return pendingHomeTeleports.containsKey(playerId);
+    }
+
+    /**
+     * Starts (or, if one is already running, cancels) the "/clan home" teleport warmup: a
+     * bossbar countdown that must finish uninterrupted before the player is actually moved.
+     * Movement during the warmup cancels it (see ClanProtectionListener#onPlayerMove) — the
+     * same vanilla-style behaviour as other delayed actions in this plugin (war/siege/raid
+     * pending phases use the same BossBar-driven pattern).
+     */
+    public void requestHomeTeleport(Player player, Location homeLocation) {
+        UUID playerId = player.getUniqueId();
+        if (pendingHomeTeleports.containsKey(playerId)) {
+            cancelHomeTeleport(playerId, "territory.home-teleport.cancelled-manual");
+            return;
+        }
+
+        long warmupSeconds = plugin.getConfig().getLong("clans.home-teleport-warmup-seconds", 60L);
+        if (warmupSeconds <= 0) {
+            teleportHomeNow(player, homeLocation);
+            return;
+        }
+
+        long durationMillis = warmupSeconds * 1000L;
+        long endsAt = System.currentTimeMillis() + durationMillis;
+        BossBar bossBar = BossBar.bossBar(
+                plugin.getMessages().component("territory.home-teleport.bossbar", Map.of("time", String.valueOf(warmupSeconds)), player),
+                1.0f, BossBar.Color.BLUE, BossBar.Overlay.PROGRESS);
+        player.showBossBar(bossBar);
+        plugin.getMessages().send(player, "territory.home-teleport.started", Map.of("seconds", String.valueOf(warmupSeconds)));
+
+        BukkitTask task = Bukkit.getScheduler().runTaskTimer(plugin, () -> tickHomeTeleport(player, homeLocation, playerId), 20L, 20L);
+        pendingHomeTeleports.put(playerId, new HomeTeleportWarmup(task, bossBar, endsAt, durationMillis));
+    }
+
+    private void tickHomeTeleport(Player player, Location homeLocation, UUID playerId) {
+        HomeTeleportWarmup warmup = pendingHomeTeleports.get(playerId);
+        if (warmup == null) return;
+
+        long remainingMillis = warmup.endsAt() - System.currentTimeMillis();
+        if (remainingMillis <= 0) {
+            pendingHomeTeleports.remove(playerId);
+            warmup.task().cancel();
+            player.hideBossBar(warmup.bossBar());
+            teleportHomeNow(player, homeLocation);
+            return;
+        }
+
+        long remainingSeconds = (remainingMillis + 999) / 1000;
+        warmup.bossBar().progress(Math.max(0f, Math.min(1f, remainingMillis / (float) warmup.durationMillis())));
+        warmup.bossBar().name(plugin.getMessages().component("territory.home-teleport.bossbar", Map.of("time", String.valueOf(remainingSeconds)), player));
+    }
+
+    private void teleportHomeNow(Player player, Location homeLocation) {
+        player.teleportAsync(homeLocation)
+                .thenRun(() -> plugin.getMessages().send(player, "territory.teleported"))
+                .exceptionally(throwable -> {
+                    plugin.sendOperationError(player, throwable);
+                    return null;
+                });
+    }
+
+    /** Cancels a pending "/clan home" warmup, if any, hiding its bossbar and messaging the player. */
+    public void cancelHomeTeleport(UUID playerId, String messageKey) {
+        HomeTeleportWarmup warmup = pendingHomeTeleports.remove(playerId);
+        if (warmup == null) return;
+        warmup.task().cancel();
+        Player player = Bukkit.getPlayer(playerId);
+        if (player != null) {
+            player.hideBossBar(warmup.bossBar());
+            if (messageKey != null) {
+                plugin.getMessages().send(player, messageKey);
+            }
+        }
     }
 
     public CompletableFuture<Clan> relocateHomeAsync(Clan clan, UUID actorId, Location location) {

@@ -319,17 +319,19 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         Clan clan = optionalClan.get();
+        // Второй вызов /clan home во время прогрева отменяет телепорт — как раньше можно было
+        // отменить, набрав команду ещё раз. Движение отменяет прогрев само по себе
+        // (ClanProtectionListener#onPlayerMove).
+        if (plugin.getClanManager().hasPendingHomeTeleport(player.getUniqueId())) {
+            plugin.getClanManager().cancelHomeTeleport(player.getUniqueId(), "territory.home-teleport.cancelled-manual");
+            return;
+        }
         clan.getHomeLocation().ifPresentOrElse(homeLoc -> {
             if (homeLoc.getWorld() == null) {
                 plugin.getMessages().send(player, "territory.world-not-found");
                 return;
             }
-            player.teleportAsync(homeLoc)
-                    .thenRun(() -> plugin.getMessages().send(player, "territory.teleported"))
-                    .exceptionally(throwable -> {
-                        plugin.sendOperationError(player, throwable);
-                        return null;
-                    });
+            plugin.getClanManager().requestHomeTeleport(player, homeLoc);
         }, () -> plugin.getMessages().send(player, "clan.home.not-set")); // New message key
     }
 
