@@ -42,6 +42,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.PluginManager;
+import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -275,6 +276,7 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        HandlerList.unregisterAll(this);
         // Drop the cross-plugin callback so LoveTrades doesn't keep calling into a disabled
         // plugin's ClanManager/WarManager if LoveClans is reloaded without a full server restart.
         // LoveTrades#setClanIntegration(null) is known to NPE internally on some LoveTrades builds
