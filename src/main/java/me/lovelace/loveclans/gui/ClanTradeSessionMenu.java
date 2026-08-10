@@ -26,20 +26,14 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Live, two-sided clan trade negotiation window (§4.2, redesigned - deliberately unlike
- * LoveTrades' player-to-player trade). Opened for both clans' representatives at once on the
- * SAME shared {@link Inventory} instance right after a trade invite is accepted (see
- * ClanTradeManager). Unlike the original version, items/money never come from a representative's
- * own inventory - each side stages its offer straight out of its OWN clan chest/treasury via the
- * "Add item"/"Money" buttons ({@link ClanTradeItemPickerMenu} for items), which move it out of
- * the chest immediately (no dupe window). The negotiation has two stages: EDITING (both sides
- * free to add/remove items, set money and toggle "ready" at their own pace; once both are ready
- * the offer freezes and the session moves to REVIEW) and REVIEW (both sides must confirm the
- * final deal a second time; touching the offer again - add/remove item, change money - drops the
- * session back to EDITING, which doubles as the "изменить" escape hatch). A session auto-expires
- * 60 minutes after creation, refunding everything staged. On execution a 5% tax is taken off the
- * money side of the deal (items are handed over whole - a physical stack can't be fractionally
- * taxed the way a currency balance can).
+ * Live, two-sided clan trade negotiation window (§4.2, background-job model). Sessions run as
+ * background tasks independent of who's online. Lifecycle: EDITING (both sides stage offers) →
+ * both ready → LOCKED (3-minute window to cancel/modify, either side can still edit and needs
+ * new confirms) → EXECUTING (items/money transferred out of clans, entering delivery phase) →
+ * DELIVERING (10-minute async delivery to receiving chests; if full, queued as pending items).
+ * Items/money are escrowed from chests immediately as they're staged (ClanTradeItemPickerMenu,
+ * money prompts), preventing dupe windows. Permission checks ensure only TRADE-permission holders
+ * can view/reopen sessions. A 5% tax applies to money on execution.
  */
 public final class ClanTradeSessionMenu implements Listener {
     // Раскладка gui_gen v1.4. Раньше готовность/деньги стояли в шапке (1-8), что нарушает
@@ -58,10 +52,11 @@ public final class ClanTradeSessionMenu implements Listener {
     private static final int READY_B_SLOT = 44;
     private static final int CLOSE_SLOT = 53;
     private static final int INVENTORY_SIZE = 54;
-    private static final long DURATION_MINUTES = 60L;
+    private static final long LOCK_WINDOW_MINUTES = 3L;
+    private static final long DELIVERY_WINDOW_MINUTES = 10L;
     private static final double TAX_RATE = 0.05;
 
-    private enum Stage { EDITING, REVIEW }
+    private enum Stage { EDITING, LOCKED, EXECUTING, DELIVERING, COMPLETE }
 
     private final LoveClansPlugin plugin;
     private final ClanTradeSessionManager sessionManager;
@@ -74,7 +69,6 @@ public final class ClanTradeSessionMenu implements Listener {
     private final String clanATagColor;
     private final String clanBTagColor;
     private final Inventory inventory;
-    private final long expiresAt;
     private final Set<UUID> suppressCloseFor = ConcurrentHashMap.newKeySet();
 
     private long moneyA = 0L; // already withdrawn from clan A's chest, staged for this trade
@@ -83,7 +77,10 @@ public final class ClanTradeSessionMenu implements Listener {
     private boolean readyB = false;
     private Stage stage = Stage.EDITING;
     private boolean resolved = false;
-    private BukkitTask expiryTask;
+    private long lockedUntilMs = 0L; // when lock window expires, allowing execution
+    private long deliveryUntilMs = 0L; // when delivery period completes, session closes
+    private BukkitTask lockTask;
+    private BukkitTask deliveryTask;
     private BukkitTask statusTask;
 
     public ClanTradeSessionMenu(LoveClansPlugin plugin, ClanTradeSessionManager sessionManager,
@@ -98,14 +95,13 @@ public final class ClanTradeSessionMenu implements Listener {
         this.clanBTag = clanB.tag();
         this.clanATagColor = clanA.tagColor();
         this.clanBTagColor = clanB.tagColor();
-        this.expiresAt = System.currentTimeMillis() + Duration.ofMinutes(DURATION_MINUTES).toMillis();
         this.inventory = Bukkit.createInventory(null, INVENTORY_SIZE,
                 plugin.getMessages().component("gui.trade-session.title",
                         Map.of("tagA", clanA.tag(), "tagB", clanB.tag()), playerA));
         GuiFrames.fillFrame54(inventory);
         render();
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
-        scheduleTasks();
+        scheduleStatusTask();
     }
 
     public void openForBoth() {
@@ -124,19 +120,33 @@ public final class ClanTradeSessionMenu implements Listener {
         return true;
     }
 
-    private void scheduleTasks() {
-        long ticks = 20L * 60L * DURATION_MINUTES;
-        expiryTask = Bukkit.getScheduler().runTaskLater(plugin, this::onExpire, ticks);
-        // Purely cosmetic countdown refresh - the actual expiry is enforced by expiryTask above.
+    private void scheduleStatusTask() {
         statusTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
             if (!resolved) inventory.setItem(STATUS_SLOT, statusItem());
         }, 20L * 30L, 20L * 30L);
     }
 
-    private void onExpire() {
-        if (resolved) return;
-        notifyBoth("gui.trade-session.expired");
-        abort(null);
+    private void scheduleLockTask() {
+        long ticks = 20L * 60L * LOCK_WINDOW_MINUTES;
+        lockedUntilMs = System.currentTimeMillis() + Duration.ofMinutes(LOCK_WINDOW_MINUTES).toMillis();
+        lockTask = Bukkit.getScheduler().runTaskLater(plugin, this::onLockExpire, ticks);
+    }
+
+    private void onLockExpire() {
+        if (resolved || stage != Stage.LOCKED) return;
+        execute();
+    }
+
+    private void scheduleDeliveryTask() {
+        long ticks = 20L * 60L * DELIVERY_WINDOW_MINUTES;
+        deliveryUntilMs = System.currentTimeMillis() + Duration.ofMinutes(DELIVERY_WINDOW_MINUTES).toMillis();
+        deliveryTask = Bukkit.getScheduler().runTaskLater(plugin, this::onDeliveryComplete, ticks);
+    }
+
+    private void onDeliveryComplete() {
+        if (resolved || stage != Stage.DELIVERING) return;
+        stage = Stage.COMPLETE;
+        cleanup();
     }
 
     private void notifyBoth(String key) {
@@ -150,9 +160,9 @@ public final class ClanTradeSessionMenu implements Listener {
         inventory.setItem(TRADE_ICON_SLOT, ItemBuilder.head(ItemBuilder.HEAD_TRADE)
                 .name(plugin.getMessages().component("gui.trade-session.icon.name")).build());
 
-        boolean review = stage == Stage.REVIEW;
-        inventory.setItem(READY_A_SLOT, readyButton(true, review));
-        inventory.setItem(READY_B_SLOT, readyButton(false, review));
+        boolean locked = stage == Stage.LOCKED;
+        inventory.setItem(READY_A_SLOT, readyButton(true, locked));
+        inventory.setItem(READY_B_SLOT, readyButton(false, locked));
 
         inventory.setItem(ADD_ITEM_A_SLOT, addItemButton());
         inventory.setItem(ADD_ITEM_B_SLOT, addItemButton());
@@ -166,14 +176,20 @@ public final class ClanTradeSessionMenu implements Listener {
                 .name(plugin.getMessages().component("gui.trade-session.cancel.name")).build());
     }
 
-    private ItemStack readyButton(boolean sideA, boolean review) {
+    private ItemStack readyButton(boolean sideA, boolean locked) {
         String tag = sideA ? clanATag : clanBTag;
         String color = sideA ? clanATagColor : clanBTagColor;
         boolean ready = sideA ? readyA : readyB;
-        String nameKey = review ? "gui.trade-session.confirm.name" : "gui.trade-session.side.name";
-        String loreKey = review
-                ? (ready ? "gui.trade-session.confirm.ready" : "gui.trade-session.confirm.not-ready")
-                : (ready ? "gui.trade-session.side.ready" : "gui.trade-session.side.not-ready");
+        if (locked) {
+            String nameKey = "gui.trade-session.lock.name";
+            String loreKey = ready ? "gui.trade-session.lock.ready" : "gui.trade-session.lock.not-ready";
+            return ItemBuilder.head(ready ? ItemBuilder.HEAD_WOOL_LIME : ItemBuilder.HEAD_WOOL_RED)
+                    .name(plugin.getMessages().component(nameKey, Map.of("tag", tag, "color", color)))
+                    .lore(plugin.getMessages().component(loreKey))
+                    .build();
+        }
+        String nameKey = "gui.trade-session.side.name";
+        String loreKey = ready ? "gui.trade-session.side.ready" : "gui.trade-session.side.not-ready";
         return ItemBuilder.head(ready ? ItemBuilder.HEAD_WOOL_LIME : ItemBuilder.HEAD_WOOL_RED)
                 .name(plugin.getMessages().component(nameKey, Map.of("tag", tag, "color", color)))
                 .lore(plugin.getMessages().component(loreKey))
@@ -195,12 +211,35 @@ public final class ClanTradeSessionMenu implements Listener {
     }
 
     private ItemStack statusItem() {
-        long remainingMs = Math.max(0, expiresAt - System.currentTimeMillis());
-        String stageKey = stage == Stage.REVIEW ? "gui.trade-session.status.review" : "gui.trade-session.status.editing";
-        return ItemBuilder.head(ItemBuilder.HEAD_INFO)
-                .name(plugin.getMessages().component(stageKey))
-                .lore(plugin.getMessages().component("gui.trade-session.status.expires", Map.of("time", TimeUtil.formatDuration(remainingMs))))
-                .build();
+        return switch (stage) {
+            case EDITING -> ItemBuilder.head(ItemBuilder.HEAD_INFO)
+                    .name(plugin.getMessages().component("gui.trade-session.status.editing"))
+                    .lore(plugin.getMessages().component("gui.trade-session.status.edit-info"))
+                    .build();
+            case LOCKED -> {
+                long remainingMs = Math.max(0, lockedUntilMs - System.currentTimeMillis());
+                yield ItemBuilder.head(ItemBuilder.HEAD_INFO)
+                        .name(plugin.getMessages().component("gui.trade-session.status.locked"))
+                        .lore(plugin.getMessages().component("gui.trade-session.status.locked-countdown",
+                            Map.of("time", TimeUtil.formatDuration(remainingMs))))
+                        .build();
+            }
+            case EXECUTING -> ItemBuilder.head(ItemBuilder.HEAD_INFO)
+                    .name(plugin.getMessages().component("gui.trade-session.status.executing"))
+                    .lore(plugin.getMessages().component("gui.trade-session.status.executing-info"))
+                    .build();
+            case DELIVERING -> {
+                long remainingMs = Math.max(0, deliveryUntilMs - System.currentTimeMillis());
+                yield ItemBuilder.head(ItemBuilder.HEAD_INFO)
+                        .name(plugin.getMessages().component("gui.trade-session.status.delivering"))
+                        .lore(plugin.getMessages().component("gui.trade-session.status.delivery-countdown",
+                            Map.of("time", TimeUtil.formatDuration(remainingMs))))
+                        .build();
+            }
+            case COMPLETE -> ItemBuilder.head(ItemBuilder.HEAD_INFO)
+                    .name(plugin.getMessages().component("gui.trade-session.status.complete"))
+                    .build();
+        };
     }
 
     private boolean isItemSlotOf(int slot, boolean sideA) {
@@ -212,12 +251,16 @@ public final class ClanTradeSessionMenu implements Listener {
 
     /** Any change to either side's offer drops the negotiation back to the editable stage. */
     private void revertToEditing() {
-        boolean wasReview = stage == Stage.REVIEW;
+        boolean wasLocked = stage == Stage.LOCKED;
+        if (wasLocked && lockTask != null) {
+            lockTask.cancel();
+            lockTask = null;
+        }
         stage = Stage.EDITING;
         readyA = false;
         readyB = false;
         render();
-        if (wasReview) notifyBoth("gui.trade-session.modified");
+        if (wasLocked) notifyBoth("gui.trade-session.modified");
     }
 
     @EventHandler
@@ -239,7 +282,7 @@ public final class ClanTradeSessionMenu implements Listener {
         // picker and the Money prompt), so the player's own inventory is fully locked out too -
         // this also blocks shift-click quick-move from smuggling items into the trade grid.
         event.setCancelled(true);
-        if (rawSlot >= inventory.getSize() || resolved) {
+        if (rawSlot >= inventory.getSize() || resolved || stage == Stage.EXECUTING || stage == Stage.DELIVERING || stage == Stage.COMPLETE) {
             return;
         }
 
@@ -303,11 +346,13 @@ public final class ClanTradeSessionMenu implements Listener {
         if (sideA) readyA = !readyA; else readyB = !readyB;
         if (readyA && readyB) {
             if (stage == Stage.EDITING) {
-                stage = Stage.REVIEW;
+                stage = Stage.LOCKED;
                 readyA = false;
                 readyB = false;
+                scheduleLockTask();
                 render();
-            } else {
+                notifyBoth("gui.trade-session.locked");
+            } else if (stage == Stage.LOCKED) {
                 execute();
             }
         } else {
@@ -441,18 +486,16 @@ public final class ClanTradeSessionMenu implements Listener {
     }
 
     private void execute() {
-        if (resolved) return;
-        resolved = true;
-        cancelTasks();
+        if (resolved || stage != Stage.LOCKED) return;
+        if (lockTask != null) lockTask.cancel();
+        stage = Stage.EXECUTING;
+        render();
 
         var clanManager = plugin.getClanManager();
         Clan freshA = clanManager.getClanById(clanAId).orElse(null);
         Clan freshB = clanManager.getClanById(clanBId).orElse(null);
         if (freshA == null || freshB == null) {
-            // One of the two clans is gone (disbanded mid-negotiation) - there is no chest left to
-            // credit, so unlike the failure case below this can't be retried; abort outright,
-            // which refunds whatever is still staged to whichever clan still exists.
-            resolved = false;
+            resolved = true;
             abort(null);
             notifyBoth("trade.session.clan-gone");
             return;
@@ -460,46 +503,57 @@ public final class ClanTradeSessionMenu implements Listener {
 
         List<ItemStack> itemsA = collect(ITEMS_A);
         List<ItemStack> itemsB = collect(ITEMS_B);
-        // 5% trade tax (§4.2): applied to the money side of the deal - a physical item stack
-        // can't be fractionally taxed the way a currency balance can, so items transfer whole.
         long payoutToB = Math.round(moneyA * (1 - TAX_RATE));
         long payoutToA = Math.round(moneyB * (1 - TAX_RATE));
 
-        clanManager.depositRewardToChestAsync(freshB, payoutToB)
-                .thenCompose(ignored -> clanManager.depositRewardToChestAsync(freshA, payoutToA))
-                .thenCompose(ignored -> clanManager.depositItemsToChestAsync(freshA, itemsB))
-                .thenCompose(leftoverA -> clanManager.depositItemsToChestAsync(freshB, itemsA)
+        // Move to DELIVERING stage and schedule the 10-minute delivery window
+        stage = Stage.DELIVERING;
+        scheduleDeliveryTask();
+        render();
+        notifyBoth("gui.trade-session.executing");
+
+        // Deliver asynchronously after the window
+        Bukkit.getScheduler().runTaskLater(plugin, () -> deliverTrade(freshA, freshB, itemsA, itemsB, payoutToA, payoutToB),
+                20L * 60L * DELIVERY_WINDOW_MINUTES);
+    }
+
+    private void deliverTrade(Clan clanA, Clan clanB, List<ItemStack> itemsA, List<ItemStack> itemsB, long payoutA, long payoutB) {
+        if (resolved || stage != Stage.DELIVERING) return;
+
+        var clanManager = plugin.getClanManager();
+        clanManager.depositRewardToChestAsync(clanB, payoutB)
+                .thenCompose(ignored -> clanManager.depositRewardToChestAsync(clanA, payoutA))
+                .thenCompose(ignored -> clanManager.depositItemsToChestAsync(clanA, itemsB))
+                .thenCompose(leftoverA -> clanManager.depositItemsToChestAsync(clanB, itemsA)
                         .thenApply(leftoverB -> new ItemStack[][]{leftoverA.toArray(new ItemStack[0]), leftoverB.toArray(new ItemStack[0])}))
-                .thenAccept(leftovers -> plugin.runSync(() -> finishExecution(leftovers[0], leftovers[1])))
+                .thenAccept(leftovers -> plugin.runSync(() -> finishDelivery(leftovers[0], leftovers[1])))
                 .exceptionally(t -> {
                     plugin.runSync(() -> {
-                        // Money/items were already moved out of both chests when they were staged
-                        // (see applyMoneyChange/openPicker) - a persistence failure here means the
-                        // in-memory state is already committed even though the DB write failed, so
-                        // (matching the pre-redesign behaviour) we keep the window open for a retry
-                        // rather than attempting a refund that could double up the balances.
-                        resolved = false;
-                        plugin.getLogger().warning("Clan trade session execution failed: " + t.getMessage());
-                        failAndKeepOpen("trade.session.failed");
+                        plugin.getLogger().warning("Clan trade delivery failed: " + t.getMessage());
+                        // Delivery failed - items/money stay queued for next delivery attempt
                     });
                     return null;
                 });
     }
 
-    private void finishExecution(ItemStack[] leftoverA, ItemStack[] leftoverB) {
+    private void finishDelivery(ItemStack[] leftoverA, ItemStack[] leftoverB) {
+        if (resolved) return;
+        resolved = true;
+        stage = Stage.COMPLETE;
         for (int slot : ITEMS_A) inventory.setItem(slot, null);
         for (int slot : ITEMS_B) inventory.setItem(slot, null);
+
         Player playerA = Bukkit.getPlayer(playerAId);
         Player playerB = Bukkit.getPlayer(playerBId);
         dropLeftovers(playerA, leftoverA);
         dropLeftovers(playerB, leftoverB);
 
         if (playerA != null) {
-            plugin.getMessages().send(playerA, "trade.session.completed", Map.of("tag", clanBTag));
+            plugin.getMessages().send(playerA, "trade.session.delivered", Map.of("tag", clanBTag));
             playerA.closeInventory();
         }
         if (playerB != null) {
-            plugin.getMessages().send(playerB, "trade.session.completed", Map.of("tag", clanATag));
+            plugin.getMessages().send(playerB, "trade.session.delivered", Map.of("tag", clanATag));
             playerB.closeInventory();
         }
         cleanup();
@@ -565,13 +619,14 @@ public final class ClanTradeSessionMenu implements Listener {
     }
 
     private void cancelTasks() {
-        if (expiryTask != null) expiryTask.cancel();
+        if (lockTask != null) lockTask.cancel();
+        if (deliveryTask != null) deliveryTask.cancel();
         if (statusTask != null) statusTask.cancel();
     }
 
     private void cleanup() {
         cancelTasks();
         HandlerList.unregisterAll(this);
-        sessionManager.unregister(this, clanAId, clanBId, playerAId, playerBId);
+        sessionManager.unregister(this, clanAId, clanBId);
     }
 }

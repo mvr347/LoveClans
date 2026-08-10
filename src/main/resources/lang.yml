@@ -100,8 +100,7 @@ trade:
     clan-gone: "<prefix><red>Один из кланов-участников сделки больше не существует."
     reopen-unavailable: "<prefix><red>У вас нет активной сделки, которую можно открыть заново."
     failed: "<prefix><red>Не удалось завершить сделку - попробуйте ещё раз."
-    completed: "<prefix><green>Сделка с кланом <white><tag></white> завершена - товар зачислен в сундук клана."
-    cancelled: "<prefix><yellow>Сделка с кланом <white><tag></white> отменена, всё возвращено в сундук клана."
+    cancelled: "<prefix><yellow>Сделка с кланом <white><tag></white> отменена - всё возвращено в сундуки кланов."
 
 clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
@@ -328,13 +327,13 @@ gui:
     icon:
       name: "<gold>⇄ Обмен"
     side:
-      name: "<color><tag>"
-      ready: "<green>Готов к сделке - ЛКМ, чтобы отменить"
-      not-ready: "<gray>Ещё собирает предложение... ЛКМ, когда готовы"
-    confirm:
-      name: "<color><tag> <gray>- финальное подтверждение"
+      name: "<color><tag> <gray>- стадия сбора"
+      ready: "<green>Готов - ЛКМ, чтобы отменить"
+      not-ready: "<gray>Собирает предложение... ЛКМ, когда готовы"
+    lock:
+      name: "<color><tag> <gray>- финальное подтверждение (3 мин)"
       ready: "<green>✔ Подтверждено - ЛКМ, чтобы отменить"
-      not-ready: "<gray>Проверьте итоговое предложение и подтвердите ЛКМ"
+      not-ready: "<gray>Проверьте предложение и подтвердите ЛКМ"
     money:
       name: "<gold>💰 Деньги в предложении"
       lore: "<gray>Сумма: <yellow><amount></yellow> <gray>| <green>ЛКМ <gray>- указать сумму в чат (из казны клана)"
@@ -347,14 +346,22 @@ gui:
       full: "<prefix><red>Предложение уже заполнено - освободите слот, чтобы добавить ещё."
     status:
       editing: "<gray>Стадия: <yellow>сбор предложения"
-      review: "<gray>Стадия: <yellow>финальное подтверждение"
-      expires: "<gray>Сделка истекает через: <white><time>"
+      edit-info: "<gray>Обе стороны собирают предложение"
+      locked: "<gray>Стадия: <yellow>блокировка на 3 мин"
+      locked-countdown: "<gray>Блокировка истекает через: <white><time>"
+      executing: "<gray>Стадия: <yellow>выполнение сделки"
+      executing-info: "<gray>Предложения переводятся, подождите..."
+      delivering: "<gray>Стадия: <yellow>доставка (10 мин)"
+      delivery-countdown: "<gray>Доставка завершится через: <white><time>"
+      complete: "<gray>Сделка завершена"
     picker:
       title: "<gray>Сундук клана <color><tag> <gray>- ЛКМ, чтобы забрать стак"
     cancel:
       name: "<red>Отменить сделку"
     modified: "<prefix><yellow>Предложение изменено - готовность сброшена, подтвердите заново."
-    expired: "<prefix><red>Сделка отменена по истечении времени (60 минут) - всё возвращено в сундук клана."
+    locked: "<prefix><green>Сделка заблокирована на 3 минуты - обе стороны готовы к исполнению."
+    executing: "<prefix><gold>Сделка исполняется - ожидается доставка в течение 10 минут."
+    delivered: "<prefix><green>Сделка с кланом <white><tag></white> завершена - товар зачислен в сундук клана."
   territorries:
     item:
       coords: "<gray>Чанк: <white><cx>, <cz></white> (<x>, <z>)"

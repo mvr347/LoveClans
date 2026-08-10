@@ -9,20 +9,25 @@ import org.bukkit.entity.Player;
 import java.util.AbstractMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Registry for live, two-sided clan trade negotiations ({@link ClanTradeSessionMenu}) - the part
- * of a trade that happens after both clans have agreed to talk (see ClanTradeManager's
- * propose/accept invite). Only bookkeeping lives here (one session per clan pair, session lookup
- * by player for quit/close handling); the actual shared inventory, ready-state and chest transfer
- * logic live on the menu itself.
+ * Registry for live clan trade negotiations ({@link ClanTradeSessionMenu}) - the part of a trade
+ * that happens after both clans have agreed to talk (see ClanTradeManager's propose/accept
+ * invite). Only bookkeeping lives here (one session per clan pair); the negotiation state,
+ * lock/delivery timers and chest transfer logic live on the menu itself.
+ *
+ * <p>A session is no longer tied to the two players who happened to be online when it started -
+ * once accepted, it runs as a background job (confirm -> 3-minute lock window -> 10-minute
+ * delivery delay) that survives players logging off or closing the window. Any online member of
+ * either clan who holds {@link ClanPermission#TRADE} can view and act on it at any time (see
+ * {@link ClanTradeSessionMenu#reopenFor}), so lookups here are by clan, not by a fixed player.
  */
 public final class ClanTradeSessionManager {
     private final LoveClansPlugin plugin;
     private final Map<AbstractMap.SimpleImmutableEntry<UUID, UUID>, ClanTradeSessionMenu> byClanPair = new ConcurrentHashMap<>();
-    private final Map<UUID, ClanTradeSessionMenu> byPlayer = new ConcurrentHashMap<>();
 
     public ClanTradeSessionManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -37,25 +42,29 @@ public final class ClanTradeSessionManager {
     }
 
     /** Finds a live session involving this clan, regardless of which side it's on - used by the
-     *  trade-requests menu to offer a "reopen" button for a session a rep may have closed by accident. */
-    public java.util.Optional<ClanTradeSessionMenu> activeSessionForClan(UUID clanId) {
+     *  trade-requests menu to offer a "reopen" button and by {@link #reopenFor}. */
+    public Optional<ClanTradeSessionMenu> activeSessionForClan(UUID clanId) {
         return byClanPair.entrySet().stream()
                 .filter(e -> e.getKey().getKey().equals(clanId) || e.getKey().getValue().equals(clanId))
                 .map(Map.Entry::getValue)
                 .findFirst();
     }
 
-    /** Reopens the shared negotiation window for a player who is a registered representative of an active session. */
+    /** Reopens the shared negotiation window for any online member of a clan with an active session, provided they hold Trade permission. */
     public boolean reopenFor(Player player) {
-        ClanTradeSessionMenu session = byPlayer.get(player.getUniqueId());
-        if (session == null) return false;
-        return session.reopenFor(player);
+        Optional<Clan> clan = plugin.getClanManager().getPlayerClan(player.getUniqueId());
+        if (clan.isEmpty()) return false;
+        if (!plugin.getClanManager().hasClanPermission(player, clan.get(), ClanPermission.TRADE)) return false;
+        return activeSessionForClan(clan.get().id())
+                .map(session -> session.reopenFor(player))
+                .orElse(false);
     }
 
     /**
-     * Starts a live trade session between clanFrom and clanTo. The representative for clanFrom is
+     * Starts a trade session between clanFrom and clanTo. The initial viewer for clanFrom is
      * whichever of its online members currently holds the Trade permission - not necessarily the
-     * original proposer, who may have logged off since sending the invite.
+     * original proposer, who may have logged off since sending the invite. This is only who the
+     * window opens for automatically; any other authorized member can join in via {@link #reopenFor}.
      */
     public void startSession(Clan clanFrom, Clan clanTo, Player accepter) {
         var key = pairKey(clanFrom.id(), clanTo.id());
@@ -71,22 +80,19 @@ public final class ClanTradeSessionManager {
         }
         ClanTradeSessionMenu session = new ClanTradeSessionMenu(plugin, this, clanFrom, clanTo, representative, accepter);
         byClanPair.put(key, session);
-        byPlayer.put(representative.getUniqueId(), session);
-        byPlayer.put(accepter.getUniqueId(), session);
         session.openForBoth();
     }
 
-    public void unregister(ClanTradeSessionMenu session, UUID clanAId, UUID clanBId, UUID playerAId, UUID playerBId) {
+    public void unregister(ClanTradeSessionMenu session, UUID clanAId, UUID clanBId) {
         byClanPair.remove(pairKey(clanAId, clanBId), session);
-        byPlayer.remove(playerAId, session);
-        byPlayer.remove(playerBId, session);
     }
 
-    /** Called on PlayerQuitEvent - a live negotiation can't continue with one side gone. */
+    /**
+     * Called on PlayerQuitEvent. A session now runs as a background job independent of who's
+     * online (it can commit and even deliver while every representative is offline), so quitting
+     * no longer cancels it - this is intentionally a no-op, kept so the call site doesn't need
+     * touching if that ever changes again.
+     */
     public void handlePlayerQuit(Player player) {
-        ClanTradeSessionMenu session = byPlayer.get(player.getUniqueId());
-        if (session != null) {
-            session.abort(player);
-        }
     }
 }
