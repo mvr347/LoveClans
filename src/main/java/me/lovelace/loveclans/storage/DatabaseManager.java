@@ -364,6 +364,19 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
             statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_trade_deliveries (
+                        id VARCHAR(36) PRIMARY KEY,
+                        clan_id VARCHAR(36) NOT NULL,
+                        from_tag VARCHAR(32),
+                        from_tag_color VARCHAR(16),
+                        money BIGINT NOT NULL DEFAULT 0,
+                        items BLOB,
+                        due_at BIGINT NOT NULL,
+                        money_delivered TINYINT NOT NULL DEFAULT 0
+                    )
+                    """);
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_trade_deliveries_clan ON clan_trade_deliveries(clan_id)");
+            statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_conflicts (
                         id VARCHAR(36) PRIMARY KEY,
                         kind VARCHAR(16) NOT NULL,

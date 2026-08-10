@@ -23,6 +23,7 @@ import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.manager.ConflictArchive;
 import me.lovelace.loveclans.manager.PlayerPreferencesManager;
 import me.lovelace.loveclans.manager.ContractManager;
+import me.lovelace.loveclans.manager.ClanTradeDeliveryManager;
 import me.lovelace.loveclans.manager.ClanTradeManager;
 import me.lovelace.loveclans.manager.ClanTradeSessionManager;
 import me.lovelace.loveclans.manager.DiplomacyManager;
@@ -86,6 +87,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private DiplomacyManager diplomacyManager;
     private ClanTradeManager clanTradeManager;
     private ClanTradeSessionManager clanTradeSessionManager;
+    private ClanTradeDeliveryManager clanTradeDeliveryManager;
     private CitizensIntegration citizensIntegration;
     private ClanProtectionListener clanProtectionListener;
     private BukkitTask heartbeatTask;
@@ -123,6 +125,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         diplomacyManager = new DiplomacyManager(this, storage);
         clanTradeManager = new ClanTradeManager(this, storage);
         clanTradeSessionManager = new ClanTradeSessionManager(this);
+        clanTradeDeliveryManager = new ClanTradeDeliveryManager(this, storage);
 
         // Хук LoveClaims инициализируется здесь, ДО clanManager.loadAsync() — территории
         // индексируют свои чанки по геометрии из LoveClaims (territoryChunks -> boundingBoxOf),
@@ -162,6 +165,11 @@ public final class LoveClansPlugin extends JavaPlugin {
                     return null;
                 });
 
+                clanTradeDeliveryManager.loadAsync().exceptionally(t -> {
+                    getLogger().warning("Не удалось загрузить отложенные доставки по сделкам: " + t.getMessage());
+                    return null;
+                });
+
                 // Территории без advancedClaimId (заведены до того, как LoveClaims стал
                 // обязательным для клановых территорий) — довести до нормального состояния,
                 // если ядро сейчас доступно. Не влияет на территории с уже проставленным
@@ -193,6 +201,18 @@ public final class LoveClansPlugin extends JavaPlugin {
                         getLogger().log(java.util.logging.Level.SEVERE, "Contract tick failed", t);
                     }
                 }, contractTickTicks, contractTickTicks);
+
+                // Доставка по завершённым клановым сделкам (§4.2) - раз в retry-seconds пытается
+                // зачислить каждую доставку, чей 10-минутный срок уже наступил; если сундук
+                // получателя заполнен, доставка остаётся в очереди и повторяется на следующем тике.
+                long tradeDeliveryTicks = 20L * Math.max(5, getConfig().getInt("clans.trade.delivery.retry-seconds", 60));
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        clanTradeDeliveryManager.tick();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Clan trade delivery tick failed", t);
+                    }
+                }, tradeDeliveryTicks, tradeDeliveryTicks);
 
                 // Свежесть боевых заслуг: победы выветриваются просто от хода времени,
                 // а не только когда случился новый конфликт, поэтому её приходится
@@ -431,6 +451,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public ClanTradeSessionManager getClanTradeSessionManager() {
         return clanTradeSessionManager;
+    }
+
+    public ClanTradeDeliveryManager getClanTradeDeliveryManager() {
+        return clanTradeDeliveryManager;
     }
 
     public CitizensIntegration getCitizensIntegration() {

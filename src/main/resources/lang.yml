@@ -100,8 +100,10 @@ trade:
     clan-gone: "<prefix><red>Один из кланов-участников сделки больше не существует."
     reopen-unavailable: "<prefix><red>У вас нет активной сделки, которую можно открыть заново."
     failed: "<prefix><red>Не удалось завершить сделку - попробуйте ещё раз."
-    completed: "<prefix><green>Сделка с кланом <white><tag></white> завершена - товар зачислен в сундук клана."
+    completed: "<prefix><green>Сделка с кланом <white><tag></white> подтверждена - товар и деньги придут в сундук клана в течение нескольких минут."
     cancelled: "<prefix><yellow>Сделка с кланом <white><tag></white> отменена, всё возвращено в сундук клана."
+  delivery:
+    arrived: "<prefix><green>По сделке с кланом <color><tag></color> в сундук клана поступил товар."
 
 clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
@@ -335,6 +337,9 @@ gui:
       name: "<color><tag> <gray>- финальное подтверждение"
       ready: "<green>✔ Подтверждено - ЛКМ, чтобы отменить"
       not-ready: "<gray>Проверьте итоговое предложение и подтвердите ЛКМ"
+    locked:
+      name: "<color><tag> <gray>- сделка подтверждена обеими сторонами"
+      lore: "<green>✔ Ожидает исполнения <gray>| <red>ЛКМ - отменить подтверждение"
     money:
       name: "<gold>💰 Деньги в предложении"
       lore: "<gray>Сумма: <yellow><amount></yellow> <gray>| <green>ЛКМ <gray>- указать сумму в чат (из казны клана)"
@@ -348,12 +353,16 @@ gui:
     status:
       editing: "<gray>Стадия: <yellow>сбор предложения"
       review: "<gray>Стадия: <yellow>финальное подтверждение"
+      confirmed: "<gray>Стадия: <yellow>подтверждено обеими сторонами"
       expires: "<gray>Сделка истекает через: <white><time>"
+      executes-in: "<gray>Сделка исполнится через: <white><time>"
     picker:
       title: "<gray>Сундук клана <color><tag> <gray>- ЛКМ, чтобы забрать стак"
     cancel:
       name: "<red>Отменить сделку"
     modified: "<prefix><yellow>Предложение изменено - готовность сброшена, подтвердите заново."
+    confirmed: "<prefix><green>Обе стороны подтвердили сделку! Она будет исполнена через <white><time></white>, если её не отменят или не изменят."
+    confirm-cancelled: "<prefix><yellow>Подтверждение сделки отменено - подтвердите заново, когда будете готовы."
     expired: "<prefix><red>Сделка отменена по истечении времени (60 минут) - всё возвращено в сундук клана."
   territorries:
     item:

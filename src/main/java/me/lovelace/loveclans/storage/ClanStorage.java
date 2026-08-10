@@ -12,6 +12,7 @@ import me.lovelace.loveclans.model.history.ConflictRecord;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.model.trade.ClanTrade;
+import me.lovelace.loveclans.model.trade.ClanTradeDelivery;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -124,6 +125,15 @@ public interface ClanStorage {
     CompletableFuture<Void> saveTradeAsync(ClanTrade trade);
 
     CompletableFuture<Collection<ClanTrade>> loadPendingTradesAsync();
+
+    // --- Отложенная доставка по завершённой сделке (§4.2) - переживает перезапуск, т.к. может
+    // висеть неограниченно долго, если сундук клана-получателя заполнен. ---
+
+    CompletableFuture<Void> saveTradeDeliveryAsync(ClanTradeDelivery delivery);
+
+    CompletableFuture<Void> deleteTradeDeliveryAsync(UUID deliveryId);
+
+    CompletableFuture<Collection<ClanTradeDelivery>> loadAllTradeDeliveriesAsync();
 
     // --- Архив конфликтов: войны, осады и набеги переживают перезапуск ---
 
