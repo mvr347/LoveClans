@@ -221,6 +221,7 @@ diplomacy:
 gui:
   accept: "<green>[Принять]"
   reject: "<red>[Отклонить]"
+  cancel: "<red>[Отменить]"
   back: "<gray>« Назад"
   close: "<red>Закрыть"
   next-page: "<gray>Следующая страница »"

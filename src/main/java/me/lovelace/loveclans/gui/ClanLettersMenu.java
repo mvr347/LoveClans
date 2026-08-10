@@ -22,7 +22,10 @@ import java.util.Map;
  * дипломатии появится в рамках отдельной задачи по переделке UI (§6).
  */
 public final class ClanLettersMenu {
-    private static final int WRITE_SLOT = 4;
+    // Slot 18 is the unused left-edge column of the content grid's first row (CONTENT_SLOTS
+    // starts at 19) — previously WRITE_SLOT sat at 4, inside the glass-bordered header row
+    // fillFrame54 fills, overwriting the border instead of living in the working area.
+    private static final int WRITE_SLOT = 18;
     // gui_gen 54-slot working zone is 18-44 only (three rows) — row 1 (9-17) is always frame,
     // never content, unlike the 27-slot menu's 9-17 content zone. Don't confuse the two.
     private static final int[] CONTENT_SLOTS = {
