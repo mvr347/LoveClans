@@ -19,4 +19,12 @@ public final class TimeUtil {
         }
         return minutes + "m";
     }
+
+    /** Same as {@link #formatDuration}, but at second granularity - for short (sub-hour) countdowns. */
+    public static String formatDurationSeconds(long millis) {
+        long totalSeconds = Math.max(0L, millis) / 1000L;
+        long minutes = totalSeconds / 60L;
+        long seconds = totalSeconds % 60L;
+        return minutes > 0 ? minutes + "m " + seconds + "s" : seconds + "s";
+    }
 }

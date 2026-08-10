@@ -16,6 +16,7 @@ import me.lovelace.loveclans.model.history.ConflictRecord;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.model.trade.ClanTrade;
+import me.lovelace.loveclans.model.trade.ClanTradeDelivery;
 import me.lovelace.loveclans.model.trade.TradeStatus;
 import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Bukkit; // Import Bukkit for World access
@@ -900,6 +901,74 @@ public final class SqlClanStorage implements ClanStorage {
                 }
             } catch (SQLException exception) {
                 throw new StorageException("Unable to load pending clan trades", exception);
+            }
+            return result;
+        }, database.executor());
+    }
+
+    // --- Отложенная доставка по завершённой сделке (§4.2) ---
+
+    @Override
+    public CompletableFuture<Void> saveTradeDeliveryAsync(ClanTradeDelivery delivery) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT INTO clan_trade_deliveries (id, clan_id, from_tag, from_tag_color, money, items, due_at, money_delivered) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE items = VALUES(items), money_delivered = VALUES(money_delivered)"
+                    : "INSERT INTO clan_trade_deliveries (id, clan_id, from_tag, from_tag_color, money, items, due_at, money_delivered) " +
+                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET items = excluded.items, money_delivered = excluded.money_delivered";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, delivery.id().toString());
+                statement.setString(2, delivery.clanId().toString());
+                statement.setString(3, delivery.fromTag());
+                statement.setString(4, delivery.fromTagColor());
+                statement.setLong(5, delivery.money());
+                statement.setBytes(6, delivery.items());
+                statement.setLong(7, delivery.dueAt());
+                statement.setBoolean(8, delivery.moneyDelivered());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save trade delivery " + delivery.id(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteTradeDeliveryAsync(UUID deliveryId) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "DELETE FROM clan_trade_deliveries WHERE id = ?")) {
+                statement.setString(1, deliveryId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete trade delivery " + deliveryId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<ClanTradeDelivery>> loadAllTradeDeliveriesAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<ClanTradeDelivery> result = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT * FROM clan_trade_deliveries");
+                 ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    result.add(new ClanTradeDelivery(
+                            UUID.fromString(rs.getString("id")),
+                            UUID.fromString(rs.getString("clan_id")),
+                            rs.getString("from_tag"),
+                            rs.getString("from_tag_color"),
+                            rs.getLong("money"),
+                            rs.getBytes("items"),
+                            rs.getLong("due_at"),
+                            rs.getBoolean("money_delivered")
+                    ));
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load trade deliveries", exception);
             }
             return result;
         }, database.executor());
