@@ -17,13 +17,15 @@ import java.util.Optional;
  * одной кнопкой «Отношения» из рабочей зоны.
  *
  * <p>Раскладка gui_gen v1.4, 27 слотов: голова цели в слоте 0, три варианта отношений —
- * переключатели в шапке (3, 4, 5), строка 9-17 пустая, футер со стеклом, назад и закрытие.
+ * переключатели в рабочей зоне (11, 13, 15), шапка (1-8) и футер — сплошное стекло, назад и
+ * закрытие. Раньше переключатели ошибочно стояли в застеклённой шапке (3, 4, 5) и
+ * перезатирали рамку вместо того, чтобы быть в рабочей зоне.
  */
 public final class ClanRelationMenu {
     private static final int SLOT_INFO = 0;
-    private static final int SLOT_ALLY = 3;
-    private static final int SLOT_NEUTRAL = 4;
-    private static final int SLOT_ENEMY = 5;
+    private static final int SLOT_ALLY = 11;
+    private static final int SLOT_NEUTRAL = 13;
+    private static final int SLOT_ENEMY = 15;
     private static final int SLOT_BACK = 25;
     private static final int SLOT_CLOSE = 26;
     private static final int INVENTORY_SIZE = 27;
