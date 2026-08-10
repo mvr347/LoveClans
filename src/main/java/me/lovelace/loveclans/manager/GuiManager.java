@@ -27,6 +27,7 @@ import me.lovelace.loveclans.gui.ClanSettingsMenu;
 import me.lovelace.loveclans.gui.ClanSpiritAbilityMenu;
 import me.lovelace.loveclans.gui.ClanSpiritMenu;
 import me.lovelace.loveclans.gui.ClanTerritoriesMenu;
+import me.lovelace.loveclans.gui.ClanTradeRequestsMenu;
 import me.lovelace.loveclans.gui.ClanUpgradesMenu;
 import me.lovelace.loveclans.gui.PlayerApplicationsMenu;
 import me.lovelace.loveclans.gui.TerritorySettingsMenu;
@@ -66,6 +67,7 @@ public class GuiManager implements Listener {
     private final ClanChestHubMenu chestHubMenu;
     private final ClanChestMoneyMenu chestMoneyMenu;
     private final ClanLettersMenu lettersMenu;
+    private final ClanTradeRequestsMenu tradeRequestsMenu;
 
     private final Map<UUID, Runnable> confirmYes = new ConcurrentHashMap<>();
     private final Map<UUID, Runnable> confirmNo = new ConcurrentHashMap<>();
@@ -90,6 +92,11 @@ public class GuiManager implements Listener {
         this.chestHubMenu = new ClanChestHubMenu(plugin);
         this.chestMoneyMenu = new ClanChestMoneyMenu(plugin);
         this.lettersMenu = new ClanLettersMenu(plugin);
+        this.tradeRequestsMenu = new ClanTradeRequestsMenu(plugin);
+    }
+
+    public void openTradeRequests(Player player, Clan clan) {
+        tradeRequestsMenu.open(player, clan);
     }
 
     public void openChestHub(Player player, Clan clan) {
@@ -338,6 +345,7 @@ public class GuiManager implements Listener {
                     case CHEST_HUB -> chestHubMenu.handleInventoryClick(player, clan, slot);
                     case CHEST_MONEY -> chestMoneyMenu.handleInventoryClick(player, clan, slot);
                     case LETTERS -> lettersMenu.handleInventoryClick(player, clan, slot);
+                    case TRADE_REQUESTS -> tradeRequestsMenu.handleInventoryClick(event, player, clan);
                     default -> {
                     }
                 }

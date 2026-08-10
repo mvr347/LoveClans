@@ -180,7 +180,7 @@ public final class ClanTradeManager {
         plugin.getClanManager().getOnlineMembersWithPermission(to, ClanPermission.TRADE).forEach(p ->
                 plugin.getMessages().sendClickableTrade(p, trade.id(), from.tag(), from.tagColor()));
         plugin.getClanManager().getOnlineMembersWithPermission(from, ClanPermission.TRADE).forEach(p ->
-                plugin.getMessages().send(p, "trade.sent", Map.of("tag", to.tag(), "color", to.tagColor())));
+                plugin.getMessages().sendClickableTradeSent(p, trade.id(), to.tag(), to.tagColor()));
     }
 
     private void notifyInviteResolution(Clan from, Clan to, ClanTrade trade) {

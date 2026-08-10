@@ -83,14 +83,25 @@ trade:
   cancelled: "<prefix><yellow>Запрос на обмен клану <color><tag></color> отозван."
   declined-confirm: "<prefix><yellow>Запрос отклонён."
   cancelled-confirm: "<prefix><yellow>Запрос отозван."
+  requests:
+    title: "<gray>Мои запросы на обмен"
+    empty: "<gray>Нет активных запросов на обмен."
+    sent:
+      name: "<yellow>Отправлено клану <color><tag>"
+      lore: "<gray>ЛКМ - отменить запрос"
+    received:
+      name: "<gold>Получено от клана <color><tag>"
+      lore: "<gray>ЛКМ - принять <gray>| <red>ПКМ - отклонить"
+    active-session:
+      name: "<green>Активная сделка"
+      lore: "<gray>ЛКМ - открыть окно сделки заново"
   session:
     needs-online-rep: "<prefix><red>В клане <color><tag></color> сейчас никто не в сети с правом на торговлю."
     clan-gone: "<prefix><red>Один из кланов-участников сделки больше не существует."
-    insufficient-funds-a: "<prefix><red>У левой стороны недостаточно денег в сундуке клана для этой суммы."
-    insufficient-funds-b: "<prefix><red>У правой стороны недостаточно денег в сундуке клана для этой суммы."
+    reopen-unavailable: "<prefix><red>У вас нет активной сделки, которую можно открыть заново."
     failed: "<prefix><red>Не удалось завершить сделку - попробуйте ещё раз."
     completed: "<prefix><green>Сделка с кланом <white><tag></white> завершена - товар зачислен в сундук клана."
-    cancelled: "<prefix><yellow>Сделка с кланом <white><tag></white> отменена, предметы возвращены."
+    cancelled: "<prefix><yellow>Сделка с кланом <white><tag></white> отменена, всё возвращено в сундук клана."
 
 clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
@@ -221,6 +232,7 @@ diplomacy:
 gui:
   accept: "<green>[Принять]"
   reject: "<red>[Отклонить]"
+  cancel: "<red>[Отменить]"
   back: "<gray>« Назад"
   close: "<red>Закрыть"
   next-page: "<gray>Следующая страница »"
@@ -255,6 +267,9 @@ gui:
       name: "<green>🤝 Торговля с кланами"
       lore: "<gray>ЛКМ - выбрать клан и отправить запрос на обмен"
       hint: "<prefix><yellow>Используйте /clan trade <tag> [деньги], чтобы предложить обмен другому клану."
+    trade-requests-button:
+      name: "<gold>✉ Запросы на обмен"
+      lore: "<gray>Отправленные и полученные запросы, активная сделка"
     locked-warning:
       name: "<red>Сундук заблокирован"
       lore:
@@ -314,17 +329,32 @@ gui:
       name: "<gold>⇄ Обмен"
     side:
       name: "<color><tag>"
-      ready: "<green>Готов к сделке"
-      not-ready: "<gray>Ещё собирает предложение..."
+      ready: "<green>Готов к сделке - ЛКМ, чтобы отменить"
+      not-ready: "<gray>Ещё собирает предложение... ЛКМ, когда готовы"
+    confirm:
+      name: "<color><tag> <gray>- финальное подтверждение"
+      ready: "<green>✔ Подтверждено - ЛКМ, чтобы отменить"
+      not-ready: "<gray>Проверьте итоговое предложение и подтвердите ЛКМ"
     money:
       name: "<gold>💰 Деньги в предложении"
-      lore: "<gray>Сумма: <yellow><amount></yellow> <gray>| <green>ЛКМ <gray>- указать сумму в чат"
-      prompt: "<prefix><yellow>Введите сумму денег для этой стороны сделки в чат."
-    ready:
-      on: "<green>✔ Готово (нажмите, чтобы отменить)"
-      off: "<gray>Нажмите, когда предложение готово"
+      lore: "<gray>Сумма: <yellow><amount></yellow> <gray>| <green>ЛКМ <gray>- указать сумму в чат (из казны клана)"
+      prompt: "<prefix><yellow>Введите сумму денег из казны клана для этой стороны сделки в чат."
+      prompt-max: "<prefix><gray>Максимум: <yellow><amount></yellow> (текущий остаток в казне + уже внесённое)."
+      invalid: "<prefix><red>Недостаточно денег в казне клана для этой суммы."
+    add-item:
+      name: "<green>+ Добавить предмет из сундука"
+      lore: "<gray>ЛКМ - открыть сундук клана и забрать оттуда стак в предложение"
+      full: "<prefix><red>Предложение уже заполнено - освободите слот, чтобы добавить ещё."
+    status:
+      editing: "<gray>Стадия: <yellow>сбор предложения"
+      review: "<gray>Стадия: <yellow>финальное подтверждение"
+      expires: "<gray>Сделка истекает через: <white><time>"
+    picker:
+      title: "<gray>Сундук клана <color><tag> <gray>- ЛКМ, чтобы забрать стак"
     cancel:
       name: "<red>Отменить сделку"
+    modified: "<prefix><yellow>Предложение изменено - готовность сброшена, подтвердите заново."
+    expired: "<prefix><red>Сделка отменена по истечении времени (60 минут) - всё возвращено в сундук клана."
   territorries:
     item:
       coords: "<gray>Чанк: <white><cx>, <cz></white> (<x>, <z>)"

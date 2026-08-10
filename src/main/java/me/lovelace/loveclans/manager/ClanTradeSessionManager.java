@@ -36,6 +36,22 @@ public final class ClanTradeSessionManager {
         return byClanPair.containsKey(pairKey(clanAId, clanBId));
     }
 
+    /** Finds a live session involving this clan, regardless of which side it's on - used by the
+     *  trade-requests menu to offer a "reopen" button for a session a rep may have closed by accident. */
+    public java.util.Optional<ClanTradeSessionMenu> activeSessionForClan(UUID clanId) {
+        return byClanPair.entrySet().stream()
+                .filter(e -> e.getKey().getKey().equals(clanId) || e.getKey().getValue().equals(clanId))
+                .map(Map.Entry::getValue)
+                .findFirst();
+    }
+
+    /** Reopens the shared negotiation window for a player who is a registered representative of an active session. */
+    public boolean reopenFor(Player player) {
+        ClanTradeSessionMenu session = byPlayer.get(player.getUniqueId());
+        if (session == null) return false;
+        return session.reopenFor(player);
+    }
+
     /**
      * Starts a live trade session between clanFrom and clanTo. The representative for clanFrom is
      * whichever of its online members currently holds the Trade permission - not necessarily the

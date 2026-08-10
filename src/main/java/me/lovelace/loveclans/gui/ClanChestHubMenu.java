@@ -20,6 +20,7 @@ public final class ClanChestHubMenu {
     private static final int MONEY_SLOT = 11;
     private static final int ITEMS_SLOT = 15;
     private static final int TRADE_SLOT = 13;
+    private static final int TRADE_REQUESTS_SLOT = 12;
     private static final int BACK_SLOT = 25;
     private static final int CLOSE_SLOT = 26;
 
@@ -83,6 +84,11 @@ public final class ClanChestHubMenu {
                 .lore(plugin.getMessages().component("gui.chest.trade-button.lore", player))
                 .build());
 
+        inventory.setItem(TRADE_REQUESTS_SLOT, ItemBuilder.head(ItemBuilder.HEAD_LETTERS)
+                .name(plugin.getMessages().component("gui.chest.trade-requests-button.name", player))
+                .lore(plugin.getMessages().component("gui.chest.trade-requests-button.lore", player))
+                .build());
+
         inventory.setItem(BACK_SLOT, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
@@ -102,6 +108,8 @@ public final class ClanChestHubMenu {
             plugin.getGuiManager().openChestMoney(player, clan);
         } else if (slot == TRADE_SLOT) {
             plugin.getGuiManager().openDiplomacySelect(player, clan);
+        } else if (slot == TRADE_REQUESTS_SLOT) {
+            plugin.getGuiManager().openTradeRequests(player, clan);
         } else if (slot == ITEMS_SLOT) {
             if (clan.isChestTaxLocked()) {
                 plugin.getMessages().send(player, "chest.tax-locked");

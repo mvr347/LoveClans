@@ -67,10 +67,15 @@ public final class ClanPerkMenu {
             ClanPerk perk = perks[i];
             boolean active = current.map(p -> p == perk).orElse(false);
 
-            // Перки всегда видны и просматриваемы (лор/описание), но неактивны (серая иконка,
-            // клик ничего не делает - см. handleInventoryClick), если клан ниже требуемого уровня
-            // или это уже выбранный перк.
-            ItemBuilder builder = ItemBuilder.head(locked ? ItemBuilder.HEAD_INACTIVE : headFor(perk))
+            // Базовое состояние кнопки - неактивная (серая иконка): пока клан не достиг нужного
+            // уровня, вообще все три кнопки такие и клик по ним не выбирает перк. Как только
+            // условия выполнены, кнопки становятся активными (обычная иконка) и кликабельны для
+            // выбора. После того как перк выбран, активным остаётся только он (иконка + свечение),
+            // остальные снова показываются неактивной иконкой, чтобы явно выделить текущий выбор
+            // (респек другого перка всё ещё доступен кликом, см. handleInventoryClick - иконка
+            // тут только визуально сигнализирует "не текущий выбор", а не блокирует клик).
+            boolean showInactive = locked || (current.isPresent() && !active);
+            ItemBuilder builder = ItemBuilder.head(showInactive ? ItemBuilder.HEAD_INACTIVE : headFor(perk))
                     .name(plugin.getMessages().component("gui.upgrades.perks." + perk.name().toLowerCase() + ".name", player))
                     .lore(plugin.getMessages().components("gui.upgrades.perks." + perk.name().toLowerCase() + ".lore",
                             perkLorePlaceholders(perk), player));

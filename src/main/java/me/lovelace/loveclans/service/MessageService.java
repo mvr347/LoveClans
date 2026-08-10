@@ -213,6 +213,20 @@ public final class MessageService {
         recipient.sendMessage(msg);
     }
 
+    /**
+     * Notifies the proposing clan's members that their trade offer went out, with a click-to-cancel
+     * button ({@code /clan trade cancel <id>}) — previously this side only got a plain, unclickable
+     * message while the recipient got accept/decline buttons via {@link #sendClickableTrade}.
+     */
+    public void sendClickableTradeSent(Player proposer, java.util.UUID tradeId, String targetTag, String targetColor) {
+        Component msg = component("trade.sent", Map.of("tag", targetTag, "color", targetColor), proposer)
+                .append(Component.text(" "))
+                .append(component("gui.cancel", proposer)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                                "/clan trade cancel " + tradeId)));
+        proposer.sendMessage(msg);
+    }
+
     public void sendChatConfirmPrompt(Player player, String promptKey, Map<String, String> placeholders, Runnable onConfirm, Runnable onCancel) {
         player.sendMessage(component(promptKey, placeholders, player));
         player.sendMessage(component("gui.confirm.chat-yes", player)
