@@ -174,6 +174,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (!Permissions.has(sender, Permissions.COMMAND)) return List.of();
+
         List<String> completions = new ArrayList<>();
         if (sender instanceof Player player) {
             Optional<Clan> playerClan = plugin.getClanManager().getPlayerClan(player.getUniqueId());
