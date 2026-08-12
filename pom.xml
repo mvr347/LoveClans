@@ -118,7 +118,7 @@
         <dependency>
             <groupId>com.github.mvr347.LoveCore</groupId>
             <artifactId>lovecore-api</artifactId>
-            <version>caf7e453ff</version>
+            <version>fbd9ac18d0</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
