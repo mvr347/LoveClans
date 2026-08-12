@@ -28,11 +28,13 @@ import java.util.Map;
 public final class MessageService {
     private final LoveClansPlugin plugin;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
+    private final me.lovelace.loveclans.integration.LoveNotifyBridge loveNotifyBridge;
     private YamlConfiguration lang;
     private Method papiSetPlaceholders;
 
     public MessageService(LoveClansPlugin plugin) {
         this.plugin = plugin;
+        this.loveNotifyBridge = new me.lovelace.loveclans.integration.LoveNotifyBridge(plugin);
     }
 
     public void reload() {
@@ -256,6 +258,9 @@ public final class MessageService {
      * subtitleKey to show a title-only prompt.
      */
     public void sendTitle(Player player, String titleKey, String subtitleKey, Map<String, String> placeholders) {
+        if (!loveNotifyBridge.isChannelEnabled(player.getUniqueId(), "TITLE")) {
+            return;
+        }
         Component titleComponent = component(titleKey, placeholders, player);
         Component subtitleComponent = subtitleKey != null ? component(subtitleKey, placeholders, player) : Component.empty();
         player.showTitle(Title.title(titleComponent, subtitleComponent,
@@ -263,7 +268,19 @@ public final class MessageService {
     }
 
     public void sendActionBar(Player player, String key, Map<String, String> placeholders) {
+        if (!loveNotifyBridge.isChannelEnabled(player.getUniqueId(), "ACTION_BAR")) {
+            return;
+        }
         player.sendActionBar(component(key, placeholders, player));
+    }
+
+    /**
+     * Для мест, которые собирают {@link Title} сами (нестандартный тайминг — например,
+     * подстроенный под длительность визуализации границы клейма) и не могут переиспользовать
+     * {@link #sendTitle}. Проверяйте перед вызовом {@code player.showTitle(...)} напрямую.
+     */
+    public boolean isTitleChannelEnabled(Player player) {
+        return loveNotifyBridge.isChannelEnabled(player.getUniqueId(), "TITLE");
     }
 
     public void playSound(Player player, Sound sound, float volume, float pitch) {
