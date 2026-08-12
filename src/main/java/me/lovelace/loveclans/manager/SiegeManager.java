@@ -123,38 +123,50 @@ public final class SiegeManager {
     }
 
     public CompletableFuture<ClanSiege> startSiegeAsync(Clan attacker, Clan defender, TerritoryKey territoryKey) {
-        return plugin.supplySync(() -> {
-            if (activeSieges.size() >= plugin.getConfig().getInt("siege.max-concurrent", 3)) {
-                throw new IllegalStateException("siege.max-sieges-reached");
-            }
-            if (isInSiege(attacker.id()) || isInSiege(defender.id())) {
-                throw new IllegalStateException("siege.already-in-siege");
-            }
-            if (plugin.getWarManager().isAtWar(attacker.id()) || plugin.getWarManager().isAtWar(defender.id())) {
-                throw new IllegalStateException("siege.war-in-progress");
-            }
-            if (plugin.getRaidManager().isInRaid(attacker.id()) || plugin.getRaidManager().isInRaid(defender.id())) {
-                throw new IllegalStateException("raid.already-in-raid");
-            }
-            if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
-                throw new IllegalStateException("war.cannot-declare-on-ally");
-            }
+        return startSiegeAsync(attacker, defender, territoryKey, false);
+    }
 
+    /**
+     * @param force пропускает все проверки готовности (кулдаун, минимум онлайн, союз, конфликт
+     *              войны/набега и т.д.) — только для тестовой admin-команды
+     *              ({@code /loveclansadmin siege forcestart}).
+     */
+    public CompletableFuture<ClanSiege> startSiegeAsync(Clan attacker, Clan defender, TerritoryKey territoryKey, boolean force) {
+        return plugin.supplySync(() -> {
             AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = pairKey(attacker.id(), defender.id());
             long now = System.currentTimeMillis();
-            Long lastSiegeTime = siegeCooldowns.get(cooldownKey);
-            if (lastSiegeTime != null && (now - lastSiegeTime < cooldownDuration().toMillis())) {
-                long remainingSeconds = (cooldownDuration().toMillis() - (now - lastSiegeTime)) / 1000;
-                throw new WarCooldownException(remainingSeconds);
-            }
 
-            int attackerOnline = countOnline(attacker);
-            int defenderOnline = countOnline(defender);
-            if (attackerOnline < plugin.getConfig().getInt("siege.min-attacker-online", 1)) {
-                throw new IllegalStateException("siege.not-enough-attackers");
-            }
-            if (defenderOnline < plugin.getConfig().getInt("siege.min-defender-online", 5)) {
-                throw new IllegalStateException("siege.not-enough-defenders");
+            if (!force) {
+                if (activeSieges.size() >= plugin.getConfig().getInt("siege.max-concurrent", 3)) {
+                    throw new IllegalStateException("siege.max-sieges-reached");
+                }
+                if (isInSiege(attacker.id()) || isInSiege(defender.id())) {
+                    throw new IllegalStateException("siege.already-in-siege");
+                }
+                if (plugin.getWarManager().isAtWar(attacker.id()) || plugin.getWarManager().isAtWar(defender.id())) {
+                    throw new IllegalStateException("siege.war-in-progress");
+                }
+                if (plugin.getRaidManager().isInRaid(attacker.id()) || plugin.getRaidManager().isInRaid(defender.id())) {
+                    throw new IllegalStateException("raid.already-in-raid");
+                }
+                if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
+                    throw new IllegalStateException("war.cannot-declare-on-ally");
+                }
+
+                Long lastSiegeTime = siegeCooldowns.get(cooldownKey);
+                if (lastSiegeTime != null && (now - lastSiegeTime < cooldownDuration().toMillis())) {
+                    long remainingSeconds = (cooldownDuration().toMillis() - (now - lastSiegeTime)) / 1000;
+                    throw new WarCooldownException(remainingSeconds);
+                }
+
+                int attackerOnline = countOnline(attacker);
+                int defenderOnline = countOnline(defender);
+                if (attackerOnline < plugin.getConfig().getInt("siege.min-attacker-online", 1)) {
+                    throw new IllegalStateException("siege.not-enough-attackers");
+                }
+                if (defenderOnline < plugin.getConfig().getInt("siege.min-defender-online", 5)) {
+                    throw new IllegalStateException("siege.not-enough-defenders");
+                }
             }
 
             ClanSiege siege = new ClanSiege(UUID.randomUUID(), attacker.id(), defender.id(), territoryKey,

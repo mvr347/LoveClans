@@ -88,64 +88,76 @@ public final class WarManager {
     }
 
     public CompletableFuture<ClanWar> startWarAsync(Clan attacker, Clan defender, TerritoryKey territory) {
-        return plugin.supplySync(() -> {
-            if (activeWars.size() >= plugin.getConfig().getInt("war.max-concurrent", 3)) {
-                throw new IllegalStateException("war.max-wars-reached");
-            }
-            if (areAtWar(attacker.id(), defender.id())) {
-                throw new IllegalStateException("war.already-at-war");
-            }
-            // Осада/набег выставляют своё состояние на тех же кланах и территориях, поэтому война
-            // поверх них приводит к конфликту осадных режимов (одна закончится и снимет siege mode,
-            // пока вторая ещё идёт). SiegeManager и RaidManager симметрично отказывают в старте,
-            // если уже идёт война, - без этой проверки ограничение обходилось порядком объявления.
-            if (plugin.getSiegeManager().isInSiege(attacker.id()) || plugin.getSiegeManager().isInSiege(defender.id())) {
-                throw new IllegalStateException("siege.already-in-siege");
-            }
-            if (plugin.getRaidManager().isInRaid(attacker.id()) || plugin.getRaidManager().isInRaid(defender.id())) {
-                throw new IllegalStateException("raid.already-in-raid");
-            }
-            if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
-                throw new IllegalStateException("war.cannot-declare-on-ally");
-            }
-            // Two different attackers contesting the same defender territory would share one
-            // siege flag on the defender's claim; whichever war ends first would incorrectly
-            // lift siege mode while the other is still active. Simplest correct fix: only one
-            // war may contest a given territory at a time.
-            if (territory != null && isTerritoryAlreadyContested(defender.id(), territory)) {
-                throw new IllegalStateException("war.territory-already-contested");
-            }
+        return startWarAsync(attacker, defender, territory, false);
+    }
 
+    /**
+     * @param force пропускает все проверки готовности (кулдаун, минимум онлайн, союз, конфликт
+     *              осады/набега и т.д.) — только для тестовой admin-команды
+     *              ({@code /loveclansadmin war forcestart}). Событие {@link ClanWarStartEvent} и
+     *              весь остальной эффект (индексация, кулдаун, снятие блокад) отрабатывают как обычно.
+     */
+    public CompletableFuture<ClanWar> startWarAsync(Clan attacker, Clan defender, TerritoryKey territory, boolean force) {
+        return plugin.supplySync(() -> {
             AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = getWarPairKey(attacker.id(), defender.id());
-            Long lastWarTime = warCooldowns.get(cooldownKey);
             long now = System.currentTimeMillis();
 
-            if (lastWarTime != null && (now - lastWarTime < warCooldownDuration().toMillis())) {
-                long remainingSeconds = (warCooldownDuration().toMillis() - (now - lastWarTime)) / 1000;
-                throw new WarCooldownException(remainingSeconds);
-            }
+            if (!force) {
+                if (activeWars.size() >= plugin.getConfig().getInt("war.max-concurrent", 3)) {
+                    throw new IllegalStateException("war.max-wars-reached");
+                }
+                if (areAtWar(attacker.id(), defender.id())) {
+                    throw new IllegalStateException("war.already-at-war");
+                }
+                // Осада/набег выставляют своё состояние на тех же кланах и территориях, поэтому война
+                // поверх них приводит к конфликту осадных режимов (одна закончится и снимет siege mode,
+                // пока вторая ещё идёт). SiegeManager и RaidManager симметрично отказывают в старте,
+                // если уже идёт война, - без этой проверки ограничение обходилось порядком объявления.
+                if (plugin.getSiegeManager().isInSiege(attacker.id()) || plugin.getSiegeManager().isInSiege(defender.id())) {
+                    throw new IllegalStateException("siege.already-in-siege");
+                }
+                if (plugin.getRaidManager().isInRaid(attacker.id()) || plugin.getRaidManager().isInRaid(defender.id())) {
+                    throw new IllegalStateException("raid.already-in-raid");
+                }
+                if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
+                    throw new IllegalStateException("war.cannot-declare-on-ally");
+                }
+                // Two different attackers contesting the same defender territory would share one
+                // siege flag on the defender's claim; whichever war ends first would incorrectly
+                // lift siege mode while the other is still active. Simplest correct fix: only one
+                // war may contest a given territory at a time.
+                if (territory != null && isTerritoryAlreadyContested(defender.id(), territory)) {
+                    throw new IllegalStateException("war.territory-already-contested");
+                }
 
-            int attackerOnline = 0;
-            for (UUID memberId : attacker.members().keySet()) {
-                if (Bukkit.getPlayer(memberId) != null) attackerOnline++;
-            }
+                Long lastWarTime = warCooldowns.get(cooldownKey);
+                if (lastWarTime != null && (now - lastWarTime < warCooldownDuration().toMillis())) {
+                    long remainingSeconds = (warCooldownDuration().toMillis() - (now - lastWarTime)) / 1000;
+                    throw new WarCooldownException(remainingSeconds);
+                }
 
-            int defenderOnline = 0;
-            for (UUID memberId : defender.members().keySet()) {
-                if (Bukkit.getPlayer(memberId) != null) defenderOnline++;
-            }
+                int attackerOnline = 0;
+                for (UUID memberId : attacker.members().keySet()) {
+                    if (Bukkit.getPlayer(memberId) != null) attackerOnline++;
+                }
 
-            int minOnline = plugin.getConfig().getInt("war.min-online", 3);
-            if (attackerOnline < minOnline || defenderOnline < minOnline) {
-                throw new IllegalStateException("war.not-enough-members");
-            }
+                int defenderOnline = 0;
+                for (UUID memberId : defender.members().keySet()) {
+                    if (Bukkit.getPlayer(memberId) != null) defenderOnline++;
+                }
 
-            boolean defenderHasOnlineLeaderOrGuardian = defender.members().values().stream()
-                    .filter(member -> member.rank() == ClanRank.LEADER || member.rank() == ClanRank.GUARDIAN)
-                    .anyMatch(member -> Bukkit.getPlayer(member.playerId()) != null);
+                int minOnline = plugin.getConfig().getInt("war.min-online", 3);
+                if (attackerOnline < minOnline || defenderOnline < minOnline) {
+                    throw new IllegalStateException("war.not-enough-members");
+                }
 
-            if (!defenderHasOnlineLeaderOrGuardian) {
-                throw new IllegalStateException("war.defender-no-online-leader-or-guardian");
+                boolean defenderHasOnlineLeaderOrGuardian = defender.members().values().stream()
+                        .filter(member -> member.rank() == ClanRank.LEADER || member.rank() == ClanRank.GUARDIAN)
+                        .anyMatch(member -> Bukkit.getPlayer(member.playerId()) != null);
+
+                if (!defenderHasOnlineLeaderOrGuardian) {
+                    throw new IllegalStateException("war.defender-no-online-leader-or-guardian");
+                }
             }
 
             ClanWar war = new ClanWar(UUID.randomUUID(), attacker.id(), defender.id(), territory, now,

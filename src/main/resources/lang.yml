@@ -32,6 +32,8 @@ admin:
   points-updated: "<prefix><green>Очки улучшений клана <color><tag></color> обновлены."
   war-ended: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> завершена администратором."
   war-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> начата администратором."
+  war-force-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
+  siege-force-started: "<prefix><green>Осада <color1><clan1></color1> против <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
   npc:
     unknown-type: "<prefix><red>Неизвестный тип NPC. Сейчас поддерживается только 'contracts'."
     not-looking-at-npc: "<prefix><red>Посмотрите на NPC Citizens, которого нужно привязать, и повторите команду."
@@ -186,7 +188,8 @@ clan:
     admin-reload: "<aqua>/loveclansadmin reload</aqua> <gray>- перезагрузить конфигурацию и язык плагина</gray>"
     admin-npc: "<aqua>/loveclansadmin createnpc contracts</aqua> <gray>- привязать NPC обетов (смотрите на него)</gray>\n    admin-npc-remove: \"<aqua>/loveclansadmin removenpc <id></aqua> <gray>- отвязать NPC</gray>"
     admin-disband: "<aqua>/loveclansadmin disband <tag></aqua> <gray>- распустить клан</gray>"
-    admin-war: "<aqua>/loveclansadmin war <start|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами</gray>"
+    admin-war: "<aqua>/loveclansadmin war <start|forcestart|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, для тестов)</gray>"
+    admin-siege: "<aqua>/loveclansadmin siege forcestart <clan1> <clan2></aqua> <gray>- принудительно начать осаду без проверок готовности (для тестов)</gray>"
     admin-diplo: "<aqua>/loveclansadmin diplo <clan1> <clan2> <relation></aqua> <gray>- изменить отношения между кланами</gray>"
     admin-exp: "<aqua>/loveclansadmin exp <add|remove|set> <tag> <amount></aqua> <gray>- изменить опыт клана</gray>"
     admin-points: "<aqua>/loveclansadmin points <add|remove|set> <tag> <amount></aqua> <gray>- изменить очки улучшений клана</gray>"

@@ -39,10 +39,11 @@ import java.util.stream.Collectors;
 public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "reload", "createnpc", "removenpc", "disband", "war", "diplo", "exp", "points", "artifact", "help"
+            "reload", "createnpc", "removenpc", "disband", "war", "siege", "diplo", "exp", "points", "artifact", "help"
     );
     private static final List<String> AMOUNT_ACTIONS = List.of("add", "remove", "set");
-    private static final List<String> WAR_ACTIONS = List.of("start", "end");
+    private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "end");
+    private static final List<String> SIEGE_ACTIONS = List.of("forcestart");
     private static final List<String> RELATIONS = List.of("ally", "enemy", "neutral");
 
     private final LoveClansPlugin plugin;
@@ -70,6 +71,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "removenpc" -> removeNpc(sender, args);
                 case "disband" -> disband(sender, args);
                 case "war" -> war(sender, args);
+                case "siege" -> siege(sender, args);
                 case "diplo" -> diplo(sender, args);
                 case "exp" -> expOrPoints(sender, args, true);
                 case "points" -> expOrPoints(sender, args, false);
@@ -165,9 +167,12 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         Clan clan1 = clan1Opt.get();
         Clan clan2 = clan2Opt.get();
 
-        if (subAction.equals("start")) {
-            plugin.getWarManager().startWarAsync(clan1, clan2, null)
-                    .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.war-started", Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()))))
+        if (subAction.equals("start") || subAction.equals("forcestart")) {
+            boolean force = subAction.equals("forcestart");
+            plugin.getWarManager().startWarAsync(clan1, clan2, null, force)
+                    .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender,
+                            force ? "admin.war-force-started" : "admin.war-started",
+                            Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()))))
                     .exceptionally(ex -> {
                         plugin.runSync(() -> plugin.sendOperationError(sender, ex));
                         return null;
@@ -182,6 +187,34 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         } else {
             plugin.getMessages().send(sender, "clan.help.admin-war");
         }
+    }
+
+    /**
+     * {@code /loveclansadmin siege forcestart <clan1> <clan2>} — тестовая команда, обходит все
+     * проверки готовности (кулдаун, минимум онлайн, союз, конфликт войны/набега). Только
+     * force-запуск: обычной {@code start} с проверками здесь нет, т.к. игрокам осаду объявляет
+     * штатный игровой путь, а не эта команда.
+     */
+    private void siege(CommandSender sender, String[] args) {
+        if (args.length < 4 || !args[1].equalsIgnoreCase("forcestart")) {
+            plugin.getMessages().send(sender, "clan.help.admin-siege");
+            return;
+        }
+        Optional<Clan> clan1Opt = plugin.getClanManager().getClanByTag(args[2]);
+        Optional<Clan> clan2Opt = plugin.getClanManager().getClanByTag(args[3]);
+        if (clan1Opt.isEmpty() || clan2Opt.isEmpty()) {
+            plugin.getMessages().send(sender, "clan.not-found");
+            return;
+        }
+        Clan clan1 = clan1Opt.get();
+        Clan clan2 = clan2Opt.get();
+        plugin.getSiegeManager().startSiegeAsync(clan1, clan2, null, true)
+                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.siege-force-started",
+                        Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()))))
+                .exceptionally(ex -> {
+                    plugin.runSync(() -> plugin.sendOperationError(sender, ex));
+                    return null;
+                });
     }
 
     private void diplo(CommandSender sender, String[] args) {
@@ -288,6 +321,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         plugin.getMessages().send(sender, "clan.help.admin-npc");
         plugin.getMessages().send(sender, "clan.help.admin-disband");
         plugin.getMessages().send(sender, "clan.help.admin-war");
+        plugin.getMessages().send(sender, "clan.help.admin-siege");
         plugin.getMessages().send(sender, "clan.help.admin-diplo");
         plugin.getMessages().send(sender, "clan.help.admin-exp");
         plugin.getMessages().send(sender, "clan.help.admin-points");
@@ -314,6 +348,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "createnpc" -> List.of("contracts");
                 case "disband", "diplo" -> clanTags;
                 case "war" -> WAR_ACTIONS;
+                case "siege" -> SIEGE_ACTIONS;
                 case "exp", "points" -> AMOUNT_ACTIONS;
                 case "artifact" -> Arrays.stream(ArtifactType.values())
                         .map(type -> type.name().toLowerCase(Locale.ROOT))
@@ -325,7 +360,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 3) {
             List<String> completions = switch (action) {
-                case "diplo", "war" -> clanTags;
+                case "diplo", "war", "siege" -> clanTags;
                 case "exp", "points" -> clanTags;
                 default -> List.of();
             };
@@ -335,7 +370,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         if (args.length == 4 && action.equals("diplo")) {
             return StringUtil.copyPartialMatches(args[3], RELATIONS, new ArrayList<>());
         }
-        if (args.length == 4 && action.equals("war")) {
+        if (args.length == 4 && (action.equals("war") || action.equals("siege"))) {
             return StringUtil.copyPartialMatches(args[3], clanTags, new ArrayList<>());
         }
 
