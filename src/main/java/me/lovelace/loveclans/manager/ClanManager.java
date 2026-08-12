@@ -937,11 +937,13 @@ public final class ClanManager {
         plugin.getAdvancedClaimsHook().showClaimBorder(player, visualizationBox, borderDuration);
 
         plugin.getMessages().send(player, "territory.claim-confirm-chat");
-        player.showTitle(Title.title(
-                plugin.getMessages().component("territory.claim-confirm-title", Map.of(), player),
-                plugin.getMessages().component("territory.claim-confirm-subtitle", Map.of(), player),
-                Title.Times.times(Duration.ofMillis(500), Duration.ofSeconds(borderDuration / 20), Duration.ofMillis(500))
-        ));
+        if (plugin.getMessages().isTitleChannelEnabled(player)) {
+            player.showTitle(Title.title(
+                    plugin.getMessages().component("territory.claim-confirm-title", Map.of(), player),
+                    plugin.getMessages().component("territory.claim-confirm-subtitle", Map.of(), player),
+                    Title.Times.times(Duration.ofMillis(500), Duration.ofSeconds(borderDuration / 20), Duration.ofMillis(500))
+            ));
+        }
 
         return true;
     }
