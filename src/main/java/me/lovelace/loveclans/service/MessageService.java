@@ -28,13 +28,21 @@ import java.util.Map;
 public final class MessageService {
     private final LoveClansPlugin plugin;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
-    private final me.lovelace.loveclans.integration.LoveNotifyBridge loveNotifyBridge;
     private YamlConfiguration lang;
     private Method papiSetPlaceholders;
 
     public MessageService(LoveClansPlugin plugin) {
         this.plugin = plugin;
-        this.loveNotifyBridge = new me.lovelace.loveclans.integration.LoveNotifyBridge(plugin);
+    }
+
+    /**
+     * Не кэшируем {@code Optional<LoveNotify>} в поле — сосед может зарегистрировать
+     * реализацию позже, см. {@code LoveCore.service(...)} javadoc в LoveCore.
+     */
+    private boolean isNotifyChannelEnabled(Player player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel channel) {
+        return dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.notify.LoveNotify.class)
+                .map(n -> n.isChannelEnabled(player.getUniqueId(), channel))
+                .orElse(true);
     }
 
     public void reload() {
@@ -258,7 +266,7 @@ public final class MessageService {
      * subtitleKey to show a title-only prompt.
      */
     public void sendTitle(Player player, String titleKey, String subtitleKey, Map<String, String> placeholders) {
-        if (!loveNotifyBridge.isChannelEnabled(player.getUniqueId(), "TITLE")) {
+        if (!isNotifyChannelEnabled(player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel.TITLE)) {
             return;
         }
         Component titleComponent = component(titleKey, placeholders, player);
@@ -268,7 +276,7 @@ public final class MessageService {
     }
 
     public void sendActionBar(Player player, String key, Map<String, String> placeholders) {
-        if (!loveNotifyBridge.isChannelEnabled(player.getUniqueId(), "ACTION_BAR")) {
+        if (!isNotifyChannelEnabled(player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel.ACTION_BAR)) {
             return;
         }
         player.sendActionBar(component(key, placeholders, player));
@@ -280,7 +288,7 @@ public final class MessageService {
      * {@link #sendTitle}. Проверяйте перед вызовом {@code player.showTitle(...)} напрямую.
      */
     public boolean isTitleChannelEnabled(Player player) {
-        return loveNotifyBridge.isChannelEnabled(player.getUniqueId(), "TITLE");
+        return isNotifyChannelEnabled(player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel.TITLE);
     }
 
     public void playSound(Player player, Sound sound, float volume, float pitch) {
