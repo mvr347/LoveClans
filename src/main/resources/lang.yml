@@ -111,6 +111,7 @@ clan:
   application-not-found: "<prefix><red>Заявка не найдена."
   application-rejected: "<prefix><red>Ваша заявка в клан <color><tag></color> была отклонена."
   applied: "<prefix><green>Вы подали заявку на вступление в клан <color><tag></color>."
+  creation-blocked-politeness: "<prefix><red>Слишком низкая вежливость, чтобы создать клан."
   creation-cooldown: "<prefix><red>Вы недавно уже создавали клан. Подождите перед созданием нового."
   creation-economy-unavailable: "<prefix><red>Оплата создания клана временно недоступна (ItemsAdder не найден)."
   creation-insufficient-funds: "<prefix><red>Недостаточно предметов для оплаты создания клана."

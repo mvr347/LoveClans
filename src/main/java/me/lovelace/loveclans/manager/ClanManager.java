@@ -3,6 +3,7 @@ package me.lovelace.loveclans.manager;
 import dev.lovelace.lovecore.api.LoveCore;
 import dev.lovelace.lovecore.api.economy.Denomination;
 import dev.lovelace.lovecore.api.economy.LoveEconomy;
+import dev.lovelace.lovecore.api.economy.TaxOracle;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.api.events.ClanClaimEvent;
 import me.lovelace.loveclans.api.events.ClanCreateEvent;
@@ -373,6 +374,11 @@ public final class ClanManager {
             }
             if (getClanByTag(tag).isPresent()) {
                 throw new IllegalStateException("clan.tag-exists");
+            }
+            if (LoveCore.service(TaxOracle.class)
+                    .map(oracle -> oracle.isGatedAction(founderId, TaxOracle.GatedAction.CLAN_CREATION))
+                    .orElse(false)) {
+                throw new IllegalStateException("clan.creation-blocked-politeness");
             }
 
             long cooldownSeconds = plugin.getConfig().getLong("clans.creation-cooldown-seconds", 0L);
