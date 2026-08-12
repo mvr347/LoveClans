@@ -8,6 +8,7 @@ softdepend:
   - LoveClaims
   - LoveTrades
   - PlaceholderAPI
+  - LoveCore
   - ItemsAdder
   - Citizens
   - LoveHunt
