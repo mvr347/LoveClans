@@ -188,7 +188,6 @@ public final class SqlClanStorage implements ClanStorage {
                 savePermissions(connection, clan);
                 connection.commit();
             } catch (SQLException exception) {
-                exception.printStackTrace();
                 throw new StorageException("Unable to save clan " + clan.id(), exception);
             }
         }, database.executor());

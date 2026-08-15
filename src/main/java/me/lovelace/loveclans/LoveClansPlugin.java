@@ -257,8 +257,7 @@ public final class LoveClansPlugin extends JavaPlugin {
                 }, 20L, 20L);
             });
         }).exceptionally(throwable -> {
-            getLogger().severe("КРИТИЧЕСКАЯ ОШИБКА ЗАГРУЗКИ ПЛАГИНА: " + throwable.getMessage());
-            throwable.printStackTrace();
+            getLogger().log(java.util.logging.Level.SEVERE, "КРИТИЧЕСКАЯ ОШИБКА ЗАГРУЗКИ ПЛАГИНА", throwable);
             Bukkit.getPluginManager().disablePlugin(this);
             return null;
         });

@@ -47,6 +47,10 @@ public final class HeadsConfig {
             }
             return YamlConfiguration.loadConfiguration(file);
         } catch (IllegalArgumentException | IllegalStateException exception) {
+            // Head textures just fall back to the hardcoded defaults below - but a failure to even
+            // resolve/save heads.yml is worth knowing about instead of silently going unnoticed.
+            java.util.logging.Logger.getLogger(HeadsConfig.class.getName())
+                    .warning("Не удалось загрузить heads.yml, используются встроенные текстуры по умолчанию: " + exception.getMessage());
             return null;
         }
     }

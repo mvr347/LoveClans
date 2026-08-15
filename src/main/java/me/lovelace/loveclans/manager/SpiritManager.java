@@ -36,6 +36,7 @@ import java.util.logging.Level;
 public final class SpiritManager implements Listener {
     private final LoveClansPlugin plugin;
     private BukkitTask task;
+    private BukkitTask decayTask;
     private static final String SPEED_MODIFIER_NAME = "clans_spirit_speed";
 
     private final Map<UUID, Long> lastClaimExp = new ConcurrentHashMap<>();
@@ -60,7 +61,7 @@ public final class SpiritManager implements Listener {
         }
         long period = 20L * Math.max(1, plugin.getConfig().getInt("mechanics.spirit.tick-seconds", 6));
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, period, period);
-        Bukkit.getScheduler().runTaskTimer(plugin, this::decayCheck, 20L * 60L * 60L, 20L * 60L * 60L);
+        decayTask = Bukkit.getScheduler().runTaskTimer(plugin, this::decayCheck, 20L * 60L * 60L, 20L * 60L * 60L);
     }
 
     public void purgeClan(UUID clanId) {
@@ -72,6 +73,9 @@ public final class SpiritManager implements Listener {
     public void stop() {
         if (task != null) {
             task.cancel();
+        }
+        if (decayTask != null) {
+            decayTask.cancel();
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
             removeSpeedAttribute(player);

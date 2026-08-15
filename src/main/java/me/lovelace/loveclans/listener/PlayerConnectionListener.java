@@ -35,6 +35,13 @@ public final class PlayerConnectionListener implements Listener {
         plugin.getGuiManager().clearPlayerCache(playerId);
         plugin.getClanTradeSessionManager().handlePlayerQuit(player);
 
+        // Otherwise the "/clan home" warmup's repeating BukkitTask keeps ticking against a
+        // disconnected (stale) Player object indefinitely - it's only ever cancelled today by
+        // the player moving or re-issuing the command, neither of which can happen once offline.
+        if (plugin.getClanManager().hasPendingHomeTeleport(playerId)) {
+            plugin.getClanManager().cancelHomeTeleport(playerId, null);
+        }
+
         // Deliberately not gated on the player still being in a clan: they may have been
         // kicked/left while carrying a captured banner (see CombatListener.onDeath for the
         // matching death-path fix).
