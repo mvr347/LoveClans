@@ -690,7 +690,14 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.not-in-clan");
             return;
         }
-        plugin.getGuiManager().openChestHub(player, optionalClan.get());
+        Clan clan = optionalClan.get();
+        // Same check as the authoritative guard in GuiManager#openChestHub - duplicated here for
+        // immediate command-layer feedback, matching how war/siege/raid are gated at both layers.
+        if (!clan.hasCapital()) {
+            plugin.getMessages().send(player, "chest.no-capital");
+            return;
+        }
+        plugin.getGuiManager().openChestHub(player, clan);
     }
 
     private void openContracts(Player player) {
@@ -804,6 +811,16 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Clan attacker = optionalAttacker.get();
         Clan defender = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
 
+        // Требуется установленная территория у обеих сторон — иначе некуда/не за что объявлять
+        // войну (компас, захват знамени, осадный режим territory-based). Проверяется здесь для
+        // немедленной обратной связи и повторно в WarManager#startWarAsync как авторитетная защита.
+        if (!attacker.hasCapital()) {
+            throw new IllegalStateException("war.attacker-no-capital");
+        }
+        if (!defender.hasCapital()) {
+            throw new IllegalStateException("war.defender-no-capital");
+        }
+
         // Оспариваемая территория должна принадлежать защитнику - иначе объявление войны "за"
         // случайный чанк, где стоит атакующий, ни на что не влияет (компас/захват знамени не
         // находят подходящую территорию и молча ничего не выдают игрокам).
@@ -915,6 +932,14 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Clan attacker = optionalAttacker.get();
         Clan defender = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
 
+        // Same capital requirement as /clan war - see the comment there.
+        if (!attacker.hasCapital()) {
+            throw new IllegalStateException("siege.attacker-no-capital");
+        }
+        if (!defender.hasCapital()) {
+            throw new IllegalStateException("siege.defender-no-capital");
+        }
+
         // Same "must be standing inside the defender's territory" requirement as /clan war -
         // see the comment there for why AdvancedClaimsHook#contains is used instead of TerritoryKey.fromLocation.
         boolean withinDefenderTerritory = plugin.getClanManager().getClanAt(player.getLocation())
@@ -963,6 +988,15 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
 
         Clan defender = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
+
+        // Same capital requirement as /clan war - see the comment there.
+        if (!attacker.hasCapital()) {
+            throw new IllegalStateException("raid.attacker-no-capital");
+        }
+        if (!defender.hasCapital()) {
+            throw new IllegalStateException("raid.defender-no-capital");
+        }
+
         // No success message here: RaidManager#beginPendingPhase already notifies every online
         // member of both clans (including this player) once the raid is actually registered.
         plugin.getRaidManager().startRaidAsync(attacker, defender)

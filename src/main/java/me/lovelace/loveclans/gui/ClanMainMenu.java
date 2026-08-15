@@ -4,6 +4,7 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
+import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -13,6 +14,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 public final class ClanMainMenu implements InventoryHolder {
@@ -79,16 +81,41 @@ public final class ClanMainMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component(canManageDiplomacy ? "gui.main.diplomacy.lore" : "gui.main.diplomacy.no-permission-lore", player));
         inventory.setItem(21, diplomacyItem.build());
 
+        // "Баннер пропал" — территория числится за кланом, но физического блока баннера на месте
+        // либо нет вовсе, либо он не помечен клановыми PDC-тегами (взрыв, поджог, чужое вмешательство
+        // — ни один из этих путей не проходит через защиту ClanProtectionListener#onBlockBreak,
+        // которая ловит только прямую поломку игроком). Показываем только тем, кто может управлять
+        // территорией и не заблокирован войной — иначе тем, кому и так недоступно управление,
+        // предлагали бы действие, которое обычной кликалкой не пройдёт.
+        Optional<ClanTerritory> capitalTerritoryOpt = clan.getCapitalTerritory();
+        boolean bannerMissing = !atWar && canManageTerritories
+                && capitalTerritoryOpt.isPresent()
+                && !plugin.getClanManager().isBannerPresent(capitalTerritoryOpt.get());
+
         boolean clanHouseInactive = atWar || !canManageTerritories;
-        ItemBuilder clanHouseItem = clanHouseInactive
-                ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                : ItemBuilder.head(ItemBuilder.HEAD_CAPITAL);
-        clanHouseItem.name(plugin.getMessages().component("gui.main.territories.name", player))
-                .lore(plugin.getMessages().component("gui.main.territories.lore", player));
-        if (atWar) {
-            clanHouseItem.lore(plugin.getMessages().component("gui.capital.war-blocked", player));
-        } else if (!canManageTerritories) {
-            clanHouseItem.lore(plugin.getMessages().component("gui.main.territories.no-permission-lore", player));
+        ItemBuilder clanHouseItem;
+        if (clanHouseInactive) {
+            clanHouseItem = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.main.territories.name", player))
+                    .lore(plugin.getMessages().component("gui.main.territories.lore", player));
+            if (atWar) {
+                clanHouseItem.lore(plugin.getMessages().component("gui.capital.war-blocked", player));
+            } else {
+                clanHouseItem.lore(plugin.getMessages().component("gui.main.territories.no-permission-lore", player));
+            }
+        } else if (bannerMissing) {
+            boolean hasBannerItem = plugin.getClanManager().getClanItemFactory().hasExistingBanner(player, "CAPITAL", clan.id());
+            clanHouseItem = hasBannerItem
+                    ? ItemBuilder.head(ItemBuilder.HEAD_LEAVE_CLAN)
+                            .name(plugin.getMessages().component("gui.territories.capital.already-have-banner-item", player))
+                            .lore(plugin.getMessages().component("gui.territories.capital.banner-missing-place-it", player))
+                    : ItemBuilder.of(Material.RED_BANNER)
+                            .name(plugin.getMessages().component("gui.territories.capital.banner-missing-name", player))
+                            .lore(plugin.getMessages().component("gui.territories.capital.banner-missing-lore", player));
+        } else {
+            clanHouseItem = ItemBuilder.head(ItemBuilder.HEAD_CAPITAL)
+                    .name(plugin.getMessages().component("gui.main.territories.name", player))
+                    .lore(plugin.getMessages().component("gui.main.territories.lore", player));
         }
         inventory.setItem(23, clanHouseItem.build());
 
@@ -163,9 +190,19 @@ public final class ClanMainMenu implements InventoryHolder {
                 // но в режиме просмотра/телепортации (см. ClanCapitalManagementMenu.isManagement).
                 if (plugin.getClanManager().inAnyConflict(clan.id())) {
                     plugin.getMessages().send(clicker, "gui.capital.war-blocked");
-                } else {
-                    plugin.getGuiManager().openClanCapitalManagementMenu(clicker, clan);
+                    return;
                 }
+                boolean canManageTerritories = clan.hasPermission(clicker.getUniqueId(), ClanPermission.CLAIM);
+                boolean bannerMissing = canManageTerritories && clan.getCapitalTerritory()
+                        .map(t -> !plugin.getClanManager().isBannerPresent(t))
+                        .orElse(false);
+                if (bannerMissing) {
+                    if (plugin.getClanManager().giveCapitalBannerIfAbsent(clicker, clan)) {
+                        clicker.closeInventory();
+                    }
+                    return;
+                }
+                plugin.getGuiManager().openClanCapitalManagementMenu(clicker, clan);
             }
             case 25 -> {
                 if (!clan.hasPermission(clicker.getUniqueId(), ClanPermission.UPGRADE)) {

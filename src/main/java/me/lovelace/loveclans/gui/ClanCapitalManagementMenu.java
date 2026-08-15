@@ -14,6 +14,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.util.BoundingBox;
 
 import java.util.Map;
 import java.util.Optional;
@@ -50,7 +51,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         // то же разделение прав, что было в ClanTerritoriesSelectionGui.
         boolean isManagement = clan.hasPermission(player.getUniqueId(), ClanPermission.CLAIM);
 
-        Optional<ClanTerritory> capitalTerritoryOpt = clan.territories().stream().filter(ClanTerritory::isCapital).findFirst();
+        Optional<ClanTerritory> capitalTerritoryOpt = clan.getCapitalTerritory();
 
         // Слот 0: голова темы меню — раньше оставался пустым (AIR), как и в других
         // менюхах, где стандарт требует профиль/тему, а не голое стекло.
@@ -71,6 +72,14 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         inventory.setItem(0, infoItem.build());
 
         if (capitalTerritoryOpt.isPresent()) {
+            // Slot 9: Show territory border — доступно любому участнику клана, которому вообще
+            // видно это меню, а не только тем, у кого есть право CLAIM: посмотреть границы своей
+            // территории — не управляющее действие.
+            inventory.setItem(9, ItemBuilder.head(ItemBuilder.HEAD_MAP)
+                    .name(plugin.getMessages().component("gui.capital.show-border.name", player))
+                    .lore(plugin.getMessages().component("gui.capital.show-border.lore", player))
+                    .build());
+
             // Slot 11: Move Home Point
             ItemStack moveHomeItem;
             if (!canManage) {
@@ -187,9 +196,22 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         boolean isAssistant = clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.GUARDIAN).orElse(false);
         boolean canManage = isLeader || isAssistant;
         boolean isManagement = clan.hasPermission(clicker.getUniqueId(), ClanPermission.CLAIM);
-        boolean hasCapital = clan.territories().stream().anyMatch(ClanTerritory::isCapital);
+        boolean hasCapital = clan.hasCapital();
 
         switch (slot) {
+            case 9: // Show territory border — доступно в режиме просмотра тоже, см. open()
+                if (!hasCapital) return;
+                clan.getCapitalTerritory().ifPresent(territory -> {
+                    Optional<BoundingBox> boxOpt = plugin.getAdvancedClaimsHook().boundingBoxOf(territory);
+                    if (boxOpt.isEmpty()) {
+                        plugin.getMessages().send(clicker, "territory.geometry-unavailable");
+                        return;
+                    }
+                    long borderDuration = plugin.getConfig().getLong("integration.advanced-claims.border-display-ticks", 100L);
+                    plugin.getAdvancedClaimsHook().showClaimBorder(clicker, boxOpt.get(), borderDuration);
+                    plugin.getMessages().send(clicker, "gui.capital.show-border.action");
+                });
+                break;
             case 25: // Back button — меню теперь открывается напрямую из главного меню клана
                 plugin.getGuiManager().openMain(clicker, clan);
                 break;
@@ -200,13 +222,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                 if (hasCapital || !isManagement) return;
                 ItemStack clicked = clicker.getOpenInventory().getTopInventory().getItem(14);
                 if (clicked != null && clicked.getType() == Material.RED_BANNER) {
-                    boolean hasBanner = plugin.getClanManager().getClanItemFactory().hasExistingBanner(clicker, "CAPITAL", clan.id());
-                    if (hasBanner) {
-                        plugin.getMessages().send(clicker, "gui.territories.capital.already-have-banner");
-                    } else {
-                        ItemStack capitalBanner = plugin.getClanManager().getClanItemFactory().createCapitalBanner(clan.id(), clan.name());
-                        clicker.getInventory().addItem(capitalBanner);
-                        plugin.getMessages().send(clicker, "territory.banner-given");
+                    if (plugin.getClanManager().giveCapitalBannerIfAbsent(clicker, clan)) {
                         clicker.closeInventory();
                     }
                 }

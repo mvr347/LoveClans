@@ -82,6 +82,15 @@ public final class RaidManager {
 
     public CompletableFuture<ClanRaid> startRaidAsync(Clan attacker, Clan defender) {
         return plugin.supplySync(() -> {
+            // Без капитальной территории набегать/обороняться не от чего (нет своей земли, за
+            // которую отвечать) — startRaidAsync не принимает force-параметр, здесь нет
+            // admin-обхода, который нужно было бы сохранить.
+            if (!attacker.hasCapital()) {
+                throw new IllegalStateException("raid.attacker-no-capital");
+            }
+            if (!defender.hasCapital()) {
+                throw new IllegalStateException("raid.defender-no-capital");
+            }
             if (isInRaid(attacker.id()) || isInRaid(defender.id())) {
                 throw new IllegalStateException("raid.already-in-raid");
             }
