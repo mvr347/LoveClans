@@ -780,6 +780,11 @@ integration:
     # захват территорий вообще (см. territory.advancedclaims-disabled).
     enabled: true
     claim-radius: 35 # Radius for LoveClaims (71x71x71 area)
+    # Вертикальная полоса привата вокруг Y знамени, а не вся высота мира (было: min..max мира,
+    # то есть приват защищал весь столбец от бедрока до предела постройки над базой любой высоты).
+    # Обрезается границами мира (world.getMinHeight()/getMaxHeight()).
+    claim-height-below: 64  # блоков вниз от знамени
+    claim-height-above: 128 # блоков вверх от знамени
     border-display-ticks: 100 # Duration in ticks for showing claim border (5 seconds)
     trust-mapping:
       LEADER: OWNER

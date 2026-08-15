@@ -110,7 +110,7 @@ public final class ClanDiplomacyMenu {
         boolean inConflict = plugin.getClanManager().inConflictWith(sourceClan.id(), targetClan.id());
         inventory.setItem(SLOT_WAR, buildWarItem(player, sourceClan, targetClan, inConflict).build());
         inventory.setItem(SLOT_SIEGE, buildSiegeItem(player, sourceClan, targetClan, inConflict).build());
-        inventory.setItem(SLOT_RAID, buildRaidItem(player, targetClan, inConflict).build());
+        inventory.setItem(SLOT_RAID, buildRaidItem(player, sourceClan, targetClan, inConflict).build());
 
         if (inConflict) {
             inventory.setItem(SLOT_PEACE, ItemBuilder.head(ItemBuilder.HEAD_RELATION_FRIENDLY)
@@ -175,11 +175,13 @@ public final class ClanDiplomacyMenu {
 
     private ItemBuilder buildWarItem(Player player, Clan sourceClan, Clan targetClan, boolean inConflict) {
         boolean inTargetTerritory = resolveContestedTerritory(player, targetClan).isPresent();
-        if (inConflict || !inTargetTerritory) {
+        boolean missingCapital = !sourceClan.hasCapital() || !targetClan.hasCapital();
+        if (inConflict || !inTargetTerritory || missingCapital) {
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.diplomacy.war.name", player))
-                    .lore(plugin.getMessages().component(inConflict
-                            ? "gui.diplomacy.war.unavailable-conflict" : "gui.diplomacy.war.unavailable-location", player));
+                    .lore(plugin.getMessages().component(inConflict ? "gui.diplomacy.war.unavailable-conflict"
+                            : missingCapital ? "gui.diplomacy.war.unavailable-no-capital"
+                            : "gui.diplomacy.war.unavailable-location", player));
         }
         return ItemBuilder.head(ItemBuilder.HEAD_RELATION_HOSTILE)
                 .name(plugin.getMessages().component("gui.diplomacy.war.name", player))
@@ -188,22 +190,26 @@ public final class ClanDiplomacyMenu {
 
     private ItemBuilder buildSiegeItem(Player player, Clan sourceClan, Clan targetClan, boolean inConflict) {
         boolean inTargetTerritory = resolveContestedTerritory(player, targetClan).isPresent();
-        if (inConflict || !inTargetTerritory) {
+        boolean missingCapital = !sourceClan.hasCapital() || !targetClan.hasCapital();
+        if (inConflict || !inTargetTerritory || missingCapital) {
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.diplomacy.siege.name", player))
-                    .lore(plugin.getMessages().component(inConflict
-                            ? "gui.diplomacy.siege.unavailable-conflict" : "gui.diplomacy.siege.unavailable-location", player));
+                    .lore(plugin.getMessages().component(inConflict ? "gui.diplomacy.siege.unavailable-conflict"
+                            : missingCapital ? "gui.diplomacy.siege.unavailable-no-capital"
+                            : "gui.diplomacy.siege.unavailable-location", player));
         }
         return ItemBuilder.head(ItemBuilder.HEAD_BLOCKADE)
                 .name(plugin.getMessages().component("gui.diplomacy.siege.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.siege.lore", player));
     }
 
-    private ItemBuilder buildRaidItem(Player player, Clan targetClan, boolean inConflict) {
-        if (inConflict) {
+    private ItemBuilder buildRaidItem(Player player, Clan sourceClan, Clan targetClan, boolean inConflict) {
+        boolean missingCapital = !sourceClan.hasCapital() || !targetClan.hasCapital();
+        if (inConflict || missingCapital) {
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.diplomacy.raid.name", player))
-                    .lore(plugin.getMessages().component("gui.diplomacy.raid.unavailable-conflict", player));
+                    .lore(plugin.getMessages().component(inConflict
+                            ? "gui.diplomacy.raid.unavailable-conflict" : "gui.diplomacy.raid.unavailable-no-capital", player));
         }
         return ItemBuilder.head(ItemBuilder.HEAD_ABILITY_BERSERKER)
                 .name(plugin.getMessages().component("gui.diplomacy.raid.name", player))
@@ -306,6 +312,14 @@ public final class ClanDiplomacyMenu {
     }
 
     private void handleWarDeclare(Player player, Clan sourceClan, Clan targetClan) {
+        if (!sourceClan.hasCapital()) {
+            plugin.sendOperationError(player, new IllegalStateException("war.attacker-no-capital"));
+            return;
+        }
+        if (!targetClan.hasCapital()) {
+            plugin.sendOperationError(player, new IllegalStateException("war.defender-no-capital"));
+            return;
+        }
         Optional<TerritoryKey> territory = resolveContestedTerritory(player, targetClan);
         if (territory.isEmpty()) {
             plugin.sendOperationError(player, new IllegalStateException("war.must-be-in-enemy-territory"));
@@ -320,6 +334,14 @@ public final class ClanDiplomacyMenu {
     }
 
     private void handleSiegeDeclare(Player player, Clan sourceClan, Clan targetClan) {
+        if (!sourceClan.hasCapital()) {
+            plugin.sendOperationError(player, new IllegalStateException("siege.attacker-no-capital"));
+            return;
+        }
+        if (!targetClan.hasCapital()) {
+            plugin.sendOperationError(player, new IllegalStateException("siege.defender-no-capital"));
+            return;
+        }
         Optional<TerritoryKey> territory = resolveContestedTerritory(player, targetClan);
         if (territory.isEmpty()) {
             plugin.sendOperationError(player, new IllegalStateException("war.must-be-in-enemy-territory"));
@@ -334,6 +356,14 @@ public final class ClanDiplomacyMenu {
     }
 
     private void handleRaidDeclare(Player player, Clan sourceClan, Clan targetClan) {
+        if (!sourceClan.hasCapital()) {
+            plugin.sendOperationError(player, new IllegalStateException("raid.attacker-no-capital"));
+            return;
+        }
+        if (!targetClan.hasCapital()) {
+            plugin.sendOperationError(player, new IllegalStateException("raid.defender-no-capital"));
+            return;
+        }
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.raid.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player),
                 Component.empty(),

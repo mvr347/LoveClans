@@ -99,6 +99,30 @@ public final class AdvancedClaimsHook {
     }
 
     /**
+     * Единая формула геометрии территории вокруг знамени — вызывается и здесь (при заведении
+     * привата LoveClaims под территорию), и из {@code ClanManager#initiateClaimConfirmation}
+     * (превью до подтверждения захвата). Раньше обе стороны считали рамку одной и той же формулой
+     * в двух независимых местах — если конфиг радиуса менялся между вызовами (или один call site
+     * забывали обновить), рамки расходились (см. доку {@link ClanTerritory} о том, почему теперь
+     * геометрия территории вообще берётся только из LoveClaims после создания привата).
+     *
+     * <p>Вертикаль — больше не вся высота мира (это защищало приватом целый столбец до бедрока и
+     * дальше в небо), а настраиваемая полоса вокруг Y знамени: {@code claim-height-below} блоков
+     * вниз и {@code claim-height-above} вверх, обрезанная границами мира.
+     */
+    public static BoundingBox computeTerritoryBounds(LoveClansPlugin plugin, int bannerX, int bannerY, int bannerZ, World world) {
+        int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
+        int heightBelow = plugin.getConfig().getInt("integration.advanced-claims.claim-height-below", 64);
+        int heightAbove = plugin.getConfig().getInt("integration.advanced-claims.claim-height-above", 128);
+        int minY = Math.max(world.getMinHeight(), bannerY - heightBelow);
+        int maxY = Math.min(world.getMaxHeight(), bannerY + heightAbove);
+        return new BoundingBox(
+                bannerX - radius, minY, bannerZ - radius,
+                bannerX + radius, maxY, bannerZ + radius
+        );
+    }
+
+    /**
      * Заводит приват LoveClaims под клановую территорию. Клановая территория без привата не
      * существует — геометрия территории (для войн, осад, защиты) теперь берётся только отсюда,
      * см. {@link #boundingBoxOf(ClanTerritory)}. Поэтому в отличие от прежней версии это больше
@@ -128,11 +152,7 @@ public final class AdvancedClaimsHook {
             return ClaimAttachment.refused();
         }
 
-        int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
-        BoundingBox box = new BoundingBox(
-                territory.bannerX() - radius, world.getMinHeight(), territory.bannerZ() - radius,
-                territory.bannerX() + radius, world.getMaxHeight(), territory.bannerZ() + radius
-        );
+        BoundingBox box = computeTerritoryBounds(plugin, territory.bannerX(), territory.bannerY(), territory.bannerZ(), world);
         Location centerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
 
         // Use createClanClaim instead of createClaim for clan territories.

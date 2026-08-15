@@ -215,6 +215,16 @@ public final class Clan {
     public Optional<ClanTerritory> getCapitalTerritory() {
         return territories.values().stream().filter(ClanTerritory::isCapital).findFirst();
     }
+
+    /**
+     * Есть ли у клана установленная капитальная территория. Раньше это пересчитывалось ad hoc в
+     * нескольких местах (`territories().stream().anyMatch(ClanTerritory::isCapital)` или
+     * `getCapitalTerritory().isPresent()`) — вынесено сюда, чтобы у всех вызывающих был один
+     * источник истины.
+     */
+    public boolean hasCapital() {
+        return getCapitalTerritory().isPresent();
+    }
     
     public boolean hasPermission(UUID playerId, ClanPermission permission) {
         Optional<ClanMember> member = member(playerId);

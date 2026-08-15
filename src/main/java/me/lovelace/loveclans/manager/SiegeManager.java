@@ -137,6 +137,15 @@ public final class SiegeManager {
             long now = System.currentTimeMillis();
 
             if (!force) {
+                // Как в WarManager#startWarAsync: без капитальной территории осаждать/обороняться
+                // не от чего. force=true (тестовая admin-команда forcestart) пропускает и эту
+                // проверку тоже.
+                if (!attacker.hasCapital()) {
+                    throw new IllegalStateException("siege.attacker-no-capital");
+                }
+                if (!defender.hasCapital()) {
+                    throw new IllegalStateException("siege.defender-no-capital");
+                }
                 if (activeSieges.size() >= plugin.getConfig().getInt("siege.max-concurrent", 3)) {
                     throw new IllegalStateException("siege.max-sieges-reached");
                 }

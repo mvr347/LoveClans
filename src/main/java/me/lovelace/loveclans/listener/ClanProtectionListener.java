@@ -17,6 +17,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -31,6 +32,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemHeldEvent; // New import
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent; // New import
+import org.bukkit.event.vehicle.VehicleMoveEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -174,6 +176,32 @@ public class ClanProtectionListener implements Listener {
             return; // Только осмотрелся — не движение.
         }
         clanManager.cancelHomeTeleport(player.getUniqueId(), "territory.home-teleport.cancelled-moved");
+    }
+
+    /**
+     * {@link PlayerMoveEvent} НЕ вызывается для игрока-пассажира транспорта (лодка, вагонетка,
+     * лошадь и т.п.) — пока игрок едет пассажиром, его перемещение идёт только через
+     * {@link VehicleMoveEvent} на самом транспортном средстве. Без этого слушателя игрок мог
+     * уехать на лодке (или верхом) далеко от места старта прогрева "/clan home" во время прогрева
+     * и всё равно получить телепорт по его истечении — обход проверки в {@link #onPlayerMove}.
+     * Планер (элитры) сюда не относится: там движется сам игрок, а не отдельная сущность-транспорт,
+     * так что обычный {@code PlayerMoveEvent} по-прежнему срабатывает и отменяет прогрев как надо.
+     *
+     * <p>{@code VehicleMoveEvent} не реализует {@code Cancellable}, поэтому {@code ignoreCancelled}
+     * здесь неприменим (и не нужен — движение транспорта нельзя отменить на этом этапе).</p>
+     */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onVehicleMove(VehicleMoveEvent event) {
+        Location from = event.getFrom();
+        Location to = event.getTo();
+        if (from.getBlockX() == to.getBlockX() && from.getBlockY() == to.getBlockY() && from.getBlockZ() == to.getBlockZ()) {
+            return; // Транспорт не сменил блок — симметрично проверке блок-координат в onPlayerMove.
+        }
+        for (Entity passenger : event.getVehicle().getPassengers()) {
+            if (passenger instanceof Player player && clanManager.hasPendingHomeTeleport(player.getUniqueId())) {
+                clanManager.cancelHomeTeleport(player.getUniqueId(), "territory.home-teleport.cancelled-moved");
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -414,7 +442,7 @@ public class ClanProtectionListener implements Listener {
         Clan victimClan = victimClanOpt.get();
 
         // Check if victim is in their Capital Territory
-        Optional<ClanTerritory> capitalTerritoryOpt = victimClan.territories().stream().filter(ClanTerritory::isCapital).findFirst();
+        Optional<ClanTerritory> capitalTerritoryOpt = victimClan.getCapitalTerritory();
         if (capitalTerritoryOpt.isEmpty()) {
             return;
         }

@@ -99,7 +99,17 @@ public class GuiManager implements Listener {
         tradeRequestsMenu.open(player, clan);
     }
 
+    /**
+     * Единственная точка входа в клановый сундук (команда {@code /clan chest} и любые GUI-переходы
+     * сюда идут через этот метод) — авторитетная проверка на установленную территорию клана живёт
+     * здесь, а не в самих ClanChestMenu/ClanChestMoneyMenu, чтобы не дублировать её в каждом
+     * подменю сундука.
+     */
     public void openChestHub(Player player, Clan clan) {
+        if (!clan.hasCapital()) {
+            plugin.getMessages().send(player, "chest.no-capital");
+            return;
+        }
         chestHubMenu.open(player, clan);
     }
 

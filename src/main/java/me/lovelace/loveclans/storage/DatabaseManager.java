@@ -439,6 +439,18 @@ public final class DatabaseManager implements AutoCloseable {
     public void close() {
         if (executor != null) {
             executor.shutdown();
+            try {
+                // Give in-flight async saves (queued right before shutdown, e.g. a clan save
+                // triggered on the last tick) a chance to finish before the pool goes away -
+                // otherwise they race dataSource.close() below and throw/lose the write.
+                if (!executor.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS)) {
+                    plugin.getLogger().warning("Незавершённые задачи хранилища не успели закончиться за 10с при отключении плагина.");
+                    executor.shutdownNow();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                executor.shutdownNow();
+            }
         }
         if (dataSource != null) {
             dataSource.close();

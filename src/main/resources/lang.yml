@@ -42,6 +42,7 @@ admin:
     unbound: "<prefix><green>NPC обетов (ID <white><id></white>) отвязан."
 
 chest:
+  no-capital: "<prefix><red>У вашего клана нет установленной территории — сначала установите знамя кланового спавна."
   invalid-amount: "<prefix><red>Укажите корректное положительное количество."
   insufficient-items: "<prefix><red>Недостаточно средств для этой операции."
   tax-locked: "<prefix><red>Сундук заблокирован за неуплату налога. Внесите деньги, чтобы погасить долг."
@@ -399,6 +400,10 @@ gui:
     no-permission-lore: "<red>У вас нет прав для управления клановым спавном."
     no-house-lore: "<red>Сначала создайте клановый спавн."
     war-blocked: "<prefix><red>Это действие недоступно во время войны."
+    show-border:
+      name: "<gold>Показать границы территории"
+      lore: "<gray>Подсветить границы клановой территории на несколько секунд."
+      action: "<prefix><green>Границы территории показаны."
     disband:
       name: "<red>Свернуть клановый спавн"
       lore: "<gray>Свернуть клановый спавн и вернуть знамя."
@@ -565,15 +570,18 @@ gui:
       lore: "<gray>ЛКМ - начать войну (нужно стоять на территории клана)"
       unavailable-conflict: "<dark_gray>Конфликт уже идёт"
       unavailable-location: "<dark_gray>Нужно стоять на территории этого клана"
+      unavailable-no-capital: "<dark_gray>Требуется установленная территория клана (у обеих сторон)"
     siege:
       name: "<red>🎯 Устроить осаду"
       lore: "<gray>ЛКМ - начать осаду (нужно стоять на территории клана)"
       unavailable-conflict: "<dark_gray>Конфликт уже идёт"
       unavailable-location: "<dark_gray>Нужно стоять на территории этого клана"
+      unavailable-no-capital: "<dark_gray>Требуется установленная территория клана (у обеих сторон)"
     raid:
       name: "<red>🏹 Устроить набег"
       lore: "<gray>ЛКМ - начать набег на сундук этого клана"
       unavailable-conflict: "<dark_gray>Конфликт уже идёт"
+      unavailable-no-capital: "<dark_gray>Требуется установленная территория клана (у обеих сторон)"
     peace:
       name: "<white>🕊 Мир"
       lore: "<gray>ЛКМ - предложить прекратить конфликт"
@@ -830,6 +838,9 @@ gui:
       place-it: "<gray>Установите знамя, чтобы создать клановый спавн."
       already-have-banner: "<prefix><red>У вас уже есть знамя кланового спавна в инвентаре."
       already-have-banner-item: "<red>Знамя уже получено"
+      banner-missing-name: "<gold>Баннер территории утерян"
+      banner-missing-lore: "<gray>Физический баннер вашей территории уничтожен. Нажмите, чтобы получить новый."
+      banner-missing-place-it: "<gray>Установите знамя на месте прежнего баннера, чтобы восстановить территорию."
       info:
         coords: "<gray>Координаты: <white><x>, <y>, <z>"
         created: "<gray>Создан: <white><date>"
@@ -964,6 +975,7 @@ succession:
 
 territory:
   advancedclaims-disabled: "<prefix><red>Интеграция с LoveClaims отключена, захват территорий недоступен."
+  geometry-unavailable: "<prefix><red>Границы территории сейчас недоступны (LoveClaims не отвечает)."
   already-claimed: "<prefix><red>Эта территория уже захвачена другим кланом."
   already-claimed-by-advancedclaims: "<prefix><red>Эта территория уже защищена через LoveClaims."
   overlaps-claim: "<prefix><red>Здесь нельзя ставить знамя: земля пересекает существующий приват."
@@ -1030,6 +1042,8 @@ war:
   max-wars-reached: "<prefix><red>Достигнут лимит одновременных войн."
   must-be-in-enemy-territory: "<prefix><red>Чтобы объявить войну за территорию, нужно находиться на ней."
   territory-already-contested: "<prefix><red>Эта территория уже оспаривается в другой войне."
+  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя кланового спавна."
+  defender-no-capital: "<prefix><red>У клана-защитника нет установленной клановой территории."
   ended-by-disband: "<prefix><yellow>Война окончена - клан противника был расформирован."
   not-at-war: "<prefix><red>Кланы не находятся в состоянии войны."
   not-enough-members: "<prefix><red>Недостаточно участников онлайн для начала войны (нужно минимум 3 с каждой стороны)."
@@ -1078,6 +1092,8 @@ siege:
   war-in-progress: "<prefix><red>Нельзя начать осаду - один из кланов уже воюет."
   not-enough-attackers: "<prefix><red>Недостаточно атакующих онлайн для начала осады."
   not-enough-defenders: "<prefix><red>Недостаточно защитников онлайн для начала осады (нужно минимум 5)."
+  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя кланового спавна."
+  defender-no-capital: "<prefix><red>У клана-защитника нет установленной клановой территории."
   artifact-reward: "<prefix><gold>За победу в осаде клан получил редкий артефакт!"
   chest-spoils-attacker: "<prefix><gold>Из сундука защитника вынесено <white><amount></white> (<white><percent>%</white>) в сундук клана."
   chest-spoils-defender: "<prefix><red>Осаждающие вынесли из сундука клана <white><amount></white> (<white><percent>%</white>)."
@@ -1111,6 +1127,8 @@ raid:
   target-immune: "<prefix><red>Этот клан слишком влиятелен, чтобы стать целью набега."
   too-many-defenders: "<prefix><red>У защитников слишком много игроков онлайн для набега."
   not-enough-attackers: "<prefix><red>Недостаточно атакующих онлайн для начала набега."
+  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя кланового спавна."
+  defender-no-capital: "<prefix><red>У клана-защитника нет установленной клановой территории."
   not-active: "<prefix><red>Набег сейчас не активен."
   nothing-left: "<prefix><red>Больше нечего вынести - лимит набега исчерпан или сундук пуст."
   bonus-item: "<prefix><gold>Бонусная добыча: <white><item></white>!"

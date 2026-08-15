@@ -103,6 +103,17 @@ public final class WarManager {
             long now = System.currentTimeMillis();
 
             if (!force) {
+                // Без установленной капитальной территории войну объявлять некуда/не за что —
+                // компас, захват знамени и осадный режим territory-based, и не работали бы ни для
+                // атакующего (нечего защищать при ответном ударе), ни для защитника (WarManager
+                // резолвит оспариваемую территорию по capital/territory клана). force=true
+                // (тестовая admin-команда forcestart) намеренно пропускает эту проверку тоже.
+                if (!attacker.hasCapital()) {
+                    throw new IllegalStateException("war.attacker-no-capital");
+                }
+                if (!defender.hasCapital()) {
+                    throw new IllegalStateException("war.defender-no-capital");
+                }
                 if (activeWars.size() >= plugin.getConfig().getInt("war.max-concurrent", 3)) {
                     throw new IllegalStateException("war.max-wars-reached");
                 }

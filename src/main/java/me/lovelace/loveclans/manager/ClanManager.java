@@ -930,11 +930,8 @@ public final class ClanManager {
             return false;
         }
 
-        int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
-        BoundingBox visualizationBox = new BoundingBox(
-                location.getBlockX() - radius, location.getWorld().getMinHeight(), location.getBlockZ() - radius,
-                location.getBlockX() + radius, location.getWorld().getMaxHeight(), location.getBlockZ() + radius
-        );
+        BoundingBox visualizationBox = AdvancedClaimsHook.computeTerritoryBounds(
+                plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), location.getWorld());
 
         PendingClaim pendingClaim = new PendingClaim(player.getUniqueId(), clan, location, bannerType, visualizationBox);
         pendingClaims.put(player.getUniqueId(), pendingClaim);
@@ -1131,6 +1128,57 @@ public final class ClanManager {
         }
     }
 
+    /**
+     * Физически ли ещё стоит блок баннера территории и корректно ли он помечен клановыми PDC-
+     * тегами. Баннер может исчезнуть в обход обычных путей плагина (взрыв, поджог, чужой плагин,
+     * админ-редактирование) — ни один из них сейчас не идёт через {@code onBlockBreak} в
+     * {@code ClanProtectionListener}, который защищает баннер только от прямой поломки игроком.
+     * "Отсутствует" — это отсутствующий мир, блок не баннер, либо PDC не совпадает с этой
+     * территорией; все эти случаи трактуются одинаково — баннер нужно выдавать заново.
+     */
+    public boolean isBannerPresent(ClanTerritory territory) {
+        if (territory == null || territory.bannerX() == null || territory.bannerY() == null || territory.bannerZ() == null) {
+            return false;
+        }
+        World world = Bukkit.getWorld(territory.world());
+        if (world == null) {
+            return false;
+        }
+        org.bukkit.block.Block block = world.getBlockAt(territory.bannerX(), territory.bannerY(), territory.bannerZ());
+        if (!block.getType().toString().endsWith("_BANNER")) {
+            return false;
+        }
+        if (!(block.getState() instanceof org.bukkit.block.Banner bannerState)) {
+            return false;
+        }
+        org.bukkit.persistence.PersistentDataContainer pdc = bannerState.getPersistentDataContainer();
+        boolean hasType = pdc.has(ClanItemFactory.BANNER_TYPE_KEY, org.bukkit.persistence.PersistentDataType.STRING);
+        String clanIdString = pdc.get(ClanItemFactory.CLAN_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING);
+        return hasType && clanIdString != null && clanIdString.equals(territory.clanId().toString());
+    }
+
+    /**
+     * Выдаёт капитал-баннер игроку, если у него в инвентаре/эндер-сундуке ещё нет баннера этого
+     * клана (дубликаты запрещены). Общая логика для {@code ClanCapitalManagementMenu} (первичное
+     * получение баннера до захвата территории) и {@code ClanMainMenu} (повторная выдача, когда
+     * физический блок баннера пропал, а территория всё ещё числится за кланом — см.
+     * {@link #isBannerPresent}) — раньше выдача была продублирована в GUI-коде.
+     *
+     * @return true, если баннер выдан; false — у игрока уже есть баннер этого клана (сообщение уже отправлено).
+     */
+    public boolean giveCapitalBannerIfAbsent(Player player, Clan clan) {
+        if (clanItemFactory.hasExistingBanner(player, "CAPITAL", clan.id())) {
+            plugin.getMessages().send(player, "gui.territories.capital.already-have-banner");
+            return false;
+        }
+        ItemStack capitalBanner = clanItemFactory.createCapitalBanner(clan.id(), clan.name());
+        if (player.getInventory().addItem(capitalBanner).size() > 0) {
+            player.getWorld().dropItemNaturally(player.getLocation(), capitalBanner);
+        }
+        plugin.getMessages().send(player, "territory.banner-given");
+        return true;
+    }
+
     public CompletableFuture<Clan> relocateHomeAsync(Clan clan, UUID actorId, Location location) {
         if (clan == null || actorId == null || location == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor and location cannot be null."));
@@ -1159,9 +1207,7 @@ public final class ClanManager {
             if (inAnyConflict(clan.id())) {
                 throw new IllegalStateException("gui.capital.war-blocked");
             }
-            ClanTerritory territory = clan.territories().stream()
-                    .filter(ClanTerritory::isCapital)
-                    .findFirst()
+            ClanTerritory territory = clan.getCapitalTerritory()
                     .orElseThrow(() -> new IllegalStateException("territory.capital.not-found"));
 
             plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
