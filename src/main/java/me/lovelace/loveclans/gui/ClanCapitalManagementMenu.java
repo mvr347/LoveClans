@@ -208,7 +208,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                         return;
                     }
                     long borderDuration = plugin.getConfig().getLong("integration.advanced-claims.border-display-ticks", 100L);
-                    plugin.getAdvancedClaimsHook().showClaimBorder(clicker, boxOpt.get(), borderDuration);
+                    plugin.getAdvancedClaimsHook().showClaimBorder(clicker, boxOpt.get(), borderDuration, territory.advancedClaimId());
                     plugin.getMessages().send(clicker, "gui.capital.show-border.action");
                 });
                 break;

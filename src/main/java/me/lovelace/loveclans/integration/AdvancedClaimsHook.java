@@ -419,6 +419,17 @@ public final class AdvancedClaimsHook {
     }
 
     public void showClaimBorder(Player player, BoundingBox box, long durationTicks) {
+        showClaimBorder(player, box, durationTicks, null);
+    }
+
+    /**
+     * Показывает границы территории. Если известен {@code claimId} (реальный приват LoveClaims,
+     * см. {@link ClanTerritory#advancedClaimId()}), визуализация 1-в-1 совпадает с тем, как
+     * LoveClaims сама подсвечивает клановые территории (принудительно красное стекло, а не
+     * настройка {@code border.material} по умолчанию) — иначе визуал расходится с тем, что видно
+     * при обычном входе/выходе или из GUI самой LoveClaims.
+     */
+    public void showClaimBorder(Player player, BoundingBox box, long durationTicks, UUID claimId) {
         if (!enabled()) {
             return;
         }
@@ -428,7 +439,11 @@ public final class AdvancedClaimsHook {
             return;
         }
         try {
-            api.showBorder(player, box, durationTicks);
+            if (claimId != null) {
+                api.showBorder(player, box, durationTicks, claimId);
+            } else {
+                api.showBorder(player, box, durationTicks);
+            }
         } catch (RuntimeException exception) {
             plugin.getLogger().log(Level.WARNING, "Failed to invoke showBorder method from AdvancedClaimsAPI", exception);
         }
