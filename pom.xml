@@ -106,7 +106,7 @@
         <dependency>
             <groupId>com.github.mvr347</groupId>
             <artifactId>LoveClaims</artifactId>
-            <version>f9aaba9c1d</version>
+            <version>51f4ba35b9</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
