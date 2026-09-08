@@ -12,7 +12,7 @@ softdepend:
   - ItemsAdder
   - Citizens
   - LoveHunt
-  - LoveCore
+  - Vesuvio
 
 commands:
   loveclan:

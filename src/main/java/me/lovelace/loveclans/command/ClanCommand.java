@@ -799,6 +799,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
     private void war(Player player, String[] args) {
         requirePermission(player, Permissions.WAR);
+        if (!checkAntiCheat(player)) return;
         if (args.length < 2) {
             plugin.getMessages().send(player, "clan.help.war");
             return;
@@ -916,6 +917,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
     private void siege(Player player, String[] args) {
         requirePermission(player, Permissions.WAR);
+        if (!checkAntiCheat(player)) return;
         if (args.length < 2) {
             plugin.getMessages().send(player, "clan.help.siege");
             return;
@@ -967,6 +969,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
     private void raid(Player player, String[] args) {
         requirePermission(player, Permissions.WAR);
+        if (!checkAntiCheat(player)) return;
         if (args.length < 2) {
             plugin.getMessages().send(player, "clan.help.raid");
             return;
@@ -1102,6 +1105,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
     private void ritual(Player player, String[] args) {
         requirePermission(player, Permissions.RITUAL);
+        if (!checkAntiCheat(player)) return;
         if (args.length < 2) {
             plugin.getMessages().send(player, "clan.help.ritual");
             return;
@@ -1239,5 +1243,15 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             }
         }
         return result;
+    }
+
+    private boolean checkAntiCheat(Player player) {
+        if (plugin.getVesuvioHook() != null && plugin.getVesuvioHook().isHighRisk(player.getUniqueId())) {
+            player.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(
+                    "<red>[Кланы]</red> <gray>Действие заблокировано: у вас зафиксирован высокий риск античита!</gray>"
+            ));
+            return false;
+        }
+        return true;
     }
 }

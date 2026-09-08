@@ -90,6 +90,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private ClanTradeDeliveryManager clanTradeDeliveryManager;
     private CitizensIntegration citizensIntegration;
     private ClanProtectionListener clanProtectionListener;
+    private me.lovelace.loveclans.integration.VesuvioAntiCheatHook vesuvioHook;
     private BukkitTask heartbeatTask;
     private BukkitTask warTickTask;
     private final Map<UUID, BiConsumer<String, Boolean>> chatInputListeners = new ConcurrentHashMap<>();
@@ -579,6 +580,15 @@ public final class LoveClansPlugin extends JavaPlugin {
                 getLogger().warning("Не удалось зарегистрировать ProfileOracle в LoveCore: " + t.getMessage());
             }
         }
+
+        this.vesuvioHook = new me.lovelace.loveclans.integration.VesuvioAntiCheatHook(this);
+        if (vesuvioHook.isAvailable()) {
+            getLogger().info("Клановая интеграция с Vesuvio подключена (защита войн, осад и ритуалов от софтеров).");
+        }
+    }
+
+    public me.lovelace.loveclans.integration.VesuvioAntiCheatHook getVesuvioHook() {
+        return vesuvioHook;
     }
 
     private Throwable unwrap(Throwable throwable) {
