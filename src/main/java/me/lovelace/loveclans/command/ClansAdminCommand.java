@@ -39,7 +39,8 @@ import java.util.stream.Collectors;
 public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "reload", "createnpc", "removenpc", "disband", "war", "siege", "diplo", "exp", "points", "artifact", "help"
+            "reload", "createnpc", "removenpc", "disband", "recognize", "unrecognize",
+            "war", "siege", "diplo", "exp", "points", "artifact", "help"
     );
     private static final List<String> AMOUNT_ACTIONS = List.of("add", "remove", "set");
     private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "end");
@@ -70,6 +71,8 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "createnpc" -> createNpc(sender, args);
                 case "removenpc" -> removeNpc(sender, args);
                 case "disband" -> disband(sender, args);
+                case "recognize" -> setRecognized(sender, args, true);
+                case "unrecognize" -> setRecognized(sender, args, false);
                 case "war" -> war(sender, args);
                 case "siege" -> siege(sender, args);
                 case "diplo" -> diplo(sender, args);
@@ -161,6 +164,28 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         Clan clan = clanOpt.get();
         plugin.getClanManager().disbandClanAsync(clan, null) // null actorId bypasses permission check
                 .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.disbanded", Map.of("tag", clan.tag(), "color", clan.tagColor()))))
+                .exceptionally(ex -> {
+                    plugin.runSync(() -> plugin.sendOperationError(sender, ex));
+                    return null;
+                });
+    }
+
+    private void setRecognized(CommandSender sender, String[] args, boolean recognized) {
+        String helpKey = "clan.help.admin-recognize";
+        if (args.length < 2) {
+            plugin.getMessages().send(sender, helpKey);
+            return;
+        }
+        Optional<Clan> clanOpt = plugin.getClanManager().getClanByTag(args[1]);
+        if (clanOpt.isEmpty()) {
+            plugin.getMessages().send(sender, "clan.not-found");
+            return;
+        }
+        Clan clan = clanOpt.get();
+        plugin.getClanManager().setRecognizedAsync(clan, recognized)
+                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender,
+                        recognized ? "admin.recognized" : "admin.unrecognized",
+                        Map.of("tag", clan.tag(), "color", clan.tagColor()))))
                 .exceptionally(ex -> {
                     plugin.runSync(() -> plugin.sendOperationError(sender, ex));
                     return null;
@@ -335,6 +360,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         plugin.getMessages().send(sender, "clan.help.admin-reload");
         plugin.getMessages().send(sender, "clan.help.admin-npc");
         plugin.getMessages().send(sender, "clan.help.admin-disband");
+        plugin.getMessages().send(sender, "clan.help.admin-recognize");
         plugin.getMessages().send(sender, "clan.help.admin-war");
         plugin.getMessages().send(sender, "clan.help.admin-siege");
         plugin.getMessages().send(sender, "clan.help.admin-diplo");
@@ -360,7 +386,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         if (args.length == 2) {
             List<String> completions = switch (action) {
                 case "removenpc", "createnpc" -> List.of("contracts", "founder");
-                case "disband", "diplo" -> clanTags;
+                case "disband", "diplo", "recognize", "unrecognize" -> clanTags;
                 case "war" -> WAR_ACTIONS;
                 case "siege" -> SIEGE_ACTIONS;
                 case "exp", "points" -> AMOUNT_ACTIONS;

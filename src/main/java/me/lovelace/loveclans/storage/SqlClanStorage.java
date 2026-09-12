@@ -149,8 +149,17 @@ public final class SqlClanStorage implements ClanStorage {
                             clan.setChestMoney(result.getLong("chest_money"));
                             long lastTaxAt = result.getLong("last_tax_at");
                             clan.setTaxState(lastTaxAt > 0 ? lastTaxAt : clan.createdAt(), result.getInt("chest_tax_locked") == 1);
+                            // Restored after setTaxState, whose own lockedSinceMillis guess (the
+                            // last check time) is only correct for a lock that just started - the
+                            // real persisted value may predate it by several failed weekly cycles.
+                            clan.restoreLockedSince(result.getLong("locked_since"));
                         } catch (SQLException ignored) {
                             // Columns might not exist yet if plugin just updated
+                        }
+                        try {
+                            clan.setRecognized(result.getInt("recognized") == 1);
+                        } catch (SQLException ignored) {
+                            // Column might not exist yet if plugin just updated
                         }
                         clans.put(id, clan);
                     }
@@ -502,6 +511,16 @@ public final class SqlClanStorage implements ClanStorage {
     @Override
     public CompletableFuture<Void> updateClanChestMoney(UUID clanId, long amount) {
         return updateClanColumn(clanId, "chest_money", amount);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanLockedSince(UUID clanId, long lockedSinceMillis) {
+        return updateClanColumn(clanId, "locked_since", lockedSinceMillis);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanRecognized(UUID clanId, boolean recognized) {
+        return updateClanColumn(clanId, "recognized", recognized ? 1 : 0);
     }
 
     @Override

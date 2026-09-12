@@ -28,6 +28,8 @@ general:
 admin:
   diplo-updated: "<prefix><green>Отношения между <color1><clan1></color1> и <color2><clan2></color2> изменены на <yellow><relation></yellow>."
   disbanded: "<prefix><green>Клан <color><tag></color> был распущен администратором."
+  recognized: "<prefix><green>Клан <color><tag></color> теперь признан."
+  unrecognized: "<prefix><yellow>Клан <color><tag></color> теперь не признан."
   exp-updated: "<prefix><green>Опыт клана <color><tag></color> обновлён."
   points-updated: "<prefix><green>Очки улучшений клана <color><tag></color> обновлены."
   war-ended: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> завершена администратором."
@@ -49,6 +51,7 @@ chest:
   tax-paid-manually: "<prefix><green>Налог погашен - сундук клана разблокирован."
   tax-collected: "<prefix><yellow>С клана списан еженедельный налог: <gold><amount></gold>."
   tax-locked-announcement: "<prefix><red>Недостаточно денег в сундуке для уплаты налога (<gold><amount></gold>) - сундук заблокирован!"
+  tax-disband-announcement: "<prefix><dark_red>Клан распущен: налог не был уплачен слишком долго."
   deposit-success: "<prefix><green>Внесено <yellow><amount></yellow> в сундук клана. Баланс: <gold><balance></gold>."
   withdraw-success: "<prefix><green>Снято <yellow><amount></yellow> из сундука клана."
 
@@ -189,6 +192,7 @@ clan:
     admin-reload: "<aqua>/loveclansadmin reload</aqua> <gray>- перезагрузить конфигурацию и язык плагина</gray>"
     admin-npc: "<aqua>/loveclansadmin createnpc <contracts|founder></aqua> <gray>- привязать NPC обетов или NPC-основателя (смотрите на него)</gray>\n    admin-npc-remove: \"<aqua>/loveclansadmin removenpc <contracts|founder> <id></aqua> <gray>- отвязать NPC</gray>"
     admin-disband: "<aqua>/loveclansadmin disband <tag></aqua> <gray>- распустить клан</gray>"
+    admin-recognize: "<aqua>/loveclansadmin recognize|unrecognize <tag></aqua> <gray>- изменить признанный статус клана</gray>"
     admin-war: "<aqua>/loveclansadmin war <start|forcestart|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, для тестов)</gray>"
     admin-siege: "<aqua>/loveclansadmin siege forcestart <clan1> <clan2></aqua> <gray>- принудительно начать осаду без проверок готовности (для тестов)</gray>"
     admin-diplo: "<aqua>/loveclansadmin diplo <clan1> <clan2> <relation></aqua> <gray>- изменить отношения между кланами</gray>"
@@ -261,7 +265,7 @@ gui:
         - "<gray>Денег: <white><money>"
         - "<gray>Рядов предметов: <white><rows></white>/<max>"
       tax-ok: "<green>Налог: оплачен"
-      tax-none: "<gray>Налог: не взимается (уровень < <level>)"
+      tax-none: "<gray>Налог: не взимается (клан не признан)"
       tax-locked: "<red>Налог: НЕ ОПЛАЧЕН - сундук заблокирован!"
       next-tax: "<gray>Следующее списание: <white><time>"
     money-button:

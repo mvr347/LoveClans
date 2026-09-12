@@ -47,6 +47,14 @@ public final class Clan {
     private long chestMoney;
     private long lastTaxAt;
     private boolean chestTaxLocked;
+    // Wall-clock time the chest tax lock started (0 = not currently locked). Distinct from
+    // lastTaxAt, which advances on every tax check whether or not it succeeds - this is what lets
+    // ClanManager#tickChestTaxes tell "locked for N days" from "checked N days ago".
+    private long lockedSinceMillis;
+
+    // Признанный/непризнанный клан (§ признание): admin-granted via /loveclansadmin recognize -
+    // see gui/ClanManager for exactly what this gates (server trade, tax).
+    private boolean recognized;
 
     private final Map<UUID, ClanMember> members = new ConcurrentHashMap<>();
     private final Map<UUID, ClanTerritory> territories = new ConcurrentHashMap<>();
@@ -410,7 +418,31 @@ public final class Clan {
 
     public void setTaxState(long lastTaxAt, boolean locked) {
         this.lastTaxAt = lastTaxAt;
+        boolean wasLocked = this.chestTaxLocked;
         this.chestTaxLocked = locked;
+        if (locked && !wasLocked) {
+            this.lockedSinceMillis = lastTaxAt;
+        } else if (!locked) {
+            this.lockedSinceMillis = 0L;
+        }
+    }
+
+    /** 0 if the chest is not currently locked - see the field doc for why this differs from lastTaxAt. */
+    public long lockedSinceMillis() {
+        return lockedSinceMillis;
+    }
+
+    /** Restores lockedSinceMillis from storage - not a state transition, unlike setTaxState. */
+    public void restoreLockedSince(long lockedSinceMillis) {
+        this.lockedSinceMillis = lockedSinceMillis;
+    }
+
+    public boolean isRecognized() {
+        return recognized;
+    }
+
+    public void setRecognized(boolean recognized) {
+        this.recognized = recognized;
     }
 
     // --- Influence (§8) ---

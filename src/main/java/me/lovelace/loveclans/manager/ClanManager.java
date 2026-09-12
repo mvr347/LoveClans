@@ -1555,9 +1555,23 @@ public final class ClanManager {
 
     // --- Клановый сундук: налог (§2.2) ---
 
-    /** Base tax is charged from clan level chest.tax.tax-free-until-level onward. */
+    /** Only recognized clans (§ признанный/непризнанный) pay chest tax; unrecognized clans never do. */
     public boolean isTaxApplicable(Clan clan) {
-        return clan.level() >= plugin.getConfig().getInt("clans.chest.tax.tax-free-until-level", 3);
+        return clan.isRecognized();
+    }
+
+    /** Admin-only toggle for признанный/непризнанный status; not reachable through normal gameplay. */
+    public CompletableFuture<Void> setRecognizedAsync(Clan clan, boolean recognized) {
+        if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
+        clan.setRecognized(recognized);
+        if (!recognized && clan.isChestTaxLocked()) {
+            // Losing recognized status also forgives any outstanding tax debt - the whole point
+            // of being unrecognized is that tax no longer applies at all.
+            clan.setTaxState(System.currentTimeMillis(), false);
+        }
+        return storage.updateClanRecognized(clan.id(), recognized)
+                .thenCompose(v -> storage.updateClanTaxState(clan.id(), clan.lastTaxAt(), clan.isChestTaxLocked()))
+                .thenCompose(v -> storage.updateClanLockedSince(clan.id(), clan.lockedSinceMillis()));
     }
 
     public long weeklyChestTax(Clan clan) {
@@ -1582,21 +1596,40 @@ public final class ClanManager {
         clan.setTaxState(System.currentTimeMillis(), false);
         return storage.updateClanChestMoney(clan.id(), clan.chestMoney())
                 .thenCompose(v -> storage.updateClanTaxState(clan.id(), clan.lastTaxAt(), false))
+                .thenCompose(v -> storage.updateClanLockedSince(clan.id(), clan.lockedSinceMillis()))
                 .thenRun(() -> getOnlineMembersWithPermission(clan, ClanPermission.BANK)
                         .forEach(p -> plugin.getMessages().send(p, "chest.tax-paid-manually")));
+    }
+
+    /** How long (ms) a recognized clan's chest may sit tax-locked before it is auto-disbanded. */
+    private long disbandAfterMillis() {
+        return Duration.ofDays(plugin.getConfig().getInt("clans.chest.tax.disband-after-days", 14)).toMillis();
     }
 
     /**
      * Rolling weekly tax check (not calendar-locked to Monday, to avoid timezone edge cases):
      * called periodically for every loaded clan; if 7+ days passed since the last attempt for a
-     * clan at/above the taxable level, tries to withdraw the tax automatically and locks the
-     * chest on failure.
+     * recognized clan, tries to withdraw the tax automatically and locks the chest on failure.
+     * A recognized clan whose chest has stayed locked longer than
+     * {@code clans.chest.tax.disband-after-days} is auto-disbanded (§ признанный клан ...
+     * если налог не уплачивать некоторое время клан удаляется).
      */
     public void tickChestTaxes() {
         long weekMs = Duration.ofDays(7).toMillis();
         long now = System.currentTimeMillis();
-        for (Clan clan : clansById.values()) {
-            if (!isTaxApplicable(clan) || now - clan.lastTaxAt() < weekMs) {
+        for (Clan clan : List.copyOf(clansById.values())) {
+            if (!isTaxApplicable(clan)) {
+                continue;
+            }
+            if (clan.lockedSinceMillis() > 0 && now - clan.lockedSinceMillis() >= disbandAfterMillis()) {
+                onlineMembers(clan).forEach(p -> plugin.getMessages().send(p, "chest.tax-disband-announcement"));
+                disbandClanAsync(clan, null).exceptionally(t -> {
+                    plugin.getLogger().warning("Failed to auto-disband tax-delinquent clan " + clan.id() + ": " + t.getMessage());
+                    return null;
+                });
+                continue;
+            }
+            if (now - clan.lastTaxAt() < weekMs) {
                 continue;
             }
             long tax = weeklyChestTax(clan);
@@ -1607,6 +1640,7 @@ public final class ClanManager {
             clan.setTaxState(now, !paid);
             storage.updateClanChestMoney(clan.id(), clan.chestMoney())
                     .thenCompose(v -> storage.updateClanTaxState(clan.id(), clan.lastTaxAt(), clan.isChestTaxLocked()))
+                    .thenCompose(v -> storage.updateClanLockedSince(clan.id(), clan.lockedSinceMillis()))
                     .exceptionally(t -> {
                         plugin.getLogger().warning("Failed to persist chest tax for clan " + clan.id() + ": " + t.getMessage());
                         return null;

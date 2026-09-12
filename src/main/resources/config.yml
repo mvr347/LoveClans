@@ -69,11 +69,15 @@ clans:
   chest:
     currency-item: 'currency:gold_coin'
     tax:
-      # С какого уровня клана начинает взиматься налог (1-2 уровень — без налога).
-      tax-free-until-level: 3
+      # Налог платят только признанные кланы (clans.recognize admin-команда) — непризнанные
+      # налога не платят вовсе. tax-free-until-level больше не используется для этого решения,
+      # оставлен только как справочное значение на случай отдельной механики уровня в будущем.
       base-amount: 1000
       percent-per-member: 0.05
       percent-per-extra-row: 0.10
+      # Если сундук признанного клана остаётся заблокирован за неуплату налога дольше этого
+      # срока, клан автоматически распускается (см. tickChestTaxes в ClanManager).
+      disband-after-days: 14
 
   # Эмбарго/блокада/письма (§5). Влияние для блокады берётся из influence.blockade-multiplier.
   diplomacy:

@@ -40,7 +40,6 @@ public final class ClanChestHubMenu {
 
         boolean taxApplicable = plugin.getClanManager().isTaxApplicable(clan);
         boolean locked = clan.isChestTaxLocked();
-        int unlockLevel = plugin.getConfig().getInt("clans.chest.tax.tax-free-until-level", 3);
 
         ItemBuilder info = ItemBuilder.head(locked ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST)
                 .name(plugin.getMessages().component("gui.chest.info.name", player))
@@ -50,7 +49,7 @@ public final class ClanChestHubMenu {
                         "max", String.valueOf(plugin.getClanManager().maxChestRows())
                 ), player));
         if (!taxApplicable) {
-            info.lore(plugin.getMessages().component("gui.chest.info.tax-none", Map.of("level", String.valueOf(unlockLevel)), player));
+            info.lore(plugin.getMessages().component("gui.chest.info.tax-none", player));
         } else if (locked) {
             info.lore(plugin.getMessages().component("gui.chest.info.tax-locked", player));
         } else {

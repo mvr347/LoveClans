@@ -82,6 +82,10 @@ public interface ClanStorage {
 
     CompletableFuture<Void> updateClanTaxState(UUID clanId, long lastTaxAt, boolean locked);
 
+    CompletableFuture<Void> updateClanLockedSince(UUID clanId, long lockedSinceMillis);
+
+    CompletableFuture<Void> updateClanRecognized(UUID clanId, boolean recognized);
+
     CompletableFuture<Long> migrateLegacyBankMoneyAsync(UUID clanId, String currencyItemId);
 
     // --- Clan chest (physical item storage) ---
