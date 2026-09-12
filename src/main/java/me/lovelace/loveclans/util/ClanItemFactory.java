@@ -30,6 +30,8 @@ public final class ClanItemFactory {
     // SiegeCamp в SiegeManager.
     public static final NamespacedKey SIEGE_ID_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "siege_id");
     public static final NamespacedKey SIEGE_CAMP_INDEX_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "siege_camp_index");
+    // Помечает неразмещённое знамя основания клана, покупаемое у NPC
+    public static final NamespacedKey CLAN_CREATION_BANNER_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "clan_creation_banner");
 
     public ClanItemFactory(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -183,5 +185,34 @@ public final class ClanItemFactory {
             return bannerType.equals(type) && id != null;
         }
         return bannerType.equals(type) && clanId.toString().equals(id);
+    }
+
+    /**
+     * Creates a Clan Creation Banner - an unassigned banner bought from the NPC merchant.
+     * Placing it will found a clan and establish its capital territory.
+     */
+    public ItemStack createClanCreationBanner() {
+        ItemStack banner = new ItemStack(Material.RED_BANNER);
+        ItemMeta meta = banner.getItemMeta();
+        if (meta != null) {
+            PersistentDataContainer pdc = meta.getPersistentDataContainer();
+            pdc.set(CLAN_CREATION_BANNER_KEY, PersistentDataType.INTEGER, 1);
+
+            meta.displayName(plugin.getMessages().component("item.clan-creation-banner.name", Map.of(), null));
+            meta.lore(plugin.getMessages().components("item.clan-creation-banner.lore", null));
+            banner.setItemMeta(meta);
+        }
+        return banner;
+    }
+
+    /**
+     * Checks if the given item is an unassigned Clan Creation Banner.
+     */
+    public boolean isClanCreationBanner(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) {
+            return false;
+        }
+        PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
+        return pdc.has(CLAN_CREATION_BANNER_KEY, PersistentDataType.INTEGER);
     }
 }

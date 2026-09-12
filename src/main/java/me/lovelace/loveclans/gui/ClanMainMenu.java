@@ -46,6 +46,7 @@ public final class ClanMainMenu implements InventoryHolder {
         // rendering other clans' emblems; this was the one place still missing it.
         Material clanEmblem = clan.emblem() != null && clan.emblem().name().endsWith("_BANNER")
                 ? clan.emblem() : Material.WHITE_BANNER;
+        String statusKey = clan.isRecognized() ? "gui.main.info.status-recognized" : "gui.main.info.status-unrecognized";
         inventory.setItem(0, ItemBuilder.of(clanEmblem)
                 .name(plugin.getMessages().component("gui.main.info.name", Map.of("clan", clan.name(), "color", clan.tagColor()), player))
                 .lore(plugin.getMessages().component("gui.main.info.tag",
@@ -55,6 +56,7 @@ public final class ClanMainMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component("gui.main.info.members",
                         Map.of("current", String.valueOf(clan.members().size()),
                                "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player))
+                .lore(plugin.getMessages().component(statusKey, player))
                 .build());
 
         // Row 2 — main nav buttons
