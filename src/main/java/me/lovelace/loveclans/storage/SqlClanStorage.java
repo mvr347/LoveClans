@@ -149,17 +149,16 @@ public final class SqlClanStorage implements ClanStorage {
                             clan.setChestMoney(result.getLong("chest_money"));
                             long lastTaxAt = result.getLong("last_tax_at");
                             clan.setTaxState(lastTaxAt > 0 ? lastTaxAt : clan.createdAt(), result.getInt("chest_tax_locked") == 1);
-                            // Restored after setTaxState, whose own lockedSinceMillis guess (the
-                            // last check time) is only correct for a lock that just started - the
-                            // real persisted value may predate it by several failed weekly cycles.
-                            clan.restoreLockedSince(result.getLong("locked_since"));
                         } catch (SQLException ignored) {
                             // Columns might not exist yet if plugin just updated
                         }
                         try {
-                            clan.setRecognized(result.getInt("recognized") == 1);
+                            clan.setRecognized(result.getInt("is_recognized") == 1);
+                            clan.setUnpaidTaxSince(result.getLong("unpaid_tax_since"));
+                            clan.setServerTradeWeeklyStacks(result.getInt("server_trade_stacks"));
+                            clan.setServerTradeWeek(result.getInt("server_trade_week"));
                         } catch (SQLException ignored) {
-                            // Column might not exist yet if plugin just updated
+                            // Columns might not exist yet if plugin just updated
                         }
                         clans.put(id, clan);
                     }
@@ -514,16 +513,6 @@ public final class SqlClanStorage implements ClanStorage {
     }
 
     @Override
-    public CompletableFuture<Void> updateClanLockedSince(UUID clanId, long lockedSinceMillis) {
-        return updateClanColumn(clanId, "locked_since", lockedSinceMillis);
-    }
-
-    @Override
-    public CompletableFuture<Void> updateClanRecognized(UUID clanId, boolean recognized) {
-        return updateClanColumn(clanId, "recognized", recognized ? 1 : 0);
-    }
-
-    @Override
     public CompletableFuture<Void> updateClanTaxState(UUID clanId, long lastTaxAt, boolean locked) {
         return CompletableFuture.runAsync(() -> {
             try (Connection connection = database.dataSource().getConnection();
@@ -535,6 +524,32 @@ public final class SqlClanStorage implements ClanStorage {
                 statement.executeUpdate();
             } catch (SQLException exception) {
                 throw new StorageException("Unable to update tax state for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanRecognized(UUID clanId, boolean recognized) {
+        return updateClanColumn(clanId, "is_recognized", recognized ? 1 : 0);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanUnpaidTax(UUID clanId, long unpaidTaxSince) {
+        return updateClanColumn(clanId, "unpaid_tax_since", unpaidTaxSince);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanServerTrade(UUID clanId, int stacks, int week) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET server_trade_stacks = ?, server_trade_week = ? WHERE id = ?")) {
+                statement.setInt(1, stacks);
+                statement.setInt(2, week);
+                statement.setString(3, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update server trade for clan " + clanId, exception);
             }
         }, database.executor());
     }
@@ -1102,7 +1117,8 @@ public final class SqlClanStorage implements ClanStorage {
                 "name", "tag", "tag_color", "description", "emblem_material",
                 "level", "experience", "upgrade_points", "chest_rows", "spirit_level", "spirit_energy",
                 "spirit_awakened_until", "spirit_online_time", "spirit_last_decay", "spirit_ability",
-                "spirit_ability_chosen_at", "created_at", "is_open", "home_location", "id"
+                "spirit_ability_chosen_at", "created_at", "is_open", "home_location",
+                "is_recognized", "unpaid_tax_since", "server_trade_stacks", "server_trade_week", "id"
         };
         String sql = upsertSql("clans", new String[]{"id"}, columns);
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -1135,6 +1151,10 @@ public final class SqlClanStorage implements ClanStorage {
             } else {
                 statement.setString(paramIndex++, serializedHomeLocation);
             }
+            statement.setInt(paramIndex++, clan.isRecognized() ? 1 : 0);
+            statement.setLong(paramIndex++, clan.getUnpaidTaxSince());
+            statement.setInt(paramIndex++, clan.getServerTradeWeeklyStacks());
+            statement.setInt(paramIndex++, clan.getServerTradeWeek());
             statement.setString(paramIndex++, clan.id().toString());
             statement.executeUpdate();
         }

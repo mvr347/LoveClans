@@ -39,8 +39,7 @@ import java.util.stream.Collectors;
 public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "reload", "createnpc", "removenpc", "disband", "recognize", "unrecognize",
-            "war", "siege", "diplo", "exp", "points", "artifact", "help"
+            "reload", "createnpc", "removenpc", "disband", "war", "siege", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "help"
     );
     private static final List<String> AMOUNT_ACTIONS = List.of("add", "remove", "set");
     private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "end");
@@ -71,14 +70,15 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "createnpc" -> createNpc(sender, args);
                 case "removenpc" -> removeNpc(sender, args);
                 case "disband" -> disband(sender, args);
-                case "recognize" -> setRecognized(sender, args, true);
-                case "unrecognize" -> setRecognized(sender, args, false);
                 case "war" -> war(sender, args);
                 case "siege" -> siege(sender, args);
                 case "diplo" -> diplo(sender, args);
                 case "exp" -> expOrPoints(sender, args, true);
                 case "points" -> expOrPoints(sender, args, false);
                 case "artifact" -> artifact(sender, args);
+                case "recognize" -> setRecognized(sender, args, true);
+                case "unrecognize" -> setRecognized(sender, args, false);
+                case "givebanner" -> giveBanner(sender, args);
                 default -> sendHelp(sender);
             }
         } catch (IllegalStateException exception) {
@@ -93,22 +93,22 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         plugin.getMessages().send(sender, "general.reloaded");
     }
 
-    /** "contracts" binds the Marshal NPC; "founder" binds the clan-founding banner-vendor NPC. */
-    private static String npcIdConfigKey(String type) {
-        return switch (type.toLowerCase(Locale.ROOT)) {
-            case "contracts" -> "clans.contracts.npc-id";
-            case "founder" -> "clans.founder.npc-id";
-            default -> null;
-        };
-    }
-
     private void createNpc(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             plugin.getMessages().send(sender, "general.players-only");
             return;
         }
-        String configKey = args.length < 2 ? null : npcIdConfigKey(args[1]);
-        if (configKey == null) {
+        if (args.length < 2) {
+            plugin.getMessages().send(sender, "admin.npc.unknown-type");
+            return;
+        }
+        String type = args[1].toLowerCase(Locale.ROOT);
+        String configKey;
+        if (type.equals("contracts")) {
+            configKey = "clans.contracts.npc-id";
+        } else if (type.equals("banner")) {
+            configKey = "clans.banner.npc-id";
+        } else {
             plugin.getMessages().send(sender, "admin.npc.unknown-type");
             return;
         }
@@ -121,34 +121,87 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         }
         plugin.getConfig().set(configKey, npcId);
         plugin.saveConfig();
-        plugin.getMessages().send(player, "admin.npc.bound", Map.of("id", String.valueOf(npcId)));
+        plugin.getMessages().send(player, "admin.npc.bound", Map.of("id", String.valueOf(npcId), "type", type));
     }
 
     private void removeNpc(CommandSender sender, String[] args) {
-        if (args.length < 3) {
+        if (args.length < 2) {
             plugin.getMessages().send(sender, "clan.help.admin-npc");
             return;
         }
-        String configKey = npcIdConfigKey(args[1]);
-        if (configKey == null) {
-            plugin.getMessages().send(sender, "admin.npc.unknown-type");
+        String arg = args[1].toLowerCase(Locale.ROOT);
+        if (arg.equals("contracts")) {
+            int id = plugin.getConfig().getInt("clans.contracts.npc-id", -1);
+            plugin.getConfig().set("clans.contracts.npc-id", -1);
+            plugin.saveConfig();
+            plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", String.valueOf(id)));
+            return;
+        }
+        if (arg.equals("banner")) {
+            int id = plugin.getConfig().getInt("clans.banner.npc-id", -1);
+            plugin.getConfig().set("clans.banner.npc-id", -1);
+            plugin.saveConfig();
+            plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", String.valueOf(id)));
             return;
         }
         int targetId;
         try {
-            targetId = Integer.parseInt(args[2]);
+            targetId = Integer.parseInt(args[1]);
         } catch (NumberFormatException exception) {
             plugin.getMessages().send(sender, "general.invalid-number");
             return;
         }
-        int currentId = plugin.getConfig().getInt(configKey, -1);
-        if (currentId != targetId) {
-            plugin.getMessages().send(sender, "admin.npc.not-bound");
+        int contractsId = plugin.getConfig().getInt("clans.contracts.npc-id", -1);
+        int bannerId = plugin.getConfig().getInt("clans.banner.npc-id", -1);
+        if (contractsId == targetId) {
+            plugin.getConfig().set("clans.contracts.npc-id", -1);
+            plugin.saveConfig();
+            plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", String.valueOf(targetId)));
             return;
         }
-        plugin.getConfig().set(configKey, -1);
-        plugin.saveConfig();
-        plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", String.valueOf(targetId)));
+        if (bannerId == targetId) {
+            plugin.getConfig().set("clans.banner.npc-id", -1);
+            plugin.saveConfig();
+            plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", String.valueOf(targetId)));
+            return;
+        }
+        plugin.getMessages().send(sender, "admin.npc.not-bound");
+    }
+
+    private void setRecognized(CommandSender sender, String[] args, boolean recognized) {
+        if (args.length < 2) {
+            plugin.getMessages().send(sender, "clan.help.admin-recognize");
+            return;
+        }
+        Optional<Clan> clanOpt = plugin.getClanManager().getClanByTag(args[1]);
+        if (clanOpt.isEmpty()) {
+            plugin.getMessages().send(sender, "clan.not-found");
+            return;
+        }
+        Clan clan = clanOpt.get();
+        clan.setRecognized(recognized);
+        if (recognized) {
+            clan.setUnpaidTaxSince(0L);
+        }
+        plugin.getClanManager().updateClanAsync(clan).thenRun(() -> {
+            String msgKey = recognized ? "admin.clan-recognized" : "admin.clan-unrecognized";
+            plugin.runSync(() -> plugin.getMessages().send(sender, msgKey, Map.of("tag", clan.tag(), "name", clan.name())));
+        });
+    }
+
+    private void giveBanner(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            plugin.getMessages().send(sender, "clan.help.admin-givebanner");
+            return;
+        }
+        Player target = org.bukkit.Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            plugin.getMessages().send(sender, "general.player-not-found");
+            return;
+        }
+        target.getInventory().addItem(plugin.getClanManager().getClanItemFactory().createClanCreationBanner());
+        plugin.getMessages().send(sender, "admin.givebanner.success", Map.of("player", target.getName()));
+        plugin.getMessages().send(target, "clan.banner.received");
     }
 
     private void disband(CommandSender sender, String[] args) {
@@ -164,28 +217,6 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         Clan clan = clanOpt.get();
         plugin.getClanManager().disbandClanAsync(clan, null) // null actorId bypasses permission check
                 .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.disbanded", Map.of("tag", clan.tag(), "color", clan.tagColor()))))
-                .exceptionally(ex -> {
-                    plugin.runSync(() -> plugin.sendOperationError(sender, ex));
-                    return null;
-                });
-    }
-
-    private void setRecognized(CommandSender sender, String[] args, boolean recognized) {
-        String helpKey = "clan.help.admin-recognize";
-        if (args.length < 2) {
-            plugin.getMessages().send(sender, helpKey);
-            return;
-        }
-        Optional<Clan> clanOpt = plugin.getClanManager().getClanByTag(args[1]);
-        if (clanOpt.isEmpty()) {
-            plugin.getMessages().send(sender, "clan.not-found");
-            return;
-        }
-        Clan clan = clanOpt.get();
-        plugin.getClanManager().setRecognizedAsync(clan, recognized)
-                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender,
-                        recognized ? "admin.recognized" : "admin.unrecognized",
-                        Map.of("tag", clan.tag(), "color", clan.tagColor()))))
                 .exceptionally(ex -> {
                     plugin.runSync(() -> plugin.sendOperationError(sender, ex));
                     return null;
@@ -360,13 +391,14 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         plugin.getMessages().send(sender, "clan.help.admin-reload");
         plugin.getMessages().send(sender, "clan.help.admin-npc");
         plugin.getMessages().send(sender, "clan.help.admin-disband");
-        plugin.getMessages().send(sender, "clan.help.admin-recognize");
         plugin.getMessages().send(sender, "clan.help.admin-war");
         plugin.getMessages().send(sender, "clan.help.admin-siege");
         plugin.getMessages().send(sender, "clan.help.admin-diplo");
         plugin.getMessages().send(sender, "clan.help.admin-exp");
         plugin.getMessages().send(sender, "clan.help.admin-points");
         plugin.getMessages().send(sender, "clan.help.artifact");
+        plugin.getMessages().send(sender, "clan.help.admin-recognize");
+        plugin.getMessages().send(sender, "clan.help.admin-givebanner");
         plugin.getMessages().send(sender, "clan.help.admin-footer");
     }
 
@@ -385,8 +417,10 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 2) {
             List<String> completions = switch (action) {
-                case "removenpc", "createnpc" -> List.of("contracts", "founder");
+                case "removenpc" -> List.of("contracts", "banner");
+                case "createnpc" -> List.of("contracts", "banner");
                 case "disband", "diplo", "recognize", "unrecognize" -> clanTags;
+                case "givebanner" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
                 case "war" -> WAR_ACTIONS;
                 case "siege" -> SIEGE_ACTIONS;
                 case "exp", "points" -> AMOUNT_ACTIONS;

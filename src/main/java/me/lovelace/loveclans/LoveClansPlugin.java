@@ -9,6 +9,7 @@ import me.lovelace.loveclans.integration.CitizensIntegration;
 import me.lovelace.loveclans.integration.LoveHuntBountyBridge;
 import me.lovelace.loveclans.integration.PlaceholderAPIHook;
 import me.lovelace.loveclans.listener.ArtifactListener;
+import me.lovelace.loveclans.listener.ClanBannerListener;
 import me.lovelace.loveclans.listener.ChatInputListener;
 import me.lovelace.loveclans.listener.ClanProtectionListener;
 import me.lovelace.loveclans.listener.CombatListener;
@@ -21,6 +22,7 @@ import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.manager.ConflictArchive;
+import me.lovelace.loveclans.manager.ServerTradeManager;
 import me.lovelace.loveclans.manager.PlayerPreferencesManager;
 import me.lovelace.loveclans.manager.ContractManager;
 import me.lovelace.loveclans.manager.ClanTradeDeliveryManager;
@@ -88,6 +90,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private ClanTradeManager clanTradeManager;
     private ClanTradeSessionManager clanTradeSessionManager;
     private ClanTradeDeliveryManager clanTradeDeliveryManager;
+    private ServerTradeManager serverTradeManager;
     private CitizensIntegration citizensIntegration;
     private ClanProtectionListener clanProtectionListener;
     private me.lovelace.loveclans.integration.VesuvioAntiCheatHook vesuvioHook;
@@ -127,6 +130,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         clanTradeManager = new ClanTradeManager(this, storage);
         clanTradeSessionManager = new ClanTradeSessionManager(this);
         clanTradeDeliveryManager = new ClanTradeDeliveryManager(this, storage);
+        serverTradeManager = new ServerTradeManager(this);
 
         // Хук LoveClaims инициализируется здесь, ДО clanManager.loadAsync() — территории
         // индексируют свои чанки по геометрии из LoveClaims (territoryChunks -> boundingBoxOf),
@@ -445,6 +449,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         return diplomacyManager;
     }
 
+    public ServerTradeManager getServerTradeManager() {
+        return serverTradeManager;
+    }
+
     public ClanTradeManager getClanTradeManager() {
         return clanTradeManager;
     }
@@ -553,7 +561,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(spiritManager, this);
         pluginManager.registerEvents(afkManager, this);
         pluginManager.registerEvents(new ContractListener(this, citizensIntegration), this);
-        pluginManager.registerEvents(new me.lovelace.loveclans.listener.ClanFounderNpcListener(this, citizensIntegration), this);
+        pluginManager.registerEvents(new ClanBannerListener(this, citizensIntegration), this);
         pluginManager.registerEvents(new PerkEffectListener(this), this);
         pluginManager.registerEvents(new SiegeCampListener(this), this);
     }

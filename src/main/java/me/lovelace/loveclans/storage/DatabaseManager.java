@@ -161,8 +161,10 @@ public final class DatabaseManager implements AutoCloseable {
             addColumnIfMissing(connection, statement, "clans", "chest_money", "BIGINT NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, statement, "clans", "last_tax_at", "BIGINT NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, statement, "clans", "chest_tax_locked", "TINYINT NOT NULL DEFAULT 0");
-            addColumnIfMissing(connection, statement, "clans", "locked_since", "BIGINT NOT NULL DEFAULT 0");
-            addColumnIfMissing(connection, statement, "clans", "recognized", "TINYINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "is_recognized", "TINYINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "unpaid_tax_since", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "server_trade_stacks", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "server_trade_week", "INT NOT NULL DEFAULT 0");
 
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_members (

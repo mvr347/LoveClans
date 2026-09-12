@@ -73,32 +73,6 @@ public class ClanProtectionListener implements Listener {
 
         String bannerType = pdc.get(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING);
 
-        // A Foundation Banner carries no clan id yet - placing it founds the clan and starts
-        // claiming this spot as its capital in one step (see manager.ClanManager#foundClanFromBannerAsync).
-        // Handled before the "not a clan banner" bail-out below, since this banner type never has
-        // CLAN_ID_KEY set.
-        if ("FOUNDATION".equals(bannerType)) {
-            event.setCancelled(true);
-            Optional<ClanItemFactory.FoundationDetails> details = plugin.getClanManager().getClanItemFactory().readFoundationDetails(itemInHand);
-            if (details.isEmpty()) {
-                return;
-            }
-            if (clanManager.getPlayerClan(player.getUniqueId()).isPresent()) {
-                // "Just doesn't work" - the founder already has (or is a member of) a clan.
-                plugin.getMessages().send(player, "clan.already-in-clan");
-                return;
-            }
-
-            ClanItemFactory.FoundationDetails d = details.get();
-            itemInHand.setAmount(itemInHand.getAmount() - 1);
-            clanManager.foundClanFromBannerAsync(player, d.name(), d.tag(), d.open(), placedBlock.getLocation())
-                    .exceptionally(throwable -> {
-                        plugin.runSync(() -> plugin.sendOperationError(player, throwable));
-                        return null;
-                    });
-            return;
-        }
-
         String clanIdString = pdc.get(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING);
 
         if (bannerType == null || clanIdString == null) {

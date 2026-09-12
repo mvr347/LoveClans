@@ -36,10 +36,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "invites", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "letters", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade"
+            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "letters", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
     );
-    // "create" was removed: a clan is now founded by buying a Foundation Banner from the clan
-    // NPC and placing it (see gui.ClanCreateMenu, listener.ClanNpcListener), not a command.
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "accept", "invites", "list", "info"
     );
@@ -104,6 +102,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         try {
             switch (sub) {
                 case "help" -> sendHelp(sender);
+                case "create" -> plugin.getMessages().send(requirePlayer(sender), "clan.create-removed");
                 case "disband" -> disband(requirePlayer(sender));
                 case "invite" -> invite(requirePlayer(sender), args);
                 case "invites" -> toggleInvites(requirePlayer(sender));
@@ -163,6 +162,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "chest" -> openChest(requirePlayer(sender));
                 case "contracts" -> openContracts(requirePlayer(sender));
                 case "trade" -> trade(requirePlayer(sender), args);
+                case "servertrade" -> openServerTrade(requirePlayer(sender));
                 case "confirm" -> confirmPendingChatInput(requirePlayer(sender));
                 case "cancel" -> cancelPendingChatInput(requirePlayer(sender));
                 default -> plugin.getMessages().send(sender, "general.unknown-command");
@@ -249,6 +249,23 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         plugin.getChatInputListener(player.getUniqueId()).ifPresent(callback -> callback.accept(null, true));
     }
 
+    private void openCreateGui(Player player) {
+        plugin.getMessages().send(player, "clan.create-removed");
+    }
+
+    private void openServerTrade(Player player) {
+        Optional<Clan> optionalClan = requireClan(player);
+        if (optionalClan.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        Clan clan = optionalClan.get();
+        if (!clan.isRecognized()) {
+            plugin.getMessages().send(player, "trade.server.not-recognized");
+            return;
+        }
+        new ClanServerTradeMenu(plugin, player, clan).open();
+    }
 
     private void openDiplomacyFor(Player player, String targetTag) {
         requirePermission(player, Permissions.DIPLOMACY);
@@ -595,6 +612,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         Clan clan = optionalClan.get();
         
+        if (!clan.isRecognized()) {
+            plugin.getMessages().send(player, "clan.unrecognized-cannot-claim");
+            return;
+        }
+
         // Prevent claiming if at war
         if (plugin.getWarManager().activeWars().stream().anyMatch(war -> war.involves(clan.id()))) {
             plugin.getMessages().send(player, "war.cannot-claim");
@@ -1189,7 +1211,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 plugin.getMessages().send(player, "clan.help.disband");
             }
         } else {
-            plugin.getMessages().send(player, "clan.help.found");
+            plugin.getMessages().send(player, "clan.help.create");
             plugin.getMessages().send(player, "clan.help.list");
             plugin.getMessages().send(player, "clan.help.accept");
         }

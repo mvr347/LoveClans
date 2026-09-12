@@ -2,6 +2,7 @@ package me.lovelace.loveclans.manager;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.gui.ClanApplicationsMenu;
+import me.lovelace.loveclans.gui.ClanBannerCreationMenu;
 import me.lovelace.loveclans.gui.ClanCapitalManagementMenu;
 import me.lovelace.loveclans.gui.ClanChestHubMenu;
 import me.lovelace.loveclans.gui.ClanChestMoneyMenu;
@@ -10,11 +11,15 @@ import me.lovelace.loveclans.gui.ClanLettersMenu;
 import me.lovelace.loveclans.gui.ClanConfirmMenu;
 import me.lovelace.loveclans.gui.ClanContractsMenu;
 import me.lovelace.loveclans.gui.ClanCreateMenu;
+import me.lovelace.loveclans.gui.ClanServerTradeMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacyMenu;
 import me.lovelace.loveclans.gui.ClanRelationMenu;
 import me.lovelace.loveclans.gui.ClanPerkMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacySelectMenu;
 import me.lovelace.loveclans.gui.ClanInfoMenu;
+import me.lovelace.loveclans.gui.ClanBannerCreationMenu;
+import me.lovelace.loveclans.gui.ClanServerTradeMenu;
+import me.lovelace.loveclans.gui.ClanCreateMenu;
 import me.lovelace.loveclans.gui.ClanListMenu;
 import me.lovelace.loveclans.gui.ClanMainMenu;
 import me.lovelace.loveclans.gui.ClanMemberDetailMenu;
@@ -115,6 +120,10 @@ public class GuiManager implements Listener {
 
     public void openChestMoney(Player player, Clan clan) {
         chestMoneyMenu.open(player, clan);
+    }
+
+    public void openServerTrade(Player player, Clan clan) {
+        new ClanServerTradeMenu(plugin, player, clan).open();
     }
 
     public void openLetters(Player player, Clan sourceClan, Clan targetClan) {
@@ -304,6 +313,20 @@ public class GuiManager implements Listener {
             if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
             event.setCancelled(true);
             createMenu.handleInventoryClick(event.getRawSlot());
+            return;
+        }
+
+        if (holder instanceof ClanBannerCreationMenu bannerCreateMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            bannerCreateMenu.handleInventoryClick(event.getRawSlot());
+            return;
+        }
+
+        if (holder instanceof ClanServerTradeMenu serverTradeMenu) {
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            event.setCancelled(true);
+            serverTradeMenu.handleInventoryClick(event.getRawSlot());
             return;
         }
 
