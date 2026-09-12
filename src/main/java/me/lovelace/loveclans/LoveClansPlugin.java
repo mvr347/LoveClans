@@ -553,6 +553,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(spiritManager, this);
         pluginManager.registerEvents(afkManager, this);
         pluginManager.registerEvents(new ContractListener(this, citizensIntegration), this);
+        pluginManager.registerEvents(new me.lovelace.loveclans.listener.ClanFounderNpcListener(this, citizensIntegration), this);
         pluginManager.registerEvents(new PerkEffectListener(this), this);
         pluginManager.registerEvents(new SiegeCampListener(this), this);
     }

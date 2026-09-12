@@ -30,6 +30,13 @@ public final class ClanItemFactory {
     // SiegeCamp в SiegeManager.
     public static final NamespacedKey SIEGE_ID_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "siege_id");
     public static final NamespacedKey SIEGE_CAMP_INDEX_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "siege_camp_index");
+    // A Foundation Banner is not tied to any clan yet - it carries the name/tag/open-status the
+    // buyer chose at purchase time (see gui.ClanCreateMenu) so the clan can be created and its
+    // territory claimed in a single physical placement, rather than by a "/clan create" command
+    // followed by a separate claim step.
+    public static final NamespacedKey FOUNDATION_NAME_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "foundation_name");
+    public static final NamespacedKey FOUNDATION_TAG_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "foundation_tag");
+    public static final NamespacedKey FOUNDATION_OPEN_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "foundation_open");
 
     public ClanItemFactory(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -88,6 +95,50 @@ public final class ClanItemFactory {
         }
         return banner;
     }
+
+    /**
+     * Creates a Foundation Banner: sold by an NPC (see listener.ClanNpcListener), not tied to any
+     * clan yet. Placing it (see listener.ClanProtectionListener#onBlockPlace) creates a brand new
+     * clan from the name/tag/open-status stored here, then hands the founder a real Capital Banner
+     * for the newly created clan so they complete the same two-step placement confirmation every
+     * other territory claim already uses - no separate claim logic to maintain.
+     */
+    public ItemStack createFoundationBanner(String name, String tag, boolean open) {
+        ItemStack banner = new ItemStack(Material.YELLOW_BANNER);
+        ItemMeta meta = banner.getItemMeta();
+        if (meta != null) {
+            PersistentDataContainer pdc = meta.getPersistentDataContainer();
+            pdc.set(BANNER_TYPE_KEY, PersistentDataType.STRING, "FOUNDATION");
+            pdc.set(FOUNDATION_NAME_KEY, PersistentDataType.STRING, name);
+            pdc.set(FOUNDATION_TAG_KEY, PersistentDataType.STRING, tag);
+            pdc.set(FOUNDATION_OPEN_KEY, PersistentDataType.BYTE, (byte) (open ? 1 : 0));
+
+            meta.displayName(plugin.getMessages().component("item.foundation-banner.name", Map.of("clan", name), null));
+            meta.lore(List.of(
+                    plugin.getMessages().component("item.foundation-banner.lore.type", Map.of(), null),
+                    plugin.getMessages().component("item.foundation-banner.lore.clan", Map.of("clan", name, "tag", tag), null),
+                    plugin.getMessages().component("item.foundation-banner.lore.info", Map.of(), null)
+            ));
+            banner.setItemMeta(meta);
+        }
+        return banner;
+    }
+
+    /** Extracts the (name, tag, open) a Foundation Banner was purchased with, or empty if not one. */
+    public java.util.Optional<FoundationDetails> readFoundationDetails(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return java.util.Optional.empty();
+        PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
+        if (!"FOUNDATION".equals(pdc.get(BANNER_TYPE_KEY, PersistentDataType.STRING))) return java.util.Optional.empty();
+
+        String name = pdc.get(FOUNDATION_NAME_KEY, PersistentDataType.STRING);
+        String tag = pdc.get(FOUNDATION_TAG_KEY, PersistentDataType.STRING);
+        Byte openByte = pdc.get(FOUNDATION_OPEN_KEY, PersistentDataType.BYTE);
+        if (name == null || tag == null || openByte == null) return java.util.Optional.empty();
+
+        return java.util.Optional.of(new FoundationDetails(name, tag, openByte != 0));
+    }
+
+    public record FoundationDetails(String name, String tag, boolean open) {}
 
     /**
      * Creates a captured war banner ItemStack - given to the player who breaks a defending

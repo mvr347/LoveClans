@@ -90,12 +90,22 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         plugin.getMessages().send(sender, "general.reloaded");
     }
 
+    /** "contracts" binds the Marshal NPC; "founder" binds the clan-founding banner-vendor NPC. */
+    private static String npcIdConfigKey(String type) {
+        return switch (type.toLowerCase(Locale.ROOT)) {
+            case "contracts" -> "clans.contracts.npc-id";
+            case "founder" -> "clans.founder.npc-id";
+            default -> null;
+        };
+    }
+
     private void createNpc(CommandSender sender, String[] args) {
         if (!(sender instanceof Player player)) {
             plugin.getMessages().send(sender, "general.players-only");
             return;
         }
-        if (args.length < 2 || !args[1].equalsIgnoreCase("contracts")) {
+        String configKey = args.length < 2 ? null : npcIdConfigKey(args[1]);
+        if (configKey == null) {
             plugin.getMessages().send(sender, "admin.npc.unknown-type");
             return;
         }
@@ -106,29 +116,34 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "admin.npc.not-looking-at-npc");
             return;
         }
-        plugin.getConfig().set("clans.contracts.npc-id", npcId);
+        plugin.getConfig().set(configKey, npcId);
         plugin.saveConfig();
         plugin.getMessages().send(player, "admin.npc.bound", Map.of("id", String.valueOf(npcId)));
     }
 
     private void removeNpc(CommandSender sender, String[] args) {
-        if (args.length < 2) {
+        if (args.length < 3) {
             plugin.getMessages().send(sender, "clan.help.admin-npc");
+            return;
+        }
+        String configKey = npcIdConfigKey(args[1]);
+        if (configKey == null) {
+            plugin.getMessages().send(sender, "admin.npc.unknown-type");
             return;
         }
         int targetId;
         try {
-            targetId = Integer.parseInt(args[1]);
+            targetId = Integer.parseInt(args[2]);
         } catch (NumberFormatException exception) {
             plugin.getMessages().send(sender, "general.invalid-number");
             return;
         }
-        int currentId = plugin.getConfig().getInt("clans.contracts.npc-id", -1);
+        int currentId = plugin.getConfig().getInt(configKey, -1);
         if (currentId != targetId) {
             plugin.getMessages().send(sender, "admin.npc.not-bound");
             return;
         }
-        plugin.getConfig().set("clans.contracts.npc-id", -1);
+        plugin.getConfig().set(configKey, -1);
         plugin.saveConfig();
         plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", String.valueOf(targetId)));
     }
@@ -344,8 +359,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 2) {
             List<String> completions = switch (action) {
-                case "removenpc" -> List.of();
-                case "createnpc" -> List.of("contracts");
+                case "removenpc", "createnpc" -> List.of("contracts", "founder");
                 case "disband", "diplo" -> clanTags;
                 case "war" -> WAR_ACTIONS;
                 case "siege" -> SIEGE_ACTIONS;

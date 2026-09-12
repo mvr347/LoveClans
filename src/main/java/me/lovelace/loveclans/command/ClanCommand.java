@@ -38,8 +38,10 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
             "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "letters", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade"
     );
+    // "create" was removed: a clan is now founded by buying a Foundation Banner from the clan
+    // NPC and placing it (see gui.ClanCreateMenu, listener.ClanNpcListener), not a command.
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
-            "help", "create", "accept", "invites", "list", "info"
+            "help", "accept", "invites", "list", "info"
     );
     private final LoveClansPlugin plugin;
 
@@ -102,7 +104,6 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         try {
             switch (sub) {
                 case "help" -> sendHelp(sender);
-                case "create" -> openCreateGui(requirePlayer(sender));
                 case "disband" -> disband(requirePlayer(sender));
                 case "invite" -> invite(requirePlayer(sender), args);
                 case "invites" -> toggleInvites(requirePlayer(sender));
@@ -248,14 +249,6 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         plugin.getChatInputListener(player.getUniqueId()).ifPresent(callback -> callback.accept(null, true));
     }
 
-    private void openCreateGui(Player player) {
-        requirePermission(player, Permissions.CREATE);
-        if (plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent()) {
-            plugin.getMessages().send(player, "clan.already-in-clan");
-            return;
-        }
-        new ClanCreateMenu(plugin, player).open();
-    }
 
     private void openDiplomacyFor(Player player, String targetTag) {
         requirePermission(player, Permissions.DIPLOMACY);
@@ -1196,7 +1189,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 plugin.getMessages().send(player, "clan.help.disband");
             }
         } else {
-            plugin.getMessages().send(player, "clan.help.create");
+            plugin.getMessages().send(player, "clan.help.found");
             plugin.getMessages().send(player, "clan.help.list");
             plugin.getMessages().send(player, "clan.help.accept");
         }

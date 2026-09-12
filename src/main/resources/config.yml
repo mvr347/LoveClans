@@ -28,10 +28,12 @@ clans:
     # также разрешены пробелы, цифры, дефис и подчёркивание.
     pattern: "^[\\p{L}\\p{N} _-]+$"
   creation-cooldown-seconds: 86400
-  # creation-cost — сумма в единой валюте экосистемы (LoveCore.LoveEconomy, монеты ItemsAdder
-  # в инвентаре), списываемая с игрока при создании клана. 0 — плата отключена.
+  # foundation-banner-cost — сумма в единой валюте экосистемы (LoveCore.LoveEconomy, монеты
+  # ItemsAdder в инвентаре), списываемая с игрока при покупке Знамени Основания у NPC-основателя
+  # (см. clans.founder.npc-id ниже). Клан больше не создаётся командой "/clan create" — только
+  # покупкой и установкой этого знамени. 0 — плата отключена.
   # 250 = 5 золотых монет (gold_coin = 50 в LoveCore.economy.denominations).
-  creation-cost: 250
+  foundation-banner-cost: 250
   rejoin-cooldown-seconds: 3600
   default-tag-color: "<gold>"
   # dye-color — имя org.bukkit.DyeColor, используется для окраски щитов в цвет клана (см. ShieldColorManager).
@@ -108,6 +110,13 @@ clans:
     npc-id: -1
     npc-bind-distance: 6.0
     tick-interval-minutes: 5
+
+  # NPC-основатель: продаёт Знамя Основания (см. foundation-banner-cost выше), установка которого
+  # создаёт клан и сразу начинает захват территории на месте установки. Привязывается командой
+  # /clansadmin createnpc founder, стоя рядом с уже созданным через ванильный /npc create NPC;
+  # -1 отключает взаимодействие с NPC.
+  founder:
+    npc-id: -1
     penalty-percent: 80
     difficulty:
       base: 1.0

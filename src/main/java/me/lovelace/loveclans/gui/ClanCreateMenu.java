@@ -116,21 +116,40 @@ public final class ClanCreateMenu implements InventoryHolder {
         });
     }
 
+    /**
+     * Sells a Foundation Banner carrying the chosen name/tag/open-status instead of creating the
+     * clan directly - the clan is founded, and its territory claimed, when this banner is placed
+     * (see manager.ClanManager#foundClanFromBannerAsync). This menu is now only ever opened from
+     * the founding NPC (see listener.ClanNpcListener), not a "/clan create" command.
+     */
     private void tryCreate() {
         if (name.isEmpty() || tag.isEmpty()) return;
+
+        if (plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent()) {
+            plugin.getMessages().send(player, "clan.already-in-clan");
+            player.closeInventory();
+            return;
+        }
+
+        long cost = plugin.getConfig().getLong("clans.foundation-banner-cost", 0L);
+        if (cost > 0) {
+            var economy = dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.economy.LoveEconomy.class);
+            if (economy.isEmpty()) {
+                plugin.getMessages().send(player, "clan.creation-economy-unavailable");
+                player.closeInventory();
+                return;
+            }
+            if (!economy.get().has(player, cost)) {
+                plugin.getMessages().send(player, "clan.creation-insufficient-funds");
+                player.closeInventory();
+                return;
+            }
+            economy.get().charge(player, cost);
+        }
+
+        player.getInventory().addItem(plugin.getClanManager().getClanItemFactory().createFoundationBanner(name, tag, open));
+        plugin.getMessages().send(player, "gui.create.banner-given", Map.of("tag", tag, "name", name));
         player.closeInventory();
-        plugin.getClanManager().createClanAsync(name, tag, player.getUniqueId(), open)
-                .thenAccept(created -> plugin.runSync(() -> {
-                    plugin.getMessages().send(player, "gui.create.success", Map.of("tag", created.tag(), "name", created.name()));
-                    plugin.getGuiManager().openMain(player, created);
-                }))
-                .exceptionally(t -> {
-                    plugin.runSync(() -> {
-                        plugin.sendOperationError(player, t);
-                        open();
-                    });
-                    return null;
-                });
     }
 
     @Override

@@ -393,29 +393,13 @@ public final class ClanManager {
             }
 
             Player founder = Bukkit.getPlayer(founderId);
-            if (founder != null && clanItemFactory.hasExistingBanner(founder, "CAPITAL", null)) {
-                throw new IllegalStateException("clan.founder-has-capital-banner");
-            }
 
-            // Плата за создание клана взимается в единой валюте экосистемы (LoveCore.LoveEconomy —
-            // монеты ItemsAdder в инвентаре). creation-cost = 0 отключает плату. Проверяем наличие
-            // средств до создания клана, списываем — уже после успешного создания, чтобы не забирать
-            // предметы при отмене события/ошибке.
-            long creationCost = plugin.getConfig().getLong("clans.creation-cost", 0L);
-            boolean chargeCreationCost = creationCost > 0;
-            Optional<LoveEconomy> creationEconomy = Optional.empty();
-            if (chargeCreationCost) {
-                if (founder == null) {
-                    throw new IllegalStateException("general.players-only");
-                }
-                creationEconomy = LoveCore.service(LoveEconomy.class);
-                if (creationEconomy.isEmpty()) {
-                    throw new IllegalStateException("clan.creation-economy-unavailable");
-                }
-                if (!creationEconomy.get().has(founder, creationCost)) {
-                    throw new IllegalStateException("clan.creation-insufficient-funds");
-                }
-            }
+            // Creation itself is free - the cost is paid once, up front, when the Foundation Banner
+            // is bought from the NPC (see gui.ClanCreateMenu). Charging again here would double-bill
+            // the same purchase, and the old "founder already holds an unplaced Capital Banner"
+            // guard above this comment is now redundant: getPlayerClan(founderId) above already
+            // rejects a second creation for anyone who has already founded (and is a member of)
+            // a clan, which is the only way a Capital Banner ends up in a player's inventory now.
 
             Material emblem = Material.matchMaterial(plugin.getConfig().getString("clans.default-emblem", "WHITE_BANNER"));
             if (emblem == null) {
@@ -430,9 +414,6 @@ public final class ClanManager {
             }
             indexClan(clan);
 
-            if (chargeCreationCost) {
-                creationEconomy.get().charge(founder, creationCost);
-            }
             if (cooldownSeconds > 0) {
                 creationCooldowns.put(founderId, System.currentTimeMillis());
             }
@@ -444,6 +425,24 @@ public final class ClanManager {
 
             return clan;
         }).thenCompose(clan -> storage.saveClanAsync(clan).thenApply(ignored -> clan));
+    }
+
+    /**
+     * Founds a clan from a Foundation Banner placement (see util.ClanItemFactory#createFoundationBanner
+     * and listener.ClanProtectionListener#onBlockPlace) and immediately starts claiming that spot as
+     * its capital, reusing createClanAsync (which already hands the founder a real Capital Banner)
+     * and the existing two-step claim-confirmation flow rather than any new logic. A player already
+     * in or owning a clan is rejected here exactly as createClanAsync already rejects any other
+     * creation attempt - one banner, one shot, "just doesn't work" otherwise.
+     */
+    public CompletableFuture<Clan> foundClanFromBannerAsync(Player founder, String name, String tag, boolean open, Location location) {
+        if (founder == null || location == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Founder and location cannot be null."));
+        return createClanAsync(name, tag, founder.getUniqueId(), open)
+                .thenApply(clan -> {
+                    plugin.runSync(() -> initiateClaimConfirmation(founder, clan, location, "CAPITAL"));
+                    return clan;
+                });
     }
 
     public CompletableFuture<Void> disbandClanAsync(Clan clan, UUID actorId) {
