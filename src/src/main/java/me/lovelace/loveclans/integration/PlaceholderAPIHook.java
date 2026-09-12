@@ -1,0 +1,76 @@
+package me.lovelace.loveclans.integration;
+
+import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.model.ClanMember;
+import org.bukkit.OfflinePlayer;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Locale;
+import java.util.Optional;
+
+public final class PlaceholderAPIHook extends PlaceholderExpansion {
+    private final LoveClansPlugin plugin;
+
+    public PlaceholderAPIHook(LoveClansPlugin plugin) {
+        this.plugin = plugin;
+    }
+
+    @Override
+    public @NotNull String getIdentifier() {
+        return "clans";
+    }
+
+    @Override
+    public @NotNull String getAuthor() {
+        return "lovelace";
+    }
+
+    @Override
+    public @NotNull String getVersion() {
+        return plugin.getPluginMeta().getVersion();
+    }
+
+    @Override
+    public boolean persist() {
+        return true;
+    }
+
+    @Override
+    public @Nullable String onRequest(OfflinePlayer player, @NotNull String params) {
+        if (player == null) {
+            return "";
+        }
+        Optional<Clan> clanOptional = plugin.getClanManager().getPlayerClan(player.getUniqueId());
+        String key = params.toLowerCase(Locale.ROOT);
+        if (key.equals("in_clan")) {
+            return String.valueOf(clanOptional.isPresent());
+        }
+        if (key.equals("invites_enabled")) {
+            return plugin.getPlayerPreferencesManager().isInvitesEnabled(player.getUniqueId()) ? "yes" : "no";
+        }
+        if (clanOptional.isEmpty()) {
+            return "";
+        }
+        Clan clan = clanOptional.get();
+        return switch (key) {
+            case "id" -> clan.id().toString();
+            case "name" -> clan.name();
+            case "tag" -> clan.tag();
+            case "colored_tag" -> clan.coloredTag();
+            case "colored_name" -> clan.coloredName();
+            case "description" -> clan.description();
+            case "level" -> String.valueOf(clan.level());
+            case "experience", "xp" -> String.valueOf(clan.experience());
+            case "members" -> String.valueOf(clan.members().size());
+            case "territories" -> String.valueOf(clan.territories().size());
+            case "spirit_level" -> String.valueOf(clan.spirit().level());
+            case "influence" -> String.valueOf(clan.influence());
+            case "rank" -> clan.member(player.getUniqueId()).map(ClanMember::rank).map(Enum::name).orElse("");
+            case "rank_display" -> clan.member(player.getUniqueId()).map(ClanMember::rank).map(rank -> rank.displayName()).orElse("");
+            default -> "";
+        };
+    }
+}

@@ -1,0 +1,326 @@
+package me.lovelace.loveclans.service;
+
+import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.model.DiplomacyRelation;
+import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.kyori.adventure.title.Title;
+import org.bukkit.Bukkit;
+import org.bukkit.Sound;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.entity.Player;
+
+import java.time.Duration;
+
+import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+public final class MessageService {
+    private final LoveClansPlugin plugin;
+    private final MiniMessage miniMessage = MiniMessage.miniMessage();
+    private YamlConfiguration lang;
+    private Method papiSetPlaceholders;
+
+    public MessageService(LoveClansPlugin plugin) {
+        this.plugin = plugin;
+    }
+
+    /**
+     * Не кэшируем {@code Optional<LoveNotify>} в поле — сосед может зарегистрировать
+     * реализацию позже, см. {@code LoveCore.service(...)} javadoc в LoveCore.
+     */
+    private boolean isNotifyChannelEnabled(Player player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel channel) {
+        return dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.notify.LoveNotify.class)
+                .map(n -> n.isChannelEnabled(player.getUniqueId(), channel))
+                .orElse(true);
+    }
+
+    public void reload() {
+        File file = new File(plugin.getDataFolder(), "lang.yml");
+        if (!file.exists()) {
+            plugin.saveResource("lang.yml", false);
+        }
+        lang = YamlConfiguration.loadConfiguration(file);
+        try (InputStream stream = plugin.getResource("lang.yml")) {
+            if (stream != null) {
+                YamlConfiguration defaults = YamlConfiguration.loadConfiguration(new InputStreamReader(stream, StandardCharsets.UTF_8));
+                lang.setDefaults(defaults);
+                lang.options().copyDefaults(true);
+            }
+        } catch (Exception exception) {
+            plugin.getLogger().warning("Unable to load default lang.yml from jar: " + exception.getMessage());
+        }
+        resolvePlaceholderApi();
+    }
+
+    public Component component(String key) {
+        return component(key, Map.of(), null);
+    }
+
+    public Component component(String key, Map<String, String> placeholders) {
+        return component(key, placeholders, null);
+    }
+
+    public Component component(String key, Player player) {
+        return component(key, Map.of(), player);
+    }
+
+    public Component component(String key, Map<String, String> placeholders, Player player) {
+        String raw = lang.getString(key);
+        if (raw == null) {
+            raw = key;
+        }
+        return parse(raw, placeholders, player);
+    }
+
+    public List<Component> components(String key, Player player) {
+        return components(key, Map.of(), player);
+    }
+
+    public List<Component> components(String key, Map<String, String> placeholders, Player player) {
+        if (lang.isList(key)) {
+            List<String> list = lang.getStringList(key);
+            List<Component> components = new ArrayList<>();
+            for (String raw : list) {
+                components.add(parse(raw, placeholders, player));
+            }
+            return components;
+        } else {
+            String raw = lang.getString(key);
+            if (raw == null) raw = key;
+            return List.of(parse(raw, placeholders, player));
+        }
+    }
+
+    private Component parse(String raw, Map<String, String> placeholders, Player player) {
+        String prefix = lang.getString("prefix", "");
+        raw = raw.replace("<prefix>", prefix);
+
+        List<TagResolver> resolvers = new ArrayList<>();
+        for (Map.Entry<String, String> entry : placeholders.entrySet()) {
+            String val = entry.getValue();
+            if (val.contains("<") && val.contains(">")) {
+                resolvers.add(Placeholder.parsed(entry.getKey(), val));
+            } else {
+                resolvers.add(Placeholder.component(entry.getKey(), Component.text(val)));
+            }
+        }
+
+        raw = applyPlaceholders(player, raw);
+        return miniMessage.deserialize(raw, TagResolver.resolver(resolvers));
+    }
+
+    /**
+     * Человекочитаемое название отношений. Раньше в интерфейс подставлялось
+     * {@code DiplomacyRelation.name()}, и игрок видел непереведённое "NEUTRAL".
+     * Само значение enum по-прежнему используется для хранения в БД — переводим
+     * только то, что показываем.
+     */
+    public String relationName(DiplomacyRelation relation) {
+        if (relation == null) {
+            return raw("diplomacy.relation.NEUTRAL");
+        }
+        return raw("diplomacy.relation." + relation.name());
+    }
+
+    public String raw(String key) {
+        String raw = lang.getString(key);
+        if (raw == null) {
+            raw = key;
+        }
+        return raw.replace("<prefix>", lang.getString("prefix", ""));
+    }
+
+    public void send(CommandSender sender, String key) {
+        send(sender, key, Map.of());
+    }
+
+    public void send(CommandSender sender, String key, Map<String, String> placeholders) {
+        Player player = sender instanceof Player playerSender ? playerSender : null;
+        Audience audience = sender;
+        audience.sendMessage(component(key, placeholders, player));
+    }
+
+    public void sendClickableApplication(Player leader, String applicantName, String clanTag, String clanColor) {
+        Component msg = component("clan.application-received",
+                Map.of("player", applicantName, "tag", clanTag, "color", clanColor), leader)
+                .append(Component.text(" "))
+                .append(component("gui.accept", leader)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                                "/clan applications accept " + applicantName)))
+                .append(Component.text(" "))
+                .append(component("gui.reject", leader)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                                "/clan applications reject " + applicantName)));
+        leader.sendMessage(msg);
+    }
+
+    public void sendClickableInvite(Player target, String clanTag, String clanColor) {
+        Component msg = component("clan.invite-received",
+                Map.of("tag", clanTag, "color", clanColor), target)
+                .append(Component.text(" "))
+                .append(component("gui.accept", target)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan accept " + clanTag)))
+                .append(Component.text(" "))
+                .append(component("gui.reject", target)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan decline " + clanTag)));
+        target.sendMessage(msg);
+    }
+
+    public void sendClickableSpiritLevelChange(Player target, int newLevel, boolean increased) {
+        Component msg = component(increased ? "spirit.level-up" : "spirit.level-down",
+                Map.of("level", String.valueOf(newLevel)), target)
+                .append(Component.text(" "))
+                .append(component("spirit.level-change.open", target)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan spirit")));
+        target.sendMessage(msg);
+    }
+
+    public void sendClickableAlliance(Player guildmaster, String sourceClanTag, String sourceClanColor) {
+        Component msg = component("diplomacy.alliance-request",
+                Map.of("tag", sourceClanTag, "color", sourceClanColor), guildmaster)
+                .append(Component.text(" "))
+                .append(component("gui.accept", guildmaster)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                                "/clan ally accept " + sourceClanTag)))
+                .append(Component.text(" "))
+                .append(component("gui.reject", guildmaster)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                                "/clan ally decline " + sourceClanTag)));
+        guildmaster.sendMessage(msg);
+    }
+
+    public void sendClickableLetter(Player leader, String senderTag, String senderColor) {
+        Component msg = component("diplomacy.letter.received",
+                Map.of("tag", senderTag, "color", senderColor), leader)
+                .append(Component.text(" "))
+                .append(component("diplomacy.letter.open", leader)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan letters " + senderTag)));
+        leader.sendMessage(msg);
+    }
+
+    public void sendClickableTrade(Player recipient, java.util.UUID tradeId, String senderTag, String senderColor) {
+        Component msg = component("trade.offer-received",
+                Map.of("tag", senderTag, "color", senderColor), recipient)
+                .append(Component.text(" "))
+                .append(component("gui.accept", recipient)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                                "/clan trade accept " + tradeId)))
+                .append(Component.text(" "))
+                .append(component("gui.reject", recipient)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                                "/clan trade decline " + tradeId)));
+        recipient.sendMessage(msg);
+    }
+
+    /**
+     * Notifies the proposing clan's members that their trade offer went out, with a click-to-cancel
+     * button ({@code /clan trade cancel <id>}) — previously this side only got a plain, unclickable
+     * message while the recipient got accept/decline buttons via {@link #sendClickableTrade}.
+     */
+    public void sendClickableTradeSent(Player proposer, java.util.UUID tradeId, String targetTag, String targetColor) {
+        Component msg = component("trade.sent", Map.of("tag", targetTag, "color", targetColor), proposer)
+                .append(Component.text(" "))
+                .append(component("gui.cancel", proposer)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                                "/clan trade cancel " + tradeId)));
+        proposer.sendMessage(msg);
+    }
+
+    public void sendChatConfirmPrompt(Player player, String promptKey, Map<String, String> placeholders, Runnable onConfirm, Runnable onCancel) {
+        player.sendMessage(component(promptKey, placeholders, player));
+        player.sendMessage(component("gui.confirm.chat-yes", player)
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/loveclan confirm"))
+                .append(Component.text("  "))
+                .append(component("gui.confirm.chat-no", player)
+                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/loveclan cancel"))));
+        plugin.expectChatInput(player.getUniqueId(), (message, cancelled) -> {
+            if (cancelled) {
+                onCancel.run();
+                return;
+            }
+            String normalized = message == null ? "" : message.trim().toLowerCase(java.util.Locale.ROOT);
+            if (normalized.equals("подтвердить") || normalized.equals("confirm")) {
+                onConfirm.run();
+            } else if (normalized.equals("отменить") || normalized.equals("отмена") || normalized.equals("cancel")) {
+                onCancel.run();
+            } else {
+                send(player, "gui.confirm.invalid-input");
+                sendChatConfirmPrompt(player, promptKey, placeholders, onConfirm, onCancel);
+            }
+        });
+    }
+
+    /**
+     * Shows a title/subtitle to a player, both resolved from lang.yml. Pass null for
+     * subtitleKey to show a title-only prompt.
+     */
+    public void sendTitle(Player player, String titleKey, String subtitleKey, Map<String, String> placeholders) {
+        if (!isNotifyChannelEnabled(player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel.TITLE)) {
+            return;
+        }
+        Component titleComponent = component(titleKey, placeholders, player);
+        Component subtitleComponent = subtitleKey != null ? component(subtitleKey, placeholders, player) : Component.empty();
+        player.showTitle(Title.title(titleComponent, subtitleComponent,
+                Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(3000), Duration.ofMillis(500))));
+    }
+
+    public void sendActionBar(Player player, String key, Map<String, String> placeholders) {
+        if (!isNotifyChannelEnabled(player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel.ACTION_BAR)) {
+            return;
+        }
+        player.sendActionBar(component(key, placeholders, player));
+    }
+
+    /**
+     * Для мест, которые собирают {@link Title} сами (нестандартный тайминг — например,
+     * подстроенный под длительность визуализации границы клейма) и не могут переиспользовать
+     * {@link #sendTitle}. Проверяйте перед вызовом {@code player.showTitle(...)} напрямую.
+     */
+    public boolean isTitleChannelEnabled(Player player) {
+        return isNotifyChannelEnabled(player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel.TITLE);
+    }
+
+    public void playSound(Player player, Sound sound, float volume, float pitch) {
+        player.playSound(player.getLocation(), sound, volume, pitch);
+    }
+
+    public String formatDate(long timestamp) {
+        return new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm").format(new java.util.Date(timestamp));
+    }
+
+    private String applyPlaceholders(Player player, String raw) {
+        if (player == null || papiSetPlaceholders == null || !Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            return raw;
+        }
+        try {
+            Object value = papiSetPlaceholders.invoke(null, player, raw);
+            return value instanceof String string ? string : raw;
+        } catch (ReflectiveOperationException exception) {
+            return raw;
+        }
+    }
+
+    private void resolvePlaceholderApi() {
+        papiSetPlaceholders = null;
+        if (!Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            return;
+        }
+        try {
+            Class<?> placeholderApi = Class.forName("me.clip.placeholderapi.PlaceholderAPI");
+            papiSetPlaceholders = placeholderApi.getMethod("setPlaceholders", Player.class, String.class);
+        } catch (ReflectiveOperationException exception) {
+            plugin.getLogger().warning("PlaceholderAPI found, but setPlaceholders(Player, String) is unavailable.");
+        }
+    }
+}
