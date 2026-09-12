@@ -3,6 +3,7 @@ package me.lovelace.loveclans.listener;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.war.ClanWar;
+import me.lovelace.loveclans.model.war.WarState;
 import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -14,6 +15,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Optional;
+import java.util.UUID;
 
 public final class CombatListener implements Listener {
     private final LoveClansPlugin plugin;
@@ -36,7 +38,37 @@ public final class CombatListener implements Listener {
         }
         if (attackerClan.get().id().equals(victimClan.get().id()) && !plugin.getConfig().getBoolean("clans.friendly-fire", false)) {
             event.setCancelled(true);
+            return;
         }
+
+        if (isActiveWarBetween(attackerClan.get().id(), victimClan.get().id())) {
+            applyAggressivePlaystyleBonus(event, attacker.getUniqueId());
+        }
+    }
+
+    private boolean isActiveWarBetween(UUID clanA, UUID clanB) {
+        for (ClanWar war : plugin.getWarManager().activeWars()) {
+            if (war.state() == WarState.ACTIVE && war.between(clanA, clanB)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Бонус к урону во время войны клана за агрессивный стиль игры атакующего
+     * (LoveCore.BehaviorLevels, ставит LoveBehavior) — "военные действия" отдают агрессивным
+     * игрокам больше, симметрично тому, как миролюбивым отдают больше в торговле.
+     */
+    private void applyAggressivePlaystyleBonus(EntityDamageByEntityEvent event, UUID attackerId) {
+        if (!plugin.getConfig().getBoolean("war.aggressive-playstyle-bonus.enabled", true)) {
+            return;
+        }
+        int threshold = plugin.getConfig().getInt("war.aggressive-playstyle-bonus.playstyle-threshold", 0);
+        double bonusPercent = plugin.getConfig().getDouble("war.aggressive-playstyle-bonus.damage-percent", 0.10);
+        dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.social.BehaviorLevels.class)
+                .filter(levels -> levels.playstyleLevel(attackerId) <= threshold)
+                .ifPresent(levels -> event.setDamage(event.getDamage() * (1.0 + bonusPercent)));
     }
 
     @EventHandler

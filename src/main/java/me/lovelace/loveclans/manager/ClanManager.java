@@ -1580,7 +1580,29 @@ public final class ClanManager {
         double multiplier = 1.0 + Math.max(0, clan.members().size() - 1) * perMember
                 + Math.max(0, clan.territories().size() - 1) * perTerritory
                 + Math.max(0, clan.chestRows() - baseRows) * perRow;
-        return Math.round(base * multiplier);
+        return Math.round(base * multiplier * leaderBehaviorTaxFactor(clan));
+    }
+
+    /**
+     * Скидка на налог, если глава клана вежлив или дружелюбен (LoveCore.BehaviorLevels, ставит
+     * LoveBehavior) — множитель &lt;1.0. Без LoveCore/LoveBehavior или без главы — 1.0 (без скидки).
+     */
+    private double leaderBehaviorTaxFactor(Clan clan) {
+        if (!plugin.getConfig().getBoolean("clans.chest.tax.leader-behavior-discount.enabled", true)) {
+            return 1.0;
+        }
+        Optional<UUID> leaderId = clan.leaderId();
+        if (leaderId.isEmpty()) {
+            return 1.0;
+        }
+        int politenessThreshold = plugin.getConfig().getInt("clans.chest.tax.leader-behavior-discount.politeness-threshold", 5);
+        int playstyleThreshold = plugin.getConfig().getInt("clans.chest.tax.leader-behavior-discount.playstyle-threshold", 6);
+        double discountPercent = plugin.getConfig().getDouble("clans.chest.tax.leader-behavior-discount.percent", 0.10);
+        return LoveCore.service(dev.lovelace.lovecore.api.social.BehaviorLevels.class)
+                .filter(levels -> levels.politenessLevel(leaderId.get()) >= politenessThreshold
+                        || levels.playstyleLevel(leaderId.get()) >= playstyleThreshold)
+                .map(levels -> 1.0 - discountPercent)
+                .orElse(1.0);
     }
 
     private CompletableFuture<Void> maybeUnlockChestAsync(Clan clan) {
