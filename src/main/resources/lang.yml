@@ -149,6 +149,7 @@ clan:
   invalid-tag: "<prefix><red>Тег клана должен содержать от <min> до <max> символов и состоять из букв, цифр и подчёркивания."
   invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <color><tag></color>."
   invite-missing: "<prefix><red>Приглашение не найдено."
+  recognized-join-blocked-politeness: "<prefix><red>У признанных кланов свои стандарты — с вашей вежливостью туда не берут."
   invites-disabled: "<prefix><red>Этот игрок отключил приём приглашений в кланы."
   invites-toggled-on: "<prefix><green>Вы включили приём приглашений в кланы."
   invites-toggled-off: "<prefix><yellow>Вы отключили приём приглашений в кланы."

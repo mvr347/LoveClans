@@ -519,6 +519,9 @@ public final class ClanManager {
             return CompletableFuture.failedFuture(new IllegalArgumentException("Player ID and tag cannot be null."));
         return plugin.supplySync(() -> {
             Clan clan = getClanByTag(tag).orElseThrow(() -> new IllegalStateException("clan.invite-missing"));
+            if (clan.isRecognized() && isPolitenessTooLowForRecognizedClan(playerId)) {
+                throw new IllegalStateException("clan.recognized-join-blocked-politeness");
+            }
             List<ClanInvite> invites = invitesByPlayer.getOrDefault(playerId, List.of());
             long now = System.currentTimeMillis();
             ClanInvite invite = invites.stream()
@@ -561,6 +564,9 @@ public final class ClanManager {
             }
             if (inAnyConflict(clan.id())) {
                 throw new IllegalStateException("gui.capital.war-blocked");
+            }
+            if (clan.isRecognized() && isPolitenessTooLowForRecognizedClan(applicantId)) {
+                throw new IllegalStateException("clan.recognized-join-blocked-politeness");
             }
             List<ClanApplication> applications = applicationsByClan.computeIfAbsent(clan.id(), ignored -> new ArrayList<>());
             ClanApplication application = applications.stream()
@@ -1581,6 +1587,21 @@ public final class ClanManager {
                 + Math.max(0, clan.territories().size() - 1) * perTerritory
                 + Math.max(0, clan.chestRows() - baseRows) * perRow;
         return Math.round(base * multiplier * leaderBehaviorTaxFactor(clan));
+    }
+
+    /**
+     * Токсичным игрокам (низкая вежливость) закрыт вход в ПРИЗНАННЫЕ кланы — непризнанные
+     * остаются открытыми для всех (LoveCore.BehaviorLevels, из LoveBehavior). false, если
+     * LoveBehavior недоступен — гейт в этом случае не применяется.
+     */
+    private boolean isPolitenessTooLowForRecognizedClan(UUID playerId) {
+        if (!plugin.getConfig().getBoolean("clans.recognized-join-gate.enabled", true)) {
+            return false;
+        }
+        int maxTier = plugin.getConfig().getInt("clans.recognized-join-gate.max-politeness-level", 0);
+        return LoveCore.service(dev.lovelace.lovecore.api.social.BehaviorLevels.class)
+                .map(levels -> levels.politenessLevel(playerId) <= maxTier)
+                .orElse(false);
     }
 
     /**

@@ -28,6 +28,12 @@ clans:
     # также разрешены пробелы, цифры, дефис и подчёркивание.
     pattern: "^[\\p{L}\\p{N} _-]+$"
   creation-cooldown-seconds: 86400
+
+  # Токсичным игрокам закрыт вход в ПРИЗНАННЫЕ кланы через приглашение или заявку —
+  # непризнанные остаются открытыми для всех (LoveCore.BehaviorLevels, из LoveBehavior).
+  recognized-join-gate:
+    enabled: true
+    max-politeness-level: 0   # ступень вежливости 0-6 и ниже ("Ужасно")
   rejoin-cooldown-seconds: 3600
   default-tag-color: "<gold>"
   # dye-color — имя org.bukkit.DyeColor, используется для окраски щитов в цвет клана (см. ShieldColorManager).
