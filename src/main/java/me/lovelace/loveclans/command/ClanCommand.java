@@ -36,10 +36,10 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "invites", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "letters", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade"
+            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "letters", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
-            "help", "create", "accept", "invites", "list", "info"
+            "help", "accept", "invites", "list", "info"
     );
     private final LoveClansPlugin plugin;
 
@@ -102,7 +102,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         try {
             switch (sub) {
                 case "help" -> sendHelp(sender);
-                case "create" -> openCreateGui(requirePlayer(sender));
+                case "create" -> plugin.getMessages().send(requirePlayer(sender), "clan.create-removed");
                 case "disband" -> disband(requirePlayer(sender));
                 case "invite" -> invite(requirePlayer(sender), args);
                 case "invites" -> toggleInvites(requirePlayer(sender));
@@ -162,6 +162,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "chest" -> openChest(requirePlayer(sender));
                 case "contracts" -> openContracts(requirePlayer(sender));
                 case "trade" -> trade(requirePlayer(sender), args);
+                case "servertrade" -> openServerTrade(requirePlayer(sender));
                 case "confirm" -> confirmPendingChatInput(requirePlayer(sender));
                 case "cancel" -> cancelPendingChatInput(requirePlayer(sender));
                 default -> plugin.getMessages().send(sender, "general.unknown-command");
@@ -249,12 +250,21 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     }
 
     private void openCreateGui(Player player) {
-        requirePermission(player, Permissions.CREATE);
-        if (plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent()) {
-            plugin.getMessages().send(player, "clan.already-in-clan");
+        plugin.getMessages().send(player, "clan.create-removed");
+    }
+
+    private void openServerTrade(Player player) {
+        Optional<Clan> optionalClan = requireClan(player);
+        if (optionalClan.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
             return;
         }
-        new ClanCreateMenu(plugin, player).open();
+        Clan clan = optionalClan.get();
+        if (!clan.isRecognized()) {
+            plugin.getMessages().send(player, "trade.server.not-recognized");
+            return;
+        }
+        new ClanServerTradeMenu(plugin, player, clan).open();
     }
 
     private void openDiplomacyFor(Player player, String targetTag) {
@@ -602,6 +612,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         Clan clan = optionalClan.get();
         
+        if (!clan.isRecognized()) {
+            plugin.getMessages().send(player, "clan.unrecognized-cannot-claim");
+            return;
+        }
+
         // Prevent claiming if at war
         if (plugin.getWarManager().activeWars().stream().anyMatch(war -> war.involves(clan.id()))) {
             plugin.getMessages().send(player, "war.cannot-claim");

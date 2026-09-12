@@ -34,12 +34,16 @@ admin:
   war-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> начата администратором."
   war-force-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
   siege-force-started: "<prefix><green>Осада <color1><clan1></color1> против <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
+  clan-recognized: "<prefix><green>Клан <yellow><tag></yellow> (<white><name></white>) получил статус признанного клана."
+  clan-unrecognized: "<prefix><yellow>Клан <yellow><tag></yellow> (<white><name></white>) теперь является непризнанным кланом."
+  givebanner:
+    success: "<prefix><green>Знамя основания клана выдано игроку <white><player></white>."
   npc:
-    unknown-type: "<prefix><red>Неизвестный тип NPC. Сейчас поддерживается только 'contracts'."
+    unknown-type: "<prefix><red>Неизвестный тип NPC. Доступно: 'contracts', 'banner'."
     not-looking-at-npc: "<prefix><red>Посмотрите на NPC Citizens, которого нужно привязать, и повторите команду."
-    bound: "<prefix><green>NPC обетов привязан (ID <white><id></white>)."
-    not-bound: "<prefix><red>NPC обетов сейчас не привязан к этому ID."
-    unbound: "<prefix><green>NPC обетов (ID <white><id></white>) отвязан."
+    bound: "<prefix><green>NPC привязан (ID <white><id></white>, тип <yellow><type></yellow>)."
+    not-bound: "<prefix><red>NPC не привязан к этому ID."
+    unbound: "<prefix><green>NPC (ID <white><id></white>) отвязан."
 
 chest:
   no-capital: "<prefix><red>У вашего клана нет установленной территории — сначала установите знамя кланового спавна."
@@ -107,8 +111,22 @@ trade:
     cancelled: "<prefix><yellow>Сделка с кланом <white><tag></white> отменена, всё возвращено в сундук клана."
   delivery:
     arrived: "<prefix><green>По сделке с кланом <color><tag></color> в сундук клана поступил товар."
+  server:
+    unrecognized: "<prefix><red>Ваш клан не признан сервером. Непризнанные кланы не могут торговать с казной сервера."
+    not-accepted: "<prefix><red>Этот предмет не входит в список государственных закупок на этой неделе."
+    limit-reached: "<prefix><red>Недельный лимит сдачи ресурсов исчерпан (<current>/<max> стаков)."
+    sold: "<prefix><green>Вы успешно сдали ресурсы в казну сервера! В клановый сундук начислено <gold><money></gold> монет."
 
 clan:
+  create-removed: "<prefix><red>Команда /clan create отключена. Приобретите Знамя основания клана у торговца и установите его на свободной земле!"
+  unrecognized-cannot-claim: "<prefix><red>Непризнанный клан не может захватывать дополнительные территории. Только признанные кланы могут расширять свои земли."
+  banner:
+    already-in-clan: "<prefix><red>Вы уже состоите в клане или владеете им. Вы не можете приобрести или установить знамя."
+    cannot-afford: "<prefix><red>У вас недостаточно монет для покупки знамени основания клана."
+    bought: "<prefix><green>Вы приобрели Знамя основания клана! Установите его на свободной земле, чтобы основать клан."
+    territory-overlap: "<prefix><red>Здесь нельзя основать клан: территория занята или пересекает другой регион."
+    cannot-place: "<prefix><red>Нельзя установить знамя здесь."
+    received: "<prefix><green>Вам выдано Знамя основания клана!"
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
   already-applied: "<prefix><red>Вы уже подали заявку в этот клан."
   application-not-found: "<prefix><red>Заявка не найдена."
@@ -194,6 +212,8 @@ clan:
     admin-diplo: "<aqua>/loveclansadmin diplo <clan1> <clan2> <relation></aqua> <gray>- изменить отношения между кланами</gray>"
     admin-exp: "<aqua>/loveclansadmin exp <add|remove|set> <tag> <amount></aqua> <gray>- изменить опыт клана</gray>"
     admin-points: "<aqua>/loveclansadmin points <add|remove|set> <tag> <amount></aqua> <gray>- изменить очки улучшений клана</gray>"
+    admin-recognize: "<aqua>/loveclansadmin recognize/unrecognize <tag></aqua> <gray>- присвоить или отозвать признание клана</gray>"
+    admin-givebanner: "<aqua>/loveclansadmin givebanner <player></aqua> <gray>- выдать знамя основания клана</gray>"
 
 diplomacy:
   alliance-accepted: "<prefix><green>Вы заключили союз с кланом <color><tag></color>."
@@ -274,6 +294,10 @@ gui:
       name: "<green>🤝 Торговля с кланами"
       lore: "<gray>ЛКМ - выбрать клан и отправить запрос на обмен"
       hint: "<prefix><yellow>Используйте /clan trade <tag> [деньги], чтобы предложить обмен другому клану."
+    server-trade-button:
+      name: "<gold>🏛 Государственные закупки"
+      lore: "<gray>ЛКМ - сдать ресурсы в казну сервера"
+      unrecognized-lore: "<red>Недоступно: только для признанных кланов"
     trade-requests-button:
       name: "<gold>✉ Запросы на обмен"
       lore: "<gray>Отправленные и полученные запросы, активная сделка"
@@ -642,6 +666,8 @@ gui:
       tag: "<gray>Тег: <white><tag>"
       level: "<gray>Уровень: <white><level>"
       members: "<gray>Участников: <white><current>/<max>"
+      status-recognized: "<green>✔ Признанный клан"
+      status-unrecognized: "<yellow>⚠ Непризнанный клан (Ограниченные права)"
     members:
       name: "<gold>Участники"
       lore: "<gray>Список участников клана."
@@ -921,6 +947,29 @@ gui:
     perk-selected: "<prefix><green>Клан выбрал перк <gold><perk></gold>!"
     perk-locked: "<prefix><red>Перки клана ещё не открыты."
     perk-insufficient-experience: "<prefix><red>Недостаточно опыта клана для смены перка."
+  server-trade:
+    title: "<gray>Госзакупки: Неделя <week>"
+    demand-name: "<gold><item>"
+    demand-lore:
+      - "<gray>Цена: <yellow><price> монет <gray>за стак (64 шт.)"
+      - "<gray>Сдано на этой неделе: <white><current>/<max> стаков"
+    confirm-name: "<green>Сдать ресурсы"
+    confirm-lore:
+      - "<gray>Положите ресурсы в слоты выше"
+      - "<gray>и нажмите сюда для продажи."
+  banner-create:
+    title: "<gray>Основание нового клана"
+    name-btn: "<gold>Название: <white><name>"
+    tag-btn: "<gold>Тег: <white><tag>"
+    confirm-btn: "<green>Основать клан"
+    confirm-lore:
+      - "<gray>Нажмите, чтобы создать клан"
+      - "<gray>и провозгласить столицу!"
+    cancel-btn: "<red>Отмена"
+    cancel-lore:
+      - "<gray>Забрать знамя обратно"
+    prompt-name: "<prefix><yellow>Введите название клана в чат (или 'cancel'):"
+    prompt-tag: "<prefix><yellow>Введите тег клана в чат (3-6 символов, или 'cancel'):"
 
 item:
   capital-banner:
@@ -938,6 +987,13 @@ item:
   claim-banner:
     name: "<gold>Знамя захвата"
     lore: "<gray>Установите это знамя, чтобы захватить чанк для клана."
+  clan-creation-banner:
+    name: "<gold><bold>Знамя основания клана"
+    lore:
+      - "<gray>Куплено у торговца знамёнами."
+      - "<yellow>Установите на свободной земле,"
+      - "<yellow>чтобы основать свой клан и"
+      - "<yellow>провозгласить столицу!"
   war-compass:
     name: "<gold>Боевой компас <white><tag>"
     lore: "<gray>Указывает направление к territории противника во время войны."

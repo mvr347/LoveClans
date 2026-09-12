@@ -48,6 +48,12 @@ public final class Clan {
     private long lastTaxAt;
     private boolean chestTaxLocked;
 
+    // --- Признанные и непризнанные кланы, налоги и торговля с сервером ---
+    private boolean recognized;
+    private long unpaidTaxSince;
+    private int serverTradeWeeklyStacks;
+    private int serverTradeWeek;
+
     private final Map<UUID, ClanMember> members = new ConcurrentHashMap<>();
     private final Map<UUID, ClanTerritory> territories = new ConcurrentHashMap<>();
     private final Map<UUID, DiplomacyRelation> diplomacy = new ConcurrentHashMap<>();
@@ -496,5 +502,43 @@ public final class Clan {
     public void setPerk(ClanPerk perk, long chosenAt) {
         this.perk = perk;
         this.perkChosenAt = chosenAt;
+    }
+
+    // --- Признание и статус клана ---
+
+    public boolean isRecognized() {
+        return recognized;
+    }
+
+    public void setRecognized(boolean recognized) {
+        this.recognized = recognized;
+    }
+
+    public long getUnpaidTaxSince() {
+        return unpaidTaxSince;
+    }
+
+    public void setUnpaidTaxSince(long unpaidTaxSince) {
+        this.unpaidTaxSince = unpaidTaxSince;
+    }
+
+    public int getServerTradeWeeklyStacks() {
+        return serverTradeWeeklyStacks;
+    }
+
+    public void setServerTradeWeeklyStacks(int serverTradeWeeklyStacks) {
+        this.serverTradeWeeklyStacks = Math.max(0, serverTradeWeeklyStacks);
+    }
+
+    public void incrementServerTradeWeeklyStacks(int delta) {
+        this.serverTradeWeeklyStacks = Math.max(0, this.serverTradeWeeklyStacks + delta);
+    }
+
+    public int getServerTradeWeek() {
+        return serverTradeWeek;
+    }
+
+    public void setServerTradeWeek(int serverTradeWeek) {
+        this.serverTradeWeek = serverTradeWeek;
     }
 }

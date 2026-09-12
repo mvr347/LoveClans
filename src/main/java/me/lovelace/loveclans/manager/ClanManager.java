@@ -364,6 +364,10 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Clan> createClanAsync(String name, String tag, UUID founderId, boolean open) {
+        return createClanAsync(name, tag, founderId, open, true);
+    }
+
+    public CompletableFuture<Clan> createClanAsync(String name, String tag, UUID founderId, boolean open, boolean giveCapitalBanner) {
         if (founderId == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Founder ID cannot be null."));
         return plugin.supplySync(() -> {
@@ -393,7 +397,7 @@ public final class ClanManager {
             }
 
             Player founder = Bukkit.getPlayer(founderId);
-            if (founder != null && clanItemFactory.hasExistingBanner(founder, "CAPITAL", null)) {
+            if (giveCapitalBanner && founder != null && clanItemFactory.hasExistingBanner(founder, "CAPITAL", null)) {
                 throw new IllegalStateException("clan.founder-has-capital-banner");
             }
 
@@ -437,7 +441,7 @@ public final class ClanManager {
                 creationCooldowns.put(founderId, System.currentTimeMillis());
             }
 
-            if (founder != null) {
+            if (giveCapitalBanner && founder != null) {
                 founder.getInventory().addItem(clanItemFactory.createCapitalBanner(clan.id(), clan.name()));
                 plugin.getMessages().send(founder, "territory.banner-given");
             }
@@ -1556,17 +1560,25 @@ public final class ClanManager {
 
     // --- Клановый сундук: налог (§2.2) ---
 
-    /** Base tax is charged from clan level chest.tax.tax-free-until-level onward. */
+    /** Base tax is charged only for recognized clans. Unrecognized clans pay NO tax. */
     public boolean isTaxApplicable(Clan clan) {
-        return clan.level() >= plugin.getConfig().getInt("clans.chest.tax.tax-free-until-level", 3);
+        if (!clan.isRecognized()) {
+            return false;
+        }
+        return clan.level() >= plugin.getConfig().getInt("clans.chest.tax.tax-free-until-level", 1);
     }
 
     public long weeklyChestTax(Clan clan) {
+        if (!clan.isRecognized()) {
+            return 0L;
+        }
         double base = plugin.getConfig().getDouble("clans.chest.tax.base-amount", 1000.0);
         double perMember = plugin.getConfig().getDouble("clans.chest.tax.percent-per-member", 0.05);
+        double perTerritory = plugin.getConfig().getDouble("clans.chest.tax.percent-per-territory", 0.15);
         double perRow = plugin.getConfig().getDouble("clans.chest.tax.percent-per-extra-row", 0.10);
         int baseRows = plugin.getConfig().getInt("limits.base-chest-rows", 3);
         double multiplier = 1.0 + Math.max(0, clan.members().size() - 1) * perMember
+                + Math.max(0, clan.territories().size() - 1) * perTerritory
                 + Math.max(0, clan.chestRows() - baseRows) * perRow;
         return Math.round(base * multiplier);
     }
@@ -1581,39 +1593,72 @@ public final class ClanManager {
         }
         clan.addChestMoney(-tax);
         clan.setTaxState(System.currentTimeMillis(), false);
+        clan.setUnpaidTaxSince(0L);
         return storage.updateClanChestMoney(clan.id(), clan.chestMoney())
                 .thenCompose(v -> storage.updateClanTaxState(clan.id(), clan.lastTaxAt(), false))
+                .thenCompose(v -> storage.updateClanUnpaidTax(clan.id(), 0L))
                 .thenRun(() -> getOnlineMembersWithPermission(clan, ClanPermission.BANK)
                         .forEach(p -> plugin.getMessages().send(p, "chest.tax-paid-manually")));
     }
 
     /**
-     * Rolling weekly tax check (not calendar-locked to Monday, to avoid timezone edge cases):
-     * called periodically for every loaded clan; if 7+ days passed since the last attempt for a
-     * clan at/above the taxable level, tries to withdraw the tax automatically and locks the
-     * chest on failure.
+     * Rolling weekly tax check: called periodically for every loaded clan.
+     * Unrecognized clans have 0 tax. Recognized clans pay progressive upkeep.
+     * If tax is unpaid past the grace period, the clan is automatically disbanded!
      */
     public void tickChestTaxes() {
         long weekMs = Duration.ofDays(7).toMillis();
         long now = System.currentTimeMillis();
-        for (Clan clan : clansById.values()) {
-            if (!isTaxApplicable(clan) || now - clan.lastTaxAt() < weekMs) {
+        long gracePeriodMs = Duration.ofDays(plugin.getConfig().getLong("clans.chest.tax.grace-period-days", 3L)).toMillis();
+
+        for (Clan clan : new ArrayList<>(clansById.values())) {
+            if (!isTaxApplicable(clan)) {
                 continue;
             }
+
+            // Проверяем: если налог не уплачен и льготный период истёк — клан распускается
+            if (clan.getUnpaidTaxSince() > 0L && (now - clan.getUnpaidTaxSince() >= gracePeriodMs)) {
+                plugin.getLogger().warning("Клан " + clan.name() + " [" + clan.tag() + "] расформирован за неуплату налога!");
+                onlineMembers(clan).forEach(p -> plugin.getMessages().send(p, "chest.tax-disband-announcement"));
+                disbandClanAsync(clan, null);
+                continue;
+            }
+
+            if (now - clan.lastTaxAt() < weekMs) {
+                continue;
+            }
+
             long tax = weeklyChestTax(clan);
             boolean paid = clan.chestMoney() >= tax;
             if (paid) {
                 clan.addChestMoney(-tax);
+                clan.setTaxState(now, false);
+                clan.setUnpaidTaxSince(0L);
+                storage.updateClanChestMoney(clan.id(), clan.chestMoney())
+                        .thenCompose(v -> storage.updateClanTaxState(clan.id(), clan.lastTaxAt(), false))
+                        .thenCompose(v -> storage.updateClanUnpaidTax(clan.id(), 0L))
+                        .exceptionally(t -> {
+                            plugin.getLogger().warning("Failed to persist chest tax for clan " + clan.id() + ": " + t.getMessage());
+                            return null;
+                        });
+                onlineMembers(clan).forEach(p -> plugin.getMessages().send(p, "chest.tax-collected", Map.of("amount", String.valueOf(tax))));
+            } else {
+                clan.setTaxState(now, true);
+                if (clan.getUnpaidTaxSince() == 0L) {
+                    clan.setUnpaidTaxSince(now);
+                }
+                storage.updateClanTaxState(clan.id(), clan.lastTaxAt(), true)
+                        .thenCompose(v -> storage.updateClanUnpaidTax(clan.id(), clan.getUnpaidTaxSince()))
+                        .exceptionally(t -> {
+                            plugin.getLogger().warning("Failed to persist chest tax for clan " + clan.id() + ": " + t.getMessage());
+                            return null;
+                        });
+
+                long remaining = Math.max(0, gracePeriodMs - (now - clan.getUnpaidTaxSince()));
+                long daysLeft = Math.max(1, java.util.concurrent.TimeUnit.MILLISECONDS.toDays(remaining));
+                onlineMembers(clan).forEach(p -> plugin.getMessages().send(p, "chest.tax-locked-announcement",
+                        Map.of("amount", String.valueOf(tax), "days", String.valueOf(daysLeft))));
             }
-            clan.setTaxState(now, !paid);
-            storage.updateClanChestMoney(clan.id(), clan.chestMoney())
-                    .thenCompose(v -> storage.updateClanTaxState(clan.id(), clan.lastTaxAt(), clan.isChestTaxLocked()))
-                    .exceptionally(t -> {
-                        plugin.getLogger().warning("Failed to persist chest tax for clan " + clan.id() + ": " + t.getMessage());
-                        return null;
-                    });
-            String key = paid ? "chest.tax-collected" : "chest.tax-locked-announcement";
-            onlineMembers(clan).forEach(p -> plugin.getMessages().send(p, key, Map.of("amount", String.valueOf(tax))));
         }
     }
 
@@ -1699,12 +1744,18 @@ public final class ClanManager {
 
     public int maxMembers(Clan clan) {
         if (clan == null) return 0;
+        if (!clan.isRecognized()) {
+            return plugin.getConfig().getInt("limits.unrecognized-members", 5);
+        }
         return plugin.getConfig().getInt("limits.base-members", 10)
                 + clan.upgradeLevel(ClanUpgrade.MEMBERS) * plugin.getConfig().getInt("limits.members-per-upgrade", 3);
     }
 
     public int maxTerritories(Clan clan) {
         if (clan == null) return 0;
+        if (!clan.isRecognized()) {
+            return 1; // Непризнанный клан ограничен только своей столицей
+        }
         return plugin.getConfig().getInt("limits.base-territories", 4)
                 + clan.level() * plugin.getConfig().getInt("limits.territories-per-level", 1)
                 + clan.upgradeLevel(ClanUpgrade.TERRITORIES) * plugin.getConfig().getInt("limits.territories-per-upgrade", 2);
