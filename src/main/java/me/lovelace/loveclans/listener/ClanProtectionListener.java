@@ -72,6 +72,7 @@ public class ClanProtectionListener implements Listener {
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
 
         String bannerType = pdc.get(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING);
+
         String clanIdString = pdc.get(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING);
 
         if (bannerType == null || clanIdString == null) {

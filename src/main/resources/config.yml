@@ -28,10 +28,12 @@ clans:
     # также разрешены пробелы, цифры, дефис и подчёркивание.
     pattern: "^[\\p{L}\\p{N} _-]+$"
   creation-cooldown-seconds: 86400
-  # creation-cost — сумма в единой валюте экосистемы (LoveCore.LoveEconomy, монеты ItemsAdder
-  # в инвентаре), списываемая с игрока при создании клана. 0 — плата отключена.
-  # 250 = 5 золотых монет (gold_coin = 50 в LoveCore.economy.denominations).
-  creation-cost: 250
+
+  # Токсичным игрокам закрыт вход в ПРИЗНАННЫЕ кланы через приглашение или заявку —
+  # непризнанные остаются открытыми для всех (LoveCore.BehaviorLevels, из LoveBehavior).
+  recognized-join-gate:
+    enabled: true
+    max-politeness-level: 0   # ступень вежливости 0-6 и ниже ("Ужасно")
   rejoin-cooldown-seconds: 3600
   default-tag-color: "<gold>"
   # dye-color — имя org.bukkit.DyeColor, используется для окраски щитов в цвет клана (см. ShieldColorManager).
@@ -67,11 +69,23 @@ clans:
   chest:
     currency-item: 'currency:gold_coin'
     tax:
-      # С какого уровня клана начинает взиматься налог (1-2 уровень — без налога).
-      tax-free-until-level: 3
+      # Налог платят только признанные кланы (/loveclansadmin recognize|unrecognize) — непризнанные
+      # налога не платят вовсе.
+      tax-free-until-level: 1
       base-amount: 1000
       percent-per-member: 0.05
+      percent-per-territory: 0.15
       percent-per-extra-row: 0.10
+      # Если сундук признанного клана остаётся заблокирован за неуплату налога дольше этого
+      # льготного срока, клан автоматически распускается (см. tickChestTaxes в ClanManager).
+      grace-period-days: 3
+      # Скидка на весь недельный налог клана, если у ГЛАВЫ клана высокая вежливость или
+      # добрый стиль игры (LoveCore.BehaviorLevels, ставит LoveBehavior).
+      leader-behavior-discount:
+        enabled: true
+        percent: 0.10
+        politeness-threshold: 5   # ступень вежливости 0-6
+        playstyle-threshold: 6    # ступень стиля игры 0-6 ("добрый")
 
   # Эмбарго/блокада/письма (§5). Влияние для блокады берётся из influence.blockade-multiplier.
   diplomacy:
@@ -593,6 +607,14 @@ clans:
             target: 15
           reward-xp: 700
 
+  # NPC-основатель: продаёт Знамя Основания (clans.banner.cost), установка которого создаёт клан
+  # и сразу начинает захват территории на месте установки (см. ClanBannerListener,
+  # ClanBannerCreationMenu). Привязывается командой /clansadmin createnpc banner, стоя рядом с
+  # уже созданным через ванильный /npc create NPC; -1 отключает взаимодействие с NPC.
+  banner:
+    npc-id: -1
+    cost: 1000
+
 limits:
   max-level: 20
   base-members: 10
@@ -726,6 +748,14 @@ war:
   banner-break-hits: 5
   # Если по знамени не бьют дольше этого времени, прогресс поломки сбрасывается.
   banner-break-progress-reset-seconds: 15
+
+  # Бонус к урону по вражескому клану во время активной войны за агрессивный стиль игры
+  # атакующего (LoveCore.BehaviorLevels, ставит LoveBehavior) - "военные действия" отдают
+  # агрессивным игрокам больше, симметрично тому, как миролюбивым отдают больше в торговле.
+  aggressive-playstyle-bonus:
+    enabled: true
+    damage-percent: 0.10
+    playstyle-threshold: 0   # ступень стиля игры 0-6 ("агрессивный") и ниже
 
 # Осада (§3) — второй тип конфликта клана: атакующие ставят осадные лагеря вокруг территории
 # защитника, каждый лагерь должен продержаться camp-hold-minutes без разрушения, чтобы осада

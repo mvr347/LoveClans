@@ -53,6 +53,7 @@ chest:
   tax-paid-manually: "<prefix><green>Налог погашен - сундук клана разблокирован."
   tax-collected: "<prefix><yellow>С клана списан еженедельный налог: <gold><amount></gold>."
   tax-locked-announcement: "<prefix><red>Недостаточно денег в сундуке для уплаты налога (<gold><amount></gold>) - сундук заблокирован!"
+  tax-disband-announcement: "<prefix><dark_red>Клан распущен: налог не был уплачен слишком долго."
   deposit-success: "<prefix><green>Внесено <yellow><amount></yellow> в сундук клана. Баланс: <gold><balance></gold>."
   withdraw-success: "<prefix><green>Снято <yellow><amount></yellow> из сундука клана."
 
@@ -148,6 +149,7 @@ clan:
   invalid-tag: "<prefix><red>Тег клана должен содержать от <min> до <max> символов и состоять из букв, цифр и подчёркивания."
   invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <color><tag></color>."
   invite-missing: "<prefix><red>Приглашение не найдено."
+  recognized-join-blocked-politeness: "<prefix><red>У признанных кланов свои стандарты — с вашей вежливостью туда не берут."
   invites-disabled: "<prefix><red>Этот игрок отключил приём приглашений в кланы."
   invites-toggled-on: "<prefix><green>Вы включили приём приглашений в кланы."
   invites-toggled-off: "<prefix><yellow>Вы отключили приём приглашений в кланы."
@@ -183,7 +185,7 @@ clan:
     admin: "<aqua>/loveclansadmin</aqua> <gray>- административные команды (см. /loveclansadmin help)</gray>"
     artifact: "<aqua>/loveclansadmin artifact <type></aqua> <gray>- выдать себе клановый артефакт</gray>"
     console: "<gray>Эта команда доступна только в игре.</gray>"
-    create: "<aqua>/clan create <tag> <name></aqua> <gray>- создать клан</gray>"
+    found: "<gray>Купите Знамя Основания у</gray> <aqua>NPC Основателя</aqua> <gray>и установите его, чтобы создать клан</gray>"
     diplomacy: "<aqua>/diplo [tag]</aqua> <gray>- открыть меню дипломатии клана</gray>"
     info: "<aqua>/clan info [tag]</aqua> <gray>- информация о клане</gray>"
     invite: "<aqua>/clan invite <player></aqua> <gray>- пригласить игрока в клан</gray>"
@@ -205,7 +207,8 @@ clan:
     admin-header: "<dark_gray>========== <aqua>LoveClans Admin</aqua> ==========</dark_gray>"
     admin-footer: "<dark_gray>=========================================</dark_gray>"
     admin-reload: "<aqua>/loveclansadmin reload</aqua> <gray>- перезагрузить конфигурацию и язык плагина</gray>"
-    admin-npc: "<aqua>/loveclansadmin createnpc contracts</aqua> <gray>- привязать NPC обетов (смотрите на него)</gray>\n    admin-npc-remove: \"<aqua>/loveclansadmin removenpc <id></aqua> <gray>- отвязать NPC</gray>"
+    admin-npc: "<aqua>/loveclansadmin createnpc <contracts|banner></aqua> <gray>- привязать NPC обетов или NPC-основателя (смотрите на него)</gray>"
+    admin-npc-remove: "<aqua>/loveclansadmin removenpc <contracts|banner> <id></aqua> <gray>- отвязать NPC</gray>"
     admin-disband: "<aqua>/loveclansadmin disband <tag></aqua> <gray>- распустить клан</gray>"
     admin-war: "<aqua>/loveclansadmin war <start|forcestart|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, для тестов)</gray>"
     admin-siege: "<aqua>/loveclansadmin siege forcestart <clan1> <clan2></aqua> <gray>- принудительно начать осаду без проверок готовности (для тестов)</gray>"
@@ -281,7 +284,7 @@ gui:
         - "<gray>Денег: <white><money>"
         - "<gray>Рядов предметов: <white><rows></white>/<max>"
       tax-ok: "<green>Налог: оплачен"
-      tax-none: "<gray>Налог: не взимается (уровень < <level>)"
+      tax-none: "<gray>Налог: не взимается (клан не признан)"
       tax-locked: "<red>Налог: НЕ ОПЛАЧЕН - сундук заблокирован!"
       next-tax: "<gray>Следующее списание: <white><time>"
     money-button:
@@ -532,6 +535,7 @@ gui:
     prompt-name: "<prefix><yellow>Введите название клана в чат."
     prompt-tag: "<prefix><yellow>Введите тег клана в чат."
     success: "<prefix><green>Клан <color><tag></color> (<name>) успешно создан!"
+    banner-given: "<prefix><green>Знамя Основания клана <color><tag></color> (<name>) выдано! Установите его там, где хотите основать клан."
     name:
       button: "<gold>Название клана"
       lore: "<gray>Текущее: <white><value></white>"
@@ -550,7 +554,7 @@ gui:
         - "<gray>Открытый = принимаются заявки."
         - "<gray>Закрытый = только по приглашению."
     create:
-      ready: "<green>✔ Создать клан"
+      ready: "<green>✔ Купить Знамя Основания"
       not-ready: "<red>✗ Сначала введите название и тег"
   diplomacy:
     title: "<gray>Дипломатия с кланом <color><tag>"
@@ -972,6 +976,12 @@ gui:
     prompt-tag: "<prefix><yellow>Введите тег клана в чат (3-6 символов, или 'cancel'):"
 
 item:
+  foundation-banner:
+    name: "<gold>Знамя Основания клана <white><clan>"
+    lore:
+      type: "<gray>Тип: <white>Знамя Основания"
+      clan: "<gray>Будущий клан: <white><clan></white> <gray>[<tag>]"
+      info: "<gray>Установите это знамя, чтобы основать клан здесь."
   capital-banner:
     name: "<gold>Знамя клановой территории <white><clan>"
     lore:
