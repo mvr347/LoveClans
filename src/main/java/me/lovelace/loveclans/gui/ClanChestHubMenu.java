@@ -2,6 +2,7 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.util.ItemBuilder;
 import me.lovelace.loveclans.util.TimeUtil;
 import net.kyori.adventure.text.Component;
@@ -59,6 +60,15 @@ public final class ClanChestHubMenu {
             long remaining = nextTaxAt - System.currentTimeMillis();
             info.lore(plugin.getMessages().component("gui.chest.info.next-tax",
                     Map.of("time", TimeUtil.formatDuration(Math.max(0, remaining))), player));
+        }
+        // Сумма налога полезна прежде всего тому, кто планирует финансы клана - показываем
+        // только держателям BANK (глава клана имеет это право всегда по умолчанию), а не
+        // всем участникам с доступом в сундук (CHEST), чтобы не путать рядовых игроков цифрой,
+        // на которую они не могут повлиять.
+        if (taxApplicable && clan.hasPermission(player.getUniqueId(), ClanPermission.BANK)) {
+            long taxAmount = plugin.getClanManager().weeklyChestTax(clan);
+            info.lore(plugin.getMessages().component("gui.chest.info.tax-amount",
+                    Map.of("amount", String.valueOf(taxAmount)), player));
         }
         inventory.setItem(INFO_SLOT, info.build());
 

@@ -201,6 +201,13 @@ public final class ClanListMenu implements InventoryHolder {
                 .name(plugin.getMessages().component("gui.clan-list.clan-item.name",
                         Map.of("tag", clan.tag(), "color", clan.tagColor(), "name", clan.name()), player));
 
+        // Признанность клана не зависит от наличия главы, поэтому строка ставится
+        // отдельно от блока leaderId.ifPresent ниже - иначе безглавый клан (edge case)
+        // остался бы вовсе без этого статуса.
+        builder.lore(plugin.getMessages().component(clan.isRecognized()
+                ? "gui.clan-list.clan-item.status-recognized"
+                : "gui.clan-list.clan-item.status-unrecognized", player));
+
         // Leader information
         clan.leaderId().ifPresent(leaderId -> {
             OfflinePlayer leader = Bukkit.getOfflinePlayer(leaderId);

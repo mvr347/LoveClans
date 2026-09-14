@@ -287,6 +287,7 @@ gui:
       tax-none: "<gray>Налог: не взимается (клан не признан)"
       tax-locked: "<red>Налог: НЕ ОПЛАЧЕН - сундук заблокирован!"
       next-tax: "<gray>Следующее списание: <white><time>"
+      tax-amount: "<gray>Сумма налога: <white><amount></white>/нед."
     money-button:
       name: "<gold>💰 Деньги"
       lore: "<gray>Баланс: <yellow><amount>"
@@ -482,6 +483,8 @@ gui:
       status:
         open: "<gray>Статус: <green>Открытый клан"
         closed: "<gray>Статус: <red>Закрытый клан"
+      status-recognized: "<green>✔ Признанный клан"
+      status-unrecognized: "<yellow>⚠ Непризнанный клан (Ограниченные права)"
       leader-status:
         online: "<green>● онлайн"
         offline: "<red>● не в сети"
