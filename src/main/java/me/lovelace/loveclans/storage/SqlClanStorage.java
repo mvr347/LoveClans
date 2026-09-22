@@ -179,22 +179,27 @@ public final class SqlClanStorage implements ClanStorage {
     public CompletableFuture<Void> saveClanAsync(Clan clan) {
         return CompletableFuture.runAsync(() -> {
             try (Connection connection = database.dataSource().getConnection()) {
-                connection.setAutoCommit(false);
-                saveClan(connection, clan);
-                for (ClanMember member : clan.members().values()) {
-                    saveMember(connection, clan.id(), member);
+                try {
+                    connection.setAutoCommit(false);
+                    saveClan(connection, clan);
+                    for (ClanMember member : clan.members().values()) {
+                        saveMember(connection, clan.id(), member);
+                    }
+                    for (ClanTerritory territory : clan.territories()) {
+                        saveTerritory(connection, territory);
+                    }
+                    for (Map.Entry<UUID, DiplomacyRelation> entry : clan.diplomacy().entrySet()) {
+                        saveDiplomacy(connection, clan.id(), entry.getKey(), entry.getValue());
+                    }
+                    for (Map.Entry<ClanUpgrade, Integer> entry : clan.upgrades().entrySet()) {
+                        saveUpgrade(connection, clan.id(), entry.getKey(), entry.getValue());
+                    }
+                    savePermissions(connection, clan);
+                    connection.commit();
+                } catch (SQLException exception) {
+                    try { connection.rollback(); } catch (SQLException ignored) {}
+                    throw exception;
                 }
-                for (ClanTerritory territory : clan.territories()) {
-                    saveTerritory(connection, territory);
-                }
-                for (Map.Entry<UUID, DiplomacyRelation> entry : clan.diplomacy().entrySet()) {
-                    saveDiplomacy(connection, clan.id(), entry.getKey(), entry.getValue());
-                }
-                for (Map.Entry<ClanUpgrade, Integer> entry : clan.upgrades().entrySet()) {
-                    saveUpgrade(connection, clan.id(), entry.getKey(), entry.getValue());
-                }
-                savePermissions(connection, clan);
-                connection.commit();
             } catch (SQLException exception) {
                 throw new StorageException("Unable to save clan " + clan.id(), exception);
             }
