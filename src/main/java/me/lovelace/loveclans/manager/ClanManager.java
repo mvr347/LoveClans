@@ -70,6 +70,7 @@ public final class ClanManager {
     // Отметки времени последнего создания клана каждым игроком, для clans.creation-cooldown-seconds.
     private final Map<UUID, Long> creationCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, ItemStack[]> chestCache = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> chestCacheVersion = new ConcurrentHashMap<>();
     // Активные прогревы телепорта "/clan home" — отменяются движением игрока или повторным
     // вызовом команды (см. ClanProtectionListener#onPlayerMove и #home ниже).
     private final Map<UUID, HomeTeleportWarmup> pendingHomeTeleports = new ConcurrentHashMap<>();
@@ -139,10 +140,12 @@ public final class ClanManager {
                     return CompletableFuture.completedFuture(null);
                 }
                 long convertedAmount = rawAmount * coinValue;
-                clan.addChestMoney(convertedAmount);
-                plugin.getLogger().info("Migrated " + rawAmount + "x " + currencyItem + " (" + convertedAmount
-                        + " value units at " + coinValue + "/coin) from the old clan bank into the chest for clan " + clan.id());
-                return storage.updateClanChestMoney(clan.id(), clan.chestMoney());
+                return plugin.supplySync(() -> {
+                    clan.addChestMoney(convertedAmount);
+                    plugin.getLogger().info("Migrated " + rawAmount + "x " + currencyItem + " (" + convertedAmount
+                            + " value units at " + coinValue + "/coin) from the old clan bank into the chest for clan " + clan.id());
+                    return null;
+                }).thenCompose(v2 -> storage.updateClanChestMoney(clan.id(), clan.chestMoney()));
             }).exceptionally(t -> {
                 plugin.getLogger().warning("Failed to migrate legacy bank money for clan " + clan.id() + ": " + t.getMessage());
                 return null;
@@ -1724,14 +1727,18 @@ public final class ClanManager {
         if (cached != null) {
             return CompletableFuture.completedFuture(cached);
         }
+        long versionAtStart = chestCacheVersion.getOrDefault(clan.id(), 0L);
         return storage.loadChestContentsAsync(clan.id()).thenApply(bytes -> {
             ItemStack[] contents = InventorySerialization.deserialize(bytes, CHEST_MAX_SIZE);
-            chestCache.put(clan.id(), contents);
+            if (chestCacheVersion.getOrDefault(clan.id(), 0L) == versionAtStart) {
+                chestCache.put(clan.id(), contents);
+            }
             return contents;
         });
     }
 
     public CompletableFuture<Void> saveChestContentsAsync(UUID clanId, ItemStack[] contents) {
+        chestCacheVersion.merge(clanId, 1L, Long::sum);
         chestCache.put(clanId, contents);
         Inventory temp = Bukkit.createInventory(null, CHEST_MAX_SIZE);
         temp.setContents(contents);
