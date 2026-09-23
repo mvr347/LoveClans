@@ -30,9 +30,13 @@ public final class ClanInfoMenu implements InventoryHolder {
     private final LoveClansPlugin plugin;
     private final Player player;
     private final Clan clan;
-    private final List<ClanMember> sortedMembers;
+    // Everyone except the owner - the owner has its own guaranteed slot (SLOT_LEADER) and must
+    // not also take a slot in this grid, otherwise they'd be duplicated on-screen.
+    private final List<ClanMember> otherMembers;
+    private final int totalMemberCount;
     private Inventory inventory;
 
+    private int headerRows;
     private int contentRows;
     private boolean paginated;
     private int currentPage;
@@ -48,7 +52,9 @@ public final class ClanInfoMenu implements InventoryHolder {
         this.plugin = plugin;
         this.player = player;
         this.clan = clan;
-        this.sortedMembers = clan.members().values().stream()
+        this.totalMemberCount = clan.members().size();
+        this.otherMembers = clan.members().values().stream()
+                .filter(member -> member.rank() != ClanRank.LEADER)
                 .sorted(Comparator.comparingInt((ClanMember member) -> member.rank().weight()).reversed())
                 .toList();
     }
@@ -58,25 +64,35 @@ public final class ClanInfoMenu implements InventoryHolder {
     }
 
     public void open() {
-        int memberCount = sortedMembers.size();
+        // Grid capacity/pagination is based on OTHER members only - the owner never occupies a
+        // grid slot, so an owner-only clan legitimately has an empty grid, not a bug.
+        int otherCount = otherMembers.size();
         int noPaginationCapacity = PER_ROW * MAX_CONTENT_ROWS;
-        this.paginated = memberCount > noPaginationCapacity;
-        this.contentRows = paginated ? MAX_CONTENT_ROWS - 1 : Math.max(1, (int) Math.ceil(memberCount / (double) PER_ROW));
+        this.paginated = otherCount > noPaginationCapacity;
+        this.contentRows = paginated ? MAX_CONTENT_ROWS - 1 : Math.max(1, (int) Math.ceil(otherCount / (double) PER_ROW));
         int perPage = contentRows * PER_ROW;
-        this.totalPages = paginated ? Math.max(1, (int) Math.ceil(memberCount / (double) perPage)) : 1;
+        this.totalPages = paginated ? Math.max(1, (int) Math.ceil(otherCount / (double) perPage)) : 1;
         this.currentPage = Math.max(0, Math.min(currentPage, totalPages - 1));
 
-        int totalRows = 2 + contentRows + (paginated ? 1 : 0) + 1;
+        // gui-gen v2.1: Header's second row (slots 9-17) is only part of the frame at 45+ slots.
+        // Below that it must not exist at all - reserving it unconditionally left a dead, fully
+        // empty row (neither header, content nor footer) for every clan under 15 other members.
+        int footerRows = 1;
+        int paginationRows = paginated ? 1 : 0;
+        int rowsWithSingleHeader = 1 + contentRows + paginationRows + footerRows;
+        this.headerRows = rowsWithSingleHeader * 9 >= 45 ? 2 : 1;
+        int totalRows = headerRows + contentRows + paginationRows + footerRows;
         int size = totalRows * 9;
 
         this.inventory = Bukkit.createInventory(this, size,
                 plugin.getMessages().component("gui.info.title",
                         Map.of("tag", clan.tag(), "color", clan.tagColor(), "name", clan.name()), player));
 
-        // Rule 8: only the header row (0-8, holds leader head/info/apply as control-row content)
-        // and the footer row (last 9 slots) are pure frame — the member grid and pagination row
-        // in between are working zone and must stay glass-free where unused.
-        for (int slot = 0; slot <= 8; slot++) {
+        // Rule 8: only the header row(s) (0-8, plus 9-17 once the menu is 45+ slots - holds leader
+        // head/info/apply as control-row content) and the footer row (last 9 slots) are pure frame
+        // — the member grid and pagination row in between are working zone and must stay glass-free
+        // where unused.
+        for (int slot = 0; slot < headerRows * 9; slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
         for (int slot = size - 9; slot < size; slot++) {
@@ -84,8 +100,10 @@ public final class ClanInfoMenu implements InventoryHolder {
         }
 
         // Слот 0 — иконка/баннер клана; та же информация (уровень/влияние/участники/статус),
-        // теперь ещё и с датой основания клана, которая раньше нигде в этой панели не
-        // показывалась. Раньше эта карточка занимала слот 4 — его теперь отдали голове лидера.
+        // теперь ещё и с датой основания клана и описанием клана, которые раньше нигде в этой
+        // панели не показывались. Раньше эта карточка занимала слот 4 — его теперь отдали голове
+        // лидера.
+        String description = clan.description();
         Material emblemMaterial = clan.emblem().name().endsWith("_BANNER") ? clan.emblem() : Material.WHITE_BANNER;
         ItemBuilder info = ItemBuilder.of(emblemMaterial)
                 .name(plugin.getMessages().component("gui.info.name",
@@ -93,21 +111,30 @@ public final class ClanInfoMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component("gui.info.level", Map.of("level", String.valueOf(clan.level())), player))
                 .lore(plugin.getMessages().component("gui.info.influence", Map.of("influence", String.valueOf(clan.influence())), player))
                 .lore(plugin.getMessages().component("gui.info.members",
-                        Map.of("current", String.valueOf(memberCount),
+                        Map.of("current", String.valueOf(totalMemberCount),
                                 "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player))
                 .lore(plugin.getMessages().component(clan.isOpen() ? "gui.info.status.open" : "gui.info.status.closed", player))
                 .lore(plugin.getMessages().component("gui.info.created-at",
-                        Map.of("date", dateFormat.format(new java.util.Date(clan.createdAt()))), player));
+                        Map.of("date", dateFormat.format(new java.util.Date(clan.createdAt()))), player))
+                .lore(description == null || description.isBlank()
+                        ? plugin.getMessages().component("gui.info.description-empty", player)
+                        : plugin.getMessages().component("gui.info.description", Map.of("description", description), player));
         inventory.setItem(SLOT_ICON, info.build());
 
-        // Слот 4 — голова лидера (раньше была в слоте 1). Лидер также остаётся в общем списке
-        // участников ниже (sortedMembers строится из clan.members(), который его уже включает) —
-        // эта голова лишь выделяет его отдельно, а не заменяет его карточку в списке.
+        // Слот 4 — голова лидера, ВСЕГДА присутствует независимо от числа остальных участников
+        // (в т.ч. для клана из одного главы). Раньше лидер также попадал в общий список ниже
+        // (sortedMembers строился из clan.members(), который его уже включает) — теперь
+        // otherMembers явно его исключает, так что эта голова единственное место, где он
+        // показан, без дублирования.
         clan.leaderId().ifPresent(leaderId -> {
             OfflinePlayer leader = Bukkit.getOfflinePlayer(leaderId);
             String leaderName = leader.getName() != null ? leader.getName() : leaderId.toString().substring(0, 8);
+            String leaderStatus = leader.isOnline()
+                    ? plugin.getMessages().raw("gui.members.item.status-online")
+                    : plugin.getMessages().raw("gui.members.item.status-offline");
             ItemBuilder leaderHead = ItemBuilder.of(Material.PLAYER_HEAD)
-                    .name(plugin.getMessages().component("gui.info.leader", Map.of("player", leaderName), player));
+                    .name(plugin.getMessages().component("gui.info.leader", Map.of("player", leaderName), player))
+                    .lore(plugin.getMessages().component("gui.members.item.status", Map.of("status", leaderStatus), player));
             leaderHead.mutate(meta -> {
                 if (meta instanceof SkullMeta skullMeta) skullMeta.setOwningPlayer(leader);
             });
@@ -123,26 +150,29 @@ public final class ClanInfoMenu implements InventoryHolder {
                 .orElse(false);
         boolean canApply = !alreadyInClan && !isLeaderOfViewedClan;
 
-        int contentStartSlot = 2 * 9;
-        if (memberCount == 0) {
+        int contentStartSlot = headerRows * 9;
+        if (otherCount == 0) {
+            // Owner-only clan: the grid legitimately has no one else to show - the owner is not
+            // "missing", they're the head at SLOT_LEADER above. Text reflects that explicitly so
+            // it doesn't read as "this clan has nobody in it".
             inventory.setItem(contentStartSlot + 4, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.info.no-members.name", player))
                     .lore(plugin.getMessages().component("gui.info.no-members.lore", player))
                     .build());
         } else {
             int start = currentPage * perPage;
-            int end = Math.min(start + perPage, memberCount);
+            int end = Math.min(start + perPage, otherCount);
             int index = 0;
             for (int i = start; i < end; i++) {
                 int row = index / PER_ROW;
                 int col = index % PER_ROW;
                 int slot = contentStartSlot + row * 9 + 1 + col;
-                inventory.setItem(slot, createMemberItem(sortedMembers.get(i)));
+                inventory.setItem(slot, createMemberItem(otherMembers.get(i)));
                 index++;
             }
         }
 
-        int rowCursor = 2 + contentRows;
+        int rowCursor = headerRows + contentRows;
         if (paginated) {
             // Whenever paginated, contentRows is fixed at MAX_CONTENT_ROWS-1, so this row always
             // lands on slots 36-44 — the standard Prev/Next pagination slots for a full 54-slot menu.
