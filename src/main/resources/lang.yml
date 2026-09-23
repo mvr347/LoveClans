@@ -60,6 +60,10 @@ chest:
   tax-disband-announcement: "<prefix><dark_red>Клан распущен: налог не был уплачен слишком долго."
   deposit-success: "<prefix><green>Внесено <yellow><amount></yellow> в сундук клана. Баланс: <gold><balance></gold>."
   withdraw-success: "<prefix><green>Снято <yellow><amount></yellow> из сундука клана."
+  # Добавлено 2026-09-23 вместе с блокировкой одновременного доступа к предметному сундуку клана
+  # (ClanChestMenu/RaidLootMenu) - без неё два одновременных открытия дублировали предметы,
+  # см. ClanManager#tryLockItemChest.
+  busy: "<prefix><red>Сундук сейчас открыт другим игроком - попробуйте через несколько секунд."
 
 contract:
   unknown: "<prefix><red>Неизвестный обет."
@@ -121,6 +125,11 @@ trade:
     not-accepted: "<prefix><red>Этот предмет не входит в список государственных закупок на этой неделе."
     limit-reached: "<prefix><red>Недельный лимит сдачи ресурсов исчерпан (<current>/<max> стаков)."
     sold: "<prefix><green>Вы успешно сдали ресурсы в казну сервера! В клановый сундук начислено <gold><money></gold> монет."
+    # Добавлено 2026-09-23: ServerTradeManager#sellOffer ссылался на эти два ключа, которых не
+    # было в файле (игрок видел сырой путь ключа вместо сообщения) - см. аудит "ключ есть в коде,
+    # нет в lang.yml" после PR #50.
+    not-enough-items: "<prefix><red>Недостаточно предметов (<item>) - нужно <amount> шт."
+    sell-success: "<prefix><green>Вы сдали <white><item></white> в казну сервера! Начислено <gold><reward></gold> монет. Сдано на этой неделе: <white><current>/<max> стаков."
 
 clan:
   create-removed: "<prefix><red>Команда /clan create отключена. Приобретите Знамя основания клана у торговца и установите его на свободной земле!"
@@ -132,6 +141,9 @@ clan:
     territory-overlap: "<prefix><red>Здесь нельзя основать клан: территория занята или пересекает другой регион."
     cannot-place: "<prefix><red>Нельзя установить знамя здесь."
     received: "<prefix><green>Вам выдано Знамя основания клана!"
+    # Добавлено 2026-09-23: ClanBannerCreationMenu#tryCreate ссылался на этот ключ, которого не
+    # было в файле - см. аудит "ключ есть в коде, нет в lang.yml" после PR #50.
+    no-banner-in-hand: "<prefix><red>У вас нет Знамени основания клана в инвентаре."
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
   already-applied: "<prefix><red>Вы уже подали заявку в этот клан."
   application-not-found: "<prefix><red>Заявка не найдена."
@@ -982,6 +994,38 @@ gui:
     confirm-lore:
       - "<gray>Положите ресурсы в слоты выше"
       - "<gray>и нажмите сюда для продажи."
+    # Добавлено 2026-09-23: ClanServerTradeMenu рисует слот 0 (инфо) и слоты предложений (info/offer)
+    # через эти ключи, которых не было в файле (demand-*/confirm-* выше - остаток старого дизайна
+    # этого меню, текущий код их не читает) - см. аудит "ключ есть в коде, нет в lang.yml" после PR #50.
+    info:
+      name: "<gold>Госзакупки"
+      unrecognized-lore:
+        - "<red>Недоступно: только для признанных кланов"
+      recognized-lore:
+        - "<gray>Сдано на этой неделе: <white><sold>/<max> стаков"
+        - "<gray>Казна клана: <gold><treasury></gold> монет"
+    offer:
+      name: "<gold><item>"
+      lore-active:
+        - "<gray>Награда: <yellow><reward> монет <gray>за <white><amount> шт."
+        - "<green>ЛКМ - сдать ресурсы"
+      lore-disabled:
+        - "<gray>Награда: <yellow><reward> монет <gray>за <white><amount> шт."
+        - "<red>Недоступно: клан не признан или лимит недели исчерпан"
+  trade-requests:
+    # Добавлено 2026-09-23: ClanTradeRequestsMenu ссылался на весь этот раздел, которого не было
+    # в файле - см. аудит "ключ есть в коде, нет в lang.yml" после PR #50.
+    title: "<gray>Запросы на обмен"
+    empty: "<gray>Нет активных запросов на обмен."
+    active-session:
+      name: "<green>Активная сделка"
+      lore: "<gray>ЛКМ - открыть окно сделки заново"
+    sent:
+      name: "<yellow>Отправлено клану <color><tag>"
+      lore: "<gray>ЛКМ - отменить запрос"
+    received:
+      name: "<gold>Получено от клана <color><tag>"
+      lore: "<gray>ЛКМ - принять <gray>| <red>ПКМ - отклонить"
   banner-create:
     title: "<gray>Основание нового клана"
     name-btn: "<gold>Название: <white><name>"
@@ -995,6 +1039,15 @@ gui:
       - "<gray>Забрать знамя обратно"
     prompt-name: "<prefix><yellow>Введите название клана в чат (или 'cancel'):"
     prompt-tag: "<prefix><yellow>Введите тег клана в чат (3-6 символов, или 'cancel'):"
+    # Добавлено 2026-09-23: ClanBannerCreationMenu ссылался на эти 4 ключа, которых не было
+    # в файле - см. аудит "ключ есть в коде, нет в lang.yml" после PR #50.
+    info:
+      name: "<gold>Знамя Основания клана"
+      lore:
+        - "<gray>Задайте название и тег ниже,"
+        - "<gray>затем подтвердите основание клана."
+    ready: "<green>Основать клан"
+    success: "<prefix><green>Клан <color><tag></color> <white><name></white> основан!"
 
 item:
   foundation-banner:

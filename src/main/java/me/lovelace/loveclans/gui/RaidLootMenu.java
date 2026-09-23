@@ -45,12 +45,21 @@ public final class RaidLootMenu implements Listener {
     }
 
     public static void open(LoveClansPlugin plugin, ClanRaid raid, Clan defender, Player looter) {
+        // Same lock as ClanChestMenu, keyed by the defender's clan id - it's the identical
+        // physical chest storage. Without it, two attackers looting concurrently (or an attacker
+        // and the defender's own officer opening chest storage) each snapshot the same contents
+        // and both walk away with whatever they took, duplicating it.
+        if (!plugin.getClanManager().tryLockItemChest(defender.id())) {
+            plugin.getMessages().send(looter, "chest.busy");
+            return;
+        }
         plugin.getClanManager().loadChestContentsAsync(defender).thenAccept(contents ->
                 plugin.runSync(() -> {
                     RaidLootMenu menu = new RaidLootMenu(plugin, defender, looter, raid.id(), contents);
                     looter.openInventory(menu.inventory);
                 })
         ).exceptionally(throwable -> {
+            plugin.getClanManager().unlockItemChest(defender.id());
             plugin.runSync(() -> plugin.sendOperationError(looter, throwable));
             return null;
         });
@@ -100,5 +109,6 @@ public final class RaidLootMenu implements Listener {
         ItemStack[] toPersist = new ItemStack[full.length];
         System.arraycopy(full, 0, toPersist, 0, unlockedSlots);
         plugin.getClanManager().saveChestContentsAsync(defender.id(), toPersist);
+        plugin.getClanManager().unlockItemChest(defender.id());
     }
 }

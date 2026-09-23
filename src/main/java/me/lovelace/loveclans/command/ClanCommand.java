@@ -261,7 +261,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         Clan clan = optionalClan.get();
         if (!clan.isRecognized()) {
-            plugin.getMessages().send(player, "trade.server.not-recognized");
+            plugin.getMessages().send(player, "trade.server.unrecognized");
             return;
         }
         new ClanServerTradeMenu(plugin, player, clan).open();
@@ -516,7 +516,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 ? plugin.getClanManager().getPlayerClan(player.getUniqueId())
                 : Optional.empty();
         if (own.isEmpty()) {
-            plugin.getMessages().send(sender, "clan.no-clan");
+            plugin.getMessages().send(sender, "clan.not-in-clan");
             return;
         }
         Clan clan = own.get();
@@ -1212,7 +1212,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 plugin.getMessages().send(player, "clan.help.disband");
             }
         } else {
-            plugin.getMessages().send(player, "clan.help.create");
+            plugin.getMessages().send(player, "clan.help.found");
             plugin.getMessages().send(player, "clan.help.list");
             plugin.getMessages().send(player, "clan.help.accept");
         }

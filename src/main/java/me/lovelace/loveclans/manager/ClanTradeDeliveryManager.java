@@ -104,6 +104,18 @@ public final class ClanTradeDeliveryManager {
             return;
         }
 
+        if (plugin.getClanManager().isItemChestLocked(clan.id())) {
+            // A ClanChestMenu/RaidLootMenu session is open right now - it holds its own snapshot
+            // of the chest and will overwrite whatever we deposit here the moment it closes,
+            // silently losing this payout. Leave it queued; tick() retries once the chest is free.
+            ClanTradeDelivery stillPending = working;
+            plugin.runSync(() -> {
+                requeue(stillPending);
+                inFlight.remove(delivery.id());
+            });
+            return;
+        }
+
         ClanTradeDelivery afterMoney = working;
         plugin.getClanManager().depositItemsToChestAsync(clan, pendingItems).whenComplete((leftovers, throwable) ->
                 plugin.runSync(() -> {
