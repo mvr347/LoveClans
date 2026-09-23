@@ -125,8 +125,11 @@ public final class SpiritManager implements Listener {
         });
     }
 
+    // Tripled from `level * 1000L` at the owner's request (2026-09-23): spirit levels should be
+    // 3x harder to earn than before. Both the actual level-up check (addSpiritExperience above)
+    // and the GUI progress display (ClanSpiritMenu) read this same method, so they stay in sync.
     public long getExpForNextLevel(int level) {
-        return level * 1000L;
+        return level * 3000L;
     }
 
     private void tick() {

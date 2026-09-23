@@ -24,6 +24,10 @@ general:
   # вместо того чтобы команда молча ничего не делала для тех, кто по привычке набирает
   # старый путь, она указывает, куда переехало нужное действие.
   command-moved: "<prefix><yellow>Эта команда переехала: используйте <aqua><command></aqua>.</yellow>"
+  # Было захардкожено в ClanCommand#checkAntiCheat отдельным MiniMessage.deserialize(...) со
+  # своим префиксом "[Кланы]" вместо общего <prefix> — добавлено 2026-09-23 по итогам аудита
+  # нелокализированных строк.
+  anticheat-blocked: "<prefix><red>Действие заблокировано: у вас зафиксирован высокий риск античита!</red>"
 
 admin:
   diplo-updated: "<prefix><green>Отношения между <color1><clan1></color1> и <color2><clan2></color2> изменены на <yellow><relation></yellow>."
@@ -145,6 +149,16 @@ clan:
     header: "<prefix><gold>Информация о клане <white><tag></white>:"
     line: "<gray><key>: <white><value>"
     no-name: "<gray>(без названия)"
+    # Подписи полей /clan info, изменено 2026-09-23 — раньше были захардкожены прямо в
+    # ClanCommand#info (Название/Уровень/... на русском вне lang.yml), см. аудит нелокализированных строк.
+    label:
+      name: "Название"
+      level: "Уровень"
+      upgrade-points: "Очки улучшений"
+      members: "Участники"
+      type: "Тип"
+    type-open: "Открытый"
+    type-closed: "Закрытый"
   invalid-name: "<prefix><red>Название клана должно содержать от <min> до <max> символов."
   invalid-tag: "<prefix><red>Тег клана должен содержать от <min> до <max> символов и состоять из букв, цифр и подчёркивания."
   invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <color><tag></color>."
@@ -742,6 +756,10 @@ gui:
       name: "<yellow><player>"
       rank: "<gray>Ранг: <white><rank>"
       status: "<gray>Статус: <white><status>"
+      # Было захардкожено прямо в ClanInfoMenu/ClanMembersMenu вместо lang.yml — добавлено
+      # 2026-09-23 по итогам аудита нелокализированных строк.
+      status-online: "<green>В сети</green>"
+      status-offline: "<red>Оффлайн</red>"
       contribution: "<gray>Вклад: <white><amount>"
       hint: "<gray>ЛКМ - изменить ранг, ПКМ - исключить"
   player-applications:

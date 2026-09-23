@@ -36,7 +36,9 @@ public class ClanSpiritMenu implements InventoryHolder {
         // Center Info
         int currentLevel = clan.spirit().level();
         SpiritBuffLevel buffLevel = SpiritBuffLevel.getByLevel(currentLevel);
-        String levelName = buffLevel != null ? buffLevel.getName() : "Пробуждение";
+        // Level 0 (no SpiritBuffLevel yet) falls back to the level-1 name instead of a
+        // second hardcoded copy of it, which used to drift from SpiritBuffLevel silently.
+        String levelName = buffLevel != null ? buffLevel.getName() : SpiritBuffLevel.LEVEL_1.getName();
         
         long currentExp = clan.spirit().energy();
         boolean maxed = currentLevel >= 10;
