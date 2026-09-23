@@ -117,6 +117,10 @@ public final class MessageService {
         }
 
         raw = applyPlaceholders(player, raw);
+        // %img_<tag>% / %ia_<tag>% currency-coin icons (ItemsAdder FontImages) - same
+        // negative-space-font convention LoveBrew/LoveTweaks already use, no-op without
+        // ItemsAdder installed. Must run before MiniMessage parses the string.
+        raw = me.lovelace.loveclans.util.ItemsAdderFontHook.resolve(player, raw);
         return miniMessage.deserialize(raw, TagResolver.resolver(resolvers));
     }
 
