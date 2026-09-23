@@ -89,7 +89,11 @@ public final class ClanBannerListener implements Listener {
                 return;
             }
             if (!economy.get().has(player, cost)) {
-                plugin.getMessages().send(player, "clan.banner.insufficient-funds", Map.of("cost", String.valueOf(cost)));
+                // clan.banner.insufficient-funds/purchase-success don't exist in lang.yml (never
+                // did) - a missing key falls back to showing the raw dotted key string to the
+                // player, so this silently broke both outcomes of the NPC purchase. The correct,
+                // already-written-but-unused keys are cannot-afford/bought.
+                plugin.getMessages().send(player, "clan.banner.cannot-afford", Map.of("cost", String.valueOf(cost)));
                 return;
             }
             economy.get().charge(player, cost);
@@ -97,7 +101,7 @@ public final class ClanBannerListener implements Listener {
 
         ItemStack banner = plugin.getClanManager().getClanItemFactory().createClanCreationBanner();
         player.getInventory().addItem(banner);
-        plugin.getMessages().send(player, "clan.banner.purchase-success", Map.of("cost", String.valueOf(cost)));
+        plugin.getMessages().send(player, "clan.banner.bought", Map.of("cost", String.valueOf(cost)));
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
