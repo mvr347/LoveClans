@@ -50,6 +50,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -71,6 +72,13 @@ public final class ClanManager {
     private final Map<UUID, Long> creationCooldowns = new ConcurrentHashMap<>();
     private final Map<UUID, ItemStack[]> chestCache = new ConcurrentHashMap<>();
     private final Map<UUID, Long> chestCacheVersion = new ConcurrentHashMap<>();
+    // Клан, чей физический сундук сейчас открыт в ClanChestMenu или RaidLootMenu (общий ключ -
+    // обе GUI грузят снимок ItemStack[] в свой собственный Inventory и перезаписывают всё
+    // содержимое при закрытии). Без этой блокировки два одновременных открытия (два офицера
+    // клана, или офицер и атакующий во время набега) грузят один и тот же снимок, каждый
+    // забирает предмет из своей копии, и оба close() персистят "пустой" сундук - предмет
+    // задваивается у обоих игроков. См. CLAUDE.md про дублирование через гонку.
+    private final Set<UUID> chestSessionLocks = ConcurrentHashMap.newKeySet();
     // Активные прогревы телепорта "/clan home" — отменяются движением игрока или повторным
     // вызовом команды (см. ClanProtectionListener#onPlayerMove и #home ниже).
     private final Map<UUID, HomeTeleportWarmup> pendingHomeTeleports = new ConcurrentHashMap<>();
@@ -1743,6 +1751,31 @@ public final class ClanManager {
         Inventory temp = Bukkit.createInventory(null, CHEST_MAX_SIZE);
         temp.setContents(contents);
         return storage.saveChestContentsAsync(clanId, InventorySerialization.serialize(temp));
+    }
+
+    /**
+     * Reserves this clan's item chest for a single GUI session (ClanChestMenu or RaidLootMenu -
+     * both read a snapshot into their own Inventory and overwrite the stored contents wholesale
+     * on close). Returns false if another session already holds it; the caller must not open its
+     * menu in that case. Always called and released on the main thread (command handlers / GUI
+     * click handlers), so a plain Set is fine.
+     */
+    public boolean tryLockItemChest(UUID clanId) {
+        return chestSessionLocks.add(clanId);
+    }
+
+    public void unlockItemChest(UUID clanId) {
+        chestSessionLocks.remove(clanId);
+    }
+
+    /**
+     * True while a ClanChestMenu/RaidLootMenu session holds this clan's item chest. Used by
+     * {@link ClanTradeDeliveryManager} to avoid depositing a trade payout underneath an open
+     * session - that write would land in the cache/DB but then be silently overwritten (the
+     * payout lost) the moment the open session closes and persists its own, now-stale snapshot.
+     */
+    public boolean isItemChestLocked(UUID clanId) {
+        return chestSessionLocks.contains(clanId);
     }
 
     /**

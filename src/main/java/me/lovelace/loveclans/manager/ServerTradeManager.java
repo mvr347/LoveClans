@@ -69,15 +69,15 @@ public final class ServerTradeManager {
 
     public boolean sellOffer(Player player, Clan clan, TradeOffer offer) {
         if (!clan.isRecognized()) {
-            plugin.getMessages().send(player, "trade.server.not-recognized");
+            plugin.getMessages().send(player, "trade.server.unrecognized");
             return false;
         }
 
         checkAndResetWeek(clan);
 
         if (clan.getServerTradeWeeklyStacks() >= MAX_WEEKLY_STACKS) {
-            plugin.getMessages().send(player, "trade.server.weekly-limit-reached",
-                    Map.of("limit", String.valueOf(MAX_WEEKLY_STACKS)));
+            plugin.getMessages().send(player, "trade.server.limit-reached",
+                    Map.of("current", String.valueOf(clan.getServerTradeWeeklyStacks()), "max", String.valueOf(MAX_WEEKLY_STACKS)));
             return false;
         }
 

@@ -45,12 +45,20 @@ public final class ClanChestMenu implements Listener {
     }
 
     public static void open(LoveClansPlugin plugin, Clan clan, Player player) {
+        // Reserve the chest first - two concurrent openers (or an opener and an active raid
+        // looter, see RaidLootMenu) would each snapshot the same contents and overwrite each
+        // other's changes on close, duplicating whatever both took out.
+        if (!plugin.getClanManager().tryLockItemChest(clan.id())) {
+            plugin.getMessages().send(player, "chest.busy");
+            return;
+        }
         plugin.getClanManager().loadChestContentsAsync(clan).thenAccept(contents ->
                 plugin.runSync(() -> {
                     ClanChestMenu menu = new ClanChestMenu(plugin, clan, player, contents);
                     player.openInventory(menu.inventory);
                 })
         ).exceptionally(throwable -> {
+            plugin.getClanManager().unlockItemChest(clan.id());
             plugin.runSync(() -> plugin.sendOperationError(player, throwable));
             return null;
         });
@@ -101,5 +109,6 @@ public final class ClanChestMenu implements Listener {
         ItemStack[] toPersist = new ItemStack[full.length];
         System.arraycopy(full, 0, toPersist, 0, unlockedSlots);
         plugin.getClanManager().saveChestContentsAsync(clan.id(), toPersist);
+        plugin.getClanManager().unlockItemChest(clan.id());
     }
 }

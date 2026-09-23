@@ -47,12 +47,20 @@ public final class ClanTradeItemPickerMenu implements Listener {
     }
 
     public static void open(LoveClansPlugin plugin, Clan clan, Player player, BiConsumer<Player, ItemStack> onPick) {
+        // Same chest lock as ClanChestMenu/RaidLootMenu (see ClanManager#tryLockItemChest): this
+        // picker also snapshots the chest on open and blind-overwrites it on the first pick, so a
+        // stale snapshot here would silently undo whatever another concurrent session did.
+        if (!plugin.getClanManager().tryLockItemChest(clan.id())) {
+            plugin.getMessages().send(player, "chest.busy");
+            return;
+        }
         plugin.getClanManager().loadChestContentsAsync(clan).thenAccept(contents ->
                 plugin.runSync(() -> {
                     ClanTradeItemPickerMenu menu = new ClanTradeItemPickerMenu(plugin, clan, player, contents.clone(), onPick);
                     player.openInventory(menu.inventory);
                 })
         ).exceptionally(t -> {
+            plugin.getClanManager().unlockItemChest(clan.id());
             plugin.runSync(() -> plugin.sendOperationError(player, t));
             return null;
         });
@@ -83,5 +91,6 @@ public final class ClanTradeItemPickerMenu implements Listener {
     public void onInventoryClose(InventoryCloseEvent event) {
         if (!event.getInventory().equals(inventory)) return;
         HandlerList.unregisterAll(this);
+        plugin.getClanManager().unlockItemChest(clan.id());
     }
 }
