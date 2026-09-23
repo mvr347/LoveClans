@@ -596,11 +596,12 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         Clan value = clan.get();
         plugin.getMessages().send(sender, "clan.info.header", Map.of("tag", value.tag()));
-        plugin.getMessages().send(sender, "clan.info.line", Map.of("key", "Название", "value", value.name()));
-        plugin.getMessages().send(sender, "clan.info.line", Map.of("key", "Уровень", "value", String.valueOf(value.level())));
-        plugin.getMessages().send(sender, "clan.info.line", Map.of("key", "Очки улучшений", "value", String.valueOf(value.upgradePoints())));
-        plugin.getMessages().send(sender, "clan.info.line", Map.of("key", "Участники", "value", value.members().size() + "/" + plugin.getClanManager().maxMembers(value)));
-        plugin.getMessages().send(sender, "clan.info.line", Map.of("key", "Тип", "value", value.isOpen() ? "Открытый" : "Закрытый"));
+        plugin.getMessages().send(sender, "clan.info.line", Map.of("key", plugin.getMessages().raw("clan.info.label.name"), "value", value.name()));
+        plugin.getMessages().send(sender, "clan.info.line", Map.of("key", plugin.getMessages().raw("clan.info.label.level"), "value", String.valueOf(value.level())));
+        plugin.getMessages().send(sender, "clan.info.line", Map.of("key", plugin.getMessages().raw("clan.info.label.upgrade-points"), "value", String.valueOf(value.upgradePoints())));
+        plugin.getMessages().send(sender, "clan.info.line", Map.of("key", plugin.getMessages().raw("clan.info.label.members"), "value", value.members().size() + "/" + plugin.getClanManager().maxMembers(value)));
+        plugin.getMessages().send(sender, "clan.info.line", Map.of("key", plugin.getMessages().raw("clan.info.label.type"),
+                "value", value.isOpen() ? plugin.getMessages().raw("clan.info.type-open") : plugin.getMessages().raw("clan.info.type-closed")));
     }
 
     private void claim(Player player) {
@@ -1262,9 +1263,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
     private boolean checkAntiCheat(Player player) {
         if (plugin.getVesuvioHook() != null && plugin.getVesuvioHook().isHighRisk(player.getUniqueId())) {
-            player.sendMessage(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(
-                    "<red>[Кланы]</red> <gray>Действие заблокировано: у вас зафиксирован высокий риск античита!</gray>"
-            ));
+            plugin.getMessages().send(player, "general.anticheat-blocked");
             return false;
         }
         return true;

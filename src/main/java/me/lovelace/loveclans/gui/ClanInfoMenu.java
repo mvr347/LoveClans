@@ -200,7 +200,9 @@ public final class ClanInfoMenu implements InventoryHolder {
     private ItemStack createMemberItem(ClanMember member) {
         OfflinePlayer offline = Bukkit.getOfflinePlayer(member.playerId());
         String name = offline.getName() != null ? offline.getName() : member.playerId().toString().substring(0, 8);
-        String status = offline.isOnline() ? "<green>В сети</green>" : "<red>Оффлайн</red>";
+        String status = offline.isOnline()
+                ? plugin.getMessages().raw("gui.members.item.status-online")
+                : plugin.getMessages().raw("gui.members.item.status-offline");
 
         ItemBuilder builder = ItemBuilder.of(Material.PLAYER_HEAD)
                 .name(plugin.getMessages().component("gui.members.item.name", Map.of("player", name), player))
