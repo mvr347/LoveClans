@@ -682,6 +682,15 @@ gui:
     influence: "<gray>Влияние: <white><influence>"
     members: "<gray>Участников: <white><current>/<max>"
     leader: "<gray>Глава: <white><player>"
+    # Доп. строки в лоре головы главы (SLOT_LEADER в ClanInfoMenu). "leader-member-since" -
+    # НЕ "лидер с этой даты": лидерство передаётся вручную (transferLeadershipAsync) и по
+    # наследованию (SuccessionManager), оба меняют только ранг участника и не трогают
+    # ClanMember#joinedAt, так что это честно "в клане с" (для лидера-основателя обычно
+    # совпадает с датой основания клана, для унаследовавшего - нет). "leader-last-seen"
+    # показывается только когда глава сейчас оффлайн - статус "В сети/Оффлайн" один не
+    # говорит, насколько давно. Добавлено 2026-09-24.
+    leader-member-since: "<gray>В клане с: <white><date>"
+    leader-last-seen: "<gray>Был на сервере: <white><date>"
     status:
       open: "<gray>Статус: <green>Открытый клан"
       closed: "<gray>Статус: <red>Закрытый клан"
