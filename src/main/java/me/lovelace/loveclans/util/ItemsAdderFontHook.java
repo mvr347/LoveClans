@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.util;
 
+import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -8,11 +9,15 @@ import java.util.logging.Logger;
 
 /**
  * Resolves {@code %img_<tag>%} / {@code %ia_<tag>%} placeholders in a message into an
- * ItemsAdder custom-font glyph (the negative-space-font icon technique ItemsAdder's FontImages
- * API implements) — same convention LoveBrew ({@code PhysicalCurrencyManager}/{@code
- * ItemsAdderHook}) and LoveTweaks ({@code CurrencyFormatter}) already use for their coin icons,
- * reused here rather than reinventing a second one. Reflection-only: no compile-time dependency
- * on ItemsAdder, no-op (returns the text unchanged) when the plugin isn't installed.
+ * ItemsAdder custom-font glyph. ItemsAdder registers these directly with PlaceholderAPI (its own
+ * "Font image" PAPI placeholders section documents {@code %img_<name>%} as the literal syntax,
+ * e.g. {@code %img_smile%}) — resolving through PAPI first is the correct, documented path.
+ * The manual {@code %img_x%} -> {@code :x:} + {@code FontImages.replacePlaceholders} rewrite
+ * below only runs on whatever PAPI didn't catch (e.g. PlaceholderAPI not installed), as a
+ * fallback rather than the primary mechanism — matches the pattern LoveBrew's {@code
+ * ItemsAdderHook#replaceFontImages} already uses for its own coin icons, reused here rather
+ * than reinventing a second one. Reflection-only for the ItemsAdder half: no compile-time
+ * dependency on ItemsAdder, no-op (returns the text unchanged) when neither plugin is installed.
  */
 public final class ItemsAdderFontHook {
 
@@ -26,10 +31,19 @@ public final class ItemsAdderFontHook {
     }
 
     public static String resolve(Player player, String text) {
-        if (text == null || text.isBlank() || !isAvailable()) {
+        if (text == null || text.isBlank()) {
             return text;
         }
-        if (!text.contains("%img_") && !text.contains("%ia_")) {
+
+        if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
+            try {
+                text = PlaceholderAPI.setPlaceholders(player, text);
+            } catch (Throwable papiFailure) {
+                LOGGER.log(Level.FINEST, "PlaceholderAPI resolution failed: " + papiFailure.getMessage());
+            }
+        }
+
+        if (!isAvailable() || (!text.contains("%img_") && !text.contains("%ia_"))) {
             return text;
         }
 
