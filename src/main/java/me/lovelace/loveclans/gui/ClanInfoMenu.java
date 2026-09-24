@@ -129,12 +129,38 @@ public final class ClanInfoMenu implements InventoryHolder {
         clan.leaderId().ifPresent(leaderId -> {
             OfflinePlayer leader = Bukkit.getOfflinePlayer(leaderId);
             String leaderName = leader.getName() != null ? leader.getName() : leaderId.toString().substring(0, 8);
-            String leaderStatus = leader.isOnline()
+            boolean leaderOnline = leader.isOnline();
+            String leaderStatus = leaderOnline
                     ? plugin.getMessages().raw("gui.members.item.status-online")
                     : plugin.getMessages().raw("gui.members.item.status-offline");
             ItemBuilder leaderHead = ItemBuilder.of(Material.PLAYER_HEAD)
                     .name(plugin.getMessages().component("gui.info.leader", Map.of("player", leaderName), player))
                     .lore(plugin.getMessages().component("gui.members.item.status", Map.of("status", leaderStatus), player));
+
+            // "Немного больше информации о главе": дата вступления в клан и вклад (оба поля уже
+            // персистентны на ClanMember, никакой новой трекинг-системы не заводим) плюс дата
+            // последнего визита, когда глава сейчас оффлайн - "Оффлайн" одним словом не говорит,
+            // насколько давно. НЕ подписываем дату вступления как "лидер с" - лидерство передаётся
+            // вручную (transferLeadershipAsync) и по наследованию (SuccessionManager#finishVote),
+            // а оба пути меняют только ранг и не трогают joinedAt, так что для унаследовавшего
+            // лидера эта дата была бы враньём.
+            clan.member(leaderId).ifPresent(leaderMember -> {
+                leaderHead.lore(plugin.getMessages().component("gui.info.leader-member-since",
+                        Map.of("date", dateFormat.format(new java.util.Date(leaderMember.joinedAt()))), player));
+                leaderHead.lore(plugin.getMessages().component("gui.members.item.contribution",
+                        Map.of("amount", String.valueOf(leaderMember.contribution())), player));
+                if (!leaderOnline) {
+                    // Тот же максимум (Bukkit-логин vs. последний раз замеченный кланом), что
+                    // SuccessionManager#leaderAbsent уже использует для решения "пора ли голосовать
+                    // за нового главу" - одно и то же представление "как давно" в UI и в механике.
+                    long lastSeen = Math.max(leader.getLastPlayed(), leaderMember.lastSeen());
+                    if (lastSeen > 0L) {
+                        leaderHead.lore(plugin.getMessages().component("gui.info.leader-last-seen",
+                                Map.of("date", dateFormat.format(new java.util.Date(lastSeen))), player));
+                    }
+                }
+            });
+
             leaderHead.mutate(meta -> {
                 if (meta instanceof SkullMeta skullMeta) skullMeta.setOwningPlayer(leader);
             });
