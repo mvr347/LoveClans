@@ -35,6 +35,21 @@ public final class ItemsAdderFontHook {
             return text;
         }
 
+        // Wrapped in <white>...</white> BEFORE handing off to PlaceholderAPI below, not after:
+        // ItemsAdder registers %img_x%/%ia_x% as its own PAPI expansion, so on a server with
+        // both plugins installed (the normal production case) PlaceholderAPI.setPlaceholders
+        // resolves the placeholder straight to the raw glyph character, and by then there is no
+        // %img_x% token left to wrap - the glyph would silently inherit whatever color tag is
+        // active around it. Wrapping the literal token first survives both that PAPI path and
+        // the manual FontImages fallback below, since PAPI and FontImages both do a plain
+        // string-replace and don't care what surrounds the token they're replacing. Callers
+        // (e.g. lang.yml entries) may still add their own <white> too - a doubled wrap is a
+        // harmless no-op, never a doubled color code.
+        if (text.contains("%img_") || text.contains("%ia_")) {
+            text = text.replaceAll("%img_([a-zA-Z0-9_:]+)%", "<white>%img_$1%</white>")
+                    .replaceAll("%ia_([a-zA-Z0-9_:]+)%", "<white>%ia_$1%</white>");
+        }
+
         if (Bukkit.getPluginManager().isPluginEnabled("PlaceholderAPI")) {
             try {
                 text = PlaceholderAPI.setPlaceholders(player, text);
