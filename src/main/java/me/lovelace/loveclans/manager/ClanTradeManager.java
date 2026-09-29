@@ -108,6 +108,12 @@ public final class ClanTradeManager {
         }).thenApply(trade -> {
             pendingTrades.put(trade.id(), trade);
             lastTradeAt.put(pairKey(from.id(), to.id()), trade.createdAt());
+            // Keyed by clan pair and never removed: N clans can produce N^2 entries over an uptime.
+            // Entries past the cooldown no longer block anything, so they can go.
+            if (lastTradeAt.size() > 128) {
+                long expiredBefore = System.currentTimeMillis() - cooldown().toMillis();
+                lastTradeAt.values().removeIf(t -> t < expiredBefore);
+            }
             plugin.runSync(() -> notifyProposal(from, to, trade));
             return trade;
         });
