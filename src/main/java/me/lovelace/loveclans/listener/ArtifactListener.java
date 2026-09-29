@@ -52,6 +52,10 @@ public final class ArtifactListener implements Listener {
                     return;
                 }
                 warHornCooldowns.put(clan.get().id(), now);
+                // One entry per clan that ever blew the horn, never removed: drop the expired ones.
+                if (warHornCooldowns.size() > 64) {
+                    warHornCooldowns.values().removeIf(t -> now - t >= cooldownMillis);
+                }
                 player.getWorld().playSound(player.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_0, 1.0F, 0.8F);
                 clan.get().members().keySet().stream()
                         .map(org.bukkit.Bukkit::getPlayer)
