@@ -32,10 +32,17 @@ public final class BannerPurchaseConfirmMenu {
 
     public static final class Holder implements InventoryHolder {
         private final long cost;
+        private final boolean affordable;
         private Inventory inventory;
 
-        private Holder(long cost) {
+        private Holder(long cost, boolean affordable) {
             this.cost = cost;
+            this.affordable = affordable;
+        }
+
+        /** У игрока хватало монет на момент открытия; без этого кнопки «Подтвердить» в меню нет. */
+        public boolean affordable() {
+            return affordable;
         }
 
         /** Цена, зафиксированная на момент открытия меню - подтверждение списывает именно её, а не перечитывает конфиг заново. */
@@ -53,8 +60,12 @@ public final class BannerPurchaseConfirmMenu {
         }
     }
 
-    public static void open(Player player, LoveClansPlugin plugin, long cost) {
-        Holder holder = new Holder(cost);
+    /**
+     * Меню открывается и тому, кому не хватает монет: цена видна, но вместо кнопки «Подтвердить» в слоте 1
+     * стекло (по gui_gen в рамке не бывает пустых слотов), а в описании знамени - строка о нехватке средств.
+     */
+    public static void open(Player player, LoveClansPlugin plugin, long cost, boolean affordable) {
+        Holder holder = new Holder(cost, affordable);
         Component title = plugin.getMessages().component("clan.banner.confirm-title", player);
         Inventory inventory = Bukkit.createInventory(holder, SIZE, title);
         holder.setInventory(inventory);
@@ -63,17 +74,28 @@ public final class BannerPurchaseConfirmMenu {
         for (int slot : new int[]{0, 2, 3, 5, 6, 8}) {
             inventory.setItem(slot, glass);
         }
+        if (!affordable) {
+            inventory.setItem(SLOT_CONFIRM, glass);
+        }
 
         Map<String, String> placeholders = Map.of("cost", String.valueOf(cost));
+        java.util.List<Component> infoLore = new java.util.ArrayList<>(
+                plugin.getMessages().components("clan.banner.confirm-item-lore", placeholders, player));
+        if (!affordable) {
+            infoLore.add(Component.empty());
+            infoLore.add(plugin.getMessages().component("clan.banner.confirm-not-enough", placeholders, player));
+        }
         ItemStack info = ItemBuilder.of(Material.WHITE_BANNER)
                 .name(plugin.getMessages().component("clan.banner.confirm-item-name", placeholders, player))
-                .lore(plugin.getMessages().components("clan.banner.confirm-item-lore", placeholders, player))
+                .lore(infoLore)
                 .build();
         inventory.setItem(SLOT_INFO, info);
 
-        inventory.setItem(SLOT_CONFIRM, ItemBuilder.head(ItemBuilder.HEAD_DELETE_YES)
-                .name(plugin.getMessages().component("gui.confirm.yes", player))
-                .build());
+        if (affordable) {
+            inventory.setItem(SLOT_CONFIRM, ItemBuilder.head(ItemBuilder.HEAD_DELETE_YES)
+                    .name(plugin.getMessages().component("gui.confirm.yes", player))
+                    .build());
+        }
         inventory.setItem(SLOT_CANCEL, ItemBuilder.head(ItemBuilder.HEAD_DELETE_NO)
                 .name(plugin.getMessages().component("gui.confirm.no", player))
                 .build());
