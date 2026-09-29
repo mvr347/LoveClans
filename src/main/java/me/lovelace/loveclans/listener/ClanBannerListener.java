@@ -88,20 +88,15 @@ public final class ClanBannerListener implements Listener {
         }
 
         // 2026-09-26: раньше деньги списывались сразу этим же кликом, без подтверждения - см.
-        // finalizePurchase() ниже, куда теперь ведёт confirm-кнопка GUI. Здесь только
-        // предварительная проверка средств, чтобы не открывать экран покупки тому, кто её
-        // заведомо не потянет; настоящее списание и повторная проверка - в finalizePurchase.
+        // finalizePurchase() ниже, куда теперь ведёт confirm-кнопка GUI. Меню открывается и тому, кому
+        // не хватает монет (иначе клик по NPC ничего не показывал): цена видна, но кнопки подтверждения
+        // нет. Настоящее списание и повторная проверка средств - в finalizePurchase.
         Optional<LoveEconomy> economy = LoveCore.service(LoveEconomy.class);
         if (economy.isEmpty()) {
             plugin.getMessages().send(player, "clan.creation-economy-unavailable");
             return;
         }
-        if (!economy.get().has(player, cost)) {
-            plugin.getMessages().send(player, "clan.banner.cannot-afford", Map.of("cost", String.valueOf(cost)));
-            return;
-        }
-
-        BannerPurchaseConfirmMenu.open(player, plugin, cost);
+        BannerPurchaseConfirmMenu.open(player, plugin, cost, economy.get().has(player, cost));
     }
 
     private void giveBanner(Player player, long cost) {
@@ -145,6 +140,9 @@ public final class ClanBannerListener implements Listener {
             }
             int slot = event.getRawSlot();
             if (BannerPurchaseConfirmMenu.isConfirmSlot(slot)) {
+                if (!holder.affordable()) {
+                    return; // no confirm button was shown; ignore the (glass) slot
+                }
                 player.closeInventory();
                 finalizePurchase(player, holder.cost());
             } else if (BannerPurchaseConfirmMenu.isCancelSlot(slot)) {
