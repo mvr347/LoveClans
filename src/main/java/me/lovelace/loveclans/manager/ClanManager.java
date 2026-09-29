@@ -443,13 +443,21 @@ public final class ClanManager {
             if (event.isCancelled()) {
                 throw new IllegalStateException("general.error");
             }
+
+            // charge() is the authority, not the has() check above: ClanCreateEvent is synchronous, so a
+            // listener may have spent the founder's coins since then. Charging before indexClan means a
+            // failed charge leaves no clan behind that was created for free.
+            if (chargeCreationCost && !creationEconomy.get().charge(founder, creationCost)) {
+                throw new IllegalStateException("clan.creation-insufficient-funds");
+            }
             indexClan(clan);
 
-            if (chargeCreationCost) {
-                creationEconomy.get().charge(founder, creationCost);
-            }
             if (cooldownSeconds > 0) {
-                creationCooldowns.put(founderId, System.currentTimeMillis());
+                long now = System.currentTimeMillis();
+                long windowMs = cooldownSeconds * 1000L;
+                // Drop expired entries so the map does not grow with every founder that ever created a clan.
+                creationCooldowns.values().removeIf(createdAt -> now - createdAt >= windowMs);
+                creationCooldowns.put(founderId, now);
             }
 
             if (giveCapitalBanner && founder != null) {
@@ -667,8 +675,14 @@ public final class ClanManager {
             }
             long cooldownSeconds = plugin.getConfig().getLong("clans.rejoin-cooldown-seconds", 3600L);
             if (cooldownSeconds > 0) {
+                long now = System.currentTimeMillis();
+                // Drop expired cooldowns so the map does not keep an entry for every player who ever left a clan.
+                rejoinCooldowns.values().removeIf(perClan -> {
+                    perClan.values().removeIf(until -> until <= now);
+                    return perClan.isEmpty();
+                });
                 rejoinCooldowns.computeIfAbsent(playerId, ignored -> new ConcurrentHashMap<>())
-                        .put(clan.id(), System.currentTimeMillis() + cooldownSeconds * 1000L);
+                        .put(clan.id(), now + cooldownSeconds * 1000L);
             }
             ClanRank departedRank = target.rank();
             String departedName = Bukkit.getOfflinePlayer(playerId).getName();
@@ -1519,7 +1533,10 @@ public final class ClanManager {
             if (!economy.has(player, amount)) {
                 throw new IllegalStateException("chest.insufficient-items");
             }
-            economy.charge(player, amount);
+            // The clan is credited below, so a failed charge must abort here instead of minting clan money.
+            if (!economy.charge(player, amount)) {
+                throw new IllegalStateException("chest.insufficient-items");
+            }
             return null;
         }).thenCompose(ignored -> {
             long newBalance = clan.addChestMoney(amount);
