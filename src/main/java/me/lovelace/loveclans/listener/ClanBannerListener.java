@@ -1,5 +1,7 @@
 package me.lovelace.loveclans.listener;
 
+import dev.lovelace.lovecore.api.economy.MoneyConfig;
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.gui.BannerPurchaseConfirmMenu;
 import me.lovelace.loveclans.gui.ClanBannerCreationMenu;
@@ -81,7 +83,7 @@ public final class ClanBannerListener implements Listener {
             return;
         }
 
-        long cost = plugin.getConfig().getLong("clans.banner.cost", 3000L);
+        long cost = MoneyConfig.getScaled(plugin.getConfig(), "clans.banner.cost", 6_000L);
         if (cost <= 0) {
             giveBanner(player, cost);
             return;
@@ -102,7 +104,7 @@ public final class ClanBannerListener implements Listener {
     private void giveBanner(Player player, long cost) {
         ItemStack banner = plugin.getClanManager().getClanItemFactory().createClanCreationBanner();
         player.getInventory().addItem(banner);
-        plugin.getMessages().send(player, "clan.banner.bought", Map.of("cost", String.valueOf(cost)));
+        plugin.getMessages().send(player, "clan.banner.bought", Map.of("cost", CoinFormat.format(cost)));
     }
 
     /** Confirm-кнопка {@link BannerPurchaseConfirmMenu} ведёт сюда - деньги списываются здесь, а не при открытии GUI. */
@@ -120,10 +122,14 @@ public final class ClanBannerListener implements Listener {
             return;
         }
         if (!economy.get().has(player, cost)) {
-            plugin.getMessages().send(player, "clan.banner.cannot-afford", Map.of("cost", String.valueOf(cost)));
+            plugin.getMessages().send(player, "clan.banner.cannot-afford", Map.of("cost", CoinFormat.format(cost)));
             return;
         }
-        economy.get().charge(player, cost);
+        // charge() is the authority (has() above can be stale): no banner unless the coins were really taken
+        if (!economy.get().charge(player, cost)) {
+            plugin.getMessages().send(player, "clan.banner.cannot-afford", Map.of("cost", CoinFormat.format(cost)));
+            return;
+        }
         giveBanner(player, cost);
     }
 

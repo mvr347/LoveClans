@@ -1,5 +1,7 @@
 package me.lovelace.loveclans.command;
 
+import dev.lovelace.lovecore.api.economy.MoneyConfig;
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.api.events.ClanDiplomacyChangeEvent;
 import me.lovelace.loveclans.gui.*;
@@ -905,11 +907,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         UUID siegeId = siegeIdOpt.get();
 
         int level = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
-        long cost = plugin.getConfig().getLong("siege.fortification.cost", 500L)
+        long cost = MoneyConfig.getScaled(plugin.getConfig(), "siege.fortification.cost", 1_000L)
                 * Math.max(1, level + 1);
         if (clan.chestMoney() < cost) {
             plugin.getMessages().send(player, "siege.fortify.not-enough",
-                    Map.of("cost", String.valueOf(cost)));
+                    Map.of("cost", CoinFormat.format(cost)));
             return;
         }
 
@@ -928,7 +930,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         plugin.getMessages().send(player, "siege.fortify.done", Map.of(
                 "index", String.valueOf(campIndex + 1),
                 "hits", String.valueOf(plugin.getSiegeManager().hitsRequired(siegeId, campIndex)),
-                "cost", String.valueOf(cost)));
+                "cost", CoinFormat.format(cost)));
     }
 
     private void siege(Player player, String[] args) {

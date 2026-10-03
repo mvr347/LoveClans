@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.util.ItemBuilder;
@@ -34,7 +35,7 @@ public final class ClanChestMoneyMenu {
 
         inventory.setItem(BALANCE_SLOT, ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.chest.money.balance.name", player))
-                .lore(plugin.getMessages().component("gui.chest.money.balance.lore", Map.of("amount", String.valueOf(clan.chestMoney())), player))
+                .lore(plugin.getMessages().component("gui.chest.money.balance.lore", Map.of("amount", CoinFormat.format(clan.chestMoney())), player))
                 .build());
 
         inventory.setItem(DEPOSIT_SLOT, ItemBuilder.head(ItemBuilder.HEAD_DEPOSIT)
@@ -79,8 +80,8 @@ public final class ClanChestMoneyMenu {
             }
             long amount;
             try {
-                amount = Long.parseLong(input.trim());
-            } catch (NumberFormatException exception) {
+                amount = CoinFormat.parse(input);
+            } catch (IllegalArgumentException exception) {
                 plugin.getMessages().send(player, "chest.invalid-amount");
                 plugin.runSync(() -> open(player, clan));
                 return;
@@ -88,9 +89,9 @@ public final class ClanChestMoneyMenu {
             var future = deposit
                     ? plugin.getClanManager().depositChestMoneyAsync(clan, player.getUniqueId(), player, amount)
                             .thenAccept(balance -> plugin.getMessages().send(player, "chest.deposit-success",
-                                    Map.of("amount", String.valueOf(amount), "balance", String.valueOf(balance))))
+                                    Map.of("amount", CoinFormat.format(amount), "balance", CoinFormat.format(balance))))
                     : plugin.getClanManager().withdrawChestMoneyAsync(clan, player.getUniqueId(), player, amount)
-                            .thenRun(() -> plugin.getMessages().send(player, "chest.withdraw-success", Map.of("amount", String.valueOf(amount))));
+                            .thenRun(() -> plugin.getMessages().send(player, "chest.withdraw-success", Map.of("amount", CoinFormat.format(amount))));
             future.thenRun(() -> plugin.runSync(() ->
                             plugin.getClanManager().getClanById(clan.id()).ifPresent(updated -> open(player, updated))))
                     .exceptionally(t -> {

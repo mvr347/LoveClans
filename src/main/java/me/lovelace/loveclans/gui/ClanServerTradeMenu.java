@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.manager.ServerTradeManager;
 import me.lovelace.loveclans.model.Clan;
@@ -48,7 +49,7 @@ public final class ClanServerTradeMenu implements InventoryHolder {
             infoItem.lore(plugin.getMessages().components("gui.server-trade.info.recognized-lore", Map.of(
                     "sold", String.valueOf(sold),
                     "max", String.valueOf(max),
-                    "treasury", String.valueOf(clan.chestMoney())
+                    "treasury", CoinFormat.format(clan.chestMoney())
             ), player));
         }
         inventory.setItem(0, infoItem.build());
@@ -67,7 +68,7 @@ public final class ClanServerTradeMenu implements InventoryHolder {
                     .lore(plugin.getMessages().components(
                             canSell ? "gui.server-trade.offer.lore-active" : "gui.server-trade.offer.lore-disabled",
                             Map.of(
-                                    "reward", String.valueOf(offer.rewardMoney()),
+                                    "reward", CoinFormat.format(offer.rewardMoney()),
                                     "amount", String.valueOf(offer.amount())
                             ), player));
 

@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
@@ -78,7 +79,7 @@ public final class BannerPurchaseConfirmMenu {
             inventory.setItem(SLOT_CONFIRM, glass);
         }
 
-        Map<String, String> placeholders = Map.of("cost", String.valueOf(cost));
+        Map<String, String> placeholders = Map.of("cost", CoinFormat.format(cost));
         java.util.List<Component> infoLore = new java.util.ArrayList<>(
                 plugin.getMessages().components("clan.banner.confirm-item-lore", placeholders, player));
         if (!affordable) {
