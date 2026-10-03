@@ -64,7 +64,35 @@ public final class ServerTradeManager {
 
     public List<TradeOffer> currentOffers() {
         int index = Math.abs(currentWeek()) % ROTATING_POOLS.size();
-        return ROTATING_POOLS.get(index);
+        List<TradeOffer> pool = ROTATING_POOLS.get(index);
+        List<TradeOffer> priced = new java.util.ArrayList<>(pool.size());
+        for (TradeOffer offer : pool) {
+            priced.add(withModelReward(offer));
+        }
+        return priced;
+    }
+
+    /**
+     * 2026-10-03: the state pays a share ({@code clans.trade.server.payout-percent}, default 70) of what
+     * the LoveCore price model says the stack is worth, so the reward follows the recipe-derived
+     * prices and the global price index. The constants in {@link #ROTATING_POOLS} are only the
+     * fallback while the price model is not ready or does not know the item.
+     */
+    private TradeOffer withModelReward(TradeOffer offer) {
+        try {
+            var oracle = dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.economy.PriceOracle.class);
+            if (oracle.isPresent() && oracle.get().ready()) {
+                java.util.OptionalLong unit = oracle.get().value(offer.material());
+                if (unit.isPresent() && unit.getAsLong() > 0) {
+                    double percent = Math.max(0.0, plugin.getConfig().getDouble("clans.trade.server.payout-percent", 70.0));
+                    long reward = Math.max(1L, Math.round(unit.getAsLong() * offer.amount() * percent / 100.0));
+                    return new TradeOffer(offer.material(), offer.amount(), reward, offer.displayName());
+                }
+            }
+        } catch (Throwable t) {
+            // LoveCore price API unavailable: keep the fallback reward
+        }
+        return offer;
     }
 
     public boolean sellOffer(Player player, Clan clan, TradeOffer offer) {
@@ -102,7 +130,7 @@ public final class ServerTradeManager {
         // Уведомляем игрока
         plugin.getMessages().send(player, "trade.server.sell-success", Map.of(
                 "item", offer.displayName(),
-                "reward", String.valueOf(offer.rewardMoney()),
+                "reward", me.lovelace.loveclans.util.CoinFormat.format(offer.rewardMoney()),
                 "current", String.valueOf(clan.getServerTradeWeeklyStacks()),
                 "max", String.valueOf(MAX_WEEKLY_STACKS)
         ));

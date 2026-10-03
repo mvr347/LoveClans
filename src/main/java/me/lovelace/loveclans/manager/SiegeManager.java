@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.manager;
 
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
@@ -527,7 +528,7 @@ public final class SiegeManager {
             return null;
         });
 
-        Map<String, String> placeholders = Map.of("amount", String.valueOf(amount), "percent", String.valueOf(percent));
+        Map<String, String> placeholders = Map.of("amount", CoinFormat.format(amount), "percent", String.valueOf(percent));
         onlineMembers(attacker).forEach(p -> plugin.getMessages().send(p, "siege.chest-spoils-attacker", placeholders));
         onlineMembers(defender).forEach(p -> plugin.getMessages().send(p, "siege.chest-spoils-defender", placeholders));
     }

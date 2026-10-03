@@ -48,6 +48,44 @@ public final class DatabaseManager implements AutoCloseable {
         dataSource = new HikariDataSource(config);
         executor = Executors.newFixedThreadPool(type == DatabaseType.SQLITE ? 1 : poolSize, new ClanThreadFactory());
         createSchema();
+        migrateEconomy();
+    }
+
+    /**
+     * Rescales the treasury and escrowed trade money once when LoveCore's economy scale version grew
+     * (see {@link EconomyMigration}). SQLite gets a file copy first; MySQL needs a manual backup.
+     */
+    private void migrateEconomy() {
+        java.util.Optional<dev.lovelace.lovecore.api.economy.LoveEconomy> economy;
+        try {
+            economy = dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.economy.LoveEconomy.class);
+        } catch (Throwable t) {
+            return; // LoveCore API unavailable: nothing to compare the version with
+        }
+        if (economy.isEmpty()) return;
+        int target = economy.get().economyScaleVersion();
+        double factor = plugin.getConfig().getDouble("economy.migration.factor", 5.0);
+        try (Connection connection = dataSource.getConnection()) {
+            if (EconomyMigration.needsRescale(connection, target)) {
+                if (type == DatabaseType.SQLITE) {
+                    try (Statement st = connection.createStatement()) {
+                        st.execute("PRAGMA wal_checkpoint(TRUNCATE)");
+                    }
+                    File db = new File(plugin.getDataFolder(), "loveclans.db");
+                    File backup = new File(plugin.getDataFolder(), db.getName() + ".pre-economy-v" + target);
+                    if (!backup.exists()) {
+                        java.nio.file.Files.copy(db.toPath(), backup.toPath());
+                        plugin.getLogger().info("Economy migration: database copy saved to " + backup.getName());
+                    }
+                } else {
+                    plugin.getLogger().warning("Economy migration on MySQL: make sure you have a backup of the database.");
+                }
+            }
+            EconomyMigration.migrate(connection, target, factor, plugin.getLogger());
+        } catch (Exception exception) {
+            plugin.getLogger().log(java.util.logging.Level.SEVERE,
+                    "Economy migration failed - treasury amounts were NOT rescaled", exception);
+        }
     }
 
     public DataSource dataSource() {

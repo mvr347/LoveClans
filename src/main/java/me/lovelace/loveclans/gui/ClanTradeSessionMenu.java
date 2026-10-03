@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.manager.ClanTradeSessionManager;
 import me.lovelace.loveclans.model.Clan;
@@ -216,7 +217,7 @@ public final class ClanTradeSessionMenu implements Listener {
     private ItemStack moneyButton(long amount) {
         return ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.trade-session.money.name"))
-                .lore(plugin.getMessages().component("gui.trade-session.money.lore", Map.of("amount", String.valueOf(amount))))
+                .lore(plugin.getMessages().component("gui.trade-session.money.lore", Map.of("amount", CoinFormat.format(amount))))
                 .build();
     }
 
@@ -465,13 +466,13 @@ public final class ClanTradeSessionMenu implements Listener {
         long escrowed = sideA ? moneyA : moneyB;
         long max = escrowed + freshClan.chestMoney();
         plugin.getMessages().send(player, "gui.trade-session.money.prompt");
-        plugin.getMessages().send(player, "gui.trade-session.money.prompt-max", Map.of("amount", String.valueOf(max)));
+        plugin.getMessages().send(player, "gui.trade-session.money.prompt-max", Map.of("amount", CoinFormat.format(max)));
         plugin.expectChatInput(promptedId, (input, cancelled) -> {
             if (cancelled || resolved) return;
             long amount;
             try {
-                amount = Long.parseLong(input.trim());
-            } catch (NumberFormatException exception) {
+                amount = CoinFormat.parse(input);
+            } catch (IllegalArgumentException exception) {
                 plugin.getMessages().send(player, "general.invalid-number");
                 return;
             }

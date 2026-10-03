@@ -109,6 +109,10 @@ public final class MessageService {
         List<TagResolver> resolvers = new ArrayList<>();
         for (Map.Entry<String, String> entry : placeholders.entrySet()) {
             String val = entry.getValue();
+            if (val.contains("%img_")) {
+                // coin glyph tags inside a placeholder value (see util.CoinFormat) are resolved per recipient
+                val = me.lovelace.loveclans.util.ItemsAdderFontHook.resolve(player, val);
+            }
             if (val.contains("<") && val.contains(">")) {
                 resolvers.add(Placeholder.parsed(entry.getKey(), val));
             } else {

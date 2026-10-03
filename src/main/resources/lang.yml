@@ -52,7 +52,7 @@ admin:
 chest:
   no-capital: "<prefix><red>У вашего клана нет установленной территории — сначала установите знамя кланового спавна."
   invalid-amount: "<prefix><red>Укажите корректное положительное количество."
-  insufficient-items: "<prefix><red>Недостаточно <gold><white>%img_gold_coin%</white></gold> средств для этой операции."
+  insufficient-items: "<prefix><red>Недостаточно монет для этой операции."
   tax-locked: "<prefix><red>Сундук заблокирован за неуплату налога. Внесите деньги, чтобы погасить долг."
   tax-paid-manually: "<prefix><green>Налог погашен - сундук клана разблокирован."
   tax-collected: "<prefix><yellow>С клана списан еженедельный налог: <gold><amount></gold>."
@@ -124,12 +124,12 @@ trade:
     unrecognized: "<prefix><red>Ваш клан не признан сервером. Непризнанные кланы не могут торговать с казной сервера."
     not-accepted: "<prefix><red>Этот предмет не входит в список государственных закупок на этой неделе."
     limit-reached: "<prefix><red>Недельный лимит сдачи ресурсов исчерпан (<current>/<max> стаков)."
-    sold: "<prefix><green>Вы успешно сдали ресурсы в казну сервера! В клановый сундук начислено <gold><money></gold> монет."
+    sold: "<prefix><green>Вы успешно сдали ресурсы в казну сервера! В клановый сундук начислено <money>."
     # Добавлено 2026-09-23: ServerTradeManager#sellOffer ссылался на эти два ключа, которых не
     # было в файле (игрок видел сырой путь ключа вместо сообщения) - см. аудит "ключ есть в коде,
     # нет в lang.yml" после PR #50.
     not-enough-items: "<prefix><red>Недостаточно предметов (<item>) - нужно <amount> шт."
-    sell-success: "<prefix><green>Вы сдали <white><item></white> в казну сервера! Начислено <gold><reward></gold> монет. Сдано на этой неделе: <white><current>/<max> стаков."
+    sell-success: "<prefix><green>Вы сдали <white><item></white> в казну сервера! Начислено <reward>. Сдано на этой неделе: <white><current>/<max> стаков."
 
 clan:
   create-removed: "<prefix><red>Команда /clan create отключена. Приобретите Знамя основания клана у торговца и установите его на свободной земле!"
@@ -146,7 +146,7 @@ clan:
       - "<gray>Устанавливается на свободной земле,"
       - "<gray>чтобы основать собственный клан."
       - ""
-      - "<gray>Цена: <gold><white>%img_gold_coin%</white> <cost></gold>"
+      - "<gray>Цена: <cost>"
     # Строка в описании знамени, когда монет не хватает: меню открывается, но без кнопки «Подтвердить».
     confirm-not-enough: "<red>Недостаточно монет для покупки."
     # <cost> и %img_gold_coin% (2026-09-23): у NPC-продавца знамени раньше был код, ссылавшийся
@@ -154,8 +154,8 @@ clan:
     # сообщения игрок видел сырой ключ. Код указывает сюда, ключ добавляет сумму и монетку.
     # 2026-09-26: <white> перед %img_gold_coin% — без сброса цвета глиф рендерился прямо внутри
     # <gold>, из-за чего цвет монетки мог сбиваться (см. тот же фикс для глифов Странника в LoveShop).
-    cannot-afford: "<prefix><red>У вас недостаточно монет для покупки знамени основания клана. Нужно: <gold><white>%img_gold_coin%</white> <cost></gold>."
-    bought: "<prefix><green>Вы приобрели Знамя основания клана за <gold><white>%img_gold_coin%</white> <cost></gold>! Установите его на свободной земле, чтобы основать клан."
+    cannot-afford: "<prefix><red>У вас недостаточно монет для покупки знамени основания клана. Нужно: <cost>."
+    bought: "<prefix><green>Вы приобрели Знамя основания клана за <cost>! Установите его на свободной земле, чтобы основать клан."
     territory-overlap: "<prefix><red>Здесь нельзя основать клан: территория занята или пересекает другой регион."
     cannot-place: "<prefix><red>Нельзя установить знамя здесь."
     received: "<prefix><green>Вам выдано Знамя основания клана!"
@@ -170,7 +170,7 @@ clan:
   creation-blocked-politeness: "<prefix><red>Слишком низкая вежливость, чтобы создать клан."
   creation-cooldown: "<prefix><red>Вы недавно уже создавали клан. Подождите перед созданием нового."
   creation-economy-unavailable: "<prefix><red>Оплата создания клана временно недоступна (ItemsAdder не найден)."
-  creation-insufficient-funds: "<prefix><red>Недостаточно <gold><white>%img_gold_coin%</white></gold> монет для оплаты создания клана."
+  creation-insufficient-funds: "<prefix><red>Недостаточно монет для оплаты создания клана."
   disbanded: "<prefix><yellow>Ваш клан был распущен."
   founder-has-capital-banner: "<prefix><red>У вас уже есть знамя клановой территории. Сначала установите его или избавьтесь от него."
   home:
@@ -361,11 +361,11 @@ gui:
       deposit:
         name: "<green>Положить"
         lore: "<gray>ЛКМ - внести деньги в сундук"
-        prompt: "<prefix><yellow>Введите количество для внесения в чат."
+        prompt: "<prefix><yellow>Введите сумму для внесения в чат.<gray> Можно числом (в медных) или так: 3i 50c (c — медная, i — железная, g — золотая, d — алмазная)."
       withdraw:
         name: "<red>Взять"
         lore: "<gray>ЛКМ - забрать деньги из сундука"
-        prompt: "<prefix><yellow>Введите количество для снятия в чат."
+        prompt: "<prefix><yellow>Введите сумму для снятия в чат.<gray> Можно числом (в медных) или так: 3i 50c (c — медная, i — железная, g — золотая, d — алмазная)."
   letters:
     title: "<gray>Письма с кланом <color><tag>"
     write:
@@ -420,7 +420,7 @@ gui:
     money:
       name: "<gold>💰 Деньги в предложении"
       lore: "<gray>Сумма: <yellow><amount></yellow> <gray>| <green>ЛКМ <gray>- указать сумму в чат (из казны клана)"
-      prompt: "<prefix><yellow>Введите сумму денег из казны клана для этой стороны сделки в чат."
+      prompt: "<prefix><yellow>Введите сумму денег из казны клана для этой стороны сделки в чат.<gray> Можно числом (в медных) или так: 3i 50c (c — медная, i — железная, g — золотая, d — алмазная)."
       prompt-max: "<prefix><gray>Максимум: <yellow><amount></yellow> (текущий остаток в казне + уже внесённое)."
       invalid: "<prefix><red>Недостаточно денег в казне клана для этой суммы."
     add-item:
@@ -1037,14 +1037,14 @@ gui:
         - "<red>Недоступно: только для признанных кланов"
       recognized-lore:
         - "<gray>Сдано на этой неделе: <white><sold>/<max> стаков"
-        - "<gray>Казна клана: <gold><treasury></gold> монет"
+        - "<gray>Казна клана: <treasury>"
     offer:
       name: "<gold><item>"
       lore-active:
-        - "<gray>Награда: <yellow><reward> монет <gray>за <white><amount> шт."
+        - "<gray>Награда: <reward> <gray>за <white><amount> шт."
         - "<green>ЛКМ - сдать ресурсы"
       lore-disabled:
-        - "<gray>Награда: <yellow><reward> монет <gray>за <white><amount> шт."
+        - "<gray>Награда: <reward> <gray>за <white><amount> шт."
         - "<red>Недоступно: клан не признан или лимит недели исчерпан"
   trade-requests:
     # Добавлено 2026-09-23: ClanTradeRequestsMenu ссылался на весь этот раздел, которого не было

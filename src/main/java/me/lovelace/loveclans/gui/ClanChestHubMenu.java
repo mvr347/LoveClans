@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPermission;
@@ -46,7 +47,7 @@ public final class ClanChestHubMenu {
         ItemBuilder info = ItemBuilder.head(locked ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST)
                 .name(plugin.getMessages().component("gui.chest.info.name", player))
                 .lore(plugin.getMessages().components("gui.chest.info.lore", Map.of(
-                        "money", String.valueOf(clan.chestMoney()),
+                        "money", CoinFormat.format(clan.chestMoney()),
                         "rows", String.valueOf(clan.chestRows()),
                         "max", String.valueOf(plugin.getClanManager().maxChestRows())
                 ), player));
@@ -68,13 +69,13 @@ public final class ClanChestHubMenu {
         if (taxApplicable && clan.hasPermission(player.getUniqueId(), ClanPermission.BANK)) {
             long taxAmount = plugin.getClanManager().weeklyChestTax(clan);
             info.lore(plugin.getMessages().component("gui.chest.info.tax-amount",
-                    Map.of("amount", String.valueOf(taxAmount)), player));
+                    Map.of("amount", CoinFormat.format(taxAmount)), player));
         }
         inventory.setItem(INFO_SLOT, info.build());
 
         inventory.setItem(MONEY_SLOT, ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.chest.money-button.name", player))
-                .lore(plugin.getMessages().component("gui.chest.money-button.lore", Map.of("amount", String.valueOf(clan.chestMoney())), player))
+                .lore(plugin.getMessages().component("gui.chest.money-button.lore", Map.of("amount", CoinFormat.format(clan.chestMoney())), player))
                 .build());
 
         if (locked) {

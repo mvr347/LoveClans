@@ -1,5 +1,7 @@
 package me.lovelace.loveclans.manager;
 
+import dev.lovelace.lovecore.api.economy.MoneyConfig;
+import me.lovelace.loveclans.util.CoinFormat;
 import dev.lovelace.lovecore.api.LoveCore;
 import dev.lovelace.lovecore.api.economy.Denomination;
 import dev.lovelace.lovecore.api.economy.LoveEconomy;
@@ -416,7 +418,7 @@ public final class ClanManager {
             // монеты ItemsAdder в инвентаре). creation-cost = 0 отключает плату. Проверяем наличие
             // средств до создания клана, списываем — уже после успешного создания, чтобы не забирать
             // предметы при отмене события/ошибке.
-            long creationCost = plugin.getConfig().getLong("clans.creation-cost", 0L);
+            long creationCost = MoneyConfig.getScaled(plugin.getConfig(), "clans.creation-cost", 0L);
             boolean chargeCreationCost = creationCost > 0;
             Optional<LoveEconomy> creationEconomy = Optional.empty();
             if (chargeCreationCost) {
@@ -1606,7 +1608,7 @@ public final class ClanManager {
         if (!clan.isRecognized()) {
             return 0L;
         }
-        double base = plugin.getConfig().getDouble("clans.chest.tax.base-amount", 1000.0);
+        double base = MoneyConfig.getScaled(plugin.getConfig(), "clans.chest.tax.base-amount", 5_000L);
         double perMember = plugin.getConfig().getDouble("clans.chest.tax.percent-per-member", 0.05);
         double perTerritory = plugin.getConfig().getDouble("clans.chest.tax.percent-per-territory", 0.15);
         double perRow = plugin.getConfig().getDouble("clans.chest.tax.percent-per-extra-row", 0.10);
@@ -1712,7 +1714,7 @@ public final class ClanManager {
                             plugin.getLogger().warning("Failed to persist chest tax for clan " + clan.id() + ": " + t.getMessage());
                             return null;
                         });
-                onlineMembers(clan).forEach(p -> plugin.getMessages().send(p, "chest.tax-collected", Map.of("amount", String.valueOf(tax))));
+                onlineMembers(clan).forEach(p -> plugin.getMessages().send(p, "chest.tax-collected", Map.of("amount", CoinFormat.format(tax))));
             } else {
                 clan.setTaxState(now, true);
                 if (clan.getUnpaidTaxSince() == 0L) {
@@ -1728,7 +1730,7 @@ public final class ClanManager {
                 long remaining = Math.max(0, gracePeriodMs - (now - clan.getUnpaidTaxSince()));
                 long daysLeft = Math.max(1, java.util.concurrent.TimeUnit.MILLISECONDS.toDays(remaining));
                 onlineMembers(clan).forEach(p -> plugin.getMessages().send(p, "chest.tax-locked-announcement",
-                        Map.of("amount", String.valueOf(tax), "days", String.valueOf(daysLeft))));
+                        Map.of("amount", CoinFormat.format(tax), "days", String.valueOf(daysLeft))));
             }
         }
     }
