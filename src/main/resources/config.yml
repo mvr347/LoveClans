@@ -129,26 +129,34 @@ clans:
       # заполнен, доставка остаётся висеть в очереди и повторяется с этим интервалом.
       retry-seconds: 60
 
-  # Клановые обеты (§1) — раздельные пулы: 20 еженедельных (один "контракт недели" детерминированно
-  # выбирается из пула на каждую календарную неделю пн-вс) и 40 ежедневных (3-5 случайных выходят
-  # в ротацию каждый день в 00:00). Клан может вести один активный обет каждого типа одновременно.
-  # npc-id — числовой ID NPC-Маршала (Citizens), привязывается командой
-  # /clansadmin createnpc contracts, стоя рядом с уже созданным через ванильный /npc create NPC;
-  # -1 отключает взаимодействие с NPC (GUI всё равно доступно через /clan contracts).
+  # Клановые обеты (§1) — два слота: недельный (календарная неделя пн-вс) и месячный (календарный
+  # месяц). Клан берёт по одному обету каждого вида; когда обета нет, меню предлагает на выбор три
+  # случайных обета нужного периода. Тройка зависит только от клана и номера периода, поэтому она
+  # одна и та же для всех участников и не меняется от перезахода (перебросить её нельзя).
+  # Обновление: неделя — в понедельник 00:00, месяц — 1-го числа 00:00 (часовой пояс сервера).
+  # Месячный пул отдельно не заводится: он строится из недельного (monthly.target-multiplier,
+  # monthly.reward-multiplier), чтобы был один каталог, а не два рассинхронизирующихся.
+  # 2026-10-05: ежедневные обеты убраны по просьбе владельца; NPC-Маршал (clans.contracts.npc-id)
+  # убран — обеты теперь открывает NPC «Гильдмастер» (clans.guildmaster) и команда /clan contracts.
   #
   # Сложность (§1.2): множитель = difficulty.base + (Члены-1) × difficulty.per-member-step,
-  # применяется к целям объективов, наградам и (только для ежедневных) сроку выполнения.
-  # penalty-percent — доля от (уже отмасштабленной) награды, вычитаемая из опыта клана, если обет
-  # не выполнен к дедлайну.
+  # применяется к целям объективов и наградам. penalty-percent — доля от (уже отмасштабированной)
+  # награды, вычитаемая из опыта клана, если обет не выполнен к концу периода.
+  #
+  # progress-flush-seconds — как часто прогресс обетов пишется в БД. Раньше писали на каждое
+  # добытое/убитое/скрафченное — на сервере это сотни записей в минуту ради цифры в меню; теперь
+  # пачкой раз в N секунд (завершение обета и выключение сервера пишут сразу). При аварийном
+  # падении теряется не больше N секунд прогресса. Меньше 5 не принимается.
   contracts:
-    npc-id: -1
-    npc-bind-distance: 6.0
     tick-interval-minutes: 5
+    progress-flush-seconds: 30
     penalty-percent: 80
     difficulty:
       base: 1.0
       per-member-step: 0.15
     weekly:
+      # Сколько обетов показывать на выбор (1-3: в меню три места).
+      choices: 3
       reward-upgrade-points: 1
       pool:
         weekly_ore_veins:
@@ -307,327 +315,33 @@ clans:
             enchantment-type: sharpness
             target: 100
           reward-xp: 8000
-    daily:
-      rotation-min: 3
-      rotation-max: 5
-      deadline-hours: 24
-      pool:
-        daily_ore_small:
-          name: 'Малый рудный обет'
-          description: 'Добыть 600 единиц любой руды.'
-          objective:
-            type: MINE_ANY_ORE
-            target: 600
-          reward-xp: 600
-        daily_ore_medium:
-          name: 'Рудный обет'
-          description: 'Добыть 1000 единиц любой руды.'
-          objective:
-            type: MINE_ANY_ORE
-            target: 1000
-          reward-xp: 900
-        daily_stone:
-          name: 'Обет Каменотёса'
-          description: 'Добыть 3000 камня.'
-          objective:
-            type: MINE_BLOCK
-            block-type: STONE
-            target: 3000
-          reward-xp: 500
-        daily_cobblestone:
-          name: 'Обет Булыжника'
-          description: 'Добыть 3000 булыжника.'
-          objective:
-            type: MINE_BLOCK
-            block-type: COBBLESTONE
-            target: 3000
-          reward-xp: 500
-        daily_deepslate:
-          name: 'Обет Глубин'
-          description: 'Добыть 2500 глубинного сланца.'
-          objective:
-            type: MINE_BLOCK
-            block-type: DEEPSLATE
-            target: 2500
-          reward-xp: 600
-        daily_andesite:
-          name: 'Обет Андезита'
-          description: 'Добыть 2000 андезита.'
-          objective:
-            type: MINE_BLOCK
-            block-type: ANDESITE
-            target: 2000
-          reward-xp: 450
-        daily_netherrack:
-          name: 'Обет Нижнего Мира'
-          description: 'Добыть 1500 адского камня.'
-          objective:
-            type: MINE_BLOCK
-            block-type: NETHERRACK
-            target: 1500
-          reward-xp: 550
-        daily_sand:
-          name: 'Обет Песков'
-          description: 'Добыть 2000 песка.'
-          objective:
-            type: MINE_BLOCK
-            block-type: SAND
-            target: 2000
-          reward-xp: 400
-        daily_gravel:
-          name: 'Обет Гравия'
-          description: 'Добыть 2000 гравия.'
-          objective:
-            type: MINE_BLOCK
-            block-type: GRAVEL
-            target: 2000
-          reward-xp: 400
-        daily_obsidian:
-          name: 'Обет Обсидиана'
-          description: 'Добыть 64 блока обсидиана.'
-          objective:
-            type: MINE_BLOCK
-            block-type: OBSIDIAN
-            target: 64
-          reward-xp: 900
-        daily_zombie:
-          name: 'Обет Зомби-Охоты'
-          description: 'Уничтожить 150 зомби.'
-          objective:
-            type: KILL_MOB
-            mob-type: ZOMBIE
-            target: 150
-          reward-xp: 550
-        daily_skeleton:
-          name: 'Обет Костяной Охоты'
-          description: 'Уничтожить 150 скелетов.'
-          objective:
-            type: KILL_MOB
-            mob-type: SKELETON
-            target: 150
-          reward-xp: 550
-        daily_spider:
-          name: 'Обет Паучьей Тропы'
-          description: 'Уничтожить 120 пауков.'
-          objective:
-            type: KILL_MOB
-            mob-type: SPIDER
-            target: 120
-          reward-xp: 500
-        daily_creeper:
-          name: 'Обет Тихой Угрозы'
-          description: 'Уничтожить 80 крипперов.'
-          objective:
-            type: KILL_MOB
-            mob-type: CREEPER
-            target: 80
-          reward-xp: 600
-        daily_witch:
-          name: 'Обет Ведьминого Леса'
-          description: 'Уничтожить 40 ведьм.'
-          objective:
-            type: KILL_MOB
-            mob-type: WITCH
-            target: 40
-          reward-xp: 650
-        daily_drowned:
-          name: 'Обет Утопленников'
-          description: 'Уничтожить 100 утопленников.'
-          objective:
-            type: KILL_MOB
-            mob-type: DROWNED
-            target: 100
-          reward-xp: 550
-        daily_husk:
-          name: 'Обет Пустынных Скитальцев'
-          description: 'Уничтожить 100 иссохших зомби.'
-          objective:
-            type: KILL_MOB
-            mob-type: HUSK
-            target: 100
-          reward-xp: 550
-        daily_stray:
-          name: 'Обет Ледяных Стрелков'
-          description: 'Уничтожить 80 заблудших скелетов.'
-          objective:
-            type: KILL_MOB
-            mob-type: STRAY
-            target: 80
-          reward-xp: 550
-        daily_enderman:
-          name: 'Обет Странника Края'
-          description: 'Уничтожить 40 эндерменов.'
-          objective:
-            type: KILL_MOB
-            mob-type: ENDERMAN
-            target: 40
-          reward-xp: 700
-        daily_phantom:
-          name: 'Обет Ночного Неба'
-          description: 'Уничтожить 60 фантомов.'
-          objective:
-            type: KILL_MOB
-            mob-type: PHANTOM
-            target: 60
-          reward-xp: 600
-        daily_piglin:
-          name: 'Обет Золотых Земель'
-          description: 'Уничтожить 100 пиглинов.'
-          objective:
-            type: KILL_MOB
-            mob-type: PIGLIN
-            target: 100
-          reward-xp: 600
-        daily_hoglin:
-          name: 'Обет Багровых Чащ'
-          description: 'Уничтожить 50 хоглинов.'
-          objective:
-            type: KILL_MOB
-            mob-type: HOGLIN
-            target: 50
-          reward-xp: 650
-        daily_blaze:
-          name: 'Обет Огненного Стержня'
-          description: 'Уничтожить 30 ифритов.'
-          objective:
-            type: KILL_MOB
-            mob-type: BLAZE
-            target: 30
-          reward-xp: 800
-        daily_magma_cube:
-          name: 'Обет Магмовых Кубов'
-          description: 'Уничтожить 80 магмовых кубов.'
-          objective:
-            type: KILL_MOB
-            mob-type: MAGMA_CUBE
-            target: 80
-          reward-xp: 550
-        daily_guardian:
-          name: 'Обет Морской Стражи'
-          description: 'Уничтожить 30 стражей.'
-          objective:
-            type: KILL_MOB
-            mob-type: GUARDIAN
-            target: 30
-          reward-xp: 750
-        daily_vindicator:
-          name: 'Обет Иллагерской Расправы'
-          description: 'Уничтожить 40 иллагеров-каратилей.'
-          objective:
-            type: KILL_MOB
-            mob-type: VINDICATOR
-            target: 40
-          reward-xp: 700
-        daily_evoker:
-          name: 'Обет Против Чародеев'
-          description: 'Уничтожить 10 иллагеров-чародеев.'
-          objective:
-            type: KILL_MOB
-            mob-type: EVOKER
-            target: 10
-          reward-xp: 900
-        daily_ravager:
-          name: 'Обет Против Разорителей'
-          description: 'Уничтожить 5 разорителей.'
-          objective:
-            type: KILL_MOB
-            mob-type: RAVAGER
-            target: 5
-          reward-xp: 1000
-        daily_bounty:
-          name: 'Малый Обет Крови'
-          description: 'Сдать 3 головы игроков из враждебных кланов через bounty.'
-          objective:
-            type: BOUNTY_TURN_IN
-            target: 3
-          reward-xp: 1200
-        daily_craft_arrows:
-          name: 'Обет Стрелочника'
-          description: 'Скрафтить 500 стрел.'
-          objective:
-            type: CRAFT_ITEM
-            item-type: ARROW
-            target: 500
-          reward-xp: 450
-        daily_craft_bread:
-          name: 'Обет Пекаря'
-          description: 'Скрафтить 300 хлеба.'
-          objective:
-            type: CRAFT_ITEM
-            item-type: BREAD
-            target: 300
-          reward-xp: 400
-        daily_craft_tnt:
-          name: 'Малый Обет Подрывника'
-          description: 'Скрафтить 20 динамита.'
-          objective:
-            type: CRAFT_ITEM
-            item-type: TNT
-            target: 20
-          reward-xp: 650
-        daily_fish_cod:
-          name: 'Обет Трескового Улова'
-          description: 'Выловить 150 трески.'
-          objective:
-            type: FISH_ITEM
-            item-type: COD
-            target: 150
-          reward-xp: 500
-        daily_fish_salmon:
-          name: 'Обет Лососёвого Улова'
-          description: 'Выловить 100 лосося.'
-          objective:
-            type: FISH_ITEM
-            item-type: SALMON
-            target: 100
-          reward-xp: 500
-        daily_pvp:
-          name: 'Малый Обет Дуэлянтов'
-          description: 'Одержать 8 побед в PvP над игроками.'
-          objective:
-            type: PVP_KILL
-            target: 8
-          reward-xp: 1100
-        daily_breed_cow:
-          name: 'Малый Обет Скотоводов'
-          description: 'Развести 40 коров.'
-          objective:
-            type: BREED_ANIMAL
-            animal-type: COW
-            target: 40
-          reward-xp: 450
-        daily_breed_sheep:
-          name: 'Обет Овцеводов'
-          description: 'Развести 40 овец.'
-          objective:
-            type: BREED_ANIMAL
-            animal-type: SHEEP
-            target: 40
-          reward-xp: 450
-        daily_breed_pig:
-          name: 'Обет Свиноводов'
-          description: 'Развести 40 свиней.'
-          objective:
-            type: BREED_ANIMAL
-            animal-type: PIG
-            target: 40
-          reward-xp: 450
-        daily_enchant_sharp:
-          name: 'Малый Обет Остроты'
-          description: 'Зачаровать 15 предметов эффектом Остроты.'
-          objective:
-            type: ENCHANT_ITEM
-            enchantment-type: sharpness
-            target: 15
-          reward-xp: 700
-        daily_enchant_efficiency:
-          name: 'Обет Эффективности'
-          description: 'Зачаровать 15 предметов эффектом Эффективности.'
-          objective:
-            type: ENCHANT_ITEM
-            enchantment-type: efficiency
-            target: 15
-          reward-xp: 700
+    # Месячный обет = недельный из пула выше, но цель умножается на target-multiplier, а награда в
+    # опыте — на reward-multiplier. Прогресс засчитывается в недельный и месячный обет одновременно
+    # (одно и то же убийство идёт в оба), поэтому месячный — надбавка поверх недельного, а не замена.
+    # 4.0 / 3.0: цель вчетверо больше, награда втрое — ставка за единицу работы чуть ниже недельной,
+    # чтобы месячный не обесценивал недельные. Это баланс на усмотрение владельца: 4.0 / 4.0 уравняет ставки.
+    monthly:
+      choices: 3
+      target-multiplier: 4.0
+      reward-multiplier: 3.0
+      # Очки улучшений за месячный обет (за недельный — weekly.reward-upgrade-points).
+      reward-upgrade-points: 3
+
+  # NPC «Гильдмастер»: привязывается командой /loveclansadmin createnpc guildmaster, стоя рядом с
+  # уже созданным через ванильный /npc create NPC; -1 отключает взаимодействие с NPC.
+  # Без клана / без права на обеты открывает список кланов (/clans); с правом на обеты — меню
+  # «Обеты» и «Список кланов»; владельцу непризнанного клана добавляется «Признание клана».
+  guildmaster:
+    npc-id: -1
+    npc-bind-distance: 6.0
+
+  # Признание клана (Гильдмастер, только владелец): платное и мгновенное. Признанный клан получает
+  # больше слотов участников и территорий, торговлю с сервером и платит налог сундука — поэтому
+  # цена заметная, но не «элитная». 2026-10-05: 25 золотых монет (50 000) — выше знамени (5g) в 5
+  # раз: знамя лишь основывает клан, признание открывает почти все его возможности.
+  # Число (в медных) или строка монет: "25g", "1d 5g".
+  recognition:
+    cost: "25g"
 
   # NPC-основатель: продаёт Знамя Основания (clans.banner.cost), установка которого создаёт клан
   # и сразу начинает захват территории на месте установки (см. ClanBannerListener,
@@ -639,7 +353,10 @@ clans:
     # GUI-подтверждение (BannerPurchaseConfirmMenu), где эта сумма видна игроку заранее.
     # 2026-10-03: 3000 → "3g" (6 000) при новых номиналах: основание клана — заметная трата,
     # но не «элитный» уровень (алмазная монета — 20 000).
-    cost: "3g"
+    # 2026-10-05: "3g" → "5g" (10 000) по просьбе владельца: знамя — единственный вход в клановую
+    # систему, и по 6 000 основывать кланы было слишком дёшево. Игрок, который уже состоит в клане,
+    # знамя не получает даже при достаточной сумме.
+    cost: "5g"
 
 limits:
   max-level: 20
@@ -727,9 +444,19 @@ mechanics:
         - "HASTE:2"
         - "RESISTANCE:1"
   rituals:
+    # 2026-10-05: ритуалы отключены по решению владельца сервера («пока отключи ритуалы и голосования»).
+    # false — /clan ritual отвечает «временно отключено», новые ритуалы не запускаются и фоновая
+    # задача не создаётся. true возвращает прежнее поведение без миграций; после смены ключа нужен
+    # перезапуск сервера (фоновая задача создаётся только при старте).
+    enabled: false
     cooldown-hours: 24
     duration-seconds: 600
   succession:
+    # 2026-10-05: голосования за нового главу отключены тем же решением. false — голосования не
+    # открываются при долгом отсутствии главы, /clan vote отвечает «временно отключено»;
+    # передача лидерства вручную работает как раньше. Чтобы включить обратно — true и перезапуск
+    # сервера (проверка отсутствия главы запускается только при старте).
+    enabled: false
     offline-days-trigger: 14
     vote-duration-hours: 48
     quorum-percent: 50

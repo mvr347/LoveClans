@@ -11,7 +11,7 @@ import java.lang.reflect.Method;
 /**
  * Pure-reflection bridge into Citizens (no compile-time dependency), mirroring LoveHunt's and
  * LoveTweaks' CitizensIntegration, so the plugin loads fine whether or not Citizens is present.
- * Used to bind the "Marshal" NPC that clan leaders interact with to pick a weekly contract.
+ * Used to bind the Guildmaster and banner-seller NPCs by their Citizens id.
  */
 public final class CitizensIntegration {
     private final Plugin citizensPlugin;

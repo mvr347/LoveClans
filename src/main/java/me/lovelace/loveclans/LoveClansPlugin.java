@@ -13,6 +13,7 @@ import me.lovelace.loveclans.listener.ClanBannerListener;
 import me.lovelace.loveclans.listener.ChatInputListener;
 import me.lovelace.loveclans.listener.ClanProtectionListener;
 import me.lovelace.loveclans.listener.CombatListener;
+import me.lovelace.loveclans.listener.GuildmasterListener;
 import me.lovelace.loveclans.listener.ContractListener;
 import me.lovelace.loveclans.listener.PerkEffectListener;
 import me.lovelace.loveclans.listener.PlayerConnectionListener;
@@ -21,6 +22,7 @@ import me.lovelace.loveclans.listener.ShieldColorListener;
 import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
+import me.lovelace.loveclans.manager.ClanRecognitionService;
 import me.lovelace.loveclans.manager.ConflictArchive;
 import me.lovelace.loveclans.manager.ServerTradeManager;
 import me.lovelace.loveclans.manager.PlayerPreferencesManager;
@@ -76,6 +78,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private SiegeManager siegeManager;
     private RaidManager raidManager;
     private RitualManager ritualManager;
+    private ClanRecognitionService recognitionService;
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
     private PerkManager perkManager;
@@ -126,6 +129,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         advancedClaimsHook = new AdvancedClaimsHook(this);
         citizensIntegration = new CitizensIntegration();
         contractManager = new ContractManager(this, storage);
+        recognitionService = new ClanRecognitionService(this);
         diplomacyManager = new DiplomacyManager(this, storage);
         clanTradeManager = new ClanTradeManager(this, storage);
         clanTradeSessionManager = new ClanTradeSessionManager(this);
@@ -195,9 +199,9 @@ public final class LoveClansPlugin extends JavaPlugin {
                     }
                 }, 20L * 60L * 60L, 20L * 60L * 60L);
 
-                // Истечение контрактов (§1.3) - проверяет дедлайны еженедельных/ежедневных обетов
-                // и применяет штраф/авто-сдачу; интервал настраивается, т.к. ежедневный контракт
-                // истекает через 24ч и слишком редкая проверка даёт большой люфт.
+                // Истечение контрактов (§1.3) - проверяет дедлайны недельных/месячных обетов и применяет
+                // штраф/авто-сдачу. Меню и выбор обета дополнительно «закрывают» просроченный обет сами
+                // (ContractManager#settleExpired), так что редкий тик ничего не блокирует.
                 long contractTickTicks = 20L * 60L * Math.max(1, getConfig().getInt("clans.contracts.tick-interval-minutes", 5));
                 Bukkit.getScheduler().runTaskTimer(this, () -> {
                     try {
@@ -206,6 +210,16 @@ public final class LoveClansPlugin extends JavaPlugin {
                         getLogger().log(java.util.logging.Level.SEVERE, "Contract tick failed", t);
                     }
                 }, contractTickTicks, contractTickTicks);
+
+                // Прогресс обетов пишется в БД не на каждое действие, а пачкой раз в N секунд.
+                long contractFlushTicks = 20L * Math.max(5, getConfig().getInt("clans.contracts.progress-flush-seconds", 30));
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        contractManager.flushDirty();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Contract progress flush failed", t);
+                    }
+                }, contractFlushTicks, contractFlushTicks);
 
                 // Доставка по завершённым клановым сделкам (§4.2) - раз в retry-seconds пытается
                 // зачислить каждую доставку, чей 10-минутный срок уже наступил; если сундук
@@ -225,13 +239,16 @@ public final class LoveClansPlugin extends JavaPlugin {
                 long freshnessTicks = 20L * 60L * Math.max(5, getConfig().getInt("history.freshness-refresh-minutes", 30));
                 Bukkit.getScheduler().runTaskTimer(this, this::refreshConflictFreshness, 20L * 30L, freshnessTicks);
 
-                heartbeatTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
-                    try {
-                        ritualManager.tick();
-                    } catch (Throwable t) {
-                        getLogger().log(java.util.logging.Level.SEVERE, "Ritual tick failed", t);
-                    }
-                }, 20L * 60L, 20L * 60L);
+                // Ритуалы отключены (mechanics.rituals.enabled: false) - тикать нечему, задачу не заводим вовсе.
+                if (ritualManager.enabled()) {
+                    heartbeatTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
+                        try {
+                            ritualManager.tick();
+                        } catch (Throwable t) {
+                            getLogger().log(java.util.logging.Level.SEVERE, "Ritual tick failed", t);
+                        }
+                    }, 20L * 60L, 20L * 60L);
+                }
 
                 // Войны тикают раз в секунду (а не раз в минуту, как ritualManager) - иначе
                 // отсчёт до капитуляции и подсветка врагов на территории обновлялись бы слишком
@@ -347,6 +364,11 @@ public final class LoveClansPlugin extends JavaPlugin {
         if (playerPreferencesManager != null) {
             playerPreferencesManager.save();
         }
+        // Debounced contract progress must reach the database before it is closed: close() waits for
+        // the writes that are already queued, so submitting them here is enough.
+        if (contractManager != null) {
+            contractManager.flushDirty();
+        }
         if (databaseManager != null) {
             databaseManager.close();
         }
@@ -439,6 +461,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public AdvancedClaimsHook getAdvancedClaimsHook() {
         return advancedClaimsHook;
+    }
+
+    public ClanRecognitionService getRecognitionService() {
+        return recognitionService;
     }
 
     public ContractManager getContractManager() {
@@ -560,7 +586,8 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new ShieldColorListener(this), this);
         pluginManager.registerEvents(spiritManager, this);
         pluginManager.registerEvents(afkManager, this);
-        pluginManager.registerEvents(new ContractListener(this, citizensIntegration), this);
+        pluginManager.registerEvents(new ContractListener(this), this);
+        pluginManager.registerEvents(new GuildmasterListener(this, citizensIntegration), this);
         pluginManager.registerEvents(new ClanBannerListener(this, citizensIntegration), this);
         pluginManager.registerEvents(new PerkEffectListener(this), this);
         pluginManager.registerEvents(new SiegeCampListener(this), this);

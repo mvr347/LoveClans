@@ -4,7 +4,7 @@ import java.util.UUID;
 
 /**
  * A clan's progress on one active contract slot (§1.1) - a clan can have one active WEEKLY and one
- * active DAILY contract at the same time, tracked as separate rows/instances. {@code scaledTarget}
+ * active MONTHLY contract at the same time, tracked as separate rows/instances. {@code scaledTarget}
  * and {@code scaledRewardXp} are snapshots taken at selection time (§1.2's difficulty multiplier
  * applied against the clan's member count then), so they stay stable even if members join/leave
  * mid-contract.

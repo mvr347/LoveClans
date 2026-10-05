@@ -503,6 +503,7 @@ public final class ClanManager {
             plugin.getSiegeManager().purgeClan(clan.id());
             plugin.getRaidManager().purgeClan(clan.id());
             plugin.getRitualManager().purgeClan(clan.id());
+            plugin.getContractManager().purgeClan(clan.id());
             plugin.getSpiritManager().purgeClan(clan.id());
             return null;
         }).thenCompose(ignored -> storage.deleteClanAsync(clan.id()).thenCompose(v -> storage.deleteAllApplicationsForClanAsync(clan.id())));

@@ -29,7 +29,19 @@ public final class RitualManager {
         this.plugin = plugin;
     }
 
+    /**
+     * Rituals are switched off by default (2026-10-05, owner's decision): while off, no ritual can start and the
+     * tick task is not even scheduled. Starting is checked on every call; the tick task exists only if the flag was
+     * on at startup (finished rituals are also dropped lazily by {@link #activeRitual}, so the tick is housekeeping).
+     */
+    public boolean enabled() {
+        return plugin.getConfig().getBoolean("mechanics.rituals.enabled", false);
+    }
+
     public CompletableFuture<ClanRitual> startRitualAsync(Clan clan, UUID actorId, RitualType type) {
+        if (!enabled()) {
+            return CompletableFuture.failedFuture(new IllegalStateException("ritual.disabled"));
+        }
         return plugin.supplySync(() -> {
             clan.member(actorId)
                     .filter(member -> member.rank().atLeast(ClanRank.GUARDIAN))

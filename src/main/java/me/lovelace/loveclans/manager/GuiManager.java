@@ -9,7 +9,10 @@ import me.lovelace.loveclans.gui.ClanChestMoneyMenu;
 import me.lovelace.loveclans.gui.ClanColorPickerMenu;
 import me.lovelace.loveclans.gui.ClanLettersMenu;
 import me.lovelace.loveclans.gui.ClanConfirmMenu;
+import me.lovelace.loveclans.gui.ClanContractChoiceMenu;
 import me.lovelace.loveclans.gui.ClanContractsMenu;
+import me.lovelace.loveclans.gui.ClanRecognitionConfirmMenu;
+import me.lovelace.loveclans.gui.GuildmasterMenu;
 import me.lovelace.loveclans.gui.ClanCreateMenu;
 import me.lovelace.loveclans.gui.ClanServerTradeMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacyMenu;
@@ -44,7 +47,9 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.InventoryHolder;
 
 import java.util.Map;
@@ -69,6 +74,8 @@ public class GuiManager implements Listener {
     private final ClanRoleSettingsMenu roleSettingsMenu;
     private final ClanRankPermissionsMenu rankPermissionsMenu;
     private final ClanContractsMenu contractsMenu;
+    private final ClanRecognitionConfirmMenu recognitionMenu;
+    private final GuildmasterMenu guildmasterMenu;
     private final ClanChestHubMenu chestHubMenu;
     private final ClanChestMoneyMenu chestMoneyMenu;
     private final ClanLettersMenu lettersMenu;
@@ -94,6 +101,8 @@ public class GuiManager implements Listener {
         this.roleSettingsMenu = new ClanRoleSettingsMenu(plugin);
         this.rankPermissionsMenu = new ClanRankPermissionsMenu(plugin);
         this.contractsMenu = new ClanContractsMenu(plugin);
+        this.recognitionMenu = new ClanRecognitionConfirmMenu(plugin);
+        this.guildmasterMenu = new GuildmasterMenu(plugin, recognitionMenu);
         this.chestHubMenu = new ClanChestHubMenu(plugin);
         this.chestMoneyMenu = new ClanChestMoneyMenu(plugin);
         this.lettersMenu = new ClanLettersMenu(plugin);
@@ -132,6 +141,10 @@ public class GuiManager implements Listener {
 
     public void openContracts(Player player, Clan clan) {
         contractsMenu.open(player, clan);
+    }
+
+    public void openGuildmaster(Player player, Clan clan) {
+        guildmasterMenu.open(player, clan);
     }
 
     public NamespacedKey memberKey() {
@@ -176,6 +189,11 @@ public class GuiManager implements Listener {
     }
 
     public void openClanList(Player player) {
+        // Same guard as /clans: an empty list is a message, not an empty screen.
+        if (plugin.getClanManager().getAllClans().isEmpty()) {
+            plugin.getMessages().send(player, "clan.list.empty");
+            return;
+        }
         new ClanListMenu(plugin, player).open();
     }
 
@@ -345,7 +363,17 @@ public class GuiManager implements Listener {
         }
 
         if (holder instanceof ClanMenuHolder clanMenuHolder) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) {
+                // A click in the player's own inventory is harmless, except for the actions that move items
+                // across: shift-click would push the item into the menu (and lose it on close), and
+                // "collect to cursor" (double click) would pull the menu's own items out of it.
+                InventoryAction action = event.getAction();
+                if (event.isShiftClick() || action == InventoryAction.MOVE_TO_OTHER_INVENTORY
+                        || action == InventoryAction.COLLECT_TO_CURSOR) {
+                    event.setCancelled(true);
+                }
+                return;
+            }
             event.setCancelled(true);
             int slot = event.getRawSlot();
 
@@ -375,6 +403,21 @@ public class GuiManager implements Listener {
                     case ROLE_SETTINGS -> roleSettingsMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case RANK_PERMISSIONS -> rankPermissionsMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case CONTRACTS -> contractsMenu.handleInventoryClick(player, clan, slot);
+                    case CONTRACT_CHOICE -> {
+                        if (clanMenuHolder instanceof ClanContractChoiceMenu.Holder choiceHolder) {
+                            contractsMenu.choiceMenu().handleInventoryClick(player, clan, slot, choiceHolder);
+                        }
+                    }
+                    case GUILDMASTER -> {
+                        if (clanMenuHolder instanceof GuildmasterMenu.Holder guildmasterHolder) {
+                            guildmasterMenu.handleInventoryClick(player, clan, slot, guildmasterHolder);
+                        }
+                    }
+                    case RECOGNITION_CONFIRM -> {
+                        if (clanMenuHolder instanceof ClanRecognitionConfirmMenu.Holder recognitionHolder) {
+                            recognitionMenu.handleInventoryClick(player, slot, recognitionHolder);
+                        }
+                    }
                     case CHEST_HUB -> chestHubMenu.handleInventoryClick(player, clan, slot);
                     case CHEST_MONEY -> chestMoneyMenu.handleInventoryClick(player, clan, slot);
                     case LETTERS -> lettersMenu.handleInventoryClick(player, clan, slot);
@@ -383,6 +426,19 @@ public class GuiManager implements Listener {
                     }
                 }
             }, player::closeInventory);
+        }
+    }
+
+    /** Dragging an item over a menu would drop it into the menu inventory, where it is lost on close. */
+    @EventHandler
+    public void onInventoryDrag(InventoryDragEvent event) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof ClanMenuHolder)) return;
+        int topSize = event.getView().getTopInventory().getSize();
+        for (int rawSlot : event.getRawSlots()) {
+            if (rawSlot < topSize) {
+                event.setCancelled(true);
+                return;
+            }
         }
     }
 }

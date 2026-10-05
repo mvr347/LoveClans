@@ -98,7 +98,7 @@ public interface ClanStorage {
 
     CompletableFuture<byte[]> loadChestContentsAsync(UUID clanId);
 
-    // --- Clan contracts: separate weekly/daily pools with independent active slots (§1) ---
+    // --- Clan contracts: separate weekly/monthly slots, one active contract per clan in each (§1) ---
 
     CompletableFuture<Void> saveContractProgressAsync(ClanQuestProgress progress);
 
