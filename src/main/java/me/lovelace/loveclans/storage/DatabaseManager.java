@@ -321,40 +321,24 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
 
-            // Клановые обеты (§1) — раздельные слоты для еженедельного и ежедневного активного
-            // контракта, по одной таблице на тип (одна активная строка на клан за раз в каждой).
+            // Клановые обеты (§1) — по одному активному обету на клан в каждой из двух таблиц:
+            // clan_contracts (недельный) и clan_monthly_contracts (месячный).
             // target/reward_xp/started_at/expires_at хранят снимок сложности на момент выбора
             // (§1.2), чтобы уход/вход участников не менял уже начатый контракт задним числом.
-            statement.executeUpdate("""
-                    CREATE TABLE IF NOT EXISTS clan_contracts (
-                        clan_id VARCHAR(36) NOT NULL PRIMARY KEY,
-                        contract_id VARCHAR(64) NOT NULL,
-                        progress INT NOT NULL DEFAULT 0,
-                        completed INT NOT NULL DEFAULT 0,
-                        claimed INT NOT NULL DEFAULT 0,
-                        last_reset BIGINT NOT NULL,
-                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
-                    )
-                    """);
+            // 2026-10-05: колонки last_reset здесь больше нет. Она была NOT NULL без значения по
+            // умолчанию, а INSERT её не заполнял — на чистой БД любое сохранение недельного обета
+            // падало с «NOT NULL constraint failed», то есть обет нельзя было взять вообще.
+            statement.executeUpdate(ContractSchema.createTableSql("clan_contracts"));
+            // Таблицы старой схемы: дописать недостающие колонки и убрать last_reset (см. выше).
             addColumnIfMissing(connection, statement, "clan_contracts", "target", "INT NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, statement, "clan_contracts", "reward_xp", "BIGINT NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, statement, "clan_contracts", "started_at", "BIGINT NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, statement, "clan_contracts", "expires_at", "BIGINT NOT NULL DEFAULT 0");
+            dropColumnIfExists(connection, statement, "clan_contracts", "last_reset");
 
-            statement.executeUpdate("""
-                    CREATE TABLE IF NOT EXISTS clan_daily_contracts (
-                        clan_id VARCHAR(36) NOT NULL PRIMARY KEY,
-                        contract_id VARCHAR(64) NOT NULL,
-                        progress INT NOT NULL DEFAULT 0,
-                        completed INT NOT NULL DEFAULT 0,
-                        claimed INT NOT NULL DEFAULT 0,
-                        target INT NOT NULL DEFAULT 0,
-                        reward_xp BIGINT NOT NULL DEFAULT 0,
-                        started_at BIGINT NOT NULL DEFAULT 0,
-                        expires_at BIGINT NOT NULL DEFAULT 0,
-                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
-                    )
-                    """);
+            statement.executeUpdate(ContractSchema.createTableSql("clan_monthly_contracts"));
+            // clan_daily_contracts (ежедневные обеты) убрана из кода 2026-10-05; таблица, если она была
+            // создана раньше, остаётся нетронутой — данные не удаляем без явной просьбы владельца.
 
             // Эмбарго (§5.2) — взаимный запрет торговли. Одна строка на пару, clan_a/clan_b всегда
             // хранятся в каноническом порядке (clan_a < clan_b по строке), см. DiplomacyManager#pairKey.
@@ -463,6 +447,21 @@ public final class DatabaseManager implements AutoCloseable {
             }
             plugin.getLogger().log(Level.WARNING,
                 "Не удалось добавить колонку " + table + "." + column + " — схема осталась неполной", exception);
+        }
+    }
+
+    private void dropColumnIfExists(Connection connection, Statement statement, String table, String column) throws SQLException {
+        if (!columnExists(connection, table, column)) {
+            return;
+        }
+        try {
+            statement.executeUpdate("ALTER TABLE " + table + " DROP COLUMN " + column);
+        } catch (SQLException exception) {
+            if (!columnExists(connection, table, column)) {
+                return;
+            }
+            plugin.getLogger().log(Level.WARNING,
+                "Не удалось удалить колонку " + table + "." + column + " — сохранение обетов может не работать", exception);
         }
     }
 

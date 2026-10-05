@@ -27,6 +27,23 @@ public final class GuiFrames {
         for (int i = 45; i <= 52; i++) inv.setItem(i, glassPane());
     }
 
+    /**
+     * gui_gen v2.1, п. 8: control buttons live only in header slots 2-7 and are centered on the row, so the
+     * layout stays symmetric whether the screen shows one button or all of them. An even count skips the
+     * middle slot (2 buttons -> 3 and 5), an odd one is centered on slot 4. Not-shown buttons leave glass behind.
+     */
+    public static int[] controlSlots(int count) {
+        return switch (count) {
+            case 0 -> new int[0];
+            case 1 -> new int[]{4};
+            case 2 -> new int[]{3, 5};
+            case 3 -> new int[]{2, 4, 6};
+            case 4 -> new int[]{2, 3, 5, 6};
+            case 5 -> new int[]{2, 3, 4, 5, 6};
+            default -> new int[]{2, 3, 4, 5, 6, 7};
+        };
+    }
+
     public static ItemStack glassPane() {
         return ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build();
     }

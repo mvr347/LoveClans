@@ -31,7 +31,9 @@ class CoinFormatTest {
         Map<String, Object> tax = (Map<String, Object>) ((Map<String, Object>) clans.get("chest")).get("tax");
         assertEquals(5_000L, MoneyParser.parse(String.valueOf(tax.get("base-amount")), MoneyParser.STANDARD));
         Map<String, Object> banner = (Map<String, Object>) clans.get("banner");
-        assertEquals(6_000L, MoneyParser.parse(String.valueOf(banner.get("cost")), MoneyParser.STANDARD));
+        assertEquals(10_000L, MoneyParser.parse(String.valueOf(banner.get("cost")), MoneyParser.STANDARD));
+        Map<String, Object> recognition = (Map<String, Object>) clans.get("recognition");
+        assertEquals(50_000L, MoneyParser.parse(String.valueOf(recognition.get("cost")), MoneyParser.STANDARD));
         Map<String, Object> siege = (Map<String, Object>) cfg.get("siege");
         Map<String, Object> fort = (Map<String, Object>) siege.get("fortification");
         assertEquals(1_000L, MoneyParser.parse(String.valueOf(fort.get("cost")), MoneyParser.STANDARD));

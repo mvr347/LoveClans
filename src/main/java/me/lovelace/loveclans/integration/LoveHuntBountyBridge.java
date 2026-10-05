@@ -78,6 +78,6 @@ public final class LoveHuntBountyBridge implements Listener {
     }
 
     private void recordTurnIn(Clan clan, Player killer) {
-        plugin.getContractManager().recordProgress(clan.id(), killer.getUniqueId(), Map.of("bounty_turn_in", true));
+        plugin.getContractManager().recordProgress(clan.id(), killer.getUniqueId(), () -> Map.of("bounty_turn_in", true));
     }
 }

@@ -638,25 +638,17 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
-    // --- Clan contracts: independent weekly/daily active slots, one table per type (§1) ---
+    // --- Clan contracts: independent weekly/monthly active slots, one table per type (§1) ---
 
     private static String contractTable(ContractType type) {
-        return type == ContractType.DAILY ? "clan_daily_contracts" : "clan_contracts";
+        return type == ContractType.MONTHLY ? "clan_monthly_contracts" : "clan_contracts";
     }
 
     @Override
     public CompletableFuture<Void> saveContractProgressAsync(ClanQuestProgress progress) {
         return CompletableFuture.runAsync(() -> {
             String table = contractTable(progress.type());
-            String sql = database.type() == DatabaseType.MYSQL
-                    ? "INSERT INTO " + table + " (clan_id, contract_id, progress, completed, claimed, target, reward_xp, started_at, expires_at) " +
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE contract_id = VALUES(contract_id), " +
-                      "progress = VALUES(progress), completed = VALUES(completed), claimed = VALUES(claimed), " +
-                      "target = VALUES(target), reward_xp = VALUES(reward_xp), started_at = VALUES(started_at), expires_at = VALUES(expires_at)"
-                    : "INSERT INTO " + table + " (clan_id, contract_id, progress, completed, claimed, target, reward_xp, started_at, expires_at) " +
-                      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(clan_id) DO UPDATE SET contract_id = excluded.contract_id, " +
-                      "progress = excluded.progress, completed = excluded.completed, claimed = excluded.claimed, " +
-                      "target = excluded.target, reward_xp = excluded.reward_xp, started_at = excluded.started_at, expires_at = excluded.expires_at";
+            String sql = ContractSchema.upsertSql(table, database.type() == DatabaseType.MYSQL);
             try (Connection connection = database.dataSource().getConnection();
                  PreparedStatement statement = connection.prepareStatement(sql)) {
                 statement.setString(1, progress.clanId().toString());

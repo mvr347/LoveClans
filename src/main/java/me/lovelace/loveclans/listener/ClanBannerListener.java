@@ -17,6 +17,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Map;
@@ -75,6 +76,10 @@ public final class ClanBannerListener implements Listener {
         }
 
         event.setCancelled(true);
+        // One right click fires the event for both hands; react only to the main one or the menu opens twice.
+        if (event.getHand() != EquipmentSlot.HAND) {
+            return;
+        }
         Player player = event.getPlayer();
 
         // Если игрок уже в клане или владеет кланом — купить нельзя
@@ -83,7 +88,7 @@ public final class ClanBannerListener implements Listener {
             return;
         }
 
-        long cost = MoneyConfig.getScaled(plugin.getConfig(), "clans.banner.cost", 6_000L);
+        long cost = MoneyConfig.getScaled(plugin.getConfig(), "clans.banner.cost", 10_000L);
         if (cost <= 0) {
             giveBanner(player, cost);
             return;

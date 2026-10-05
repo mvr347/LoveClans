@@ -23,7 +23,19 @@ public final class SuccessionManager {
         this.plugin = plugin;
     }
 
+    /**
+     * Leader votes are switched off by default (2026-10-05, owner's decision): while off, no vote is started, none
+     * can be cast and the check task is not scheduled. Handing leadership over by hand keeps working. Turning it
+     * back on needs a restart: the task that opens votes is only scheduled at startup.
+     */
+    public boolean enabled() {
+        return plugin.getConfig().getBoolean("mechanics.succession.enabled", false);
+    }
+
     public void start() {
+        if (!enabled()) {
+            return;
+        }
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 20L * 60L, 20L * 60L * 30L);
     }
 
@@ -38,6 +50,9 @@ public final class SuccessionManager {
     }
 
     public void castVote(Clan clan, UUID voterId, UUID candidateId) {
+        if (!enabled()) {
+            throw new IllegalStateException("succession.disabled");
+        }
         SuccessionVote vote = votes.get(clan.id());
         if (vote == null || !clan.hasMember(voterId) || !clan.hasMember(candidateId)) {
             throw new IllegalStateException("general.error");
@@ -47,6 +62,9 @@ public final class SuccessionManager {
     }
 
     public void tick() {
+        if (!enabled()) {
+            return;
+        }
         long now = System.currentTimeMillis();
         for (Clan clan : plugin.getClanManager().getAllClans()) {
             if (votes.containsKey(clan.id())) {

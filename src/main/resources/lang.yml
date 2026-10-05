@@ -43,7 +43,7 @@ admin:
   givebanner:
     success: "<prefix><green>Знамя основания клана выдано игроку <white><player></white>."
   npc:
-    unknown-type: "<prefix><red>Неизвестный тип NPC. Доступно: 'contracts', 'banner'."
+    unknown-type: "<prefix><red>Неизвестный тип NPC. Доступно: 'guildmaster', 'banner'."
     not-looking-at-npc: "<prefix><red>Посмотрите на NPC Citizens, которого нужно привязать, и повторите команду."
     bound: "<prefix><green>NPC привязан (ID <white><id></white>, тип <yellow><type></yellow>)."
     not-bound: "<prefix><red>NPC не привязан к этому ID."
@@ -69,6 +69,7 @@ contract:
   unknown: "<prefix><red>Неизвестный обет."
   none-available: "<prefix><red>Сейчас нет доступных обетов этого типа."
   already-active: "<prefix><red>У клана уже есть активный обет этого типа."
+  already-done-this-period: "<prefix><red>Обет этого вида уже выполнен в этом периоде - следующий можно взять после его окончания."
   none-active: "<prefix><red>У клана сейчас нет активного обета этого типа."
   not-completed: "<prefix><red>Этот обет ещё не выполнен."
   already-claimed: "<prefix><red>Награда за этот обет уже получена."
@@ -251,8 +252,8 @@ clan:
     admin-header: "<dark_gray>========== <aqua>LoveClans Admin</aqua> ==========</dark_gray>"
     admin-footer: "<dark_gray>=========================================</dark_gray>"
     admin-reload: "<aqua>/loveclansadmin reload</aqua> <gray>- перезагрузить конфигурацию и язык плагина</gray>"
-    admin-npc: "<aqua>/loveclansadmin createnpc <contracts|banner></aqua> <gray>- привязать NPC обетов или NPC-основателя (смотрите на него)</gray>"
-    admin-npc-remove: "<aqua>/loveclansadmin removenpc <contracts|banner> <id></aqua> <gray>- отвязать NPC</gray>"
+    admin-npc: "<aqua>/loveclansadmin createnpc <guildmaster|banner></aqua> <gray>- привязать NPC Гильдмастера или NPC-основателя (смотрите на него)</gray>"
+    admin-npc-remove: "<aqua>/loveclansadmin removenpc <guildmaster|banner> <id></aqua> <gray>- отвязать NPC</gray>"
     admin-disband: "<aqua>/loveclansadmin disband <tag></aqua> <gray>- распустить клан</gray>"
     admin-war: "<aqua>/loveclansadmin war <start|forcestart|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, для тестов)</gray>"
     admin-siege: "<aqua>/loveclansadmin siege forcestart <clan1> <clan2></aqua> <gray>- принудительно начать осаду без проверок готовности (для тестов)</gray>"
@@ -378,30 +379,71 @@ gui:
       date: "<dark_gray><date>"
   contracts-title: "<gray>Обеты клана <color><tag>"
   contracts:
-    info:
+    board:
       title: "<gold>Обеты клана"
-      weekly-active: "<gray>Еженедельный: <green>активен"
-      weekly-none: "<gray>Еженедельный: <dark_gray>не выбран"
-      daily-active: "<gray>Ежедневный: <green>активен"
-      daily-none: "<gray>Ежедневный: <dark_gray>не выбран"
-      none:
-        name: "<gray>Нет активного обета"
-        lore: "<gray>Выберите обет ниже, чтобы начать."
-      ready-to-claim: "<green>Обет выполнен! Заберите награду ниже."
+      lore:
+        - "<gray>Клан берёт по одному обету"
+        - "<gray>на неделю и на месяц."
+        - "<gray>Прогресс идёт в оба обета сразу."
+    button:
+      weekly-name: "<gold>Недельный обет"
+      monthly-name: "<gold>Месячный обет"
+      current: "<gray>Обет: <white><name>"
+      in-progress: "<yellow>В процессе <gray>- прогресс ниже"
+      ready: "<green>Выполнен! <gray>ЛКМ - забрать награду"
+      claimed: "<gray>Награда уже получена"
+      done-this-period: "<green>Выполнен, награда получена <gray>- следующий обет в новом периоде"
+      not-taken: "<yellow>Ещё не взят"
+      choose: "<green>ЛКМ - выбрать один из трёх обетов"
+      none-available: "<dark_gray>Нет доступных обетов"
+      refresh: "<gray>Обновится через: <white><time>"
+    choice:
+      weekly-title: "<gray>Недельный обет <color><tag>"
+      monthly-title: "<gray>Месячный обет <color><tag>"
+      info-title: "<gold>Выберите обет"
+      info-lore:
+        - "<gray>Эти обеты доступны вашему клану"
+        - "<gray>до конца периода (<white><time></white>)."
+        - "<gray>Набор не меняется при перезаходе."
+    info:
       claimed: "<gray>Награда уже получена."
     item:
       name: "<gold><name>"
-      description: "<gray><description>"
-      reward: "<gray>Награда: <yellow><reward> опыта клана"
-      current: "<green>Это активный обет клана."
+      reward-scaled: "<gray>Награда: <yellow><reward> опыта клана"
+      reward-points: "<gray>И <yellow><points></yellow> очк. улучшений"
+      expires: "<gray>Осталось: <white><time>"
+      claim-hint: "<green>Выполнен! ЛКМ - забрать награду"
       select: "<green>ЛКМ - выбрать этот обет"
-      none-available: "<dark_gray>Нет доступных обетов"
-    claim:
-      ready:
-        name: "<green>Забрать награду"
-        lore: "<gray>ЛКМ - получить награду за выполненный обет"
-      unavailable:
-        name: "<dark_gray>Награда недоступна"
+  guildmaster:
+    title: "<gray>Гильдмастер <color><tag>"
+    info:
+      title: "<gold>Гильдмастер"
+      lore:
+        - "<gray>Здесь клан берёт обеты,"
+        - "<gray>а владелец добивается признания."
+    button:
+      vows:
+        name: "<gold>Обеты"
+        lore:
+          - "<gray>Недельный и месячный обеты клана"
+      recognition:
+        name: "<gold>Признание клана"
+        lore:
+          - "<gray>Платно и сразу, только для владельца."
+          - "<gray>Цена: <white><cost>"
+      clans:
+        name: "<gold>Список кланов"
+        lore:
+          - "<gray>Все кланы сервера"
+  recognition:
+    title: "<gray>Признание клана"
+    info-name: "<gold>Признать клан <color><tag>"
+    info-lore:
+      - "<gray>Цена: <white><cost>"
+      - "<gray>Признанный клан получает больше мест,"
+      - "<gray>территории и торговлю с сервером,"
+      - "<gray>но платит налог сундука."
+    not-enough: "<red>Не хватает монет на признание."
   trade-session:
     title: "<gray>Сделка: <white><tagA> <gray>⇄ <white><tagB>"
     icon:
@@ -1129,7 +1171,15 @@ quest:
     upgrade_points: "<prefix><green>Награда за задание: <gold><amount></gold> очков улучшений."
     clan-bank: "<prefix><green>В банк клана зачислено <yellow><amount></yellow>× <white><item></white>."
 
+recognition:
+  owner-only: "<prefix><red>Признать клан может только его владелец."
+  already: "<prefix><gray>Ваш клан уже признан."
+  cannot-afford: "<prefix><red>Не хватает монет на признание клана. Цена: <white><cost></white>."
+  success: "<prefix><green>Клан <color><tag><green> признан! Теперь доступны все возможности признанного клана."
+  failed-refunded: "<prefix><red>Не удалось сохранить признание клана. Монеты возвращены - попробуйте ещё раз."
+
 ritual:
+  disabled: "<prefix><red>Ритуалы клана временно отключены."
   cooldown: "<prefix><red>Ритуал ещё на перезарядке: <white><time></white>."
   started: "<prefix><green>Ритуал <gold><ritual></gold> успешно начат."
 
@@ -1143,6 +1193,7 @@ spirit:
     cooldown-active: "<prefix><red>Смену способности духа можно сделать только через <white><time></white>."
 
 succession:
+  disabled: "<prefix><red>Голосования за главу клана временно отключены."
   promoted: "<prefix><gold><player></gold> назначен новым главой клана по результатам голосования."
   vote-started: "<prefix><yellow>Начато голосование за нового главу клана (лидер долго не заходил на сервер)."
   voted: "<prefix><green>Ваш голос засчитан."

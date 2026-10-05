@@ -185,6 +185,9 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             if (args.length == 1) {
                 if (playerClan.isPresent()) {
                     completions.addAll(ROOT_PLAYER_IN_CLAN);
+                    // Switched-off mechanics are not suggested (they only answer "temporarily disabled").
+                    if (!plugin.getRitualManager().enabled()) completions.remove("ritual");
+                    if (!plugin.getSuccessionManager().enabled()) completions.remove("vote");
                 } else {
                     completions.addAll(ROOT_PLAYER_NOT_IN_CLAN);
                 }
@@ -1123,6 +1126,10 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
     private void ritual(Player player, String[] args) {
         requirePermission(player, Permissions.RITUAL);
+        if (!plugin.getRitualManager().enabled()) {
+            plugin.getMessages().send(player, "ritual.disabled");
+            return;
+        }
         if (!checkAntiCheat(player)) return;
         if (args.length < 2) {
             plugin.getMessages().send(player, "clan.help.ritual");
@@ -1157,6 +1164,10 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
     private void vote(Player player, String[] args) {
         requirePermission(player, Permissions.VOTE);
+        if (!plugin.getSuccessionManager().enabled()) {
+            plugin.getMessages().send(player, "succession.disabled");
+            return;
+        }
         if (args.length < 2) {
             plugin.getMessages().send(player, "clan.help.vote");
             return;
