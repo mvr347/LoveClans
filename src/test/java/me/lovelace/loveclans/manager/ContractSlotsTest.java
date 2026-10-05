@@ -128,4 +128,13 @@ class ContractSlotsTest {
         assertTrue(slots.remove(slots.get(CLAN).orElseThrow()));
         assertTrue(slots.isEmpty());
     }
+
+    @Test
+    void claimedContractKeepsTheSlotSoNoSecondVowCanBeTakenInThePeriod() {
+        ContractSlots slots = new ContractSlots();
+        slots.put(progress("vow_1", 1L, 10, true, false));
+        slots.tryClaim(CLAN).orElseThrow();
+        assertFalse(slots.reserve(progress("vow_2", 2L, 0, false, false)));
+        assertTrue(slots.get(CLAN).orElseThrow().claimed());
+    }
 }

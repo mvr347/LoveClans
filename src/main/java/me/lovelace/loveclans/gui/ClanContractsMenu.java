@@ -105,7 +105,7 @@ public final class ClanContractsMenu {
                 ready = true;
                 lore.add(plugin.getMessages().component("gui.contracts.button.ready", player));
             } else if (progress.claimed()) {
-                lore.add(plugin.getMessages().component("gui.contracts.button.claimed", player));
+                lore.add(plugin.getMessages().component("gui.contracts.button.done-this-period", player));
             } else {
                 lore.add(plugin.getMessages().component("gui.contracts.button.in-progress", player));
             }

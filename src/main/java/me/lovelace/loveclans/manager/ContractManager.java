@@ -229,7 +229,8 @@ public final class ContractManager {
             ClanQuestProgress progress = new ClanQuestProgress(clan.id(), type, definition.id(), scaled.target(), scaled.rewardXp(),
                     0, false, false, System.currentTimeMillis(), periodEnd(type));
             if (!track.slots.reserve(progress)) {
-                throw new IllegalStateException("contract.already-active");
+                boolean doneThisPeriod = track.slots.get(clan.id()).map(ClanQuestProgress::claimed).orElse(false);
+                throw new IllegalStateException(doneThisPeriod ? "contract.already-done-this-period" : "contract.already-active");
             }
             return progress;
         }).thenCompose(progress -> storage.saveContractProgressAsync(progress).handle((ignored, error) -> {
@@ -334,7 +335,7 @@ public final class ContractManager {
             }
             // The compare-and-set is the authority: exactly one of several simultaneous claims gets past it.
             return track.slots.tryClaim(clan.id()).orElseThrow(() -> new IllegalStateException("contract.already-claimed"));
-        }).thenCompose(claimed -> payout(track, clan, claimed));
+        }).thenCompose(claimed -> payout(track, clan, claimed, true));
     }
 
     /**
@@ -342,8 +343,12 @@ public final class ContractManager {
      * mark is rolled back so the clan can try again; once the experience went through the contract is
      * considered paid no matter what happens next (a leftover database row is cleaned up on the next tick),
      * so a clan can never be paid twice.
+     *
+     * With {@code keepSlot} (a manual claim inside the period) the slot stays occupied by the claimed contract
+     * until the period ends: a clan takes one weekly and one monthly vow per period, so finishing one early does
+     * not allow taking another. The claimed state is saved so the block survives a restart.
      */
-    private CompletableFuture<Void> payout(Track track, Clan clan, ClanQuestProgress claimed) {
+    private CompletableFuture<Void> payout(Track track, Clan clan, ClanQuestProgress claimed, boolean keepSlot) {
         ClanContractDefinition definition = track.catalog.get(claimed.questId());
         AtomicBoolean experienceGranted = new AtomicBoolean();
         int bonusPoints = Math.max(0, plugin.getConfig().getInt(
@@ -360,7 +365,9 @@ public final class ContractManager {
                 return plugin.getClanManager().updateClanAsync(c);
             });
         }
-        return reward.thenCompose(c -> storage.deleteContractProgressAsync(clan.id(), track.type)).handle((ignored, error) -> {
+        return reward.thenCompose(c -> keepSlot
+                ? storage.saveContractProgressAsync(claimed)
+                : storage.deleteContractProgressAsync(clan.id(), track.type)).handle((ignored, error) -> {
             if (error != null && !experienceGranted.get()) {
                 track.slots.unclaim(claimed);
                 throw new CompletionException(error);
@@ -368,7 +375,9 @@ public final class ContractManager {
             if (error != null) {
                 plugin.getLogger().warning("Contract reward for clan " + clan.id() + " was paid but a follow-up step failed: " + error.getMessage());
             }
-            track.slots.remove(claimed);
+            if (!keepSlot) {
+                track.slots.remove(claimed);
+            }
             track.dirty.remove(clan.id());
             if (definition != null) {
                 plugin.runSync(() -> notifyOnline(clan, "contract.reward-claimed", Map.of("name", definition.displayName())));
@@ -418,7 +427,7 @@ public final class ContractManager {
         Clan clan = clanOpt.get();
         if (progress.completed() && !progress.claimed()) {
             // Grace: auto-claim so a clan doesn't lose an already-earned reward to a missed deadline.
-            track.slots.tryClaim(progress.clanId()).ifPresent(claimed -> payout(track, clan, claimed).exceptionally(error -> {
+            track.slots.tryClaim(progress.clanId()).ifPresent(claimed -> payout(track, clan, claimed, false).exceptionally(error -> {
                 plugin.getLogger().warning("Failed to auto-claim expired " + track.type + " contract for clan " + clan.id() + ": " + error.getMessage());
                 return null;
             }));

@@ -91,7 +91,7 @@ class VowsConfigTest {
                 "gui.contracts.button.weekly-name", "gui.contracts.button.monthly-name", "gui.contracts.button.current",
                 "gui.contracts.button.in-progress", "gui.contracts.button.ready", "gui.contracts.button.claimed",
                 "gui.contracts.button.not-taken", "gui.contracts.button.choose", "gui.contracts.button.none-available",
-                "gui.contracts.button.refresh", "gui.contracts.choice.weekly-title", "gui.contracts.choice.monthly-title",
+                "gui.contracts.button.refresh", "gui.contracts.button.done-this-period", "contract.already-done-this-period", "gui.contracts.choice.weekly-title", "gui.contracts.choice.monthly-title",
                 "gui.contracts.choice.info-title", "gui.contracts.choice.info-lore", "gui.contracts.info.claimed",
                 "gui.contracts.item.name", "gui.contracts.item.reward-scaled", "gui.contracts.item.reward-points",
                 "gui.contracts.item.expires", "gui.contracts.item.claim-hint", "gui.contracts.item.select",
