@@ -96,6 +96,10 @@ public final class ServerTradeManager {
     }
 
     public boolean sellOffer(Player player, Clan clan, TradeOffer offer) {
+        if (!clan.hasCapital()) {
+            plugin.getMessages().send(player, "clan.no-territory");
+            return false;
+        }
         if (!clan.isRecognized()) {
             plugin.getMessages().send(player, "trade.server.unrecognized");
             return false;

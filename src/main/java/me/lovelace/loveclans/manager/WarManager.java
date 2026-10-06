@@ -42,6 +42,11 @@ public final class WarManager {
     private final LoveClansPlugin plugin;
     private final Map<UUID, ClanWar> activeWars = new ConcurrentHashMap<>();
     private final Map<AbstractMap.SimpleImmutableEntry<UUID, UUID>, Long> warCooldowns = new ConcurrentHashMap<>();
+
+    /** Restores the pair cooldowns after a restart (blocking read, called once from an async startup task). */
+    public void loadCooldowns() {
+        plugin.getConflictCooldownStore().loadInto(me.lovelace.loveclans.storage.ConflictCooldownStore.WAR, warCooldowns);
+    }
     // Прогресс "прочности" знамени во время войны: сколько ударов подряд уже нанесено и когда был
     // последний удар. Один record на войну вместо двух параллельных карт - чтобы оба значения
     // всегда обновлялись/удалялись вместе и не могли разойтись.
@@ -99,6 +104,10 @@ public final class WarManager {
      */
     public CompletableFuture<ClanWar> startWarAsync(Clan attacker, Clan defender, TerritoryKey territory, boolean force) {
         return plugin.supplySync(() -> {
+            // Never skipped, not even by force: a clan fighting itself farms its own rewards and loot.
+            if (attacker.id().equals(defender.id())) {
+                throw new IllegalStateException("war.cannot-target-self");
+            }
             AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = getWarPairKey(attacker.id(), defender.id());
             long now = System.currentTimeMillis();
 
@@ -180,6 +189,7 @@ public final class WarManager {
             }
             activeWars.put(war.id(), war);
             warCooldowns.put(cooldownKey, now);
+            plugin.getConflictCooldownStore().saveAsync(me.lovelace.loveclans.storage.ConflictCooldownStore.WAR, cooldownKey, now);
             plugin.getDiplomacyManager().liftBlockadesBetween(attacker.id(), defender.id());
 
             beginPendingPhase(war, attacker, defender);
@@ -328,6 +338,8 @@ public final class WarManager {
             }
 
             announceWarEnd(war, WarResult.DRAW);
+            // A captured banner was removed from the world: without this the defender's banner is gone for good.
+            if (war.capturedBannerBy() != null) restoreBannerBlock(war);
             confiscateWarItems(war);
             endSiege(war);
             resetBannerHits(war.id());
@@ -370,7 +382,8 @@ public final class WarManager {
         if (amount <= 0) {
             return;
         }
-        activeWar(scoringClanId, opponentClanId).ifPresent(war -> {
+        // Points count only once the war is ACTIVE: during PREPARING nobody may bank a head start.
+        activeWar(scoringClanId, opponentClanId).filter(w -> w.state() == WarState.ACTIVE).ifPresent(war -> {
             int awarded = applyRematchBonus(war.id(), scoringClanId, amount);
             ClanWar updated = scoringClanId.equals(war.attackerClanId())
                     ? war.addAttackerScore(awarded)
@@ -558,6 +571,7 @@ public final class WarManager {
 
     public void purgeClan(UUID clanId) {
         warCooldowns.keySet().removeIf(pair -> pair.getKey().equals(clanId) || pair.getValue().equals(clanId));
+        plugin.getConflictCooldownStore().deleteClanAsync(clanId);
     }
 
     /**
@@ -583,6 +597,8 @@ public final class WarManager {
             UUID survivorClanId = war.attackerClanId().equals(clanId) ? war.defenderClanId() : war.attackerClanId();
             plugin.getClanManager().getClanById(survivorClanId).ifPresent(survivor -> {
                 onlineMembers(survivor).forEach(player -> plugin.getMessages().send(player, "war.ended-by-disband"));
+                // A war that never started (or a disband timed to dodge it) pays nothing.
+                if (war.state() != WarState.ACTIVE) return;
                 long reward = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
                 plugin.getClanManager().addExperienceAsync(survivor, reward).exceptionally(t -> {
                     plugin.getLogger().warning("Failed to award war experience to clan " + survivor.id() + ": " + t.getMessage());
@@ -591,9 +607,12 @@ public final class WarManager {
             });
 
             announceWarEnd(war, WarResult.CANCELLED);
+            if (war.capturedBannerBy() != null) restoreBannerBlock(war);
             confiscateWarItems(war);
             endSiege(war);
             resetBannerHits(war.id());
+            rematchClaims.remove(war.id());
+            lastControlAward.remove(war.id());
         }
     }
 
@@ -688,11 +707,12 @@ public final class WarManager {
         if (clansOpt.isEmpty()) {
             return;
         }
+        String territoryWorld = territoryOpt.get().world();
         long attackers = onlineMembers(clansOpt.get().attacker())
-                .filter(p -> box.contains(p.getLocation().toVector()))
+                .filter(p -> p.getWorld().getName().equals(territoryWorld) && box.contains(p.getLocation().toVector()))
                 .count();
         long defenders = onlineMembers(clansOpt.get().defender())
-                .filter(p -> box.contains(p.getLocation().toVector()))
+                .filter(p -> p.getWorld().getName().equals(territoryWorld) && box.contains(p.getLocation().toVector()))
                 .count();
 
         lastControlAward.put(war.id(), now);

@@ -33,6 +33,8 @@ public class TerritorySettingsMenu implements InventoryHolder {
         this.inventory = Bukkit.createInventory(this, 27, plugin.getMessages().component("gui.territory-settings.title", Map.of("chunk", titleName), player));
 
         GuiFrames.fillFrame27(inventory);
+        // Slot 0 is the theme head - the header never has an empty slot.
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_TERRITORIES).name(plugin.getMessages().component("gui.territory-settings.title", Map.of("chunk", titleName), player)).build());
 
         // Rename Private
         inventory.setItem(11, ItemBuilder.head(HeadTextures.HEAD_NAME)

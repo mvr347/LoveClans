@@ -56,6 +56,8 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
                 plugin.getMessages().component("gui.player-applications.title", player));
 
         GuiFrames.fillFrame54(inventory);
+        // Slot 0 is the theme head - the header never has an empty slot.
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_MAIN_APPLICATIONS).name(plugin.getMessages().component("gui.player-applications.title", player)).build());
 
         int end = Math.min(combined.size(), CONTENT_SLOTS.length);
         for (int index = 0; index < end; index++) {

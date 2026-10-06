@@ -16,12 +16,12 @@ import java.util.Optional;
  * ряд в меню улучшений и растягивали его; теперь улучшения открывают это подменю одной
  * кнопкой «Перк».
  *
- * <p>Раскладка gui_gen v1.4, 27 слотов: голова темы в слоте 0, три перка — в шапке (3, 4, 5),
- * строка 9-17 пустая, футер со стеклом, назад и закрытие.
+ * <p>Раскладка gui_gen v1.4, 27 слотов: голова темы в слоте 0, три перка — в рабочей зоне (11, 13, 15),
+ * футер со стеклом, назад и закрытие.
  */
 public final class ClanPerkMenu {
     private static final int SLOT_INFO = 0;
-    private static final int[] PERK_SLOTS = {3, 4, 5};
+    private static final int[] PERK_SLOTS = {11, 13, 15};
     private static final int SLOT_BACK = 25;
     private static final int SLOT_CLOSE = 26;
     private static final int INVENTORY_SIZE = 27;

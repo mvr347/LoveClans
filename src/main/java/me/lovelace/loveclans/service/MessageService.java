@@ -102,9 +102,23 @@ public final class MessageService {
         }
     }
 
+    /**
+     * {@code <color>} is a clan-tag placeholder, but MiniMessage also knows a built-in {@code <color:...>} tag:
+     * without a "color" value a bare {@code <color>} is printed as literal text ("Клан <color>ABC</color>").
+     * A caller that forgot the value gets the tag without a color instead of a broken message.
+     */
+    static String stripUnboundColorTag(String raw, Map<String, String> placeholders) {
+        if (placeholders.containsKey("color") || !raw.contains("color>")) {
+            return raw;
+        }
+        return raw.replace("<color>", "").replace("</color>", "");
+    }
+
     private Component parse(String raw, Map<String, String> placeholders, Player player) {
         String prefix = lang.getString("prefix", "");
         raw = raw.replace("<prefix>", prefix);
+
+        raw = stripUnboundColorTag(raw, placeholders);
 
         List<TagResolver> resolvers = new ArrayList<>();
         for (Map.Entry<String, String> entry : placeholders.entrySet()) {

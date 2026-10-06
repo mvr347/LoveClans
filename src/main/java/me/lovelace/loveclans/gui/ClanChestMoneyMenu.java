@@ -14,8 +14,8 @@ import java.util.Map;
 /** Money side of the clan chest (§2.3): balance display plus deposit/withdraw chat prompts. */
 public final class ClanChestMoneyMenu {
     private static final int BALANCE_SLOT = 0;
-    private static final int DEPOSIT_SLOT = 11;
-    private static final int WITHDRAW_SLOT = 15;
+    private static final int DEPOSIT_SLOT = 12;
+    private static final int WITHDRAW_SLOT = 14;
     private static final int BACK_SLOT = 25;
     private static final int CLOSE_SLOT = 26;
 
@@ -62,7 +62,7 @@ public final class ClanChestMoneyMenu {
         if (slot == CLOSE_SLOT) {
             player.closeInventory();
         } else if (slot == BACK_SLOT) {
-            plugin.getGuiManager().openChestHub(player, clan);
+            plugin.getGuiManager().openMain(player, clan);
         } else if (slot == DEPOSIT_SLOT) {
             promptAmount(player, clan, "gui.chest.money.deposit.prompt", true);
         } else if (slot == WITHDRAW_SLOT) {

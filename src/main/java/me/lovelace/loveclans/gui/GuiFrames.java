@@ -44,6 +44,20 @@ public final class GuiFrames {
         };
     }
 
+    /**
+     * Content buttons centered in the single work row of a 27-slot menu (slots 11-15, side walls stay empty):
+     * 1 -> {13}, 2 -> {12, 14}, 3 -> {11, 13, 15}, 4 -> {10, 12, 14, 16}.
+     */
+    public static int[] workRowSlots(int count) {
+        return switch (count) {
+            case 0 -> new int[0];
+            case 1 -> new int[]{13};
+            case 2 -> new int[]{12, 14};
+            case 3 -> new int[]{11, 13, 15};
+            default -> new int[]{10, 12, 14, 16};
+        };
+    }
+
     public static ItemStack glassPane() {
         return ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build();
     }

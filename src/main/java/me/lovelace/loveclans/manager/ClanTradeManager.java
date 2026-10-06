@@ -84,6 +84,7 @@ public final class ClanTradeManager {
             if (from.id().equals(to.id())) {
                 throw new IllegalStateException("general.error");
             }
+            ClanManager.requireTerritory(from, to);
             if (tradeBlocked(from.id(), to.id())) {
                 throw new IllegalStateException("trade.blocked");
             }
@@ -127,6 +128,9 @@ public final class ClanTradeManager {
         }
         if (!to.hasPermission(actorId, ClanPermission.TRADE)) {
             return CompletableFuture.failedFuture(new IllegalStateException("general.no-permission"));
+        }
+        if (!to.hasCapital() || plugin.getClanManager().getClanById(trade.fromClanId()).map(c -> !c.hasCapital()).orElse(true)) {
+            return CompletableFuture.failedFuture(new IllegalStateException("clan.no-territory"));
         }
         Player accepter = Bukkit.getPlayer(actorId);
         if (accepter == null) {

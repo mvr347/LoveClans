@@ -34,4 +34,16 @@ class GuiFramesTest {
     void moreThanSixButtonsFallBackToTheWholeZone() {
         assertArrayEquals(new int[]{2, 3, 4, 5, 6, 7}, GuiFrames.controlSlots(9));
     }
+
+    @Test
+    void workRowButtonsStayInTheContentRowAndAreSymmetric() {
+        for (int count = 1; count <= 4; count++) {
+            int[] slots = GuiFrames.workRowSlots(count);
+            assertEquals(count, slots.length);
+            for (int i = 0; i < slots.length; i++) {
+                assertTrue(slots[i] >= 10 && slots[i] <= 16, "slot " + slots[i] + " touches a side wall or other zone");
+                assertEquals(26, slots[i] + slots[slots.length - 1 - i], "count " + count);
+            }
+        }
+    }
 }

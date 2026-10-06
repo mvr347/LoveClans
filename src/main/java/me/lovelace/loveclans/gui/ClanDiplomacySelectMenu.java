@@ -32,8 +32,8 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
             37, 38, 39, 40, 41, 42, 43
     };
     private static final int SLOT_INFO = 0;
-    private static final int SLOT_SORT = 2;
-    private static final int SLOT_FILTER = 3;
+    private static final int SLOT_SORT = 5;
+    private static final int SLOT_FILTER = 3; // same pair as ClanListMenu / ClanMembersMenu: GuiFrames.controlSlots(2)
     private static final int SLOT_PREVIOUS = 36;
     private static final int SLOT_NEXT = 44;
     private static final int SLOT_BACK = 52;

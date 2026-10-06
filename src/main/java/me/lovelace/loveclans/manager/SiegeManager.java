@@ -49,6 +49,11 @@ public final class SiegeManager {
     private final LoveClansPlugin plugin;
     private final Map<UUID, ClanSiege> activeSieges = new ConcurrentHashMap<>();
     private final Map<AbstractMap.SimpleImmutableEntry<UUID, UUID>, Long> siegeCooldowns = new ConcurrentHashMap<>();
+
+    /** Restores the pair cooldowns after a restart (blocking read, called once from an async startup task). */
+    public void loadCooldowns() {
+        plugin.getConflictCooldownStore().loadInto(me.lovelace.loveclans.storage.ConflictCooldownStore.SIEGE, siegeCooldowns);
+    }
     private final Map<UUID, BossBar> pendingBossBars = new ConcurrentHashMap<>();
     private final Set<UUID> oneMinuteWarned = ConcurrentHashMap.newKeySet();
 
@@ -137,6 +142,9 @@ public final class SiegeManager {
             AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = pairKey(attacker.id(), defender.id());
             long now = System.currentTimeMillis();
 
+            if (attacker.id().equals(defender.id())) {
+                throw new IllegalStateException("war.cannot-target-self");
+            }
             if (!force) {
                 // Как в WarManager#startWarAsync: без капитальной территории осаждать/обороняться
                 // не от чего. force=true (тестовая admin-команда forcestart) пропускает и эту
@@ -183,6 +191,7 @@ public final class SiegeManager {
                     now, now + preStartDuration().toMillis(), SiegeState.PREPARING, List.of());
             activeSieges.put(siege.id(), siege);
             siegeCooldowns.put(cooldownKey, now);
+            plugin.getConflictCooldownStore().saveAsync(me.lovelace.loveclans.storage.ConflictCooldownStore.SIEGE, cooldownKey, now);
 
             beginPendingPhase(siege, attacker, defender);
             return siege;
@@ -550,6 +559,7 @@ public final class SiegeManager {
 
     public void purgeClan(UUID clanId) {
         siegeCooldowns.keySet().removeIf(pair -> pair.getKey().equals(clanId) || pair.getValue().equals(clanId));
+        plugin.getConflictCooldownStore().deleteClanAsync(clanId);
     }
 
     public void endActiveSiegesInvolvingClan(UUID clanId) {

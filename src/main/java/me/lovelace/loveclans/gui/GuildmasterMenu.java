@@ -73,7 +73,7 @@ public final class GuildmasterMenu {
 
     public void open(Player player, Clan clan) {
         List<Action> buttons = buttonsFor(clan, player.getUniqueId());
-        int[] slots = GuiFrames.controlSlots(buttons.size());
+        int[] slots = GuiFrames.workRowSlots(buttons.size());
         Map<Integer, Action> layout = new LinkedHashMap<>();
         for (int i = 0; i < buttons.size(); i++) {
             layout.put(slots[i], buttons.get(i));

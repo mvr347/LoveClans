@@ -43,6 +43,8 @@ public final class ClanSpiritAbilityMenu implements InventoryHolder {
                         Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
         GuiFrames.fillFrame27(inventory);
+        // Slot 0 is the theme head - the header never has an empty slot.
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_SPIRIT_ABILITIES).name(plugin.getMessages().component("gui.spirit.ability-menu.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player)).build());
 
         SpiritAbility current = clan.spirit().ability();
         long now = System.currentTimeMillis();

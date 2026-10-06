@@ -21,7 +21,7 @@ import java.util.Map;
  * out of chat there was no other way to back out of it.
  */
 public final class ClanTradeRequestsMenu {
-    private static final int SESSION_SLOT = 18;
+    private static final int SESSION_SLOT = 51; // footer extra-button slot
     private static final int[] CONTENT_SLOTS = {
             19, 20, 21, 22, 23, 24, 25,
             28, 29, 30, 31, 32, 33, 34,
@@ -43,6 +43,8 @@ public final class ClanTradeRequestsMenu {
         holder.setInventory(inventory);
 
         GuiFrames.fillFrame54(inventory);
+        // Slot 0 is the theme head - the header never has an empty slot.
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_TRADE).name(plugin.getMessages().component("gui.trade-requests.title", player)).build());
 
         plugin.getClanTradeSessionManager().activeSessionForClan(clan.id()).ifPresent(session ->
                 inventory.setItem(SESSION_SLOT, ItemBuilder.head(ItemBuilder.HEAD_TRADE)
@@ -89,7 +91,7 @@ public final class ClanTradeRequestsMenu {
             return;
         }
         if (slot == BACK_SLOT) {
-            plugin.getGuiManager().openChestHub(player, clan);
+            plugin.getGuiManager().openMain(player, clan);
             return;
         }
         if (slot == SESSION_SLOT) {

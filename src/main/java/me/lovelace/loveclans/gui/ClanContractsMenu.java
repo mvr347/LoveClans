@@ -21,18 +21,14 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Clan vows screen (gui_gen v2.1, 27 slots): two control buttons in the header - the weekly and the monthly
- * vow - and, under each button in the work zone, the vow the clan is currently running. A button
- * opens the pick-one-of-three screen when the clan has no vow of that period yet, or pays out the reward of a
- * finished one. The screen itself never changes anything: every decision goes through {@link ContractManager}.
+ * Clan vows screen (gui_gen v2.1, 27 slots): one card per period - weekly and monthly - in the work zone. A card
+ * shows the vow the clan is currently running; without one it opens the pick-one-of-three screen, and a
+ * finished vow is paid out by a click. The screen itself never changes anything: every decision goes through {@link ContractManager}.
  */
 public final class ClanContractsMenu {
     private static final int SLOT_INFO = 0;
-    private static final int SLOT_WEEKLY = 3;
-    private static final int SLOT_MONTHLY = 5;
-    // Work-zone detail items sit directly under their header button.
-    private static final int SLOT_WEEKLY_DETAIL = 12;
-    private static final int SLOT_MONTHLY_DETAIL = 14;
+    private static final int SLOT_WEEKLY = 12;
+    private static final int SLOT_MONTHLY = 14;
     private static final int SLOT_BACK = 25;
     private static final int SLOT_CLOSE = 26;
 
@@ -64,12 +60,8 @@ public final class ClanContractsMenu {
                 .lore(plugin.getMessages().components("gui.contracts.board.lore", player))
                 .build());
 
-        // The two control buttons replace header glass at the centered positions of GuiFrames#controlSlots(2).
-        inventory.setItem(SLOT_WEEKLY, buildButton(ContractType.WEEKLY, clan, player));
-        inventory.setItem(SLOT_MONTHLY, buildButton(ContractType.MONTHLY, clan, player));
-
-        buildDetail(ContractType.WEEKLY, clan, player).ifPresent(item -> inventory.setItem(SLOT_WEEKLY_DETAIL, item));
-        buildDetail(ContractType.MONTHLY, clan, player).ifPresent(item -> inventory.setItem(SLOT_MONTHLY_DETAIL, item));
+        inventory.setItem(SLOT_WEEKLY, buildCard(ContractType.WEEKLY, clan, player));
+        inventory.setItem(SLOT_MONTHLY, buildCard(ContractType.MONTHLY, clan, player));
 
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
@@ -87,6 +79,11 @@ public final class ClanContractsMenu {
 
     private static String periodKey(ContractType type) {
         return type == ContractType.MONTHLY ? "monthly" : "weekly";
+    }
+
+    /** The running vow when there is one, otherwise the "take a vow" button of that period. */
+    private ItemStack buildCard(ContractType type, Clan clan, Player player) {
+        return buildDetail(type, clan, player).orElseGet(() -> buildButton(type, clan, player));
     }
 
     private ItemStack buildButton(ContractType type, Clan clan, Player player) {
@@ -136,6 +133,7 @@ public final class ClanContractsMenu {
         ClanContractDefinition definition = definitionOpt.get();
 
         List<Component> lore = new ArrayList<>();
+        lore.add(plugin.getMessages().component("gui.contracts.button." + periodKey(type) + "-name", player));
         lore.add(manager.displayObjective(definition, progress).getDisplayName(player, progress.progress()));
         lore.add(plugin.getMessages().component("gui.contracts.item.reward-scaled",
                 Map.of("reward", String.valueOf(progress.scaledRewardXp())), player));
@@ -148,6 +146,8 @@ public final class ClanContractsMenu {
             lore.add(plugin.getMessages().component("gui.contracts.item.expires",
                     Map.of("time", TimeUtil.formatDuration(progress.expiresAt() - System.currentTimeMillis())), player));
         }
+        lore.add(plugin.getMessages().component("gui.contracts.button.refresh",
+                Map.of("time", TimeUtil.formatDuration(manager.periodEnd(type) - System.currentTimeMillis())), player));
         ItemBuilder builder = ItemBuilder.head(ready ? ItemBuilder.HEAD_COMPLETED_QUESTS : headFor(type))
                 .name(plugin.getMessages().component("gui.contracts.item.name", Map.of("name", definition.displayName()), player))
                 .lore(lore);
@@ -159,8 +159,8 @@ public final class ClanContractsMenu {
         switch (slot) {
             case SLOT_CLOSE -> player.closeInventory();
             case SLOT_BACK -> plugin.getGuiManager().openMain(player, clan);
-            case SLOT_WEEKLY, SLOT_WEEKLY_DETAIL -> handleVow(player, clan, ContractType.WEEKLY);
-            case SLOT_MONTHLY, SLOT_MONTHLY_DETAIL -> handleVow(player, clan, ContractType.MONTHLY);
+            case SLOT_WEEKLY -> handleVow(player, clan, ContractType.WEEKLY);
+            case SLOT_MONTHLY -> handleVow(player, clan, ContractType.MONTHLY);
             default -> {
             }
         }

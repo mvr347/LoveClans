@@ -22,6 +22,7 @@ import me.lovelace.loveclans.listener.ShieldColorListener;
 import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
+import me.lovelace.loveclans.manager.ClanBannerReplacementService;
 import me.lovelace.loveclans.manager.ClanRecognitionService;
 import me.lovelace.loveclans.manager.ConflictArchive;
 import me.lovelace.loveclans.manager.ServerTradeManager;
@@ -79,6 +80,9 @@ public final class LoveClansPlugin extends JavaPlugin {
     private RaidManager raidManager;
     private RitualManager ritualManager;
     private ClanRecognitionService recognitionService;
+    private ClanBannerReplacementService bannerReplacementService;
+    private me.lovelace.loveclans.manager.PeaceService peaceService;
+    private me.lovelace.loveclans.storage.ConflictCooldownStore conflictCooldownStore;
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
     private PerkManager perkManager;
@@ -111,6 +115,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         databaseManager = new DatabaseManager(this);
         databaseManager.initialize();
         storage = new SqlClanStorage(databaseManager);
+        conflictCooldownStore = new me.lovelace.loveclans.storage.ConflictCooldownStore(this, databaseManager.dataSource());
 
         clanManager = new ClanManager(this, storage);
         conflictArchive = new ConflictArchive(this);
@@ -130,6 +135,8 @@ public final class LoveClansPlugin extends JavaPlugin {
         citizensIntegration = new CitizensIntegration();
         contractManager = new ContractManager(this, storage);
         recognitionService = new ClanRecognitionService(this);
+        bannerReplacementService = new ClanBannerReplacementService(this);
+        peaceService = new me.lovelace.loveclans.manager.PeaceService(this);
         diplomacyManager = new DiplomacyManager(this, storage);
         clanTradeManager = new ClanTradeManager(this, storage);
         clanTradeSessionManager = new ClanTradeSessionManager(this);
@@ -157,7 +164,20 @@ public final class LoveClansPlugin extends JavaPlugin {
         }
 
         clanManager.loadAsync().thenCompose(v -> diplomacyManager.loadAsync()).thenRunAsync(() -> {
+            // Conflicts are not persisted, but their pair cooldowns are: a restart must not reset them.
+            warManager.loadCooldowns();
+            siegeManager.loadCooldowns();
+            raidManager.loadCooldowns();
             runSync(() -> {
+                // After a crash LoveClaims may still hold "under siege" on territories of conflicts that no longer
+                // exist (onDisable never ran); nothing is running yet, so every siege flag is stale.
+                for (me.lovelace.loveclans.model.Clan clan : clanManager.getAllClans()) {
+                    for (me.lovelace.loveclans.model.ClanTerritory territory : clan.territories()) {
+                        if (territory.advancedClaimId() != null) {
+                            advancedClaimsHook.setSiegeMode(territory.advancedClaimId(), false);
+                        }
+                    }
+                }
                 LoveClansAPI.init(this);
 
                 registerCommands();
@@ -467,6 +487,18 @@ public final class LoveClansPlugin extends JavaPlugin {
         return recognitionService;
     }
 
+    public me.lovelace.loveclans.storage.ConflictCooldownStore getConflictCooldownStore() {
+        return conflictCooldownStore;
+    }
+
+    public me.lovelace.loveclans.manager.PeaceService getPeaceService() {
+        return peaceService;
+    }
+
+    public ClanBannerReplacementService getBannerReplacementService() {
+        return bannerReplacementService;
+    }
+
     public ContractManager getContractManager() {
         return contractManager;
     }
@@ -580,6 +612,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new PlayerConnectionListener(this), this);
         clanProtectionListener = new ClanProtectionListener(this, clanManager, warManager); // Pass clanManager and warManager
         pluginManager.registerEvents(clanProtectionListener, this);
+        pluginManager.registerEvents(new me.lovelace.loveclans.listener.BannerProtectionListener(), this);
         pluginManager.registerEvents(new CombatListener(this), this);
         pluginManager.registerEvents(new ArtifactListener(this), this);
         pluginManager.registerEvents(new ChatInputListener(this), this);

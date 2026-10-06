@@ -1,10 +1,9 @@
 package me.lovelace.loveclans.manager;
 
 import me.lovelace.loveclans.LoveClansPlugin;
-import me.lovelace.loveclans.gui.ClanApplicationsMenu;
 import me.lovelace.loveclans.gui.ClanBannerCreationMenu;
 import me.lovelace.loveclans.gui.ClanCapitalManagementMenu;
-import me.lovelace.loveclans.gui.ClanChestHubMenu;
+import me.lovelace.loveclans.gui.ClanChestMenu;
 import me.lovelace.loveclans.gui.ClanChestMoneyMenu;
 import me.lovelace.loveclans.gui.ClanColorPickerMenu;
 import me.lovelace.loveclans.gui.ClanLettersMenu;
@@ -27,6 +26,7 @@ import me.lovelace.loveclans.gui.ClanListMenu;
 import me.lovelace.loveclans.gui.ClanMainMenu;
 import me.lovelace.loveclans.gui.ClanMemberDetailMenu;
 import me.lovelace.loveclans.gui.ClanMembersMenu;
+import me.lovelace.loveclans.gui.MembersView;
 import me.lovelace.loveclans.gui.ClanMenuHolder;
 import me.lovelace.loveclans.gui.ClanMenuType;
 import me.lovelace.loveclans.gui.ClanRankPermissionsMenu;
@@ -67,7 +67,6 @@ public class GuiManager implements Listener {
     private final ClanMembersMenu membersMenu;
     private final ClanUpgradesMenu upgradesMenu;
     private final ClanSettingsMenu settingsMenu;
-    private final ClanApplicationsMenu applicationsMenu;
     private final ClanConfirmMenu confirmMenu;
     private final ClanMemberDetailMenu memberDetailMenu;
     private final ClanColorPickerMenu colorPickerMenu;
@@ -76,7 +75,6 @@ public class GuiManager implements Listener {
     private final ClanContractsMenu contractsMenu;
     private final ClanRecognitionConfirmMenu recognitionMenu;
     private final GuildmasterMenu guildmasterMenu;
-    private final ClanChestHubMenu chestHubMenu;
     private final ClanChestMoneyMenu chestMoneyMenu;
     private final ClanLettersMenu lettersMenu;
     private final ClanTradeRequestsMenu tradeRequestsMenu;
@@ -94,7 +92,6 @@ public class GuiManager implements Listener {
         this.membersMenu = new ClanMembersMenu(plugin);
         this.upgradesMenu = new ClanUpgradesMenu(plugin);
         this.settingsMenu = new ClanSettingsMenu(plugin);
-        this.applicationsMenu = new ClanApplicationsMenu(plugin);
         this.confirmMenu = new ClanConfirmMenu(plugin);
         this.memberDetailMenu = new ClanMemberDetailMenu(plugin);
         this.colorPickerMenu = new ClanColorPickerMenu(plugin);
@@ -103,31 +100,42 @@ public class GuiManager implements Listener {
         this.contractsMenu = new ClanContractsMenu(plugin);
         this.recognitionMenu = new ClanRecognitionConfirmMenu(plugin);
         this.guildmasterMenu = new GuildmasterMenu(plugin, recognitionMenu);
-        this.chestHubMenu = new ClanChestHubMenu(plugin);
         this.chestMoneyMenu = new ClanChestMoneyMenu(plugin);
         this.lettersMenu = new ClanLettersMenu(plugin);
         this.tradeRequestsMenu = new ClanTradeRequestsMenu(plugin);
     }
 
     public void openTradeRequests(Player player, Clan clan) {
+        if (!clan.hasCapital()) {
+            plugin.getMessages().send(player, "clan.no-territory");
+            return;
+        }
         tradeRequestsMenu.open(player, clan);
     }
 
     /**
-     * Единственная точка входа в клановый сундук (команда {@code /clan chest} и любые GUI-переходы
-     * сюда идут через этот метод) — авторитетная проверка на установленную территорию клана живёт
-     * здесь, а не в самих ClanChestMenu/ClanChestMoneyMenu, чтобы не дублировать её в каждом
-     * подменю сундука.
+     * Entry point of the clan item storage ({@code /clan chest} and the main menu's "Сундук" button): the
+     * authoritative "clan has a territory" and "tax is paid" checks live here, not in ClanChestMenu itself.
      */
-    public void openChestHub(Player player, Clan clan) {
+    public void openChestItems(Player player, Clan clan) {
         if (!clan.hasCapital()) {
             plugin.getMessages().send(player, "chest.no-capital");
             return;
         }
-        chestHubMenu.open(player, clan);
+        if (clan.isChestTaxLocked()) {
+            plugin.getMessages().send(player, "chest.tax-locked");
+            return;
+        }
+        player.closeInventory();
+        ClanChestMenu.open(plugin, clan, player);
     }
 
+    /** Money side of the chest ("Казна"); same territory guard as {@link #openChestItems}. */
     public void openChestMoney(Player player, Clan clan) {
+        if (!clan.hasCapital()) {
+            plugin.getMessages().send(player, "chest.no-capital");
+            return;
+        }
         chestMoneyMenu.open(player, clan);
     }
 
@@ -184,8 +192,9 @@ public class GuiManager implements Listener {
         settingsMenu.open(player, clan);
     }
 
+    /** {@code /clan applications}: the members screen, already filtered to the applications. */
     public void openApplications(Player player, Clan clan) {
-        applicationsMenu.open(player, clan);
+        membersMenu.open(player, clan, MembersView.Filter.APPLICATIONS);
     }
 
     public void openClanList(Player player) {
@@ -252,6 +261,10 @@ public class GuiManager implements Listener {
     }
 
     public void openDiplomacySelect(Player player, Clan sourceClan) {
+        if (!sourceClan.hasCapital()) {
+            plugin.getMessages().send(player, "clan.no-territory");
+            return;
+        }
         ClanDiplomacySelectMenu menu = new ClanDiplomacySelectMenu(plugin, player, sourceClan);
         if (!menu.hasClans()) {
             plugin.getMessages().send(player, "diplomacy.no-other-clans");
@@ -263,7 +276,7 @@ public class GuiManager implements Listener {
     // ── Misc ───────────────────────────────────────────────────────────────────
 
     public void clearPlayerCache(UUID playerId) {
-        applicationsMenu.clearPlayer(playerId);
+        membersMenu.clearPlayer(playerId);
         rankPermissionsMenu.clearPlayer(playerId);
         confirmYes.remove(playerId);
         confirmNo.remove(playerId);
@@ -378,6 +391,8 @@ public class GuiManager implements Listener {
             int slot = event.getRawSlot();
 
             if (clanMenuHolder.type() == ClanMenuType.CONFIRM) {
+                // A click on the glass must not throw away the pending callbacks.
+                if (!ClanConfirmMenu.isAnswerSlot(slot)) return;
                 Runnable onYes = confirmYes.remove(player.getUniqueId());
                 Runnable onNo = confirmNo.remove(player.getUniqueId());
                 confirmMenu.handleInventoryClick(player, slot, onYes, onNo);
@@ -391,10 +406,13 @@ public class GuiManager implements Listener {
 
             plugin.getClanManager().getClanById(clanMenuHolder.clanId()).ifPresentOrElse(clan -> {
                 switch (clanMenuHolder.type()) {
-                    case MEMBERS -> membersMenu.handleInventoryClick(player, clan, slot);
+                    case MEMBERS -> {
+                        if (holder instanceof ClanMembersMenu.Holder membersHolder) {
+                            membersMenu.handleInventoryClick(event, player, clan, membersHolder);
+                        }
+                    }
                     case TERRITORIES -> territoriesMenu.handleTerritoryClick(player, clan, slot, event.isRightClick());
                     case SETTINGS -> settingsMenu.handleInventoryClick(player, clan, slot);
-                    case APPLICATIONS -> applicationsMenu.handleInventoryClick(event, player, clan);
                     case DIPLOMACY -> diplomacyMenu.handleInventoryClick(player, clan, slot);
                     case RELATIONS -> relationMenu.handleInventoryClick(player, clan, slot);
                     case PERKS -> perkMenu.handleInventoryClick(player, clan, slot);
@@ -418,7 +436,6 @@ public class GuiManager implements Listener {
                             recognitionMenu.handleInventoryClick(player, slot, recognitionHolder);
                         }
                     }
-                    case CHEST_HUB -> chestHubMenu.handleInventoryClick(player, clan, slot);
                     case CHEST_MONEY -> chestMoneyMenu.handleInventoryClick(player, clan, slot);
                     case LETTERS -> lettersMenu.handleInventoryClick(player, clan, slot);
                     case TRADE_REQUESTS -> tradeRequestsMenu.handleInventoryClick(event, player, clan);

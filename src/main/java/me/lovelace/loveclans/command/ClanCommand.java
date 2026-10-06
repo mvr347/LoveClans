@@ -651,7 +651,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Clan clan = optionalClan.get();
         
         // Prevent unclaiming if at war
-        if (plugin.getWarManager().activeWars().stream().anyMatch(war -> war.involves(clan.id()))) {
+        // Sieges and raids pin the territory too: unclaiming it mid-preparation silently cancels the attacker's siege.
+        if (plugin.getClanManager().inAnyConflict(clan.id())) {
             plugin.getMessages().send(player, "war.cannot-unclaim");
             return;
         }
@@ -712,13 +713,13 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         Clan clan = optionalClan.get();
-        // Same check as the authoritative guard in GuiManager#openChestHub - duplicated here for
+        // Same check as the authoritative guard in GuiManager#openChestItems - duplicated here for
         // immediate command-layer feedback, matching how war/siege/raid are gated at both layers.
         if (!clan.hasCapital()) {
             plugin.getMessages().send(player, "chest.no-capital");
             return;
         }
-        plugin.getGuiManager().openChestHub(player, clan);
+        plugin.getGuiManager().openChestItems(player, clan);
     }
 
     private void openContracts(Player player) {
@@ -815,7 +816,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.not-in-clan");
             return;
         }
-        new ClanApplicationsMenu(plugin).open(player, optionalClan.get());
+        plugin.getGuiManager().openApplications(player, optionalClan.get());
     }
 
     private void war(Player player, String[] args) {
@@ -831,6 +832,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         Clan attacker = optionalAttacker.get();
+        requireClanDiplomacy(player, attacker);
         Clan defender = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
 
         // Требуется установленная территория у обеих сторон — иначе некуда/не за что объявлять
@@ -882,6 +884,13 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
      * клановой казны. Раньше лагерь сносился одним ударом и восстанавливался по таймеру,
      * так что защите нечего было противопоставить, кроме дежурства у костра.
      */
+    /** Declaring or fortifying a conflict is a clan decision: it needs the DIPLOMACY right, not just the server permission. */
+    private void requireClanDiplomacy(Player player, Clan clan) {
+        if (!clan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.DIPLOMACY)) {
+            throw new IllegalStateException("general.no-permission");
+        }
+    }
+
     private void fortifyCamp(Player player, String[] args) {
         if (args.length < 3) {
             plugin.getMessages().send(player, "siege.fortify.usage");
@@ -893,6 +902,10 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         Clan clan = clanOpt.get();
+        // Fortifying spends the clan treasury.
+        if (!clan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.BANK)) {
+            throw new IllegalStateException("general.no-permission");
+        }
 
         int campIndex;
         try {
@@ -953,6 +966,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         Clan attacker = optionalAttacker.get();
+        requireClanDiplomacy(player, attacker);
         Clan defender = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
 
         // Same capital requirement as /clan war - see the comment there.
@@ -1011,6 +1025,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
 
+        requireClanDiplomacy(player, attacker);
         Clan defender = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
 
         // Same capital requirement as /clan war - see the comment there.
@@ -1082,25 +1097,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         Clan source = optionalSource.get();
         Clan target = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
-        boolean atWar = plugin.getWarManager().areAtWar(source.id(), target.id());
-        boolean inSiege = !atWar && plugin.getSiegeManager().areInSiege(source.id(), target.id());
-        boolean inRaid = !atWar && !inSiege && plugin.getRaidManager().areInRaid(source.id(), target.id());
-        if (!atWar && !inSiege && !inRaid) {
-            plugin.sendOperationError(player, new IllegalStateException("war.not-at-war"));
-            return;
-        }
-        plugin.getMessages().sendChatConfirmPrompt(player, "war.peace-confirm-prompt",
-                Map.of("tag", target.tag(), "color", target.tagColor()),
-                () -> {
-                    var future = atWar ? plugin.getWarManager().peaceAsync(source, target)
-                            : inSiege ? plugin.getSiegeManager().peaceAsync(source, target)
-                            : plugin.getRaidManager().peaceAsync(source, target);
-                    future.exceptionally(throwable -> {
-                        plugin.runSync(() -> plugin.sendOperationError(player, throwable));
-                        return null;
-                    });
-                },
-                () -> plugin.getMessages().send(player, "general.chat-input-cancelled"));
+        plugin.getPeaceService().proposeOrAccept(player, source, target);
     }
 
     private void diplomacy(Player player, String[] args, DiplomacyRelation relation) {

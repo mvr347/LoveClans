@@ -38,6 +38,11 @@ public final class RaidManager {
     private final LoveClansPlugin plugin;
     private final Map<UUID, ClanRaid> activeRaids = new ConcurrentHashMap<>();
     private final Map<AbstractMap.SimpleImmutableEntry<UUID, UUID>, Long> raidCooldowns = new ConcurrentHashMap<>();
+
+    /** Restores the pair cooldowns after a restart (blocking read, called once from an async startup task). */
+    public void loadCooldowns() {
+        plugin.getConflictCooldownStore().loadInto(me.lovelace.loveclans.storage.ConflictCooldownStore.RAID, raidCooldowns);
+    }
     private final Map<UUID, BossBar> pendingBossBars = new ConcurrentHashMap<>();
     private final Set<UUID> oneMinuteWarned = ConcurrentHashMap.newKeySet();
 
@@ -85,6 +90,9 @@ public final class RaidManager {
             // Без капитальной территории набегать/обороняться не от чего (нет своей земли, за
             // которую отвечать) — startRaidAsync не принимает force-параметр, здесь нет
             // admin-обхода, который нужно было бы сохранить.
+            if (attacker.id().equals(defender.id())) {
+                throw new IllegalStateException("war.cannot-target-self");
+            }
             if (!attacker.hasCapital()) {
                 throw new IllegalStateException("raid.attacker-no-capital");
             }
@@ -123,6 +131,7 @@ public final class RaidManager {
                     now + preStartDuration().toMillis(), RaidState.PREPARING);
             activeRaids.put(raid.id(), raid);
             raidCooldowns.put(cooldownKey, now);
+            plugin.getConflictCooldownStore().saveAsync(me.lovelace.loveclans.storage.ConflictCooldownStore.RAID, cooldownKey, now);
 
             beginPendingPhase(raid, attacker, defender);
             return raid;
@@ -320,6 +329,7 @@ public final class RaidManager {
 
     public void purgeClan(UUID clanId) {
         raidCooldowns.keySet().removeIf(pair -> pair.getKey().equals(clanId) || pair.getValue().equals(clanId));
+        plugin.getConflictCooldownStore().deleteClanAsync(clanId);
     }
 
     public void endActiveRaidsInvolvingClan(UUID clanId) {

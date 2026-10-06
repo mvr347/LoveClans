@@ -133,9 +133,28 @@ trade:
     sell-success: "<prefix><green>Вы сдали <white><item></white> в казну сервера! Начислено <reward>. Сдано на этой неделе: <white><current>/<max> стаков."
 
 clan:
+  disband-in-conflict: "<prefix><red>Нельзя распустить клан, пока идёт война, осада или набег."
   create-removed: "<prefix><red>Команда /clan create отключена. Приобретите Знамя основания клана у торговца и установите его на свободной земле!"
   unrecognized-cannot-claim: "<prefix><red>Непризнанный клан не может захватывать дополнительные территории. Только признанные кланы могут расширять свои земли."
+  no-territory: "<prefix><red>У клана нет территории: дипломатия, торговля и войны недоступны. Глава может купить новое знамя у NPC."
+  target-no-territory: "<prefix><red>У клана-цели нет территории: действие недоступно."
   banner:
+    replacement-confirm-title: "<gold>Новое знамя клана"
+    replacement-item-name: "<white>Знамя кланового спавна"
+    replacement-lore:
+      - ""
+      - "<gray>Клан потерял знамя и остался без территории."
+      - "<gray>Новое знамя стоит дешевле, но не бесплатно:"
+      - "<red>  Дух клана: -<spirit> ур."
+      - "<red>  Опыт текущего уровня: -<exp>%"
+      - ""
+      - "<gray>Цена: <cost>"
+    replacement-bought: "<prefix><green>Вы купили новое знамя кланового спавна за <cost>. Установите его, чтобы вернуть территорию."
+    replacement-penalty: "<prefix><yellow>Клан потерял знамя: дух -<spirit> ур., опыт -<exp>."
+    replacement-has-banner: "<prefix><red>Знамя вашего клана уже у вас в инвентаре или эндер-сундуке."
+    replacement-leader-only: "<prefix><red>Новое знамя клана может купить только глава."
+    replacement-not-needed: "<prefix><red>У клана уже есть территория."
+    replacement-failed-refunded: "<prefix><red>Не удалось сохранить покупку, монеты возвращены."
     already-in-clan: "<prefix><red>Вы уже состоите в клане или владеете им. Вы не можете приобрести или установить знамя."
     # 2026-09-26: раньше Плотник (NPC-продавец) списывал деньги сразу по клику, без какого-либо
     # подтверждения - см. ClanBannerListener#onNpcInteract. Теперь между кликом и списанием стоит
@@ -312,6 +331,27 @@ gui:
   close: "<red>Закрыть"
   next-page: "<gray>Следующая страница »"
   previous-page: "<gray>« Предыдущая страница"
+  members-hub:
+    title: "<color><tag> <white>- Участники и заявки"
+    filter-title: "<gold>Фильтр"
+    sort-title: "<gold>Сортировка"
+    filter:
+      all: "Все"
+      members: "Участники"
+      online: "В сети"
+      applications: "Заявки"
+      invites: "Приглашения"
+    sort:
+      rank: "По рангу"
+      contribution: "По вкладу"
+      name: "По имени"
+      date: "По дате"
+    option-current: "<green>▶ <name>"
+    option-other: "<gray>  <name>"
+    cycle-hint: "<yellow>ЛКМ <gray>- дальше, <yellow>ПКМ <gray>- назад"
+    empty:
+      name: "<gray>Здесь пока никого нет"
+      lore: "<gray>Попробуйте другой фильтр."
   members-title: "<color><tag> <white>- Участники"
   territories-title: "<gray>Территории клана <color><tag>"
   territories-selection-title: "<gray>Управление клановой территорией <white><clan>"
@@ -333,6 +373,7 @@ gui:
       tax-locked: "<red>Налог: НЕ ОПЛАЧЕН - сундук заблокирован!"
       next-tax: "<gray>Следующее списание: <white><time>"
       tax-amount: "<gray>Сумма налога: <white><amount></white>/нед."
+      rows: "<gray>Рядов предметов: <white><rows></white>/<max>"
     money-button:
       name: "<gold>💰 Деньги"
       lore: "<gray>Баланс: <yellow><amount>"
@@ -513,6 +554,7 @@ gui:
     no-permission: "<prefix><red>У вас нет прав для управления клановым спавном."
     no-permission-lore: "<red>У вас нет прав для управления клановым спавном."
     no-house-lore: "<red>Сначала создайте клановый спавн."
+    no-house: "<prefix><red>У клана ещё нет кланового спавна."
     war-blocked: "<prefix><red>Это действие недоступно во время войны."
     show-border:
       name: "<gold>Показать границы территории"
@@ -770,6 +812,7 @@ gui:
       lore: "<gray>Кроме главы, в этом клане пока никто не состоит."
   main:
     title: "<color><clan> <white>- Меню клана"
+    no-territory-lore: "<red>Нужна клановая территория: новое знамя продаёт NPC."
     info:
       name: "<color><clan>"
       tag: "<gray>Тег: <white><tag>"
@@ -780,6 +823,10 @@ gui:
     members:
       name: "<gold>Участники"
       lore: "<gray>Список участников клана."
+      # New keys (the live lang.yml keeps old texts): the screen now also holds applications and invitations.
+      hub-name: "<gold>Участники и заявки"
+      hub-lore: "<gray>Участники клана, заявки и приглашения."
+      applications-lore: "<yellow>Новых заявок: <white><count>"
     territories:
       name: "<gold>Клановый спавн"
       lore: "<gray>Управление клановым спавном и территориями клана."
@@ -1253,6 +1300,10 @@ history:
   rematch-bonus: "<prefix><gold>Реванш! <gray>Ваш клан получает <yellow>+<percent>%</yellow> к очкам в этой войне."
 
 war:
+  cannot-target-self: "<prefix><red>Нельзя начать конфликт с собственным кланом."
+  peace-offer-sent: "<prefix><yellow>Предложение мира отправлено клану <color><tag></color>. Оно действует 5 минут."
+  peace-offered: "<prefix><yellow>Клан <color><tag></color> предлагает мир. Чтобы согласиться, введите /clan peace <tag> или нажмите кнопку мира в дипломатии."
+  peace-blocked-capture: "<prefix><red>Пока знамя захвачено, мир предложить нельзя."
   objectives:
     control-held: "<prefix><green>Территория удержана: <yellow>+<score></yellow> к очкам войны."
   already-at-war: "<prefix><red>Ваш клан уже находится в состоянии войны с этим кланом."
