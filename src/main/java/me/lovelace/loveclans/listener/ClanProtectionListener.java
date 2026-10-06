@@ -78,6 +78,11 @@ public class ClanProtectionListener implements Listener {
         if (bannerType == null || clanIdString == null) {
             return; // Not a clan banner
         }
+        // A captured war banner is battle loot, not a banner a clan may plant to claim land.
+        if (pdc.has(ClanItemFactory.CAPTURED_BANNER_WAR_KEY, PersistentDataType.STRING)) {
+            event.setCancelled(true);
+            return;
+        }
 
         UUID clanId = UUID.fromString(clanIdString);
         Optional<Clan> clanOpt = clanManager.getClanById(clanId);
@@ -361,7 +366,8 @@ public class ClanProtectionListener implements Listener {
                 .map(perk -> perk == me.lovelace.loveclans.model.ClanPerk.WARRIOR).orElse(false);
         if (attackerIsWarrior) {
             int bonusPercent = plugin.getConfig().getInt("perks.warrior.banner-damage-bonus-percent", 10);
-            requiredHits = Math.max(1, (int) Math.round(requiredHits * (1.0 - bonusPercent / 100.0)));
+            // floor, not round: with the defaults 5 hits * 0.9 = 4.5 rounded back up to 5 and the perk did nothing
+            requiredHits = Math.max(1, (int) Math.floor(requiredHits * (1.0 - bonusPercent / 100.0)));
         }
         long resetMs = warManager.bannerBreakResetMillis();
         int hits = warManager.registerBannerHit(war.id(), resetMs);

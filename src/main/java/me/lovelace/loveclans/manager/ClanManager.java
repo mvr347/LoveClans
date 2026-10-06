@@ -478,6 +478,11 @@ public final class ClanManager {
             if (actorId != null && !clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
                 throw new IllegalStateException("general.no-permission");
             }
+            // Dissolving mid-conflict pays the opponent and wipes cooldowns; admins (actorId == null) may still do it.
+            if (actorId != null && inAnyConflict(clan.id())) {
+                throw new IllegalStateException("clan.disband-in-conflict");
+            }
+            plugin.getPeaceService().forget(clan.id());
             ClanDisbandEvent event = new ClanDisbandEvent(clan, actorId);
             Bukkit.getPluginManager().callEvent(event);
             if (event.isCancelled()) {
@@ -1274,7 +1279,7 @@ public final class ClanManager {
             if (!clan.hasPermission(actorId, ClanPermission.CLAIM)) {
                 throw new IllegalStateException("general.no-permission");
             }
-            if (plugin.getWarManager().activeWars().stream().anyMatch(war -> war.involves(clan.id()))) {
+            if (inAnyConflict(clan.id())) {
                 throw new IllegalStateException("war.cannot-unclaim");
             }
             // Ищем территорию, любой из чанков которой совпадает с переданным ключом.

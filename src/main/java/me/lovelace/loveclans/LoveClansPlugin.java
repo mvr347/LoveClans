@@ -81,6 +81,8 @@ public final class LoveClansPlugin extends JavaPlugin {
     private RitualManager ritualManager;
     private ClanRecognitionService recognitionService;
     private ClanBannerReplacementService bannerReplacementService;
+    private me.lovelace.loveclans.manager.PeaceService peaceService;
+    private me.lovelace.loveclans.storage.ConflictCooldownStore conflictCooldownStore;
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
     private PerkManager perkManager;
@@ -113,6 +115,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         databaseManager = new DatabaseManager(this);
         databaseManager.initialize();
         storage = new SqlClanStorage(databaseManager);
+        conflictCooldownStore = new me.lovelace.loveclans.storage.ConflictCooldownStore(this, databaseManager.dataSource());
 
         clanManager = new ClanManager(this, storage);
         conflictArchive = new ConflictArchive(this);
@@ -133,6 +136,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         contractManager = new ContractManager(this, storage);
         recognitionService = new ClanRecognitionService(this);
         bannerReplacementService = new ClanBannerReplacementService(this);
+        peaceService = new me.lovelace.loveclans.manager.PeaceService(this);
         diplomacyManager = new DiplomacyManager(this, storage);
         clanTradeManager = new ClanTradeManager(this, storage);
         clanTradeSessionManager = new ClanTradeSessionManager(this);
@@ -160,7 +164,20 @@ public final class LoveClansPlugin extends JavaPlugin {
         }
 
         clanManager.loadAsync().thenCompose(v -> diplomacyManager.loadAsync()).thenRunAsync(() -> {
+            // Conflicts are not persisted, but their pair cooldowns are: a restart must not reset them.
+            warManager.loadCooldowns();
+            siegeManager.loadCooldowns();
+            raidManager.loadCooldowns();
             runSync(() -> {
+                // After a crash LoveClaims may still hold "under siege" on territories of conflicts that no longer
+                // exist (onDisable never ran); nothing is running yet, so every siege flag is stale.
+                for (me.lovelace.loveclans.model.Clan clan : clanManager.getAllClans()) {
+                    for (me.lovelace.loveclans.model.ClanTerritory territory : clan.territories()) {
+                        if (territory.advancedClaimId() != null) {
+                            advancedClaimsHook.setSiegeMode(territory.advancedClaimId(), false);
+                        }
+                    }
+                }
                 LoveClansAPI.init(this);
 
                 registerCommands();
@@ -468,6 +485,14 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public ClanRecognitionService getRecognitionService() {
         return recognitionService;
+    }
+
+    public me.lovelace.loveclans.storage.ConflictCooldownStore getConflictCooldownStore() {
+        return conflictCooldownStore;
+    }
+
+    public me.lovelace.loveclans.manager.PeaceService getPeaceService() {
+        return peaceService;
     }
 
     public ClanBannerReplacementService getBannerReplacementService() {

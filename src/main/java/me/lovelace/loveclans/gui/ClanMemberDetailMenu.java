@@ -58,12 +58,12 @@ public final class ClanMemberDetailMenu {
                 .orElse(false);
         boolean isSelf = member.playerId().equals(player.getUniqueId());
 
-        // Слоты 11-14 (впритык, без стекла между ними, правило 4) — передача лидерства,
+        // Слоты 10, 12, 14, 16 (четыре кнопки по центру рабочей строки, GuiFrames.workRowSlots(4)) — передача лидерства,
         // повышение, понижение, кик. Кнопки отображаются всегда (не пропадают), но становятся
         // неактивными (серый череп + причина в lore), если действие сейчас недоступно — так
         // игрок видит весь набор возможностей, а не гадает, почему кнопки нет.
         boolean canTransfer = isLeader && !isSelf;
-        inventory.setItem(11, canTransfer
+        inventory.setItem(10, canTransfer
                 ? item(ItemBuilder.HEAD_EXPAND, "gui.member-detail.transfer.name", "gui.member-detail.transfer.lore", player, targetId)
                 : inactiveItem("gui.member-detail.transfer.name",
                         isSelf ? "gui.member-detail.transfer.disabled-self" : "gui.member-detail.transfer.disabled-not-leader", player));
@@ -74,12 +74,12 @@ public final class ClanMemberDetailMenu {
                 : inactiveItem("gui.member-detail.promote.name", "gui.member-detail.promote.disabled-max-rank", player));
 
         boolean canDemote = !isSelf && member.rank().previousRank() != null;
-        inventory.setItem(13, canDemote
+        inventory.setItem(14, canDemote
                 ? item(ItemBuilder.HEAD_BACK, "gui.member-detail.demote.name", "gui.member-detail.demote.lore", player, targetId)
                 : inactiveItem("gui.member-detail.demote.name", "gui.member-detail.demote.disabled-min-rank", player));
 
         boolean canKick = !isSelf && member.rank() != ClanRank.LEADER;
-        inventory.setItem(14, canKick
+        inventory.setItem(16, canKick
                 ? item(ItemBuilder.HEAD_BARRIER, "gui.member-detail.kick.name", "gui.member-detail.kick.lore", player, targetId)
                 : inactiveItem("gui.member-detail.kick.name",
                         isSelf ? "gui.member-detail.kick.disabled-self" : "gui.member-detail.kick.disabled-leader", player));

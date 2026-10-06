@@ -247,6 +247,7 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
 
+            ConflictCooldownStore.createTable(statement);
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_diplomacy (
                         source_clan_id VARCHAR(36) NOT NULL,

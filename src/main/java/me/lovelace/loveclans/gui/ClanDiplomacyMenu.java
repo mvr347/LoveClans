@@ -312,6 +312,10 @@ public final class ClanDiplomacyMenu {
     }
 
     private void handleWarDeclare(Player player, Clan sourceClan, Clan targetClan) {
+        if (!sourceClan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.DIPLOMACY)) {
+            plugin.getMessages().send(player, "general.no-permission");
+            return;
+        }
         if (!sourceClan.hasCapital()) {
             plugin.sendOperationError(player, new IllegalStateException("war.attacker-no-capital"));
             return;
@@ -334,6 +338,10 @@ public final class ClanDiplomacyMenu {
     }
 
     private void handleSiegeDeclare(Player player, Clan sourceClan, Clan targetClan) {
+        if (!sourceClan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.DIPLOMACY)) {
+            plugin.getMessages().send(player, "general.no-permission");
+            return;
+        }
         if (!sourceClan.hasCapital()) {
             plugin.sendOperationError(player, new IllegalStateException("siege.attacker-no-capital"));
             return;
@@ -356,6 +364,10 @@ public final class ClanDiplomacyMenu {
     }
 
     private void handleRaidDeclare(Player player, Clan sourceClan, Clan targetClan) {
+        if (!sourceClan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.DIPLOMACY)) {
+            plugin.getMessages().send(player, "general.no-permission");
+            return;
+        }
         if (!sourceClan.hasCapital()) {
             plugin.sendOperationError(player, new IllegalStateException("raid.attacker-no-capital"));
             return;
@@ -373,22 +385,7 @@ public final class ClanDiplomacyMenu {
     }
 
     private void handlePeace(Player player, Clan sourceClan, Clan targetClan) {
-        boolean atWar = plugin.getWarManager().areAtWar(sourceClan.id(), targetClan.id());
-        boolean inSiege = !atWar && plugin.getSiegeManager().areInSiege(sourceClan.id(), targetClan.id());
-        boolean inRaid = !atWar && !inSiege && plugin.getRaidManager().areInRaid(sourceClan.id(), targetClan.id());
-        if (!atWar && !inSiege && !inRaid) {
-            plugin.sendOperationError(player, new IllegalStateException("war.not-at-war"));
-            return;
-        }
-        plugin.getGuiManager().openConfirm(player, sourceClan,
-                plugin.getMessages().component("gui.confirm.peace.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                Component.empty(),
-                () -> {
-                    var future = atWar ? plugin.getWarManager().peaceAsync(sourceClan, targetClan)
-                            : inSiege ? plugin.getSiegeManager().peaceAsync(sourceClan, targetClan)
-                            : plugin.getRaidManager().peaceAsync(sourceClan, targetClan);
-                    future.exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
-                },
-                () -> plugin.runSync(() -> open(player, sourceClan, targetClan)));
+        // A proposal, not a unilateral end: the other clan has to answer with its own peace request.
+        plugin.getPeaceService().proposeOrAccept(player, sourceClan, targetClan);
     }
 }

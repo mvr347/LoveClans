@@ -133,6 +133,7 @@ trade:
     sell-success: "<prefix><green>Вы сдали <white><item></white> в казну сервера! Начислено <reward>. Сдано на этой неделе: <white><current>/<max> стаков."
 
 clan:
+  disband-in-conflict: "<prefix><red>Нельзя распустить клан, пока идёт война, осада или набег."
   create-removed: "<prefix><red>Команда /clan create отключена. Приобретите Знамя основания клана у торговца и установите его на свободной земле!"
   unrecognized-cannot-claim: "<prefix><red>Непризнанный клан не может захватывать дополнительные территории. Только признанные кланы могут расширять свои земли."
   no-territory: "<prefix><red>У клана нет территории: дипломатия, торговля и войны недоступны. Глава может купить новое знамя у NPC."
@@ -1299,6 +1300,10 @@ history:
   rematch-bonus: "<prefix><gold>Реванш! <gray>Ваш клан получает <yellow>+<percent>%</yellow> к очкам в этой войне."
 
 war:
+  cannot-target-self: "<prefix><red>Нельзя начать конфликт с собственным кланом."
+  peace-offer-sent: "<prefix><yellow>Предложение мира отправлено клану <color><tag></color>. Оно действует 5 минут."
+  peace-offered: "<prefix><yellow>Клан <color><tag></color> предлагает мир. Чтобы согласиться, введите /clan peace <tag> или нажмите кнопку мира в дипломатии."
+  peace-blocked-capture: "<prefix><red>Пока знамя захвачено, мир предложить нельзя."
   objectives:
     control-held: "<prefix><green>Территория удержана: <yellow>+<score></yellow> к очкам войны."
   already-at-war: "<prefix><red>Ваш клан уже находится в состоянии войны с этим кланом."

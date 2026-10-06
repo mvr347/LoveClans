@@ -55,6 +55,12 @@ public final class RaidLootMenu implements Listener {
         }
         plugin.getClanManager().loadChestContentsAsync(defender).thenAccept(contents ->
                 plugin.runSync(() -> {
+                    // The looter may have logged out while the chest was loading: no close event would ever
+                    // fire, so the lock would stay and the defender's chest would read "busy" until a restart.
+                    if (!looter.isOnline()) {
+                        plugin.getClanManager().unlockItemChest(defender.id());
+                        return;
+                    }
                     RaidLootMenu menu = new RaidLootMenu(plugin, defender, looter, raid.id(), contents);
                     looter.openInventory(menu.inventory);
                 })
@@ -71,6 +77,30 @@ public final class RaidLootMenu implements Listener {
             return;
         }
         int rawSlot = event.getRawSlot();
+        // The chest is take-only and whole stacks only: anything that could put an item in, swap, split a stack or
+        // sweep items to the cursor would dodge the per-raid slot cap that is counted below.
+        switch (event.getAction()) {
+            case COLLECT_TO_CURSOR, PLACE_ALL, PLACE_ONE, PLACE_SOME, SWAP_WITH_CURSOR, HOTBAR_SWAP,
+                 HOTBAR_MOVE_AND_READD, CLONE_STACK, UNKNOWN -> {
+                if (event.getAction() == org.bukkit.event.inventory.InventoryAction.COLLECT_TO_CURSOR || rawSlot < inventory.getSize()) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+            case PICKUP_HALF, PICKUP_ONE, PICKUP_SOME, DROP_ONE_SLOT -> {
+                if (rawSlot < inventory.getSize()) {
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+            case MOVE_TO_OTHER_INVENTORY -> {
+                if (rawSlot >= inventory.getSize()) { // shift-click from the looter's inventory would fill the chest
+                    event.setCancelled(true);
+                    return;
+                }
+            }
+            default -> { }
+        }
         if (rawSlot >= inventory.getSize()) {
             return; // player's own inventory — normal behaviour
         }
@@ -96,6 +126,19 @@ public final class RaidLootMenu implements Listener {
                     plugin.getRaidManager().recordItemSlotLooted(raidId);
                 }
             });
+        }
+    }
+
+    @EventHandler
+    public void onInventoryDrag(org.bukkit.event.inventory.InventoryDragEvent event) {
+        if (!event.getInventory().equals(inventory)) {
+            return;
+        }
+        for (int slot : event.getRawSlots()) {
+            if (slot < inventory.getSize()) {
+                event.setCancelled(true); // dragging items into the chest would be deleted on close
+                return;
+            }
         }
     }
 
