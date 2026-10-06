@@ -30,10 +30,12 @@ public final class ClanTerritoriesMenu {
     public void open(Player player, Clan clan) {
         List<ClanTerritory> territories = clan.territories().stream().toList();
 
-        int numTerritories = territories.size();
-        int contentRows = (int) Math.ceil(numTerritories / 7.0);
-        if (contentRows == 0) contentRows = 1;
-        int inventorySize = Math.max(27, Math.min(54, (contentRows + 2) * 9));
+        // gui_gen v2.1: 27 slots keep the content in row 9-17; from 45 slots Row1 (9-17) is frame and the work zone
+        // starts at 18, so the grid never reaches into the header or footer.
+        int contentRows = Math.max(1, (int) Math.ceil(territories.size() / 7.0));
+        int inventorySize = contentRows <= 1 ? 27 : contentRows == 2 ? 45 : 54;
+        int firstContentRow = inventorySize == 27 ? 1 : 2;
+        int numTerritories = Math.min(territories.size(), 7 * (inventorySize == 27 ? 1 : inventorySize == 45 ? 2 : 3));
 
         ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.TERRITORIES, clan.id());
         Inventory inventory = Bukkit.createInventory(holder, inventorySize,
@@ -42,9 +44,13 @@ public final class ClanTerritoriesMenu {
         holder.setInventory(inventory);
 
         fillFrame(inventory, inventorySize);
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_TERRITORIES)
+                .name(plugin.getMessages().component("gui.territories-title",
+                        Map.of("tag", clan.tag(), "color", clan.tagColor()), player))
+                .build());
 
         if (territories.isEmpty()) {
-            inventory.setItem(inventorySize / 2, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
+            inventory.setItem(9 * firstContentRow + 4, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.territories.empty.name", player))
                     .lore(plugin.getMessages().component("gui.territories.empty.lore", player))
                     .build());
@@ -56,7 +62,7 @@ public final class ClanTerritoriesMenu {
 
                 int row = i / 7;
                 int col = i % 7;
-                int slot = 9 * (row + 1) + 1 + col;
+                int slot = 9 * (row + firstContentRow) + 1 + col;
 
                 inventory.setItem(slot, ItemBuilder.head(ItemBuilder.HEAD_MAP)
                         .name(plugin.getMessages().component("gui.territories.item.name",
@@ -188,10 +194,10 @@ public final class ClanTerritoriesMenu {
         }
     }
 
-    /** Rule 8: only the header row (0-8) and footer row (last 9 slots) are pure frame here —
+    /** Rule 8: only the header (0-8, plus Row1 9-17 from 45 slots) and footer row (last 9 slots) are pure frame here —
      *  the territory grid rows in between are content zone and must stay glass-free where empty. */
     private void fillFrame(Inventory inventory, int size) {
-        for (int slot = 0; slot <= 8; slot++) {
+        for (int slot = 1; slot < (size >= 45 ? 18 : 9); slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
         for (int slot = size - 9; slot < size; slot++) {

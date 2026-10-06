@@ -30,6 +30,9 @@ public final class ClanCreateMenu implements InventoryHolder {
                 plugin.getMessages().component("gui.create.title", player));
 
         GuiFrames.fillFrame27(inventory);
+        // Slot 0 is the theme head - the header never has an empty slot.
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_INFO).name(plugin.getMessages().component("gui.create.title", player)).build());
+        inventory.setItem(25, GuiFrames.glassPane());
 
         String nameDisplay = name.isEmpty() ? plugin.getMessages().raw("gui.create.name.not-set") : name;
         inventory.setItem(10, ItemBuilder.head(HeadTextures.HEAD_NAME)
@@ -121,7 +124,7 @@ public final class ClanCreateMenu implements InventoryHolder {
         player.closeInventory();
         plugin.getClanManager().createClanAsync(name, tag, player.getUniqueId(), open)
                 .thenAccept(created -> plugin.runSync(() -> {
-                    plugin.getMessages().send(player, "gui.create.success", Map.of("tag", created.tag(), "name", created.name()));
+                    plugin.getMessages().send(player, "gui.create.success", Map.of("tag", created.tag(), "name", created.name(), "color", created.tagColor()));
                     plugin.getGuiManager().openMain(player, created);
                 }))
                 .exceptionally(t -> {

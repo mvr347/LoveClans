@@ -25,13 +25,12 @@ public final class ClanInfoMenu implements InventoryHolder {
     private static final int PER_ROW = 7;
     private static final int MAX_CONTENT_ROWS = 3;
     private static final int SLOT_ICON = 0;
-    private static final int SLOT_LEADER = 4;
 
     private final LoveClansPlugin plugin;
     private final Player player;
     private final Clan clan;
-    // Everyone except the owner - the owner has its own guaranteed slot (SLOT_LEADER) and must
-    // not also take a slot in this grid, otherwise they'd be duplicated on-screen.
+    // Leader first (the rank weight sorts the leader to the top), then the rest. Everything lives in the work
+    // zone: the header holds only the clan icon and controls.
     private final List<ClanMember> otherMembers;
     private final int totalMemberCount;
     private Inventory inventory;
@@ -54,7 +53,6 @@ public final class ClanInfoMenu implements InventoryHolder {
         this.clan = clan;
         this.totalMemberCount = clan.members().size();
         this.otherMembers = clan.members().values().stream()
-                .filter(member -> member.rank() != ClanRank.LEADER)
                 .sorted(Comparator.comparingInt((ClanMember member) -> member.rank().weight()).reversed())
                 .toList();
     }
@@ -64,8 +62,7 @@ public final class ClanInfoMenu implements InventoryHolder {
     }
 
     public void open() {
-        // Grid capacity/pagination is based on OTHER members only - the owner never occupies a
-        // grid slot, so an owner-only clan legitimately has an empty grid, not a bug.
+        // Grid capacity/pagination covers every member, the leader included (always the first head).
         int otherCount = otherMembers.size();
         int noPaginationCapacity = PER_ROW * MAX_CONTENT_ROWS;
         this.paginated = otherCount > noPaginationCapacity;
@@ -121,52 +118,6 @@ public final class ClanInfoMenu implements InventoryHolder {
                         : plugin.getMessages().component("gui.info.description", Map.of("description", description), player));
         inventory.setItem(SLOT_ICON, info.build());
 
-        // Слот 4 — голова лидера, ВСЕГДА присутствует независимо от числа остальных участников
-        // (в т.ч. для клана из одного главы). Раньше лидер также попадал в общий список ниже
-        // (sortedMembers строился из clan.members(), который его уже включает) — теперь
-        // otherMembers явно его исключает, так что эта голова единственное место, где он
-        // показан, без дублирования.
-        clan.leaderId().ifPresent(leaderId -> {
-            OfflinePlayer leader = Bukkit.getOfflinePlayer(leaderId);
-            String leaderName = leader.getName() != null ? leader.getName() : leaderId.toString().substring(0, 8);
-            boolean leaderOnline = leader.isOnline();
-            String leaderStatus = leaderOnline
-                    ? plugin.getMessages().raw("gui.members.item.status-online")
-                    : plugin.getMessages().raw("gui.members.item.status-offline");
-            ItemBuilder leaderHead = ItemBuilder.of(Material.PLAYER_HEAD)
-                    .name(plugin.getMessages().component("gui.info.leader", Map.of("player", leaderName), player))
-                    .lore(plugin.getMessages().component("gui.members.item.status", Map.of("status", leaderStatus), player));
-
-            // "Немного больше информации о главе": дата вступления в клан и вклад (оба поля уже
-            // персистентны на ClanMember, никакой новой трекинг-системы не заводим) плюс дата
-            // последнего визита, когда глава сейчас оффлайн - "Оффлайн" одним словом не говорит,
-            // насколько давно. НЕ подписываем дату вступления как "лидер с" - лидерство передаётся
-            // вручную (transferLeadershipAsync) и по наследованию (SuccessionManager#finishVote),
-            // а оба пути меняют только ранг и не трогают joinedAt, так что для унаследовавшего
-            // лидера эта дата была бы враньём.
-            clan.member(leaderId).ifPresent(leaderMember -> {
-                leaderHead.lore(plugin.getMessages().component("gui.info.leader-member-since",
-                        Map.of("date", dateFormat.format(new java.util.Date(leaderMember.joinedAt()))), player));
-                leaderHead.lore(plugin.getMessages().component("gui.members.item.contribution",
-                        Map.of("amount", String.valueOf(leaderMember.contribution())), player));
-                if (!leaderOnline) {
-                    // Тот же максимум (Bukkit-логин vs. последний раз замеченный кланом), что
-                    // SuccessionManager#leaderAbsent уже использует для решения "пора ли голосовать
-                    // за нового главу" - одно и то же представление "как давно" в UI и в механике.
-                    long lastSeen = Math.max(leader.getLastPlayed(), leaderMember.lastSeen());
-                    if (lastSeen > 0L) {
-                        leaderHead.lore(plugin.getMessages().component("gui.info.leader-last-seen",
-                                Map.of("date", dateFormat.format(new java.util.Date(lastSeen))), player));
-                    }
-                }
-            });
-
-            leaderHead.mutate(meta -> {
-                if (meta instanceof SkullMeta skullMeta) skullMeta.setOwningPlayer(leader);
-            });
-            inventory.setItem(SLOT_LEADER, leaderHead.build());
-        });
-
         // "Подать заявку" виден только если смотрящий ещё не в клане (ни в этом, ни в другом)
         // и не является лидером просматриваемого клана — второе тут избыточно (лидер клана уже
         // состоит в клане), но проверяем явно для ясности и на случай рассинхронизации данных.
@@ -178,9 +129,7 @@ public final class ClanInfoMenu implements InventoryHolder {
 
         int contentStartSlot = headerRows * 9;
         if (otherCount == 0) {
-            // Owner-only clan: the grid legitimately has no one else to show - the owner is not
-            // "missing", they're the head at SLOT_LEADER above. Text reflects that explicitly so
-            // it doesn't read as "this clan has nobody in it".
+            // Defensive: a clan always has at least its leader, so this is only a corrupted-data fallback.
             inventory.setItem(contentStartSlot + 4, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.info.no-members.name", player))
                     .lore(plugin.getMessages().component("gui.info.no-members.lore", player))
@@ -264,6 +213,23 @@ public final class ClanInfoMenu implements InventoryHolder {
                 .name(plugin.getMessages().component("gui.members.item.name", Map.of("player", name), player))
                 .lore(plugin.getMessages().component("gui.members.item.rank", Map.of("rank", member.rank().displayName()), player))
                 .lore(plugin.getMessages().component("gui.members.item.status", Map.of("status", status), player));
+
+        if (member.rank() == ClanRank.LEADER) {
+            // A bit more about the leader: join date, contribution and, when offline, the last visit - "offline"
+            // alone does not say for how long. The join date is not labelled "leader since": leadership moves
+            // by transfer or succession and neither touches joinedAt.
+            builder.lore(plugin.getMessages().component("gui.info.leader-member-since",
+                    Map.of("date", dateFormat.format(new java.util.Date(member.joinedAt()))), player));
+            builder.lore(plugin.getMessages().component("gui.members.item.contribution",
+                    Map.of("amount", String.valueOf(member.contribution())), player));
+            if (!offline.isOnline()) {
+                long lastSeen = Math.max(offline.getLastPlayed(), member.lastSeen());
+                if (lastSeen > 0L) {
+                    builder.lore(plugin.getMessages().component("gui.info.leader-last-seen",
+                            Map.of("date", dateFormat.format(new java.util.Date(lastSeen))), player));
+                }
+            }
+        }
 
         builder.mutate(meta -> {
             if (meta instanceof SkullMeta skullMeta) skullMeta.setOwningPlayer(offline);

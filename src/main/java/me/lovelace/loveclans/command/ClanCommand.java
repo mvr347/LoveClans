@@ -712,13 +712,13 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         Clan clan = optionalClan.get();
-        // Same check as the authoritative guard in GuiManager#openChestHub - duplicated here for
+        // Same check as the authoritative guard in GuiManager#openChestItems - duplicated here for
         // immediate command-layer feedback, matching how war/siege/raid are gated at both layers.
         if (!clan.hasCapital()) {
             plugin.getMessages().send(player, "chest.no-capital");
             return;
         }
-        plugin.getGuiManager().openChestHub(player, clan);
+        plugin.getGuiManager().openChestItems(player, clan);
     }
 
     private void openContracts(Player player) {
@@ -815,7 +815,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.not-in-clan");
             return;
         }
-        new ClanApplicationsMenu(plugin).open(player, optionalClan.get());
+        plugin.getGuiManager().openApplications(player, optionalClan.get());
     }
 
     private void war(Player player, String[] args) {

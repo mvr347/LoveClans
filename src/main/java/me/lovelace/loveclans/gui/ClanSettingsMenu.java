@@ -27,6 +27,9 @@ public final class ClanSettingsMenu {
         holder.setInventory(inventory);
 
         fillFrame(inventory);
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_MAIN_SETTINGS)
+                .name(plugin.getMessages().component("gui.settings.title", Map.of("clan", clan.name(), "color", clan.tagColor()), player))
+                .build());
 
         inventory.setItem(10, ItemBuilder.head(HeadTextures.HEAD_NAME)
                 .name(plugin.getMessages().component("gui.settings.rename.name", player))

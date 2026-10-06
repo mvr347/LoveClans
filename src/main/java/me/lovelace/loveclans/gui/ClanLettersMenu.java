@@ -22,10 +22,8 @@ import java.util.Map;
  * дипломатии появится в рамках отдельной задачи по переделке UI (§6).
  */
 public final class ClanLettersMenu {
-    // Slot 18 is the unused left-edge column of the content grid's first row (CONTENT_SLOTS
-    // starts at 19) — previously WRITE_SLOT sat at 4, inside the glass-bordered header row
-    // fillFrame54 fills, overwriting the border instead of living in the working area.
-    private static final int WRITE_SLOT = 18;
+    // The write button is the footer extra button (gui_gen v2.1): the work zone holds letters only.
+    private static final int WRITE_SLOT = 51; // footer extra-button slot
     // gui_gen 54-slot working zone is 18-44 only (three rows) — row 1 (9-17) is always frame,
     // never content, unlike the 27-slot menu's 9-17 content zone. Don't confuse the two.
     private static final int[] CONTENT_SLOTS = {
@@ -58,6 +56,8 @@ public final class ClanLettersMenu {
         holder.setInventory(inventory);
 
         GuiFrames.fillFrame54(inventory);
+        // Slot 0 is the theme head - the header never has an empty slot.
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_LETTERS).name(plugin.getMessages().component("gui.letters.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player)).build());
 
         inventory.setItem(WRITE_SLOT, ItemBuilder.head(ItemBuilder.HEAD_LETTER_WRITE)
                 .name(plugin.getMessages().component("gui.letters.write.name", player))

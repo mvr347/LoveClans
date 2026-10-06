@@ -19,16 +19,16 @@ import java.util.Map;
 public final class ClanColorPickerMenu {
     private record ColorOption(String tag, String headTexture, String name) {}
 
-    // Только 16 цветов — три полных ряда по 7 (54-слотовый шаблон) оставляли третий ряд
-    // почти пустым. На 45 слотах, используя полную ширину строк без боковых стенок
-    // (правило 4 их не требует — «могут быть пусто»), 16 цветов помещаются в два ряда.
+    // 16 colors in the three work rows of a 54-slot menu, side walls left empty (gui_gen v2.1, rule 6):
+    // 21 content slots, the last five stay free.
     private static final int[] COLOR_SLOTS = {
-            18, 19, 20, 21, 22, 23, 24, 25, 26,
-            27, 28, 29, 30, 31, 32, 33, 34, 35
+            19, 20, 21, 22, 23, 24, 25,
+            28, 29, 30, 31, 32, 33, 34,
+            37, 38
     };
-    private static final int SLOT_BACK = 43;
-    private static final int SLOT_CLOSE = 44;
-    private static final int INVENTORY_SIZE = 45;
+    private static final int SLOT_BACK = 52;
+    private static final int SLOT_CLOSE = 53;
+    private static final int INVENTORY_SIZE = 54;
 
     // Жёстко заданный список из 15 цветов с текстурами шерсти для выбора цвета тега клана.
     // Ключ конфигурации (clans.available-colors.<key>) используется только для получения tag/name,
@@ -66,6 +66,9 @@ public final class ClanColorPickerMenu {
         holder.setInventory(inventory);
 
         fillFrame(inventory);
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_WOOL_ORANGE_GOLD)
+                .name(plugin.getMessages().component("gui.color-picker.title", player))
+                .build());
 
         List<ColorOption> options = loadOptions();
         for (int i = 0; i < Math.min(options.size(), COLOR_SLOTS.length); i++) {
@@ -91,16 +94,14 @@ public final class ClanColorPickerMenu {
     }
 
     /**
-     * 0-17 и 36-42 — стекло (шапка + разделитель, футер кроме кнопок). Слот 0 тоже стекло —
-     * меню не привязано к конкретному клану идентичностью, только к выбору цвета, поэтому
-     * профильная голова здесь не нужна (тот же приём, что в ClanRoleSettingsMenu).
-     * Рабочая зона 18-35 не трогается.
+     * 1-17 (header and Row1) and 45-51 (footer without the buttons) are glass; slot 0 is set by the caller.
+     * The work zone 18-44 is not touched.
      */
     private void fillFrame(Inventory inventory) {
-        for (int slot = 0; slot <= 17; slot++) {
+        for (int slot = 1; slot <= 17; slot++) {
             inventory.setItem(slot, GuiFrames.glassPane());
         }
-        for (int slot = 36; slot < SLOT_BACK; slot++) {
+        for (int slot = 45; slot < SLOT_BACK; slot++) {
             inventory.setItem(slot, GuiFrames.glassPane());
         }
     }

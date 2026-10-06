@@ -28,7 +28,9 @@ public final class ClanRoleSettingsMenu {
         holder.setInventory(inventory);
 
         GuiFrames.fillFrame27(inventory);
-        inventory.setItem(0, GuiFrames.glassPane());
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_SETTINGS)
+                .name(plugin.getMessages().component("gui.role-settings.title", player))
+                .build());
 
         ClanRank[] ranks = { ClanRank.RECRUIT, ClanRank.MEMBER, ClanRank.GUARDIAN };
         int[] slots = { 11, 13, 15 };

@@ -31,7 +31,7 @@ public final class ClanDiplomacyMenu {
     private static final int SLOT_INFO = 0;
     // Шапка: только разделы. Отношения, эмбарго и блокада переехали в рабочую зону —
     // раньше они стояли наверху и мешались с разделами.
-    private static final int SLOT_LETTERS = 2;
+    private static final int SLOT_LETTERS = 51; // footer extra-button slot (gui_gen v2.1): the header holds only controls
     // Рабочая зона, ряд 1 — состояние отношений.
     private static final int SLOT_RELATIONS = 20;
     private static final int SLOT_EMBARGO = 22;

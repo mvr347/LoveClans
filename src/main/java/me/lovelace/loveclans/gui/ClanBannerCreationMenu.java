@@ -41,6 +41,7 @@ public final class ClanBannerCreationMenu implements InventoryHolder {
                 plugin.getMessages().component("gui.banner-create.title", player));
 
         GuiFrames.fillFrame27(inventory);
+        inventory.setItem(25, GuiFrames.glassPane()); // footer is one full row: glass next to Close
 
         // Slot 0: Capital banner icon explaining the procedure
         inventory.setItem(0, ItemBuilder.of(Material.RED_BANNER)
@@ -180,7 +181,7 @@ public final class ClanBannerCreationMenu implements InventoryHolder {
                     plugin.getClanManager().claimTerritoryAsync(created, bannerLocation, player, "CAPITAL")
                             .thenRun(() -> plugin.runSync(() -> {
                                 plugin.getMessages().send(player, "gui.banner-create.success",
-                                        Map.of("tag", created.tag(), "name", created.name()));
+                                        Map.of("tag", created.tag(), "name", created.name(), "color", created.tagColor()));
                                 plugin.getGuiManager().openMain(player, created);
                             }))
                             .exceptionally(t -> {

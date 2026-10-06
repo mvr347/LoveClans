@@ -29,7 +29,7 @@ public final class ClanServerTradeMenu implements InventoryHolder {
 
     public void open() {
         this.inventory = Bukkit.createInventory(this, 27,
-                plugin.getMessages().component("gui.server-trade.title", Map.of("tag", clan.tag()), player));
+                plugin.getMessages().component("gui.server-trade.title", Map.of("week", String.valueOf(plugin.getServerTradeManager().currentWeek())), player));
 
         GuiFrames.fillFrame27(inventory);
 
@@ -75,7 +75,10 @@ public final class ClanServerTradeMenu implements InventoryHolder {
             inventory.setItem(slot, offerItem.build());
         }
 
-        // Slot 26: Close / Back
+        // Footer: Back to the main menu (the screen is opened from it) and Close
+        inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+                .name(plugin.getMessages().component("gui.back", player))
+                .build());
         inventory.setItem(26, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
@@ -86,6 +89,10 @@ public final class ClanServerTradeMenu implements InventoryHolder {
     public void handleInventoryClick(int slot) {
         if (slot == 26) {
             player.closeInventory();
+            return;
+        }
+        if (slot == 25) {
+            plugin.getGuiManager().openMain(player, clan);
             return;
         }
 

@@ -312,6 +312,27 @@ gui:
   close: "<red>Закрыть"
   next-page: "<gray>Следующая страница »"
   previous-page: "<gray>« Предыдущая страница"
+  members-hub:
+    title: "<color><tag> <white>- Участники и заявки"
+    filter-title: "<gold>Фильтр"
+    sort-title: "<gold>Сортировка"
+    filter:
+      all: "Все"
+      members: "Участники"
+      online: "В сети"
+      applications: "Заявки"
+      invites: "Приглашения"
+    sort:
+      rank: "По рангу"
+      contribution: "По вкладу"
+      name: "По имени"
+      date: "По дате"
+    option-current: "<green>▶ <name>"
+    option-other: "<gray>  <name>"
+    cycle-hint: "<yellow>ЛКМ <gray>- дальше, <yellow>ПКМ <gray>- назад"
+    empty:
+      name: "<gray>Здесь пока никого нет"
+      lore: "<gray>Попробуйте другой фильтр."
   members-title: "<color><tag> <white>- Участники"
   territories-title: "<gray>Территории клана <color><tag>"
   territories-selection-title: "<gray>Управление клановой территорией <white><clan>"
@@ -333,6 +354,7 @@ gui:
       tax-locked: "<red>Налог: НЕ ОПЛАЧЕН - сундук заблокирован!"
       next-tax: "<gray>Следующее списание: <white><time>"
       tax-amount: "<gray>Сумма налога: <white><amount></white>/нед."
+      rows: "<gray>Рядов предметов: <white><rows></white>/<max>"
     money-button:
       name: "<gold>💰 Деньги"
       lore: "<gray>Баланс: <yellow><amount>"
@@ -513,6 +535,7 @@ gui:
     no-permission: "<prefix><red>У вас нет прав для управления клановым спавном."
     no-permission-lore: "<red>У вас нет прав для управления клановым спавном."
     no-house-lore: "<red>Сначала создайте клановый спавн."
+    no-house: "<prefix><red>У клана ещё нет кланового спавна."
     war-blocked: "<prefix><red>Это действие недоступно во время войны."
     show-border:
       name: "<gold>Показать границы территории"
@@ -780,6 +803,10 @@ gui:
     members:
       name: "<gold>Участники"
       lore: "<gray>Список участников клана."
+      # New keys (the live lang.yml keeps old texts): the screen now also holds applications and invitations.
+      hub-name: "<gold>Участники и заявки"
+      hub-lore: "<gray>Участники клана, заявки и приглашения."
+      applications-lore: "<yellow>Новых заявок: <white><count>"
     territories:
       name: "<gold>Клановый спавн"
       lore: "<gray>Управление клановым спавном и территориями клана."

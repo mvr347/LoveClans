@@ -62,7 +62,7 @@ public final class ClanChestMoneyMenu {
         if (slot == CLOSE_SLOT) {
             player.closeInventory();
         } else if (slot == BACK_SLOT) {
-            plugin.getGuiManager().openChestHub(player, clan);
+            plugin.getGuiManager().openMain(player, clan);
         } else if (slot == DEPOSIT_SLOT) {
             promptAmount(player, clan, "gui.chest.money.deposit.prompt", true);
         } else if (slot == WITHDRAW_SLOT) {

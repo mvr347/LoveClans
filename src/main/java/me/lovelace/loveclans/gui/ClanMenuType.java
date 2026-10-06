@@ -7,7 +7,6 @@ public enum ClanMenuType {
     UPGRADES,
     PERKS,
     SETTINGS,
-    APPLICATIONS,
     DIPLOMACY,
     DIPLOMACY_SELECT,
     RELATIONS,
@@ -21,7 +20,6 @@ public enum ClanMenuType {
     CONTRACT_CHOICE,
     GUILDMASTER,
     RECOGNITION_CONFIRM,
-    CHEST_HUB,
     CHEST_MONEY,
     LETTERS,
     TRADE_REQUESTS
