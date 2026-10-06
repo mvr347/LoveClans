@@ -34,11 +34,18 @@ public final class BannerPurchaseConfirmMenu {
     public static final class Holder implements InventoryHolder {
         private final long cost;
         private final boolean affordable;
+        private final boolean replacement;
         private Inventory inventory;
 
-        private Holder(long cost, boolean affordable) {
+        private Holder(long cost, boolean affordable, boolean replacement) {
             this.cost = cost;
             this.affordable = affordable;
+            this.replacement = replacement;
+        }
+
+        /** True for the cheaper replacement banner of a clan that lost its territory (it comes with a penalty). */
+        public boolean replacement() {
+            return replacement;
         }
 
         /** У игрока хватало монет на момент открытия; без этого кнопки «Подтвердить» в меню нет. */
@@ -66,8 +73,12 @@ public final class BannerPurchaseConfirmMenu {
      * стекло (по gui_gen в рамке не бывает пустых слотов), а в описании знамени - строка о нехватке средств.
      */
     public static void open(Player player, LoveClansPlugin plugin, long cost, boolean affordable) {
-        Holder holder = new Holder(cost, affordable);
-        Component title = plugin.getMessages().component("clan.banner.confirm-title", player);
+        open(player, plugin, cost, affordable, false);
+    }
+
+    public static void open(Player player, LoveClansPlugin plugin, long cost, boolean affordable, boolean replacement) {
+        Holder holder = new Holder(cost, affordable, replacement);
+        Component title = plugin.getMessages().component(replacement ? "clan.banner.replacement-confirm-title" : "clan.banner.confirm-title", player);
         Inventory inventory = Bukkit.createInventory(holder, SIZE, title);
         holder.setInventory(inventory);
 
@@ -79,15 +90,19 @@ public final class BannerPurchaseConfirmMenu {
             inventory.setItem(SLOT_CONFIRM, glass);
         }
 
-        Map<String, String> placeholders = Map.of("cost", CoinFormat.format(cost));
-        java.util.List<Component> infoLore = new java.util.ArrayList<>(
-                plugin.getMessages().components("clan.banner.confirm-item-lore", placeholders, player));
+        Map<String, String> placeholders = replacement
+                ? Map.of("cost", CoinFormat.format(cost),
+                        "spirit", String.valueOf(plugin.getBannerReplacementService().spiritLevelsLost()),
+                        "exp", String.valueOf(plugin.getBannerReplacementService().experiencePercent()))
+                : Map.of("cost", CoinFormat.format(cost));
+        java.util.List<Component> infoLore = new java.util.ArrayList<>(plugin.getMessages().components(
+                replacement ? "clan.banner.replacement-lore" : "clan.banner.confirm-item-lore", placeholders, player));
         if (!affordable) {
             infoLore.add(Component.empty());
             infoLore.add(plugin.getMessages().component("clan.banner.confirm-not-enough", placeholders, player));
         }
         ItemStack info = ItemBuilder.of(Material.WHITE_BANNER)
-                .name(plugin.getMessages().component("clan.banner.confirm-item-name", placeholders, player))
+                .name(plugin.getMessages().component(replacement ? "clan.banner.replacement-item-name" : "clan.banner.confirm-item-name", placeholders, player))
                 .lore(infoLore)
                 .build();
         inventory.setItem(SLOT_INFO, info);

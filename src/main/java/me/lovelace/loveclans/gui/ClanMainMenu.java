@@ -96,28 +96,15 @@ public final class ClanMainMenu implements InventoryHolder {
         boolean canManageSettings = clan.hasPermission(clickerId, ClanPermission.SETTINGS);
         boolean canManageDiplomacy = clan.hasPermission(clickerId, ClanPermission.DIPLOMACY);
 
-        ItemBuilder diplomacyItem = canManageDiplomacy
+        boolean hasTerritory = clan.hasCapital();
+        boolean diplomacyActive = canManageDiplomacy && hasTerritory;
+        ItemBuilder diplomacyItem = diplomacyActive
                 ? ItemBuilder.head(ItemBuilder.HEAD_DIPLOMACY)
                 : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE);
         diplomacyItem.name(plugin.getMessages().component("gui.main.diplomacy.name", player))
-                .lore(plugin.getMessages().component(canManageDiplomacy ? "gui.main.diplomacy.lore" : "gui.main.diplomacy.no-permission-lore", player));
+                .lore(plugin.getMessages().component(!canManageDiplomacy ? "gui.main.diplomacy.no-permission-lore"
+                        : !hasTerritory ? "gui.main.no-territory-lore" : "gui.main.diplomacy.lore", player));
         inventory.setItem(21, diplomacyItem.build());
-
-        // "Баннер пропал" — территория числится за кланом, но физического блока баннера на месте
-        // либо нет вовсе, либо он не помечен клановыми PDC-тегами (взрыв, поджог, чужое вмешательство
-        // — ни один из этих путей не проходит через защиту ClanProtectionListener#onBlockBreak,
-        // которая ловит только прямую поломку игроком). Показываем только тем, кто может управлять
-        // территорией и не заблокирован войной — иначе тем, кому и так недоступно управление,
-        // предлагали бы действие, которое обычной кликалкой не пройдёт.
-        Optional<ClanTerritory> capitalTerritoryOpt = clan.getCapitalTerritory();
-        boolean bannerMissing = !atWar && canManageTerritories
-                && capitalTerritoryOpt.isPresent()
-                && !plugin.getClanManager().isBannerPresent(capitalTerritoryOpt.get());
-
-        // A clan without a territory whose leader lost the banner item would be stuck (the capital menu no longer
-        // hands out banners), so this button gives a new one - but only while the player does not hold one.
-        boolean needsBannerItem = !atWar && canManageTerritories && !clan.hasCapital()
-                && !plugin.getClanManager().getClanItemFactory().hasExistingBanner(player, "CAPITAL", clan.id());
 
         boolean clanHouseInactive = atWar || !canManageTerritories;
         ItemBuilder clanHouseItem;
@@ -130,19 +117,6 @@ public final class ClanMainMenu implements InventoryHolder {
             } else {
                 clanHouseItem.lore(plugin.getMessages().component("gui.main.territories.no-permission-lore", player));
             }
-        } else if (needsBannerItem) {
-            clanHouseItem = ItemBuilder.of(Material.RED_BANNER)
-                    .name(plugin.getMessages().component("gui.territories.capital.get-banner", player))
-                    .lore(plugin.getMessages().component("gui.territories.capital.get-banner-lore", player));
-        } else if (bannerMissing) {
-            boolean hasBannerItem = plugin.getClanManager().getClanItemFactory().hasExistingBanner(player, "CAPITAL", clan.id());
-            clanHouseItem = hasBannerItem
-                    ? ItemBuilder.head(ItemBuilder.HEAD_LEAVE_CLAN)
-                            .name(plugin.getMessages().component("gui.territories.capital.already-have-banner-item", player))
-                            .lore(plugin.getMessages().component("gui.territories.capital.banner-missing-place-it", player))
-                    : ItemBuilder.of(Material.RED_BANNER)
-                            .name(plugin.getMessages().component("gui.territories.capital.banner-missing-name", player))
-                            .lore(plugin.getMessages().component("gui.territories.capital.banner-missing-lore", player));
         } else {
             clanHouseItem = ItemBuilder.head(ItemBuilder.HEAD_CAPITAL)
                     .name(plugin.getMessages().component("gui.main.territories.name", player))
@@ -174,18 +148,24 @@ public final class ClanMainMenu implements InventoryHolder {
                 .build());
 
         // Row 4 — trade and settings
-        inventory.setItem(SLOT_TRADE_REQUESTS, ItemBuilder.head(ItemBuilder.HEAD_LETTERS)
-                .name(plugin.getMessages().component("gui.chest.trade-requests-button.name", player))
-                .lore(plugin.getMessages().component("gui.chest.trade-requests-button.lore", player))
-                .build());
-        inventory.setItem(SLOT_SERVER_TRADE, clan.isRecognized()
+        inventory.setItem(SLOT_TRADE_REQUESTS, hasTerritory
+                ? ItemBuilder.head(ItemBuilder.HEAD_LETTERS)
+                        .name(plugin.getMessages().component("gui.chest.trade-requests-button.name", player))
+                        .lore(plugin.getMessages().component("gui.chest.trade-requests-button.lore", player))
+                        .build()
+                : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                        .name(plugin.getMessages().component("gui.chest.trade-requests-button.name", player))
+                        .lore(plugin.getMessages().component("gui.main.no-territory-lore", player))
+                        .build());
+        inventory.setItem(SLOT_SERVER_TRADE, clan.isRecognized() && hasTerritory
                 ? ItemBuilder.head(ItemBuilder.HEAD_TRADE)
                         .name(plugin.getMessages().component("gui.chest.server-trade-button.name", player))
                         .lore(plugin.getMessages().component("gui.chest.server-trade-button.lore", player))
                         .build()
                 : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                         .name(plugin.getMessages().component("gui.chest.server-trade-button.name", player))
-                        .lore(plugin.getMessages().component("gui.chest.server-trade-button.unrecognized-lore", player))
+                        .lore(plugin.getMessages().component(hasTerritory ? "gui.chest.server-trade-button.unrecognized-lore"
+                                : "gui.main.no-territory-lore", player))
                         .build());
 
         ItemBuilder settingsItem = canManageSettings
@@ -269,7 +249,9 @@ public final class ClanMainMenu implements InventoryHolder {
         switch (slot) {
             case 19 -> plugin.getGuiManager().openMembers(clicker, clan);
             case 21 -> {
-                if (clan.hasPermission(clicker.getUniqueId(), ClanPermission.DIPLOMACY)) {
+                if (!clan.hasCapital()) {
+                    plugin.getMessages().send(clicker, "clan.no-territory");
+                } else if (clan.hasPermission(clicker.getUniqueId(), ClanPermission.DIPLOMACY)) {
                     plugin.getGuiManager().openDiplomacySelect(clicker, clan);
                 } else {
                     plugin.getMessages().send(clicker, "general.no-permission");
@@ -280,17 +262,6 @@ public final class ClanMainMenu implements InventoryHolder {
                 // но в режиме просмотра/телепортации (см. ClanCapitalManagementMenu.isManagement).
                 if (plugin.getClanManager().inAnyConflict(clan.id())) {
                     plugin.getMessages().send(clicker, "gui.capital.war-blocked");
-                    return;
-                }
-                boolean canManageTerritories = clan.hasPermission(clicker.getUniqueId(), ClanPermission.CLAIM);
-                boolean bannerMissing = canManageTerritories && clan.getCapitalTerritory()
-                        .map(t -> !plugin.getClanManager().isBannerPresent(t))
-                        .orElse(false);
-                boolean needsBannerItem = canManageTerritories && !clan.hasCapital();
-                if (bannerMissing || needsBannerItem) {
-                    if (plugin.getClanManager().giveCapitalBannerIfAbsent(clicker, clan)) {
-                        clicker.closeInventory();
-                    }
                     return;
                 }
                 plugin.getGuiManager().openClanCapitalManagementMenu(clicker, clan);
@@ -307,8 +278,18 @@ public final class ClanMainMenu implements InventoryHolder {
             case SLOT_SPIRIT -> plugin.getGuiManager().openSpiritMenu(clicker, clan);
             case SLOT_CHEST -> plugin.getGuiManager().openChestItems(clicker, clan);
             case SLOT_TREASURY -> plugin.getGuiManager().openChestMoney(clicker, clan);
-            case SLOT_TRADE_REQUESTS -> plugin.getGuiManager().openTradeRequests(clicker, clan);
+            case SLOT_TRADE_REQUESTS -> {
+                if (!clan.hasCapital()) {
+                    plugin.getMessages().send(clicker, "clan.no-territory");
+                    return;
+                }
+                plugin.getGuiManager().openTradeRequests(clicker, clan);
+            }
             case SLOT_SERVER_TRADE -> {
+                if (!clan.hasCapital()) {
+                    plugin.getMessages().send(clicker, "clan.no-territory");
+                    return;
+                }
                 if (!clan.isRecognized()) {
                     plugin.getMessages().send(clicker, "trade.server.unrecognized");
                     return;

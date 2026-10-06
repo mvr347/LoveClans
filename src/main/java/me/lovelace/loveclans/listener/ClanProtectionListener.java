@@ -298,6 +298,11 @@ public class ClanProtectionListener implements Listener {
         }
 
         if (!brokenBlock.getType().toString().endsWith("_BANNER")) {
+            // The block behind a wall banner is protected like the one below a standing banner.
+            if (BannerProtectionListener.isProtected(brokenBlock)) {
+                plugin.getMessages().send(player, "territory.capital.cannot-break-bearing-block");
+                event.setCancelled(true);
+            }
             return; // Not a banner
         }
 

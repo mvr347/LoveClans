@@ -106,6 +106,10 @@ public class GuiManager implements Listener {
     }
 
     public void openTradeRequests(Player player, Clan clan) {
+        if (!clan.hasCapital()) {
+            plugin.getMessages().send(player, "clan.no-territory");
+            return;
+        }
         tradeRequestsMenu.open(player, clan);
     }
 
@@ -257,6 +261,10 @@ public class GuiManager implements Listener {
     }
 
     public void openDiplomacySelect(Player player, Clan sourceClan) {
+        if (!sourceClan.hasCapital()) {
+            plugin.getMessages().send(player, "clan.no-territory");
+            return;
+        }
         ClanDiplomacySelectMenu menu = new ClanDiplomacySelectMenu(plugin, player, sourceClan);
         if (!menu.hasClans()) {
             plugin.getMessages().send(player, "diplomacy.no-other-clans");

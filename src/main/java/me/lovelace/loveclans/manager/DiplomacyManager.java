@@ -61,6 +61,7 @@ public final class DiplomacyManager {
 
     public CompletableFuture<Void> declareEmbargoAsync(Clan source, UUID actorId, Clan target) {
         return plugin.supplySync(() -> {
+            ClanManager.requireTerritory(source, target);
             if (!source.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
                 throw new IllegalStateException("general.no-permission");
             }
@@ -129,6 +130,7 @@ public final class DiplomacyManager {
 
     public CompletableFuture<Void> declareBlockadeAsync(Clan blocker, UUID actorId, Clan blocked) {
         return plugin.supplySync(() -> {
+            ClanManager.requireTerritory(blocker, blocked);
             if (blocker.member(actorId).map(m -> m.rank() != ClanRank.LEADER).orElse(true)) {
                 throw new IllegalStateException("diplomacy.blockade.leader-only");
             }
@@ -213,6 +215,7 @@ public final class DiplomacyManager {
 
     public CompletableFuture<ClanLetter> sendLetterAsync(Clan from, UUID actorId, Clan to, String message) {
         return plugin.supplySync(() -> {
+            ClanManager.requireTerritory(from, to);
             if (!from.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
                 throw new IllegalStateException("general.no-permission");
             }

@@ -82,9 +82,9 @@ public final class ClanBannerListener implements Listener {
         }
         Player player = event.getPlayer();
 
-        // Если игрок уже в клане или владеет кланом — купить нельзя
+        // A clan that lost its territory and its banner: the leader buys a replacement for part of the price.
         if (plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent()) {
-            plugin.getMessages().send(player, "clan.banner.already-in-clan");
+            openReplacement(player);
             return;
         }
 
@@ -104,6 +104,26 @@ public final class ClanBannerListener implements Listener {
             return;
         }
         BannerPurchaseConfirmMenu.open(player, plugin, cost, economy.get().has(player, cost));
+    }
+
+    private void openReplacement(Player player) {
+        Optional<Clan> clan = plugin.getBannerReplacementService().eligibleClan(player);
+        if (clan.isEmpty()) {
+            // Either not the leader or the clan still has its territory: nothing to replace.
+            plugin.getMessages().send(player, "clan.banner.already-in-clan");
+            return;
+        }
+        if (plugin.getClanManager().getClanItemFactory().hasExistingBanner(player, "CAPITAL", clan.get().id())) {
+            plugin.getMessages().send(player, "clan.banner.replacement-has-banner");
+            return;
+        }
+        long cost = plugin.getBannerReplacementService().cost();
+        Optional<LoveEconomy> economy = cost > 0 ? LoveCore.service(LoveEconomy.class) : Optional.empty();
+        if (cost > 0 && economy.isEmpty()) {
+            plugin.getMessages().send(player, "clan.creation-economy-unavailable");
+            return;
+        }
+        BannerPurchaseConfirmMenu.open(player, plugin, cost, cost <= 0 || economy.get().has(player, cost), true);
     }
 
     private void giveBanner(Player player, long cost) {
@@ -155,7 +175,11 @@ public final class ClanBannerListener implements Listener {
                     return; // no confirm button was shown; ignore the (glass) slot
                 }
                 player.closeInventory();
-                finalizePurchase(player, holder.cost());
+                if (holder.replacement()) {
+                    plugin.getBannerReplacementService().purchase(player, holder.cost());
+                } else {
+                    finalizePurchase(player, holder.cost());
+                }
             } else if (BannerPurchaseConfirmMenu.isCancelSlot(slot)) {
                 player.closeInventory();
             }

@@ -135,7 +135,25 @@ trade:
 clan:
   create-removed: "<prefix><red>Команда /clan create отключена. Приобретите Знамя основания клана у торговца и установите его на свободной земле!"
   unrecognized-cannot-claim: "<prefix><red>Непризнанный клан не может захватывать дополнительные территории. Только признанные кланы могут расширять свои земли."
+  no-territory: "<prefix><red>У клана нет территории: дипломатия, торговля и войны недоступны. Глава может купить новое знамя у NPC."
+  target-no-territory: "<prefix><red>У клана-цели нет территории: действие недоступно."
   banner:
+    replacement-confirm-title: "<gold>Новое знамя клана"
+    replacement-item-name: "<white>Знамя кланового спавна"
+    replacement-lore:
+      - ""
+      - "<gray>Клан потерял знамя и остался без территории."
+      - "<gray>Новое знамя стоит дешевле, но не бесплатно:"
+      - "<red>  Дух клана: -<spirit> ур."
+      - "<red>  Опыт текущего уровня: -<exp>%"
+      - ""
+      - "<gray>Цена: <cost>"
+    replacement-bought: "<prefix><green>Вы купили новое знамя кланового спавна за <cost>. Установите его, чтобы вернуть территорию."
+    replacement-penalty: "<prefix><yellow>Клан потерял знамя: дух -<spirit> ур., опыт -<exp>."
+    replacement-has-banner: "<prefix><red>Знамя вашего клана уже у вас в инвентаре или эндер-сундуке."
+    replacement-leader-only: "<prefix><red>Новое знамя клана может купить только глава."
+    replacement-not-needed: "<prefix><red>У клана уже есть территория."
+    replacement-failed-refunded: "<prefix><red>Не удалось сохранить покупку, монеты возвращены."
     already-in-clan: "<prefix><red>Вы уже состоите в клане или владеете им. Вы не можете приобрести или установить знамя."
     # 2026-09-26: раньше Плотник (NPC-продавец) списывал деньги сразу по клику, без какого-либо
     # подтверждения - см. ClanBannerListener#onNpcInteract. Теперь между кликом и списанием стоит
@@ -793,6 +811,7 @@ gui:
       lore: "<gray>Кроме главы, в этом клане пока никто не состоит."
   main:
     title: "<color><clan> <white>- Меню клана"
+    no-territory-lore: "<red>Нужна клановая территория: новое знамя продаёт NPC."
     info:
       name: "<color><clan>"
       tag: "<gray>Тег: <white><tag>"

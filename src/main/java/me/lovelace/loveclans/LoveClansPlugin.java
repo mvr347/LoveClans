@@ -22,6 +22,7 @@ import me.lovelace.loveclans.listener.ShieldColorListener;
 import me.lovelace.loveclans.manager.AfkManager;
 import me.lovelace.loveclans.manager.ArtifactManager;
 import me.lovelace.loveclans.manager.ClanManager;
+import me.lovelace.loveclans.manager.ClanBannerReplacementService;
 import me.lovelace.loveclans.manager.ClanRecognitionService;
 import me.lovelace.loveclans.manager.ConflictArchive;
 import me.lovelace.loveclans.manager.ServerTradeManager;
@@ -79,6 +80,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private RaidManager raidManager;
     private RitualManager ritualManager;
     private ClanRecognitionService recognitionService;
+    private ClanBannerReplacementService bannerReplacementService;
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
     private PerkManager perkManager;
@@ -130,6 +132,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         citizensIntegration = new CitizensIntegration();
         contractManager = new ContractManager(this, storage);
         recognitionService = new ClanRecognitionService(this);
+        bannerReplacementService = new ClanBannerReplacementService(this);
         diplomacyManager = new DiplomacyManager(this, storage);
         clanTradeManager = new ClanTradeManager(this, storage);
         clanTradeSessionManager = new ClanTradeSessionManager(this);
@@ -467,6 +470,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         return recognitionService;
     }
 
+    public ClanBannerReplacementService getBannerReplacementService() {
+        return bannerReplacementService;
+    }
+
     public ContractManager getContractManager() {
         return contractManager;
     }
@@ -580,6 +587,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new PlayerConnectionListener(this), this);
         clanProtectionListener = new ClanProtectionListener(this, clanManager, warManager); // Pass clanManager and warManager
         pluginManager.registerEvents(clanProtectionListener, this);
+        pluginManager.registerEvents(new me.lovelace.loveclans.listener.BannerProtectionListener(), this);
         pluginManager.registerEvents(new CombatListener(this), this);
         pluginManager.registerEvents(new ArtifactListener(this), this);
         pluginManager.registerEvents(new ChatInputListener(this), this);

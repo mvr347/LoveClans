@@ -319,6 +319,7 @@ public final class ClanManager {
         if (acceptorClan == null || requesterClan == null || actorId == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Clans and actor ID cannot be null."));
         return plugin.supplySync(() -> {
+            requireTerritory(acceptorClan, requesterClan);
             if (!acceptorClan.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
                 throw new IllegalStateException("general.no-permission");
             }
@@ -1196,25 +1197,12 @@ public final class ClanManager {
     }
 
     /**
-     * Выдаёт капитал-баннер игроку, если у него в инвентаре/эндер-сундуке ещё нет баннера этого
-     * клана (дубликаты запрещены). Общая логика для {@code ClanCapitalManagementMenu} (первичное
-     * получение баннера до захвата территории) и {@code ClanMainMenu} (повторная выдача, когда
-     * физический блок баннера пропал, а территория всё ещё числится за кланом — см.
-     * {@link #isBannerPresent}) — раньше выдача была продублирована в GUI-коде.
-     *
-     * @return true, если баннер выдан; false — у игрока уже есть баннер этого клана (сообщение уже отправлено).
+     * Without a territory a clan is limited to its own affairs: diplomacy, trade and conflicts need a base on
+     * both sides. Throws the lang key of the missing side; cancelling things (embargo, blockade) never calls this.
      */
-    public boolean giveCapitalBannerIfAbsent(Player player, Clan clan) {
-        if (clanItemFactory.hasExistingBanner(player, "CAPITAL", clan.id())) {
-            plugin.getMessages().send(player, "gui.territories.capital.already-have-banner");
-            return false;
-        }
-        ItemStack capitalBanner = clanItemFactory.createCapitalBanner(clan.id(), clan.name());
-        if (player.getInventory().addItem(capitalBanner).size() > 0) {
-            player.getWorld().dropItemNaturally(player.getLocation(), capitalBanner);
-        }
-        plugin.getMessages().send(player, "territory.banner-given");
-        return true;
+    public static void requireTerritory(Clan own, Clan other) {
+        if (own != null && !own.hasCapital()) throw new IllegalStateException("clan.no-territory");
+        if (other != null && !other.hasCapital()) throw new IllegalStateException("clan.target-no-territory");
     }
 
     public CompletableFuture<Clan> relocateHomeAsync(Clan clan, UUID actorId, Location location) {
@@ -1344,6 +1332,7 @@ public final class ClanManager {
         if (source == null || target == null || relation == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Source, target and relation cannot be null."));
         return plugin.supplySync(() -> {
+            if (relation != DiplomacyRelation.NEUTRAL) requireTerritory(source, target);
             if (actorId != null && !source.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
                 throw new IllegalStateException("general.no-permission");
             }
