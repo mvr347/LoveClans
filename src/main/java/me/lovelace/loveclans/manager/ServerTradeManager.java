@@ -31,7 +31,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 
 /**
- * State orders ("Госзакупки"): on a schedule (Mon/Wed/Fri at {@code start-hour} by default) the state opens one
+ * State orders ("Скупки"): on a schedule (Mon/Wed/Fri at {@code start-hour} by default) the state opens one
  * order of a random category (never the previous one), asking for a few random materials of that category. The
  * volume is shared by the whole server; clans deliver from the inventory and the clan treasury is paid a share of
  * the LoveCore model price per item. All state is owned by the main thread; the database only mirrors it, and the

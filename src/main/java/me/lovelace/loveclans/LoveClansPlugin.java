@@ -199,7 +199,7 @@ public final class LoveClansPlugin extends JavaPlugin {
                     return null;
                 });
 
-                // Госзакупки: загружает текущий заказ и раз в минуту проверяет расписание (Пн/Ср/Пт).
+                // Скупки: загружает текущий заказ и раз в минуту проверяет расписание (Пн/Ср/Пт).
                 serverTradeManager.start();
 
                 // Территории без advancedClaimId (заведены до того, как LoveClaims стал
