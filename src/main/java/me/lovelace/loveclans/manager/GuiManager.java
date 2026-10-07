@@ -436,7 +436,6 @@ public class GuiManager implements Listener {
                             recognitionMenu.handleInventoryClick(player, slot, recognitionHolder);
                         }
                     }
-                    case CHEST_MONEY -> chestMoneyMenu.handleInventoryClick(player, clan, slot);
                     case LETTERS -> lettersMenu.handleInventoryClick(player, clan, slot);
                     case TRADE_REQUESTS -> tradeRequestsMenu.handleInventoryClick(event, player, clan);
                     default -> {

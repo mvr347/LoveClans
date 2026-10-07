@@ -380,7 +380,9 @@ limits:
   territories-per-upgrade: 2
   experience-percent-per-upgrade: 5.0
   base-chest-rows: 3
-  max-chest-rows: 6
+  # 2026-10-07: 6 → 5. Шестой ряд экрана склада стал футером по стандарту gui_gen (Назад/Закрыть),
+  # поэтому хранить предметы можно максимум в 5 рядах. Кланов с 6 открытыми рядами нет — миграция не нужна.
+  max-chest-rows: 5
 
 leveling:
   # base-exp удвоен (было 100), изменено 2026-09-23 — по запросу владельца: усложнение
@@ -407,8 +409,9 @@ upgrades:
     max-level: 5
   # Уровни этого улучшения = число рядов сундука сверх базового (limits.base-chest-rows).
   # max-level здесь должен совпадать с (limits.max-chest-rows - limits.base-chest-rows).
+  # 2026-10-07: 3 → 2 вслед за limits.max-chest-rows 6 → 5 (5 - 3 базовых = 2 улучшения).
   CHEST:
-    max-level: 3
+    max-level: 2
 
 # Клановые перки (§7) — доступны с perks.unlock-level, один активный за раз, смена стоит
 # опыта клана после первого (бесплатного) выбора.

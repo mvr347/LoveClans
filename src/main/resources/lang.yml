@@ -63,6 +63,9 @@ chest:
   # Добавлено 2026-09-23 вместе с блокировкой одновременного доступа к предметному сундуку клана
   # (ClanChestMenu/RaidLootMenu) - без неё два одновременных открытия дублировали предметы,
   # см. ClanManager#tryLockItemChest.
+  # 2026-10-07: казна принимает только монеты LoveCore и выдаёт их стопками.
+  not-coin: "<prefix><red>В казну можно положить только монеты."
+  no-space: "<prefix><red>Недостаточно места в инвентаре."
   busy: "<prefix><red>Сундук сейчас открыт другим игроком - попробуйте через несколько секунд."
 
 contract:
@@ -357,8 +360,8 @@ gui:
   territories-selection-title: "<gray>Управление клановой территорией <white><clan>"
   upgrades-title: "<gray>Улучшения клана <color><tag>"
   chest-title: "<gray>Сундук клана <color><tag>"
-  chest-items-title: "<gray>Сундук клана <color><tag> <white>- Предметы"
-  chest-money-title: "<gray>Сундук клана <color><tag> <white>- Деньги"
+  chest-items-title: "<gray>Склад клана <color><tag>"
+  chest-money-title: "<gray>Казна клана <color><tag>"
   chest:
     locked:
       name: "<dark_gray>Заблокировано"
@@ -375,21 +378,23 @@ gui:
       tax-amount: "<gray>Сумма налога: <white><amount></white>/нед."
       rows: "<gray>Рядов предметов: <white><rows></white>/<max>"
     money-button:
-      name: "<gold>💰 Деньги"
-      lore: "<gray>Баланс: <yellow><amount>"
+      name: "<gold>Казна"
+      description: "<gray>Деньги клана монетами, которые можно взять в руки."
+      lore: "<gray>Баланс: <white><amount>"
     items-button:
-      name: "<gold>📦 Предметы"
-      lore: "<gray>ЛКМ - открыть хранилище"
+      name: "<gold>Склад"
+      lore: "<gray>Общее хранилище предметов клана."
+    open-action: "<green>ЛКМ <gray>— открыть"
     trade-button:
-      name: "<green>🤝 Торговля с кланами"
+      name: "<green>Торговля с кланами"
       lore: "<gray>ЛКМ - выбрать клан и отправить запрос на обмен"
       hint: "<prefix><yellow>Используйте /clan trade <tag> [деньги], чтобы предложить обмен другому клану."
     server-trade-button:
-      name: "<gold>🏛 Государственные закупки"
+      name: "<gold>Государственные закупки"
       lore: "<gray>ЛКМ - сдать ресурсы в казну сервера"
       unrecognized-lore: "<red>Недоступно: только для признанных кланов"
     trade-requests-button:
-      name: "<gold>✉ Запросы на обмен"
+      name: "<gold>Запросы на обмен"
       lore: "<gray>Отправленные и полученные запросы, активная сделка"
     locked-warning:
       name: "<red>Сундук заблокирован"
@@ -398,8 +403,12 @@ gui:
         - "<gray>Внесите деньги, чтобы разблокировать сундук."
     money:
       balance:
-        name: "<gold>Баланс сундука"
-        lore: "<white><amount>"
+        name: "<gold>Казна"
+        description: "<gray>Деньги клана монетами: их можно положить и взять мышкой."
+        lore: "<gray>Баланс: <white><amount>"
+        hidden: "<gray>Не уместилось монетами: <white><amount>"
+        deposit-hint: "<green>Положить <gray>— кликнуть монетами с курсора или Shift+ЛКМ по монетам в инвентаре"
+        withdraw-hint: "<green>ЛКМ <gray>— взять стопку, <green>Shift+ЛКМ <gray>— сразу в инвентарь"
       deposit:
         name: "<green>Положить"
         lore: "<gray>ЛКМ - внести деньги в сундук"
@@ -411,11 +420,11 @@ gui:
   letters:
     title: "<gray>Письма с кланом <color><tag>"
     write:
-      name: "<green>✎ Написать письмо"
+      name: "<green>Написать письмо"
       lore: "<gray>ЛКМ - написать новое письмо этому клану"
     item:
-      sent-name: "<gray>Вам → <color><tag>"
-      received-name: "<gold><color><tag> <white>→ Вам"
+      sent-name: "<gray>Кому: <color><tag>"
+      received-name: "<gold>От: <color><tag>"
       preview: "<gray>\"<text>\""
       date: "<dark_gray><date>"
   contracts-title: "<gray>Обеты клана <color><tag>"
@@ -486,9 +495,9 @@ gui:
       - "<gray>но платит налог сундука."
     not-enough: "<red>Не хватает монет на признание."
   trade-session:
-    title: "<gray>Сделка: <white><tagA> <gray>⇄ <white><tagB>"
+    title: "<gray>Сделка: <white><tagA> <gray>и <white><tagB>"
     icon:
-      name: "<gold>⇄ Обмен"
+      name: "<gold>Обмен"
     side:
       name: "<color><tag>"
       ready: "<green>Готов к сделке - ЛКМ, чтобы отменить"
@@ -501,7 +510,7 @@ gui:
       name: "<color><tag> <gray>- сделка подтверждена обеими сторонами"
       lore: "<green>✔ Ожидает исполнения <gray>| <red>ЛКМ - отменить подтверждение"
     money:
-      name: "<gold>💰 Деньги в предложении"
+      name: "<gold>Деньги в предложении"
       lore: "<gray>Сумма: <yellow><amount></yellow> <gray>| <green>ЛКМ <gray>- указать сумму в чат (из казны клана)"
       prompt: "<prefix><yellow>Введите сумму денег из казны клана для этой стороны сделки в чат.<gray> Можно числом (в медных) или так: 3i 50c (c — медная, i — железная, g — золотая, d — алмазная)."
       prompt-max: "<prefix><gray>Максимум: <yellow><amount></yellow> (текущий остаток в казне + уже внесённое)."
@@ -705,46 +714,46 @@ gui:
       name: "<red>Вражда"
       lore: "<gray>Нажмите, чтобы объявить кланы враждующими."
     embargo:
-      declare-name: "<gold>🔒 Эмбарго"
+      declare-name: "<gold>Эмбарго"
       declare-lore: "<gray>ЛКМ - запретить торговлю с этим кланом"
-      cancel-name: "<red>🔒 Эмбарго активно"
+      cancel-name: "<red>Эмбарго активно"
       cancel-lore: "<gray>ЛКМ - отменить эмбарго"
     blockade:
-      declare-name: "<gold>🚫 Блокада"
+      declare-name: "<gold>Блокада"
       declare-lore: "<gray>ЛКМ - заблокировать торговлю этого клана с внешним миром"
-      cancel-name: "<red>🚫 Блокада активна"
+      cancel-name: "<red>Блокада активна"
       cancel-lore: "<gray>ЛКМ - отменить блокаду"
-      blocked-name: "<dark_gray>🚫 Вы заблокированы"
+      blocked-name: "<dark_gray>Вы заблокированы"
       blocked-lore: "<gray>Этот клан уже блокирует вас."
     letters:
-      name: "<gold>📮 Письма"
+      name: "<gold>Письма"
       lore: "<gray>ЛКМ - открыть переписку с этим кланом"
     trade:
-      name: "<green>🤝 Торговля"
+      name: "<green>Торговля"
       lore: "<gray>ЛКМ - отправить запрос на обмен этому клану"
       no-permission-lore: "<red>У вас нет прав на торговлю с другими кланами"
-      unavailable-name: "<dark_gray>🤝 Торговля недоступна"
+      unavailable-name: "<dark_gray>Торговля недоступна"
     war:
-      name: "<red>⚔ Объявить войну"
+      name: "<red>Объявить войну"
       lore: "<gray>ЛКМ - начать войну (нужно стоять на территории клана)"
       unavailable-conflict: "<dark_gray>Конфликт уже идёт"
       unavailable-location: "<dark_gray>Нужно стоять на территории этого клана"
       unavailable-no-capital: "<dark_gray>Требуется установленная территория клана (у обеих сторон)"
     siege:
-      name: "<red>🎯 Устроить осаду"
+      name: "<red>Устроить осаду"
       lore: "<gray>ЛКМ - начать осаду (нужно стоять на территории клана)"
       unavailable-conflict: "<dark_gray>Конфликт уже идёт"
       unavailable-location: "<dark_gray>Нужно стоять на территории этого клана"
       unavailable-no-capital: "<dark_gray>Требуется установленная территория клана (у обеих сторон)"
     raid:
-      name: "<red>🏹 Устроить набег"
+      name: "<red>Устроить набег"
       lore: "<gray>ЛКМ - начать набег на сундук этого клана"
       unavailable-conflict: "<dark_gray>Конфликт уже идёт"
       unavailable-no-capital: "<dark_gray>Требуется установленная территория клана (у обеих сторон)"
     peace:
-      name: "<white>🕊 Мир"
+      name: "<white>Мир"
       lore: "<gray>ЛКМ - предложить прекратить конфликт"
-      unavailable-name: "<dark_gray>🕊 Мир"
+      unavailable-name: "<dark_gray>Мир"
     info:
       name: "<color><tag> <white>- Информация"
       lore:
@@ -1081,18 +1090,18 @@ gui:
         name: "<dark_gray>Перки клана заблокированы"
         lore: "<gray>Открываются на <white><level></white> уровне клана."
       harvester:
-        name: "<green>🌾 Земледелие"
+        name: "<green>Земледелие"
         lore:
           - "<gray>+<percent>% к скорости роста культур"
           - "<gray>+<hearts> сердца в боях против других кланов"
           - "<gray>+<yield>% к урожайности"
       miner:
-        name: "<aqua>⛏ Ресурсодобыча"
+        name: "<aqua>Ресурсодобыча"
         lore:
           - "<gray>+<percent>% ко всем добытым ресурсам"
           - "<gray>+<rare>% к редким дропам"
       warrior:
-        name: "<red>⚔ Война"
+        name: "<red>Война"
         lore:
           - "<gray>Постоянная Сила I в PvP"
           - "<gray>Осада длится на <percent>% меньше"
@@ -1429,6 +1438,6 @@ raid:
   loot:
     title: "<red>Грабёж: <color><tag>"
     money-button:
-      name: "<gold>💰 Забрать деньги"
+      name: "<gold>Забрать деньги"
       lore: "<gray>Доступно: <white><amount>"
     prompt: "<prefix><yellow>Введите количество денег, чтобы забрать, в чат."

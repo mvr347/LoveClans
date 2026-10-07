@@ -212,6 +212,8 @@ public final class ClanMainMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component("gui.chest.info.rows",
                         Map.of("rows", String.valueOf(clan.chestRows()),
                                "max", String.valueOf(plugin.getClanManager().maxChestRows())), player))
+                .lore(net.kyori.adventure.text.Component.empty())
+                .lore(plugin.getMessages().component("gui.chest.open-action", player))
                 .build();
     }
 
@@ -225,6 +227,7 @@ public final class ClanMainMenu implements InventoryHolder {
         }
         ItemBuilder item = ItemBuilder.head(clan.isChestTaxLocked() ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.chest.money-button.name", player))
+                .lore(plugin.getMessages().component("gui.chest.money-button.description", player))
                 .lore(plugin.getMessages().component("gui.chest.money-button.lore",
                         Map.of("amount", CoinFormat.format(clan.chestMoney())), player));
         if (!plugin.getClanManager().isTaxApplicable(clan)) {
@@ -242,6 +245,8 @@ public final class ClanMainMenu implements InventoryHolder {
             item.lore(plugin.getMessages().component("gui.chest.info.tax-amount",
                     Map.of("amount", CoinFormat.format(plugin.getClanManager().weeklyChestTax(clan))), player));
         }
+        item.lore(net.kyori.adventure.text.Component.empty())
+                .lore(plugin.getMessages().component("gui.chest.open-action", player));
         return item.build();
     }
 

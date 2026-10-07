@@ -1571,6 +1571,51 @@ public final class ClanManager {
         }).thenCompose(ignored -> storage.updateClanChestMoney(clan.id(), clan.chestMoney()));
     }
 
+    /**
+     * Treasury screen deposit: the caller has ALREADY removed the coins from the player (cursor or
+     * inventory slot) on the main thread, so the balance changes here synchronously and only the
+     * write is async - there is no window where the coins exist both in hand and in the treasury.
+     */
+    public long depositTreasuryCoins(Clan clan, long amount) {
+        if (clan == null || amount <= 0) {
+            return clan == null ? 0L : clan.chestMoney();
+        }
+        long newBalance = clan.addChestMoney(amount);
+        storage.updateClanChestMoney(clan.id(), newBalance)
+                .thenCompose(v -> maybeUnlockChestAsync(clan))
+                .exceptionally(t -> {
+                    plugin.getLogger().warning("Failed to persist treasury deposit for clan " + clan.id() + ": " + t.getMessage());
+                    return null;
+                });
+        return newBalance;
+    }
+
+    /**
+     * Treasury screen withdrawal check-and-debit on the main thread. Returns the message key of the
+     * refusal, or {@code null} once {@code amount} has been debited - only then may the caller hand
+     * the coins out (debit first, give second).
+     */
+    public String withdrawTreasuryCoins(Clan clan, UUID actorId, long amount) {
+        if (clan == null || actorId == null || amount <= 0) {
+            return "chest.invalid-amount";
+        }
+        if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
+            return "general.no-permission";
+        }
+        if (clan.isChestTaxLocked()) {
+            return "chest.tax-locked";
+        }
+        if (clan.chestMoney() < amount) {
+            return "chest.insufficient-items";
+        }
+        long newBalance = clan.addChestMoney(-amount);
+        storage.updateClanChestMoney(clan.id(), newBalance).exceptionally(t -> {
+            plugin.getLogger().warning("Failed to persist treasury withdrawal for clan " + clan.id() + ": " + t.getMessage());
+            return null;
+        });
+        return null;
+    }
+
     /** System-granted currency reward (e.g. a completed clan contract) — not a player deposit. */
     public CompletableFuture<Long> depositRewardToChestAsync(Clan clan, long amount) {
         if (clan == null || amount <= 0) {
@@ -1740,7 +1785,7 @@ public final class ClanManager {
     public static final int CHEST_MAX_SIZE = 54;
 
     public int maxChestRows() {
-        return plugin.getConfig().getInt("limits.max-chest-rows", 6);
+        return Math.min(plugin.getConfig().getInt("limits.max-chest-rows", Clan.MAX_CHEST_ROWS), Clan.MAX_CHEST_ROWS);
     }
 
     /** Loads (and caches) the clan's chest contents, always sized to {@link #CHEST_MAX_SIZE}. */
@@ -1803,7 +1848,7 @@ public final class ClanManager {
             return CompletableFuture.completedFuture(List.of());
         }
         return loadChestContentsAsync(clan).thenCompose(contents -> {
-            int unlocked = Math.min(contents.length, clan.chestRows() * 9);
+            int unlocked = me.lovelace.loveclans.gui.ChestLayout.unlockedSlots(clan.chestRows(), contents.length);
             ItemStack[] unlockedPortion = new ItemStack[unlocked];
             System.arraycopy(contents, 0, unlockedPortion, 0, unlocked);
             Inventory temp = Bukkit.createInventory(null, Math.max(unlocked, 9));

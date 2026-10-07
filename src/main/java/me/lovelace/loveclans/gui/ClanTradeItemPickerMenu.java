@@ -32,6 +32,7 @@ public final class ClanTradeItemPickerMenu implements Listener {
     private final Inventory inventory;
     private final int unlockedSlots;
     private final BiConsumer<Player, ItemStack> onPick;
+    private final ItemStack[] snapshot;
     private boolean handled = false;
 
     private ClanTradeItemPickerMenu(LoveClansPlugin plugin, Clan clan, Player player, ItemStack[] contents, BiConsumer<Player, ItemStack> onPick) {
@@ -39,10 +40,15 @@ public final class ClanTradeItemPickerMenu implements Listener {
         this.clan = clan;
         this.player = player;
         this.onPick = onPick;
-        this.unlockedSlots = Math.min(contents.length, clan.chestRows() * 9);
-        this.inventory = Bukkit.createInventory(null, contents.length,
+        this.unlockedSlots = ChestLayout.unlockedSlots(clan.chestRows(), contents.length);
+        this.inventory = Bukkit.createInventory(null, ChestLayout.SIZE,
                 plugin.getMessages().component("gui.trade-session.picker.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
-        inventory.setContents(contents);
+        // Only storage rows are shown; the sixth row is the footer and the picker never writes it back.
+        for (int slot = 0; slot < ChestLayout.STORAGE_SLOTS && slot < contents.length; slot++) {
+            inventory.setItem(slot, contents[slot]);
+        }
+        this.snapshot = contents;
+        ChestLayout.drawFooter(inventory, plugin, player, false);
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
@@ -72,13 +78,17 @@ public final class ClanTradeItemPickerMenu implements Listener {
         event.setCancelled(true);
         if (handled) return;
         int slot = event.getRawSlot();
+        if (slot == ChestLayout.CLOSE_SLOT) {
+            Bukkit.getScheduler().runTask(plugin, () -> player.closeInventory());
+            return;
+        }
         if (slot >= inventory.getSize() || slot >= unlockedSlots) return;
         ItemStack item = inventory.getItem(slot);
         if (item == null || item.getType().isAir()) return;
 
         handled = true;
         ItemStack taken = item.clone();
-        ItemStack[] updated = inventory.getContents().clone();
+        ItemStack[] updated = snapshot.clone();
         updated[slot] = null;
         plugin.getClanManager().saveChestContentsAsync(clan.id(), updated);
 

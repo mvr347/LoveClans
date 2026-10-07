@@ -183,7 +183,7 @@ public final class RaidManager {
 
         long now = System.currentTimeMillis();
         long moneyCap = Math.round(defender.chestMoney() * (plugin.getConfig().getInt("raid.loot-money-percent", 50) / 100.0));
-        int unlockedSlots = defender.chestRows() * 9;
+        int unlockedSlots = me.lovelace.loveclans.gui.ChestLayout.unlockedSlots(defender.chestRows(), ClanManager.CHEST_MAX_SIZE);
         int itemSlotCap = (int) Math.round(unlockedSlots * (plugin.getConfig().getInt("raid.loot-item-slot-percent", 50) / 100.0));
 
         ClanRaid activated = raid.activate(now + raidDuration().toMillis(), moneyCap, itemSlotCap);

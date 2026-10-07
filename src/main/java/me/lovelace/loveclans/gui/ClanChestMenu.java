@@ -19,8 +19,9 @@ import java.util.Map;
 
 /**
  * Real, drag-and-drop clan item storage (§2.3 "Предметы"). Unlocked slots (the first
- * {@code chestRows()*9}) are live storage; further rows show a plain locked icon and can't hold
+ * {@code chestRows()*9}, at most 5 rows) are live storage; further rows up to slot 44 show a plain locked icon and can't hold
  * items - unlocking them is done via the "Сундук" upgrade (see ClanUpgradesMenu), not from here.
+ * The sixth row is the gui_gen footer (see {@link ChestLayout}) and never stores items.
  * Self-registers as a listener scoped to its own inventory instance, unregistering and
  * persisting contents on close.
  */
@@ -36,11 +37,12 @@ public final class ClanChestMenu implements Listener {
         this.plugin = plugin;
         this.clan = clan;
         this.player = player;
-        this.unlockedSlots = Math.min(contents.length, clan.chestRows() * 9);
+        this.unlockedSlots = ChestLayout.unlockedSlots(clan.chestRows(), contents.length);
         this.inventory = Bukkit.createInventory(null, ClanManager.CHEST_MAX_SIZE,
                 plugin.getMessages().component("gui.chest-items-title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
         inventory.setContents(contents);
         drawLockedSlots();
+        ChestLayout.drawFooter(inventory, plugin, player, true);
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
@@ -65,7 +67,7 @@ public final class ClanChestMenu implements Listener {
     }
 
     private void drawLockedSlots() {
-        for (int slot = unlockedSlots; slot < inventory.getSize(); slot++) {
+        for (int slot = unlockedSlots; slot < ChestLayout.STORAGE_SLOTS; slot++) {
             inventory.setItem(slot, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.chest.locked.name", player))
                     .lore(plugin.getMessages().component("gui.chest.locked.lore", player))
@@ -84,7 +86,15 @@ public final class ClanChestMenu implements Listener {
         if (event.getRawSlot() < unlockedSlots) {
             return; // real storage slot — allow normal item movement
         }
-        event.setCancelled(true); // locked slot — can't hold items until the CHEST upgrade unlocks it
+        event.setCancelled(true); // locked slot or footer — can't hold items
+        int slot = event.getRawSlot();
+        if (slot == ChestLayout.CLOSE_SLOT) {
+            Bukkit.getScheduler().runTask(plugin, () -> player.closeInventory());
+        } else if (slot == ChestLayout.BACK_SLOT) {
+            // Opening another inventory fires our close handler first, which persists and unlocks the chest.
+            Bukkit.getScheduler().runTask(plugin, () -> plugin.getClanManager().getClanById(clan.id())
+                    .ifPresent(fresh -> plugin.getGuiManager().openMain(player, fresh)));
+        }
     }
 
     @EventHandler
@@ -107,7 +117,7 @@ public final class ClanChestMenu implements Listener {
         HandlerList.unregisterAll(this);
         ItemStack[] full = inventory.getContents();
         ItemStack[] toPersist = new ItemStack[full.length];
-        System.arraycopy(full, 0, toPersist, 0, unlockedSlots);
+        System.arraycopy(full, 0, toPersist, 0, unlockedSlots); // footer/locked heads are never persisted
         plugin.getClanManager().saveChestContentsAsync(clan.id(), toPersist);
         plugin.getClanManager().unlockItemChest(clan.id());
     }

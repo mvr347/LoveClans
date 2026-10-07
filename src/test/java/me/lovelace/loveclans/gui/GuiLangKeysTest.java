@@ -57,4 +57,34 @@ class GuiLangKeysTest {
         }
         assertTrue(missing.isEmpty(), "keys missing from lang.yml: " + missing);
     }
+
+    private static final String SYMBOLS = "💰📦🤝🏛✉✎→⇄🔒🚫📮⚔🎯🏹🕊🌾⛏";
+
+    /** Item names and menu titles carry no emoji/arrow symbols (owner request 2026-10-07). */
+    @Test
+    void guiNamesAndTitlesHaveNoSymbols() throws Exception {
+        List<String> offenders = new ArrayList<>();
+        collectSymbols("", loadLang(), offenders);
+        assertTrue(offenders.isEmpty(), "names/titles with symbols: " + offenders);
+    }
+
+    private static void collectSymbols(String path, Object node, List<String> offenders) {
+        if (node instanceof Map<?, ?> map) {
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                collectSymbols(path.isEmpty() ? String.valueOf(entry.getKey()) : path + "." + entry.getKey(), entry.getValue(), offenders);
+            }
+            return;
+        }
+        if (!path.startsWith("gui.") || !(node instanceof String text)) return;
+        String leaf = path.substring(path.lastIndexOf('.') + 1);
+        if (!(leaf.contains("name") || leaf.contains("title")) || leaf.contains("prompt")) return;
+        for (int i = 0; i < SYMBOLS.length(); ) {
+            int cp = SYMBOLS.codePointAt(i);
+            if (text.indexOf(new String(Character.toChars(cp))) >= 0) {
+                offenders.add(path);
+                return;
+            }
+            i += Character.charCount(cp);
+        }
+    }
 }
