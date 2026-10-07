@@ -37,10 +37,15 @@ public final class RaidLootMenu implements Listener {
         this.defender = defender;
         this.looter = looter;
         this.raidId = raidId;
-        this.unlockedSlots = Math.min(contents.length, defender.chestRows() * 9);
+        this.unlockedSlots = ChestLayout.unlockedSlots(defender.chestRows(), contents.length);
         this.inventory = Bukkit.createInventory(null, ClanManager.CHEST_MAX_SIZE,
                 plugin.getMessages().component("raid.loot.title", Map.of("tag", defender.tag(), "color", defender.tagColor()), looter));
         inventory.setContents(contents);
+        // The sixth row is the footer: never show stored items there.
+        for (int slot = ChestLayout.STORAGE_SLOTS; slot < inventory.getSize(); slot++) {
+            inventory.setItem(slot, null);
+        }
+        ChestLayout.drawFooter(inventory, plugin, looter, false);
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
@@ -106,6 +111,9 @@ public final class RaidLootMenu implements Listener {
         }
         if (rawSlot >= unlockedSlots) {
             event.setCancelled(true); // beyond the defender's unlocked rows — nothing there to loot
+            if (rawSlot == ChestLayout.CLOSE_SLOT) {
+                Bukkit.getScheduler().runTask(plugin, () -> looter.closeInventory());
+            }
             return;
         }
 

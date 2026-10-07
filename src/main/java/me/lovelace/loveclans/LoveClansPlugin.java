@@ -199,6 +199,9 @@ public final class LoveClansPlugin extends JavaPlugin {
                     return null;
                 });
 
+                // Госзакупки: загружает текущий заказ и раз в минуту проверяет расписание (Пн/Ср/Пт).
+                serverTradeManager.start();
+
                 // Территории без advancedClaimId (заведены до того, как LoveClaims стал
                 // обязательным для клановых территорий) — довести до нормального состояния,
                 // если ядро сейчас доступно. Не влияет на территории с уже проставленным
@@ -612,7 +615,9 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new PlayerConnectionListener(this), this);
         clanProtectionListener = new ClanProtectionListener(this, clanManager, warManager); // Pass clanManager and warManager
         pluginManager.registerEvents(clanProtectionListener, this);
+        me.lovelace.loveclans.listener.BannerProtectionListener.setRegisteredBannerCheck(clanManager::isRegisteredBanner);
         pluginManager.registerEvents(new me.lovelace.loveclans.listener.BannerProtectionListener(), this);
+        pluginManager.registerEvents(new me.lovelace.loveclans.listener.OrphanBannerListener(this), this);
         pluginManager.registerEvents(new CombatListener(this), this);
         pluginManager.registerEvents(new ArtifactListener(this), this);
         pluginManager.registerEvents(new ChatInputListener(this), this);

@@ -55,10 +55,6 @@ public final class ClanListMenu implements InventoryHolder {
             this.comparator = comparator;
         }
 
-        SortMode next() {
-            SortMode[] values = values();
-            return values[(ordinal() + 1) % values.length];
-        }
     }
 
     private enum FilterMode {
@@ -68,10 +64,15 @@ public final class ClanListMenu implements InventoryHolder {
         CLOSED,
         OPEN;
 
-        FilterMode next() {
-            FilterMode[] values = values();
-            return values[(ordinal() + 1) % values.length];
-        }
+    }
+
+    /** Filter/sort/page remembered per player between openings of the list (cleared on quit). */
+    private record State(FilterMode filter, SortMode sort, int page) {}
+
+    private static final Map<java.util.UUID, State> STATE = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public static void clearPlayer(java.util.UUID playerId) {
+        STATE.remove(playerId);
     }
 
     private final LoveClansPlugin plugin;
@@ -86,7 +87,14 @@ public final class ClanListMenu implements InventoryHolder {
     public ClanListMenu(LoveClansPlugin plugin, Player player) {
         this.plugin = plugin;
         this.player = player;
-        this.currentPage = 0;
+        State remembered = STATE.get(player.getUniqueId());
+        if (remembered != null) {
+            this.filterMode = remembered.filter();
+            this.sortMode = remembered.sort();
+            this.currentPage = remembered.page();
+        } else {
+            this.currentPage = 0;
+        }
     }
 
     private boolean matchesFilter(Clan clan) {
@@ -111,6 +119,7 @@ public final class ClanListMenu implements InventoryHolder {
         recomputeVisibleClans();
         int maxPage = Math.max(0, (visibleClans.size() - 1) / CONTENT_SLOTS.length);
         currentPage = Math.max(0, Math.min(currentPage, maxPage));
+        STATE.put(player.getUniqueId(), new State(filterMode, sortMode, currentPage));
 
         Inventory inventory = Bukkit.createInventory(this, 54,
                 plugin.getMessages().component("gui.clan-list.title", Map.of("page", String.valueOf(currentPage + 1), "max", String.valueOf(maxPage + 1)), player));
@@ -158,14 +167,10 @@ public final class ClanListMenu implements InventoryHolder {
                     .name(plugin.getMessages().component("gui.next-page", player)).build());
         }
 
-        inventory.setItem(SLOT_FILTER, ItemBuilder.head(ItemBuilder.HEAD_FILTER)
-                .name(plugin.getMessages().component("gui.clan-list.filter.name", player))
-                .lore(plugin.getMessages().component("gui.clan-list.filter." + filterMode.name().toLowerCase(Locale.ROOT), player))
-                .build());
-        inventory.setItem(SLOT_SORT, ItemBuilder.head(ItemBuilder.HEAD_SORT)
-                .name(plugin.getMessages().component("gui.clan-list.sort.name", player))
-                .lore(plugin.getMessages().component("gui.clan-list.sort." + sortMode.name().toLowerCase(Locale.ROOT), player))
-                .build());
+        inventory.setItem(SLOT_FILTER, CycleButton.build(plugin, player, ItemBuilder.HEAD_FILTER,
+                "gui.clan-list.filter.name", "gui.clan-list.filter.", FilterMode.values(), filterMode));
+        inventory.setItem(SLOT_SORT, CycleButton.build(plugin, player, ItemBuilder.HEAD_SORT,
+                "gui.clan-list.sort.name", "gui.clan-list.sort.", SortMode.values(), sortMode));
 
         boolean notInClan = myClan.isEmpty();
         if (notInClan) {
@@ -265,7 +270,7 @@ public final class ClanListMenu implements InventoryHolder {
 
     public void open() { player.openInventory(getInventory()); }
 
-    public void handleInventoryClick(int slot) {
+    public void handleInventoryClick(int slot, boolean rightClick) {
         if (slot == SLOT_CLOSE) {
             player.closeInventory();
             return;
@@ -276,13 +281,14 @@ public final class ClanListMenu implements InventoryHolder {
             return;
         }
         if (slot == SLOT_FILTER) {
-            filterMode = filterMode.next();
+            filterMode = CycleButton.step(filterMode, FilterMode.values(), !rightClick);
             currentPage = 0;
             open();
             return;
         }
         if (slot == SLOT_SORT) {
-            sortMode = sortMode.next();
+            sortMode = CycleButton.step(sortMode, SortMode.values(), !rightClick);
+            currentPage = 0;
             open();
             return;
         }

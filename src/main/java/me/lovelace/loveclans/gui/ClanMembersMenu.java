@@ -12,7 +12,6 @@ import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.util.ItemBuilder;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
@@ -193,20 +192,9 @@ public final class ClanMembersMenu {
 
     /** A control button listing every option with the current one marked; LMB steps forward, RMB back. */
     private <E extends Enum<E>> ItemStack cycleButton(String group, E[] options, E current, boolean manager, Player player) {
-        List<Component> lore = new ArrayList<>();
-        for (E option : options) {
-            if (option instanceof Filter f && f.needsManager() && !manager) continue;
-            String key = "gui.members-hub." + group + "." + option.name().toLowerCase();
-            lore.add(plugin.getMessages().component(
-                    option == current ? "gui.members-hub.option-current" : "gui.members-hub.option-other",
-                    Map.of("name", plugin.getMessages().raw(key)), player));
-        }
-        lore.add(Component.empty());
-        lore.add(plugin.getMessages().component("gui.members-hub.cycle-hint", player));
-        return ItemBuilder.head(group.equals("filter") ? ItemBuilder.HEAD_FILTER : ItemBuilder.HEAD_SORT)
-                .name(plugin.getMessages().component("gui.members-hub." + group + "-title", player))
-                .lore(lore)
-                .build();
+        return CycleButton.build(plugin, player, group.equals("filter") ? ItemBuilder.HEAD_FILTER : ItemBuilder.HEAD_SORT,
+                "gui.members-hub." + group + "-title", "gui.members-hub." + group + ".", options, current,
+                option -> !(option instanceof Filter f && f.needsManager() && !manager));
     }
 
     private ItemStack buildEntry(Entry entry, Clan clan, Player viewer) {

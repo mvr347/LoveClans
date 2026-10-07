@@ -49,6 +49,12 @@ public final class ClanBannerListener implements Listener {
             return;
         }
 
+        if (plugin.getClanManager().isCreating(player.getUniqueId())) {
+            event.setCancelled(true);
+            plugin.getMessages().send(player, "clan.banner.creation-in-progress");
+            return;
+        }
+
         Location location = event.getBlockPlaced().getLocation();
 
         // Проверяем возможность заприватить территорию

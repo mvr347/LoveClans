@@ -19,6 +19,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Keeps a clan banner block (and the block that carries it) intact against everything that is not a player
@@ -34,10 +35,27 @@ public final class BannerProtectionListener implements Listener {
         return material.name().endsWith("_BANNER");
     }
 
-    private static boolean isClanBanner(Block block) {
+    /**
+     * Whether a CAPITAL/TERRITORY banner block actually belongs to a territory (ClanManager#isRegisteredBanner).
+     * An orphan banner - tagged, but no territory points at it - must not be indestructible. Set on enable;
+     * until then every tagged banner counts as registered.
+     */
+    private static volatile Predicate<Block> registeredBanner = block -> true;
+
+    public static void setRegisteredBannerCheck(Predicate<Block> check) {
+        registeredBanner = check == null ? block -> true : check;
+    }
+
+    static boolean isClanBanner(Block block) {
         if (!isBannerMaterial(block.getType())) return false;
-        return block.getState() instanceof Banner banner
-                && banner.getPersistentDataContainer().has(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING);
+        if (!(block.getState() instanceof Banner banner)) return false;
+        var pdc = banner.getPersistentDataContainer();
+        if (!pdc.has(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING)) return false;
+        String type = pdc.get(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING);
+        if ("CAPITAL".equals(type) || "TERRITORY".equals(type)) {
+            return registeredBanner.test(block);
+        }
+        return true;
     }
 
     /** The banner itself, or the block that holds it: the one below a standing banner, behind a wall banner. */

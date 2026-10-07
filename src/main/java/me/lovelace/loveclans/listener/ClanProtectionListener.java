@@ -294,7 +294,7 @@ public class ClanProtectionListener implements Listener {
                 PersistentDataContainer pdcAbove = blockAbovePdcOpt.get();
                 String clanIdStringAbove = pdcAbove.get(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING);
 
-                if (clanIdStringAbove != null) {
+                if (clanIdStringAbove != null && BannerProtectionListener.isClanBanner(blockAbove)) {
                     plugin.getMessages().send(player, "territory.capital.cannot-break-bearing-block");
                     event.setCancelled(true);
                     return;
@@ -322,6 +322,9 @@ public class ClanProtectionListener implements Listener {
 
         if (bannerType == null || clanIdString == null) {
             return; // Not a clan banner
+        }
+        if (("CAPITAL".equals(bannerType) || "TERRITORY".equals(bannerType)) && !clanManager.isRegisteredBanner(brokenBlock)) {
+            return; // Orphan: no territory stands behind this banner, so nothing to protect
         }
 
         UUID clanId = UUID.fromString(clanIdString);

@@ -14,6 +14,9 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class Clan {
+    /** Storage rows of the clan chest; the sixth row of the 54-slot screen is the gui_gen footer. */
+    public static final int MAX_CHEST_ROWS = 5;
+
     private final UUID id;
     private final long createdAt;
     private String name;
@@ -83,7 +86,7 @@ public final class Clan {
         this.level = level;
         this.experience = experience;
         this.upgradePoints = upgradePoints;
-        this.chestRows = chestRows;
+        this.chestRows = Math.min(chestRows, MAX_CHEST_ROWS);
         this.spirit = spirit;
         this.createdAt = createdAt;
         this.open = open;
@@ -358,7 +361,7 @@ public final class Clan {
     }
 
     public void setChestRows(int chestRows) {
-        this.chestRows = chestRows;
+        this.chestRows = Math.min(chestRows, MAX_CHEST_ROWS);
     }
 
     public void setDescription(String description) {

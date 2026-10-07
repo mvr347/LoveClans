@@ -1,101 +1,299 @@
 package me.lovelace.loveclans.manager;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.manager.stateorder.StateOrderCategory;
+import me.lovelace.loveclans.manager.stateorder.StateOrderPicker;
+import me.lovelace.loveclans.manager.stateorder.StateOrderSchedule;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.storage.ClanStorage.StateOrderRow;
+import me.lovelace.loveclans.util.CoinFormat;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 
-import java.util.Calendar;
+import java.time.DayOfWeek;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.OptionalLong;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.logging.Level;
 
+/**
+ * State orders ("Госзакупки"): on a schedule (Mon/Wed/Fri at {@code start-hour} by default) the state opens one
+ * order of a random category (never the previous one), asking for a few random materials of that category. The
+ * volume is shared by the whole server; clans deliver from the inventory and the clan treasury is paid a share of
+ * the LoveCore model price per item. All state is owned by the main thread; the database only mirrors it, and the
+ * writes are chained so they reach the database in the order they happened.
+ */
 public final class ServerTradeManager {
-    public static final int MAX_WEEKLY_STACKS = 10;
+    private static final String PATH = "clans.trade.state-orders.";
 
-    public record TradeOffer(Material material, int amount, long rewardMoney, String displayName) {}
+    /** The live order. Mutated only on the main thread. */
+    public static final class StateOrder {
+        private final String id;
+        private final StateOrderCategory category;
+        private final List<Material> materials;
+        private final int total;
+        private int filled;
+        private final long startsAt;
+        private final long endsAt;
+        private final Map<UUID, Integer> contributions;
+
+        StateOrder(String id, StateOrderCategory category, List<Material> materials, int total, int filled,
+                   long startsAt, long endsAt, Map<UUID, Integer> contributions) {
+            this.id = id;
+            this.category = category;
+            this.materials = List.copyOf(materials);
+            this.total = total;
+            this.filled = filled;
+            this.startsAt = startsAt;
+            this.endsAt = endsAt;
+            this.contributions = new HashMap<>(contributions);
+        }
+
+        public String id() { return id; }
+        public StateOrderCategory category() { return category; }
+        public List<Material> materials() { return materials; }
+        public int total() { return total; }
+        public int filled() { return filled; }
+        public int remaining() { return Math.max(0, total - filled); }
+        public long startsAt() { return startsAt; }
+        public long endsAt() { return endsAt; }
+        public boolean isFull() { return filled >= total; }
+        public int contributionOf(UUID clanId) { return contributions.getOrDefault(clanId, 0); }
+
+        StateOrderRow toRow() {
+            List<String> names = new ArrayList<>();
+            for (Material material : materials) names.add(material.name());
+            return new StateOrderRow(id, category.name(), String.join(",", names), total, filled, startsAt, endsAt,
+                    Collections.unmodifiableMap(new HashMap<>(contributions)));
+        }
+    }
 
     private final LoveClansPlugin plugin;
-
-    // 4 ротируемых пула товаров по неделям
-    private static final List<List<TradeOffer>> ROTATING_POOLS = List.of(
-            List.of(
-                    new TradeOffer(Material.WHEAT, 64, 250, "Пшеница (64 шт.)"),
-                    new TradeOffer(Material.IRON_INGOT, 64, 600, "Железные слитки (64 шт.)"),
-                    new TradeOffer(Material.OAK_LOG, 64, 200, "Дубовые брёвна (64 шт.)"),
-                    new TradeOffer(Material.BAKED_POTATO, 64, 300, "Печёный картофель (64 шт.)")
-            ),
-            List.of(
-                    new TradeOffer(Material.CARROT, 64, 250, "Морковь (64 шт.)"),
-                    new TradeOffer(Material.GOLD_INGOT, 64, 750, "Золотые слитки (64 шт.)"),
-                    new TradeOffer(Material.BIRCH_LOG, 64, 200, "Берёзовые брёвна (64 шт.)"),
-                    new TradeOffer(Material.COOKED_BEEF, 64, 400, "Стейки (64 шт.)")
-            ),
-            List.of(
-                    new TradeOffer(Material.POTATO, 64, 220, "Картофель (64 шт.)"),
-                    new TradeOffer(Material.COPPER_INGOT, 64, 450, "Медные слитки (64 шт.)"),
-                    new TradeOffer(Material.SPRUCE_LOG, 64, 200, "Еловые брёвна (64 шт.)"),
-                    new TradeOffer(Material.COOKED_PORKCHOP, 64, 380, "Жареная свинина (64 шт.)")
-            ),
-            List.of(
-                    new TradeOffer(Material.PUMPKIN, 64, 300, "Тыквы (64 шт.)"),
-                    new TradeOffer(Material.COAL, 64, 350, "Уголь (64 шт.)"),
-                    new TradeOffer(Material.DARK_OAK_LOG, 64, 220, "Тёмный дуб (64 шт.)"),
-                    new TradeOffer(Material.BREAD, 64, 280, "Хлеб (64 шт.)")
-            )
-    );
+    private volatile StateOrder current;
+    private boolean loaded;
+    private CompletableFuture<Void> writeChain = CompletableFuture.completedFuture(null);
 
     public ServerTradeManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
     }
 
-    public int currentWeek() {
-        return Calendar.getInstance().get(Calendar.WEEK_OF_YEAR);
+    // ── Config ────────────────────────────────────────────────────────────────
+
+    private StateOrderSchedule schedule() {
+        Set<DayOfWeek> days = EnumSet.noneOf(DayOfWeek.class);
+        for (String raw : plugin.getConfig().getStringList(PATH + "days")) {
+            try {
+                days.add(DayOfWeek.valueOf(raw.trim().toUpperCase(Locale.ROOT)));
+            } catch (IllegalArgumentException ignored) {
+                plugin.getLogger().warning("State orders: unknown weekday '" + raw + "' in " + PATH + "days");
+            }
+        }
+        if (days.isEmpty()) days = StateOrderSchedule.DEFAULT_DAYS;
+        return new StateOrderSchedule(days, plugin.getConfig().getInt(PATH + "start-hour", 18));
     }
 
-    public void checkAndResetWeek(Clan clan) {
-        int current = currentWeek();
-        if (clan.getServerTradeWeek() != current) {
-            clan.setServerTradeWeek(current);
-            clan.setServerTradeWeeklyStacks(0);
-            plugin.getStorage().updateClanServerTrade(clan.id(), 0, current);
+    private int totalItems() {
+        return Math.max(1, plugin.getConfig().getInt(PATH + "total-items", 3000));
+    }
+
+    public int perClanCap() {
+        return Math.max(0, plugin.getConfig().getInt(PATH + "per-clan-cap", 0));
+    }
+
+    private double payoutPercent() {
+        return Math.max(0.0, plugin.getConfig().getDouble(PATH + "payout-percent", 40.0));
+    }
+
+    private List<Material> pool(StateOrderCategory category) {
+        List<Material> materials = new ArrayList<>();
+        for (String raw : plugin.getConfig().getStringList(PATH + "categories." + category.key())) {
+            Material material = Material.matchMaterial(raw.trim());
+            if (material != null && material.isItem() && !material.isAir()) {
+                materials.add(material);
+            } else {
+                plugin.getLogger().warning("State orders: unknown item '" + raw + "' in category " + category.key());
+            }
+        }
+        return materials;
+    }
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
+    /** Loads the stored order, then checks the schedule every minute on the main thread. */
+    public void start() {
+        plugin.getStorage().loadLatestStateOrderAsync().whenComplete((row, error) -> plugin.runSync(() -> {
+            if (error != null) {
+                plugin.getLogger().log(Level.WARNING, "Unable to load the state order", error);
+            } else {
+                row.ifPresent(r -> current = fromRow(r));
+            }
+            loaded = true;
+            tick();
+            Bukkit.getScheduler().runTaskTimer(plugin, () -> {
+                try {
+                    tick();
+                } catch (Throwable t) {
+                    plugin.getLogger().log(Level.SEVERE, "State order tick failed", t);
+                }
+            }, 20L * 60L, 20L * 60L);
+        }));
+    }
+
+    private StateOrder fromRow(StateOrderRow row) {
+        List<Material> materials = new ArrayList<>();
+        for (String name : row.materials().split(",")) {
+            Material material = Material.matchMaterial(name.trim());
+            if (material != null) materials.add(material);
+        }
+        return new StateOrder(row.id(), StateOrderCategory.parse(row.category(), StateOrderCategory.FOOD), materials,
+                row.total(), row.filled(), row.startsAt(), row.endsAt(), row.contributions());
+    }
+
+    /** Opens a new order when the latest schedule slot is newer than the current order. */
+    void tick() {
+        if (!loaded) return;
+        StateOrderSchedule schedule = schedule();
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.systemDefault());
+        ZonedDateTime slot = schedule.latestSlotAtOrBefore(now);
+        StateOrder order = current;
+        if (order != null && order.startsAt() >= slot.toInstant().toEpochMilli()) return;
+        openOrder(slot, schedule.nextSlotAfter(slot), order == null ? null : order.category());
+    }
+
+    private void openOrder(ZonedDateTime slot, ZonedDateTime end, StateOrderCategory previous) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        StateOrderCategory category = StateOrderPicker.pickCategory(previous, random);
+        List<Material> pool = pool(category);
+        if (pool.isEmpty()) {
+            // A misconfigured category must not stall the rotation: fall back to any category that has items.
+            for (StateOrderCategory other : StateOrderCategory.values()) {
+                if (other != category && !pool(other).isEmpty()) {
+                    category = other;
+                    pool = pool(other);
+                    break;
+                }
+            }
+        }
+        int count = Math.max(1, plugin.getConfig().getInt(PATH + "materials-per-order", 4));
+        List<Material> materials = StateOrderPicker.pickMaterials(pool, count, random);
+        StateOrder order = new StateOrder(UUID.randomUUID().toString(), category, materials, totalItems(), 0,
+                slot.toInstant().toEpochMilli(), end.toInstant().toEpochMilli(), Map.of());
+        current = order;
+        StateOrderRow row = order.toRow();
+        enqueue(() -> plugin.getStorage().saveStateOrderAsync(row));
+        if (!materials.isEmpty()) announce(order);
+    }
+
+    private void enqueue(java.util.function.Supplier<CompletableFuture<Void>> write) {
+        writeChain = writeChain
+                .exceptionally(t -> null)
+                .thenCompose(ignored -> write.get())
+                .exceptionally(t -> {
+                    plugin.getLogger().log(Level.WARNING, "Unable to save the state order", t);
+                    return null;
+                });
+    }
+
+    private void announce(StateOrder order) {
+        String category = plugin.getMessages().raw("trade.state.category." + order.category().key());
+        Map<String, String> placeholders = Map.of(
+                "category", category,
+                "items", itemList(order),
+                "total", String.valueOf(order.total()));
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            if (plugin.getClanManager().getPlayerClan(online.getUniqueId()).isPresent()) {
+                plugin.getMessages().send(online, "trade.state.announce", placeholders);
+            }
         }
     }
 
-    public List<TradeOffer> currentOffers() {
-        int index = Math.abs(currentWeek()) % ROTATING_POOLS.size();
-        List<TradeOffer> pool = ROTATING_POOLS.get(index);
-        List<TradeOffer> priced = new java.util.ArrayList<>(pool.size());
-        for (TradeOffer offer : pool) {
-            priced.add(withModelReward(offer));
-        }
-        return priced;
+    private static String itemList(StateOrder order) {
+        List<String> names = new ArrayList<>();
+        for (Material material : order.materials()) names.add(itemName(material));
+        return String.join("<gray>, <white>", names);
     }
 
-    /**
-     * 2026-10-03: the state pays a share ({@code clans.trade.server.payout-percent}, default 70) of what
-     * the LoveCore price model says the stack is worth, so the reward follows the recipe-derived
-     * prices and the global price index. The constants in {@link #ROTATING_POOLS} are only the
-     * fallback while the price model is not ready or does not know the item.
-     */
-    private TradeOffer withModelReward(TradeOffer offer) {
+    /** MiniMessage for the client-side translated item name. */
+    public static String itemName(Material material) {
+        return "<lang:" + material.translationKey() + ">";
+    }
+
+    // ── Queries ───────────────────────────────────────────────────────────────
+
+    /** The order players can deliver to right now, or null (none opened yet, or the window has passed). */
+    public StateOrder currentOrder() {
+        StateOrder order = current;
+        if (order == null || System.currentTimeMillis() >= order.endsAt()) return null;
+        return order;
+    }
+
+    /** Price the treasury gets per item, or empty while the LoveCore price model does not know the item. */
+    public OptionalLong unitPayout(Material material) {
         try {
             var oracle = dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.economy.PriceOracle.class);
             if (oracle.isPresent() && oracle.get().ready()) {
-                java.util.OptionalLong unit = oracle.get().value(offer.material());
+                OptionalLong unit = oracle.get().value(material);
                 if (unit.isPresent() && unit.getAsLong() > 0) {
-                    double percent = Math.max(0.0, plugin.getConfig().getDouble("clans.trade.server.payout-percent", 70.0));
-                    long reward = Math.max(1L, Math.round(unit.getAsLong() * offer.amount() * percent / 100.0));
-                    return new TradeOffer(offer.material(), offer.amount(), reward, offer.displayName());
+                    return OptionalLong.of(Math.max(1L, Math.round(unit.getAsLong() * payoutPercent() / 100.0)));
                 }
             }
         } catch (Throwable t) {
-            // LoveCore price API unavailable: keep the fallback reward
+            // LoveCore price API unavailable
         }
-        return offer;
+        return OptionalLong.empty();
     }
 
-    public boolean sellOffer(Player player, Clan clan, TradeOffer offer) {
+    /** How many more items this clan may deliver to the order (order remainder and the per-clan cap). */
+    public int allowance(StateOrder order, UUID clanId) {
+        int allowed = order.remaining();
+        int cap = perClanCap();
+        if (cap > 0) allowed = Math.min(allowed, Math.max(0, cap - order.contributionOf(clanId)));
+        return allowed;
+    }
+
+    private static boolean isPlain(ItemStack stack, Material material) {
+        return stack != null && stack.getType() == material && stack.isSimilar(new ItemStack(material));
+    }
+
+    /** Plain items of {@code material} in the player's storage (renamed/enchanted ones are not accepted). */
+    public static int countPlain(PlayerInventory inventory, Material material) {
+        int count = 0;
+        for (ItemStack stack : inventory.getStorageContents()) {
+            if (isPlain(stack, material)) count += stack.getAmount();
+        }
+        return count;
+    }
+
+    private static int firstPlainStack(PlayerInventory inventory, Material material) {
+        for (ItemStack stack : inventory.getStorageContents()) {
+            if (isPlain(stack, material)) return stack.getAmount();
+        }
+        return 0;
+    }
+
+    // ── Delivery ──────────────────────────────────────────────────────────────
+
+    /**
+     * Delivers {@code material} from the player's inventory: one stack, or everything ({@code all}) bounded by
+     * what the order and the clan cap still accept. Items are taken first, money is credited after.
+     *
+     * @return true when something was delivered
+     */
+    public boolean deliver(Player player, Clan clan, Material material, boolean all) {
         if (!clan.hasCapital()) {
             plugin.getMessages().send(player, "clan.no-territory");
             return false;
@@ -104,41 +302,60 @@ public final class ServerTradeManager {
             plugin.getMessages().send(player, "trade.server.unrecognized");
             return false;
         }
-
-        checkAndResetWeek(clan);
-
-        if (clan.getServerTradeWeeklyStacks() >= MAX_WEEKLY_STACKS) {
-            plugin.getMessages().send(player, "trade.server.limit-reached",
-                    Map.of("current", String.valueOf(clan.getServerTradeWeeklyStacks()), "max", String.valueOf(MAX_WEEKLY_STACKS)));
+        StateOrder order = currentOrder();
+        if (order == null || !order.materials().contains(material)) {
+            plugin.getMessages().send(player, "trade.state.no-order");
             return false;
         }
-
-        // Проверяем наличие предметов у игрока
-        if (!player.getInventory().containsAtLeast(new ItemStack(offer.material()), offer.amount())) {
-            plugin.getMessages().send(player, "trade.server.not-enough-items",
-                    Map.of("item", offer.displayName(), "amount", String.valueOf(offer.amount())));
+        if (order.isFull()) {
+            plugin.getMessages().send(player, "trade.state.filled");
             return false;
         }
+        int allowance = allowance(order, clan.id());
+        if (allowance <= 0) {
+            plugin.getMessages().send(player, "trade.state.cap-reached", Map.of("cap", String.valueOf(perClanCap())));
+            return false;
+        }
+        OptionalLong unit = unitPayout(material);
+        if (unit.isEmpty()) {
+            plugin.getMessages().send(player, "trade.state.price-unavailable");
+            return false;
+        }
+        PlayerInventory inventory = player.getInventory();
+        int offered = all ? countPlain(inventory, material) : firstPlainStack(inventory, material);
+        if (offered <= 0) {
+            plugin.getMessages().send(player, "trade.state.no-items", Map.of("item", itemName(material)));
+            return false;
+        }
+        int amount = Math.min(offered, allowance);
+        Map<Integer, ItemStack> leftover = inventory.removeItem(new ItemStack(material, amount));
+        for (ItemStack rest : leftover.values()) amount -= rest.getAmount();
+        if (amount <= 0) return false;
 
-        // Списываем предметы
-        player.getInventory().removeItem(new ItemStack(offer.material(), offer.amount()));
-
-        // Пополняем казну клана
-        clan.addChestMoney(offer.rewardMoney());
-        clan.incrementServerTradeWeeklyStacks(1);
-
-        // Сохраняем в базу данных
+        long reward = unit.getAsLong() * amount;
+        clan.addChestMoney(reward);
         plugin.getStorage().updateClanChestMoney(clan.id(), clan.chestMoney());
-        plugin.getStorage().updateClanServerTrade(clan.id(), clan.getServerTradeWeeklyStacks(), clan.getServerTradeWeek());
 
-        // Уведомляем игрока
-        plugin.getMessages().send(player, "trade.server.sell-success", Map.of(
-                "item", offer.displayName(),
-                "reward", me.lovelace.loveclans.util.CoinFormat.format(offer.rewardMoney()),
-                "current", String.valueOf(clan.getServerTradeWeeklyStacks()),
-                "max", String.valueOf(MAX_WEEKLY_STACKS)
-        ));
+        order.filled += amount;
+        int clanTotal = order.contributions.merge(clan.id(), amount, Integer::sum);
+        String orderId = order.id();
+        int filled = order.filled;
+        UUID clanId = clan.id();
+        enqueue(() -> plugin.getStorage().updateStateOrderProgressAsync(orderId, filled, clanId, clanTotal));
 
+        plugin.getMessages().send(player, "trade.state.delivered", Map.of(
+                "amount", String.valueOf(amount),
+                "item", itemName(material),
+                "reward", CoinFormat.format(reward),
+                "filled", String.valueOf(order.filled()),
+                "total", String.valueOf(order.total())));
+        if (order.isFull()) {
+            for (Player online : Bukkit.getOnlinePlayers()) {
+                if (plugin.getClanManager().getPlayerClan(online.getUniqueId()).isPresent()) {
+                    plugin.getMessages().send(online, "trade.state.completed-broadcast");
+                }
+            }
+        }
         return true;
     }
 }

@@ -19,10 +19,8 @@ import java.util.UUID;
 /**
  * "Дипломатия и Торговля" (§6.1) - the clan browser that fans out into the per-clan relations
  * menu (left click, §6.2 - {@link ClanDiplomacyMenu}) or straight into a trade invite (right
- * click, §4.2/§6.3 - see ClanTradeManager#proposeTradeAsync). Sort/filter are spec'd as mouse-wheel cycles,
- * which vanilla container GUIs can't actually capture outside the hotbar - left-click cycles
- * forward here instead, the same adaptation already used elsewhere in this plugin for stateful
- * toggle buttons.
+ * click, §4.2/§6.3 - see ClanTradeManager#proposeTradeAsync). Sort/filter are {@link CycleButton}s:
+ * LMB steps forward, RMB back.
  */
 public final class ClanDiplomacySelectMenu implements InventoryHolder {
     // gui_gen 54-slot working zone is 18-44 only (three rows) — row 1 (9-17) is always frame.
@@ -51,10 +49,6 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
             this.comparator = comparator;
         }
 
-        SortMode next() {
-            SortMode[] values = values();
-            return values[(ordinal() + 1) % values.length];
-        }
     }
 
     private enum FilterMode {
@@ -64,10 +58,6 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
         CLOSED,
         OPEN;
 
-        FilterMode next() {
-            FilterMode[] values = values();
-            return values[(ordinal() + 1) % values.length];
-        }
     }
 
     private final LoveClansPlugin plugin;
@@ -158,14 +148,10 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
                     .name(plugin.getMessages().component("gui.next-page", player)).build());
         }
 
-        inventory.setItem(SLOT_SORT, ItemBuilder.head(ItemBuilder.HEAD_SORT)
-                .name(plugin.getMessages().component("gui.diplomacy-select.sort.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy-select.sort." + sortMode.name().toLowerCase(java.util.Locale.ROOT), player))
-                .build());
-        inventory.setItem(SLOT_FILTER, ItemBuilder.head(ItemBuilder.HEAD_FILTER)
-                .name(plugin.getMessages().component("gui.diplomacy-select.filter.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy-select.filter." + filterMode.name().toLowerCase(java.util.Locale.ROOT), player))
-                .build());
+        inventory.setItem(SLOT_SORT, CycleButton.build(plugin, player, ItemBuilder.HEAD_SORT,
+                "gui.diplomacy-select.sort.name", "gui.diplomacy-select.sort.", SortMode.values(), sortMode));
+        inventory.setItem(SLOT_FILTER, CycleButton.build(plugin, player, ItemBuilder.HEAD_FILTER,
+                "gui.diplomacy-select.filter.name", "gui.diplomacy-select.filter.", FilterMode.values(), filterMode));
 
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
@@ -187,12 +173,13 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
             return;
         }
         if (slot == SLOT_SORT) {
-            sortMode = sortMode.next();
+            sortMode = CycleButton.step(sortMode, SortMode.values(), !rightClick);
+            currentPage = 0;
             open();
             return;
         }
         if (slot == SLOT_FILTER) {
-            filterMode = filterMode.next();
+            filterMode = CycleButton.step(filterMode, FilterMode.values(), !rightClick);
             currentPage = 0;
             open();
             return;
