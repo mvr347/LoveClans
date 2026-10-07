@@ -20,6 +20,7 @@ import org.bukkit.Material;
 import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -148,6 +149,20 @@ public interface ClanStorage {
     CompletableFuture<List<PendingClanItem>> loadPendingItemsAsync(UUID playerId);
 
     CompletableFuture<Void> deletePendingItemAsync(UUID id);
+
+    // --- State orders (clans.trade.state-orders): the current order and each clan's share of it ---
+
+    /** The most recently started state order with its per-clan contributions, if any order was ever opened. */
+    CompletableFuture<java.util.Optional<StateOrderRow>> loadLatestStateOrderAsync();
+
+    CompletableFuture<Void> saveStateOrderAsync(StateOrderRow order);
+
+    /** Writes the order's absolute fill and one clan's absolute contribution to it. */
+    CompletableFuture<Void> updateStateOrderProgressAsync(String orderId, int filled, UUID clanId, int clanAmount);
+
+    /** A stored state order; {@code materials} is a comma-separated list of material names. */
+    record StateOrderRow(String id, String category, String materials, int total, int filled,
+                         long startsAt, long endsAt, Map<UUID, Integer> contributions) {}
 
     /** Kinds of {@link PendingClanItem}; the item itself is rebuilt on delivery from current clan data. */
     record PendingClanItem(UUID id, UUID playerId, UUID clanId, String kind, long createdAt) {

@@ -125,15 +125,21 @@ trade:
   delivery:
     arrived: "<prefix><green>По сделке с кланом <color><tag></color> в сундук клана поступил товар."
   server:
-    unrecognized: "<prefix><red>Ваш клан не признан сервером. Непризнанные кланы не могут торговать с казной сервера."
-    not-accepted: "<prefix><red>Этот предмет не входит в список государственных закупок на этой неделе."
-    limit-reached: "<prefix><red>Недельный лимит сдачи ресурсов исчерпан (<current>/<max> стаков)."
-    sold: "<prefix><green>Вы успешно сдали ресурсы в казну сервера! В клановый сундук начислено <money>."
-    # Добавлено 2026-09-23: ServerTradeManager#sellOffer ссылался на эти два ключа, которых не
-    # было в файле (игрок видел сырой путь ключа вместо сообщения) - см. аудит "ключ есть в коде,
-    # нет в lang.yml" после PR #50.
-    not-enough-items: "<prefix><red>Недостаточно предметов (<item>) - нужно <amount> шт."
-    sell-success: "<prefix><green>Вы сдали <white><item></white> в казну сервера! Начислено <reward>. Сдано на этой неделе: <white><current>/<max> стаков."
+    unrecognized: "<prefix><red>Ваш клан не признан сервером. Непризнанные кланы не могут сдавать ресурсы по госзакупкам."
+  # Госзакупки (2026-10-07): заказ по расписанию, общий объём на сервер.
+  state:
+    category:
+      food: "Продовольствие"
+      building: "Стройматериалы"
+      raw: "Сырьё"
+    announce: "<prefix><gold>Государство объявило закупку: <white><category></white>! <gray>Нужно: <white><items></white><gray>. Общий объём: <white><total></white> шт. Сдавайте через меню клана, «Торговля»."
+    no-order: "<prefix><red>Сейчас этот предмет государство не закупает."
+    filled: "<prefix><yellow>Заказ уже полностью выполнен. Ждите следующей закупки."
+    cap-reached: "<prefix><red>Ваш клан уже сдал максимум по этому заказу (<cap> шт.)."
+    price-unavailable: "<prefix><red>Цена на этот предмет пока не определена - попробуйте позже."
+    no-items: "<prefix><red>У вас нет подходящих предметов: <white><item></white>."
+    delivered: "<prefix><green>Сдано <white><amount></white> шт. <white><item></white>. В казну клана начислено <reward>. <gray>Заказ: <white><filled>/<total>"
+    completed-broadcast: "<prefix><gold>Государственная закупка выполнена полностью! Следующая - по расписанию."
 
 clan:
   disband-in-conflict: "<prefix><red>Нельзя распустить клан, пока идёт война, осада или набег."
@@ -330,6 +336,103 @@ diplomacy:
     empty-list: "<prefix><gray>Писем пока нет."
 
 gui:
+  # Меню «Торговля» (2026-10-07): вкладки Кланы / Запросы / Госзакупки.
+  trade:
+    title: "<gray>Торговля"
+    info:
+      name: "<gold>Торговля"
+      description: "<gray>Обмен с другими кланами и госзакупки"
+      treasury: "<gray>Казна клана: <white><amount>"
+    filter-title: "<gold>Фильтр"
+    sort-title: "<gold>Сортировка"
+    tab:
+      selected: "<green>Открыта сейчас"
+      open: "<green>ЛКМ <gray>— открыть"
+      clans:
+        name: "<gold>Кланы"
+        description: "<gray>Предложить обмен другому клану"
+      requests:
+        name: "<gold>Запросы"
+        description: "<gray>Входящие и исходящие запросы на обмен"
+      state:
+        name: "<gold>Госзакупки"
+        description: "<gray>Сдача ресурсов государству за деньги в казну"
+    active-session:
+      name: "<green>Активная сделка"
+      lore: "<green>ЛКМ <gray>— открыть окно сделки заново"
+    clan:
+      name: "<color><name> <white>[<tag>]"
+      relation: "<gray>Отношения: <white><relation>"
+      members: "<gray>Участников: <white><count>"
+      influence: "<gray>Влияние: <white><influence>"
+      hint: "<green>ЛКМ <gray>— предложить обмен"
+      blocked: "<red>Торговля недоступна: <reason>"
+      reason:
+        war: "идёт конфликт"
+        embargo: "эмбарго"
+        blockade: "блокада"
+        no-territory: "у клана нет территории"
+      empty:
+        name: "<gray>Кланов не найдено"
+        lore: "<gray>Попробуйте другой фильтр."
+      filter:
+        all: "Все"
+        open: "Открытые"
+        peace: "В мире"
+        unrestricted: "Без ограничений"
+      sort:
+        influence: "Влияние"
+        members: "Участники"
+        name: "Название"
+    request:
+      date: "<gray>Создан: <white><date>"
+      sent:
+        name: "<yellow>Отправлено клану <color><tag>"
+        lore:
+          - "<green>ЛКМ <gray>— отменить запрос"
+      received:
+        name: "<gold>Получено от клана <color><tag>"
+        lore:
+          - "<green>ЛКМ <gray>— принять"
+          - "<green>ПКМ <gray>— отклонить"
+      empty:
+        name: "<gray>Запросов нет"
+        lore: "<gray>Предложите обмен на вкладке «Кланы»."
+      filter:
+        all: "Все"
+        incoming: "Входящие"
+        outgoing: "Исходящие"
+      sort:
+        newest: "Новые"
+        oldest: "Старые"
+    state:
+      unrecognized:
+        name: "<red>Госзакупки недоступны"
+        lore: "<gray>Только для признанных кланов."
+      none:
+        name: "<gray>Сейчас закупок нет"
+        lore: "<gray>Новая закупка открывается в Пн, Ср и Пт вечером."
+      info:
+        name: "<gold>Госзакупка: <white><category>"
+        description: "<gray>Объём общий на весь сервер"
+        progress: "<gray>Собрано: <white><filled>/<total>"
+        clan: "<gray>Сдал ваш клан: <white><amount>"
+        cap: "<gray>Лимит на клан: <white><cap>"
+        ends: "<gray>До конца: <white><time>"
+        full: "<green>Заказ выполнен"
+      item:
+        name: "<white><item>"
+        price: "<gray>Цена за шт.: <white><price>"
+        no-price: "<gray>Цена: <red>пока не определена"
+        have: "<gray>У вас: <white><amount>"
+        hint-stack: "<green>ЛКМ <gray>— сдать один стак"
+        hint-all: "<green>Shift+ЛКМ <gray>— сдать всё"
+        closed: "<gray>Сдача закрыта"
+  # Общий переключатель фильтра/сортировки (CycleButton): все варианты в лоре, текущий отмечен.
+  cycle:
+    option-current: "<green>▶ <name>"
+    option-other: "<gray>  <name>"
+    hint: "<yellow>ЛКМ <gray>- дальше, <yellow>ПКМ <gray>- назад"
   accept: "<green>[Принять]"
   reject: "<red>[Отклонить]"
   cancel: "<red>[Отменить]"
@@ -352,9 +455,6 @@ gui:
       contribution: "По вкладу"
       name: "По имени"
       date: "По дате"
-    option-current: "<green>▶ <name>"
-    option-other: "<gray>  <name>"
-    cycle-hint: "<yellow>ЛКМ <gray>- дальше, <yellow>ПКМ <gray>- назад"
     empty:
       name: "<gray>Здесь пока никого нет"
       lore: "<gray>Попробуйте другой фильтр."
@@ -392,13 +492,6 @@ gui:
       name: "<green>Торговля с кланами"
       lore: "<gray>ЛКМ - выбрать клан и отправить запрос на обмен"
       hint: "<prefix><yellow>Используйте /clan trade <tag> [деньги], чтобы предложить обмен другому клану."
-    server-trade-button:
-      name: "<gold>Государственные закупки"
-      lore: "<gray>ЛКМ - сдать ресурсы в казну сервера"
-      unrecognized-lore: "<red>Недоступно: только для признанных кланов"
-    trade-requests-button:
-      name: "<gold>Запросы на обмен"
-      lore: "<gray>Отправленные и полученные запросы, активная сделка"
     locked-warning:
       name: "<red>Сундук заблокирован"
       lore:
@@ -606,17 +699,17 @@ gui:
       lore: "<gray>Активных заявок: <white><count>"
     filter:
       name: "<gold>Фильтр"
-      all: "<gray>Сейчас: <white>Все"
-      at_war: "<gray>Сейчас: <white>Воюют"
-      peaceful: "<gray>Сейчас: <white>Не воюют"
-      closed: "<gray>Сейчас: <white>Закрытые"
-      open: "<gray>Сейчас: <white>Открытые"
+      all: "Все"
+      at_war: "Воюют"
+      peaceful: "Не воюют"
+      closed: "Закрытые"
+      open: "Открытые"
     sort:
       name: "<gold>Сортировка"
-      newest: "<gray>Сейчас: <white>Новые"
-      oldest: "<gray>Сейчас: <white>Старые"
-      influence: "<gray>Сейчас: <white>Влияние"
-      members: "<gray>Сейчас: <white>Кол-во игроков"
+      newest: "Новые"
+      oldest: "Старые"
+      influence: "Влияние"
+      members: "Кол-во игроков"
     clan-item:
       name: "<color><name> <white>[<tag>]"
       leader: "<gray>Глава: <white><player>"
@@ -775,17 +868,17 @@ gui:
       hint: "<gray>ЛКМ - отношения, ПКМ - торговля"
     sort:
       name: "<gold>Сортировка"
-      newest: "<gray>Сейчас: <white>Новые"
-      oldest: "<gray>Сейчас: <white>Старые"
-      influence: "<gray>Сейчас: <white>Влияние"
-      members: "<gray>Сейчас: <white>Число игроков"
+      newest: "Новые"
+      oldest: "Старые"
+      influence: "Влияние"
+      members: "Число игроков"
     filter:
       name: "<gold>Фильтр"
-      all: "<gray>Сейчас: <white>Все"
-      at_war: "<gray>Сейчас: <white>В конфликте"
-      peaceful: "<gray>Сейчас: <white>Без конфликта"
-      closed: "<gray>Сейчас: <white>Закрытые"
-      open: "<gray>Сейчас: <white>Открытые"
+      all: "Все"
+      at_war: "В конфликте"
+      peaceful: "Без конфликта"
+      closed: "Закрытые"
+      open: "Открытые"
   info:
     title: "<color><name> <white>[<tag>]"
     name: "<color><name> <white>[<tag>]"
@@ -824,6 +917,10 @@ gui:
       lore: "<gray>Кроме главы, в этом клане пока никто не состоит."
   main:
     title: "<color><clan> <white>- Меню клана"
+    trade:
+      name: "<gold>Торговля"
+      description: "<gray>Обмен с кланами, запросы и госзакупки"
+      action: "<green>ЛКМ <gray>— открыть"
     no-territory-lore: "<red>Нужна клановая территория: новое знамя продаёт NPC."
     info:
       name: "<color><clan>"
@@ -1119,48 +1216,6 @@ gui:
     perk-selected: "<prefix><green>Клан выбрал перк <gold><perk></gold>!"
     perk-locked: "<prefix><red>Перки клана ещё не открыты."
     perk-insufficient-experience: "<prefix><red>Недостаточно опыта клана для смены перка."
-  server-trade:
-    title: "<gray>Госзакупки: Неделя <week>"
-    demand-name: "<gold><item>"
-    demand-lore:
-      - "<gray>Цена: <yellow><price> монет <gray>за стак (64 шт.)"
-      - "<gray>Сдано на этой неделе: <white><current>/<max> стаков"
-    confirm-name: "<green>Сдать ресурсы"
-    confirm-lore:
-      - "<gray>Положите ресурсы в слоты выше"
-      - "<gray>и нажмите сюда для продажи."
-    # Добавлено 2026-09-23: ClanServerTradeMenu рисует слот 0 (инфо) и слоты предложений (info/offer)
-    # через эти ключи, которых не было в файле (demand-*/confirm-* выше - остаток старого дизайна
-    # этого меню, текущий код их не читает) - см. аудит "ключ есть в коде, нет в lang.yml" после PR #50.
-    info:
-      name: "<gold>Госзакупки"
-      unrecognized-lore:
-        - "<red>Недоступно: только для признанных кланов"
-      recognized-lore:
-        - "<gray>Сдано на этой неделе: <white><sold>/<max> стаков"
-        - "<gray>Казна клана: <treasury>"
-    offer:
-      name: "<gold><item>"
-      lore-active:
-        - "<gray>Награда: <reward> <gray>за <white><amount> шт."
-        - "<green>ЛКМ - сдать ресурсы"
-      lore-disabled:
-        - "<gray>Награда: <reward> <gray>за <white><amount> шт."
-        - "<red>Недоступно: клан не признан или лимит недели исчерпан"
-  trade-requests:
-    # Добавлено 2026-09-23: ClanTradeRequestsMenu ссылался на весь этот раздел, которого не было
-    # в файле - см. аудит "ключ есть в коде, нет в lang.yml" после PR #50.
-    title: "<gray>Запросы на обмен"
-    empty: "<gray>Нет активных запросов на обмен."
-    active-session:
-      name: "<green>Активная сделка"
-      lore: "<gray>ЛКМ - открыть окно сделки заново"
-    sent:
-      name: "<yellow>Отправлено клану <color><tag>"
-      lore: "<gray>ЛКМ - отменить запрос"
-    received:
-      name: "<gold>Получено от клана <color><tag>"
-      lore: "<gray>ЛКМ - принять <gray>| <red>ПКМ - отклонить"
   banner-create:
     title: "<gray>Основание нового клана"
     name-btn: "<gold>Название: <white><name>"

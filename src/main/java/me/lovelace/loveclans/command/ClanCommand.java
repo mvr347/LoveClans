@@ -269,7 +269,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "trade.server.unrecognized");
             return;
         }
-        new ClanServerTradeMenu(plugin, player, clan).open();
+        plugin.getGuiManager().openServerTrade(player, clan);
     }
 
     private void openDiplomacyFor(Player player, String targetTag) {

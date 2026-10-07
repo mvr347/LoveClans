@@ -22,5 +22,5 @@ public enum ClanMenuType {
     RECOGNITION_CONFIRM,
     CHEST_MONEY,
     LETTERS,
-    TRADE_REQUESTS
+    TRADE
 }

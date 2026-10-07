@@ -29,9 +29,9 @@ public final class ClanMainMenu implements InventoryHolder {
     private static final int SLOT_CHEST = 29;
     private static final int SLOT_TREASURY = 31;
     private static final int SLOT_SPIRIT = 33;
-    private static final int SLOT_TRADE_REQUESTS = 38;
-    private static final int SLOT_SERVER_TRADE = 40;
-    private static final int SLOT_SETTINGS = 42;
+    // Row 4: two centered buttons (gui_gen: the even count skips the middle slot 40).
+    private static final int SLOT_TRADE = 39;
+    private static final int SLOT_SETTINGS = 41;
     private static final int SLOT_LEAVE = 51;
     private static final int SLOT_CLOSE = 53;
 
@@ -148,24 +148,16 @@ public final class ClanMainMenu implements InventoryHolder {
                 .build());
 
         // Row 4 — trade and settings
-        inventory.setItem(SLOT_TRADE_REQUESTS, hasTerritory
-                ? ItemBuilder.head(ItemBuilder.HEAD_LETTERS)
-                        .name(plugin.getMessages().component("gui.chest.trade-requests-button.name", player))
-                        .lore(plugin.getMessages().component("gui.chest.trade-requests-button.lore", player))
-                        .build()
-                : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                        .name(plugin.getMessages().component("gui.chest.trade-requests-button.name", player))
-                        .lore(plugin.getMessages().component("gui.main.no-territory-lore", player))
-                        .build());
-        inventory.setItem(SLOT_SERVER_TRADE, clan.isRecognized() && hasTerritory
+        inventory.setItem(SLOT_TRADE, hasTerritory
                 ? ItemBuilder.head(ItemBuilder.HEAD_TRADE)
-                        .name(plugin.getMessages().component("gui.chest.server-trade-button.name", player))
-                        .lore(plugin.getMessages().component("gui.chest.server-trade-button.lore", player))
+                        .name(plugin.getMessages().component("gui.main.trade.name", player))
+                        .lore(plugin.getMessages().component("gui.main.trade.description", player))
+                        .lore(Component.empty())
+                        .lore(plugin.getMessages().component("gui.main.trade.action", player))
                         .build()
                 : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                        .name(plugin.getMessages().component("gui.chest.server-trade-button.name", player))
-                        .lore(plugin.getMessages().component(hasTerritory ? "gui.chest.server-trade-button.unrecognized-lore"
-                                : "gui.main.no-territory-lore", player))
+                        .name(plugin.getMessages().component("gui.main.trade.name", player))
+                        .lore(plugin.getMessages().component("gui.main.no-territory-lore", player))
                         .build());
 
         ItemBuilder settingsItem = canManageSettings
@@ -283,23 +275,12 @@ public final class ClanMainMenu implements InventoryHolder {
             case SLOT_SPIRIT -> plugin.getGuiManager().openSpiritMenu(clicker, clan);
             case SLOT_CHEST -> plugin.getGuiManager().openChestItems(clicker, clan);
             case SLOT_TREASURY -> plugin.getGuiManager().openChestMoney(clicker, clan);
-            case SLOT_TRADE_REQUESTS -> {
+            case SLOT_TRADE -> {
                 if (!clan.hasCapital()) {
                     plugin.getMessages().send(clicker, "clan.no-territory");
                     return;
                 }
-                plugin.getGuiManager().openTradeRequests(clicker, clan);
-            }
-            case SLOT_SERVER_TRADE -> {
-                if (!clan.hasCapital()) {
-                    plugin.getMessages().send(clicker, "clan.no-territory");
-                    return;
-                }
-                if (!clan.isRecognized()) {
-                    plugin.getMessages().send(clicker, "trade.server.unrecognized");
-                    return;
-                }
-                plugin.getGuiManager().openServerTrade(clicker, clan);
+                plugin.getGuiManager().openTrade(clicker, clan, null);
             }
             case SLOT_SETTINGS -> {
                 if (clan.hasPermission(clicker.getUniqueId(), ClanPermission.SETTINGS)) {

@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1056,6 +1057,95 @@ public final class SqlClanStorage implements ClanStorage {
                 statement.executeUpdate();
             } catch (SQLException exception) {
                 throw new StorageException("Unable to delete pending item " + id, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<java.util.Optional<StateOrderRow>> loadLatestStateOrderAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection()) {
+                String id;
+                String category;
+                String materials;
+                int total;
+                int filled;
+                long startsAt;
+                long endsAt;
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT * FROM clan_state_orders ORDER BY starts_at DESC LIMIT 1");
+                     ResultSet rs = statement.executeQuery()) {
+                    if (!rs.next()) return java.util.Optional.<StateOrderRow>empty();
+                    id = rs.getString("id");
+                    category = rs.getString("category");
+                    materials = rs.getString("materials");
+                    total = rs.getInt("total");
+                    filled = rs.getInt("filled");
+                    startsAt = rs.getLong("starts_at");
+                    endsAt = rs.getLong("ends_at");
+                }
+                Map<UUID, Integer> contributions = new HashMap<>();
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "SELECT clan_id, amount FROM clan_state_order_contrib WHERE order_id = ?")) {
+                    statement.setString(1, id);
+                    try (ResultSet rs = statement.executeQuery()) {
+                        while (rs.next()) {
+                            contributions.put(UUID.fromString(rs.getString("clan_id")), rs.getInt("amount"));
+                        }
+                    }
+                }
+                return java.util.Optional.of(new StateOrderRow(id, category, materials, total, filled, startsAt, endsAt, contributions));
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load the state order", exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> saveStateOrderAsync(StateOrderRow order) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT INTO clan_state_orders (id, category, materials, total, filled, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                      + "ON DUPLICATE KEY UPDATE filled = VALUES(filled), ends_at = VALUES(ends_at)"
+                    : "INSERT INTO clan_state_orders (id, category, materials, total, filled, starts_at, ends_at) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                      + "ON CONFLICT(id) DO UPDATE SET filled = excluded.filled, ends_at = excluded.ends_at";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, order.id());
+                statement.setString(2, order.category());
+                statement.setString(3, order.materials());
+                statement.setInt(4, order.total());
+                statement.setInt(5, order.filled());
+                statement.setLong(6, order.startsAt());
+                statement.setLong(7, order.endsAt());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save state order " + order.id(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> updateStateOrderProgressAsync(String orderId, int filled, UUID clanId, int clanAmount) {
+        return CompletableFuture.runAsync(() -> {
+            String upsert = database.type() == DatabaseType.MYSQL
+                    ? "INSERT INTO clan_state_order_contrib (order_id, clan_id, amount) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE amount = VALUES(amount)"
+                    : "INSERT INTO clan_state_order_contrib (order_id, clan_id, amount) VALUES (?, ?, ?) ON CONFLICT(order_id, clan_id) DO UPDATE SET amount = excluded.amount";
+            try (Connection connection = database.dataSource().getConnection()) {
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE clan_state_orders SET filled = ? WHERE id = ?")) {
+                    statement.setInt(1, filled);
+                    statement.setString(2, orderId);
+                    statement.executeUpdate();
+                }
+                try (PreparedStatement statement = connection.prepareStatement(upsert)) {
+                    statement.setString(1, orderId);
+                    statement.setString(2, clanId.toString());
+                    statement.setInt(3, clanAmount);
+                    statement.executeUpdate();
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update state order " + orderId, exception);
             }
         }, database.executor());
     }

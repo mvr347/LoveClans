@@ -13,14 +13,12 @@ import me.lovelace.loveclans.gui.ClanContractsMenu;
 import me.lovelace.loveclans.gui.ClanRecognitionConfirmMenu;
 import me.lovelace.loveclans.gui.GuildmasterMenu;
 import me.lovelace.loveclans.gui.ClanCreateMenu;
-import me.lovelace.loveclans.gui.ClanServerTradeMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacyMenu;
 import me.lovelace.loveclans.gui.ClanRelationMenu;
 import me.lovelace.loveclans.gui.ClanPerkMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacySelectMenu;
 import me.lovelace.loveclans.gui.ClanInfoMenu;
 import me.lovelace.loveclans.gui.ClanBannerCreationMenu;
-import me.lovelace.loveclans.gui.ClanServerTradeMenu;
 import me.lovelace.loveclans.gui.ClanCreateMenu;
 import me.lovelace.loveclans.gui.ClanListMenu;
 import me.lovelace.loveclans.gui.ClanMainMenu;
@@ -35,7 +33,7 @@ import me.lovelace.loveclans.gui.ClanSettingsMenu;
 import me.lovelace.loveclans.gui.ClanSpiritAbilityMenu;
 import me.lovelace.loveclans.gui.ClanSpiritMenu;
 import me.lovelace.loveclans.gui.ClanTerritoriesMenu;
-import me.lovelace.loveclans.gui.ClanTradeRequestsMenu;
+import me.lovelace.loveclans.gui.ClanTradeMenu;
 import me.lovelace.loveclans.gui.ClanUpgradesMenu;
 import me.lovelace.loveclans.gui.PlayerApplicationsMenu;
 import me.lovelace.loveclans.gui.TerritorySettingsMenu;
@@ -77,7 +75,7 @@ public class GuiManager implements Listener {
     private final GuildmasterMenu guildmasterMenu;
     private final ClanChestMoneyMenu chestMoneyMenu;
     private final ClanLettersMenu lettersMenu;
-    private final ClanTradeRequestsMenu tradeRequestsMenu;
+    private final ClanTradeMenu tradeMenu;
 
     private final Map<UUID, Runnable> confirmYes = new ConcurrentHashMap<>();
     private final Map<UUID, Runnable> confirmNo = new ConcurrentHashMap<>();
@@ -102,15 +100,20 @@ public class GuiManager implements Listener {
         this.guildmasterMenu = new GuildmasterMenu(plugin, recognitionMenu);
         this.chestMoneyMenu = new ClanChestMoneyMenu(plugin);
         this.lettersMenu = new ClanLettersMenu(plugin);
-        this.tradeRequestsMenu = new ClanTradeRequestsMenu(plugin);
+        this.tradeMenu = new ClanTradeMenu(plugin);
     }
 
-    public void openTradeRequests(Player player, Clan clan) {
+    /** "Торговля": other clans, trade requests and state orders; {@code tab} null keeps the remembered tab. */
+    public void openTrade(Player player, Clan clan, ClanTradeMenu.Tab tab) {
         if (!clan.hasCapital()) {
             plugin.getMessages().send(player, "clan.no-territory");
             return;
         }
-        tradeRequestsMenu.open(player, clan);
+        tradeMenu.open(player, clan, tab);
+    }
+
+    public void openTradeRequests(Player player, Clan clan) {
+        openTrade(player, clan, ClanTradeMenu.Tab.REQUESTS);
     }
 
     /**
@@ -140,7 +143,7 @@ public class GuiManager implements Listener {
     }
 
     public void openServerTrade(Player player, Clan clan) {
-        new ClanServerTradeMenu(plugin, player, clan).open();
+        openTrade(player, clan, ClanTradeMenu.Tab.STATE);
     }
 
     public void openLetters(Player player, Clan sourceClan, Clan targetClan) {
@@ -277,6 +280,8 @@ public class GuiManager implements Listener {
 
     public void clearPlayerCache(UUID playerId) {
         membersMenu.clearPlayer(playerId);
+        tradeMenu.clearPlayer(playerId);
+        ClanListMenu.clearPlayer(playerId);
         rankPermissionsMenu.clearPlayer(playerId);
         confirmYes.remove(playerId);
         confirmNo.remove(playerId);
@@ -329,7 +334,7 @@ public class GuiManager implements Listener {
         if (holder instanceof ClanListMenu clanListMenu) {
             if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
             event.setCancelled(true);
-            clanListMenu.handleInventoryClick(event.getRawSlot());
+            clanListMenu.handleInventoryClick(event.getRawSlot(), event.isRightClick());
             return;
         }
 
@@ -351,13 +356,6 @@ public class GuiManager implements Listener {
             if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
             event.setCancelled(true);
             bannerCreateMenu.handleInventoryClick(event.getRawSlot());
-            return;
-        }
-
-        if (holder instanceof ClanServerTradeMenu serverTradeMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
-            event.setCancelled(true);
-            serverTradeMenu.handleInventoryClick(event.getRawSlot());
             return;
         }
 
@@ -437,7 +435,11 @@ public class GuiManager implements Listener {
                         }
                     }
                     case LETTERS -> lettersMenu.handleInventoryClick(player, clan, slot);
-                    case TRADE_REQUESTS -> tradeRequestsMenu.handleInventoryClick(event, player, clan);
+                    case TRADE -> {
+                        if (holder instanceof ClanTradeMenu.Holder tradeHolder) {
+                            tradeMenu.handleInventoryClick(event, player, clan, tradeHolder);
+                        }
+                    }
                     default -> {
                     }
                 }

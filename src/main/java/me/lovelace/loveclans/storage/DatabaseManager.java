@@ -414,6 +414,26 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_pending_items_player ON clan_pending_items(player_id)");
+            // State orders (clans.trade.state-orders): one row per opened order, contributions per clan.
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_state_orders (
+                        id VARCHAR(36) PRIMARY KEY,
+                        category VARCHAR(16) NOT NULL,
+                        materials TEXT NOT NULL,
+                        total INT NOT NULL,
+                        filled INT NOT NULL DEFAULT 0,
+                        starts_at BIGINT NOT NULL,
+                        ends_at BIGINT NOT NULL
+                    )
+                    """);
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_state_order_contrib (
+                        order_id VARCHAR(36) NOT NULL,
+                        clan_id VARCHAR(36) NOT NULL,
+                        amount INT NOT NULL DEFAULT 0,
+                        PRIMARY KEY (order_id, clan_id)
+                    )
+                    """);
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_conflicts (
                         id VARCHAR(36) PRIMARY KEY,
