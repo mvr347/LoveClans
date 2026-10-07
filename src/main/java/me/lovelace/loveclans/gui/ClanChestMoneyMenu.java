@@ -33,8 +33,8 @@ import java.util.UUID;
  * 37-43 = the balance split greedily into coin stacks ({@link TreasuryCoins}), side walls empty,
  * footer 45-51 glass, 52 Back, 53 Close.</p>
  *
- * <p>Deposit: click the work zone with coins on the cursor, or shift-click coins in your own inventory.
- * Withdraw (BANK permission, treasury not tax-locked): click a stack to take it on the cursor, shift-click
+ * <p>Deposit (BANK permission): click the work zone with coins on the cursor, or shift-click coins in your own
+ * inventory. Withdraw (BANK permission, treasury not tax-locked): click a stack to take it on the cursor, shift-click
  * to move it into the inventory. Everything runs synchronously on the main thread in the order
  * "take the coins, then credit" / "debit, then give", so no click sequence can duplicate money.
  * Every change re-renders all open treasury views of that clan.</p>
@@ -143,9 +143,9 @@ public final class ClanChestMoneyMenu implements Listener {
             info.lore(plugin.getMessages().component("gui.chest.info.next-tax",
                     Map.of("time", TimeUtil.formatDuration(Math.max(0, remaining))), viewer));
         }
-        info.lore(net.kyori.adventure.text.Component.empty())
-                .lore(plugin.getMessages().component("gui.chest.money.balance.deposit-hint", viewer));
+        info.lore(net.kyori.adventure.text.Component.empty());
         if (clan.hasPermission(viewer.getUniqueId(), ClanPermission.BANK)) {
+            info.lore(plugin.getMessages().component("gui.chest.money.balance.deposit-hint", viewer));
             info.lore(plugin.getMessages().component("gui.chest.money.balance.withdraw-hint", viewer));
         }
         inventory.setItem(INFO_SLOT, info.build());
@@ -224,6 +224,10 @@ public final class ClanChestMoneyMenu implements Listener {
     }
 
     private void depositCursor(Player player, Clan clan, ItemStack cursor) {
+        if (!clan.hasPermission(player.getUniqueId(), ClanPermission.BANK)) {
+            plugin.getMessages().send(player, "general.no-permission");
+            return;
+        }
         LoveEconomy economy = economy().orElse(null);
         if (economy == null) {
             plugin.getMessages().send(player, "clan.creation-economy-unavailable");
@@ -242,6 +246,10 @@ public final class ClanChestMoneyMenu implements Listener {
     private void depositFromSlot(InventoryClickEvent event, Player player, Clan clan) {
         ItemStack item = event.getCurrentItem();
         if (item == null || item.getType().isAir() || event.getClickedInventory() == null) {
+            return;
+        }
+        if (!clan.hasPermission(player.getUniqueId(), ClanPermission.BANK)) {
+            plugin.getMessages().send(player, "general.no-permission");
             return;
         }
         LoveEconomy economy = economy().orElse(null);
