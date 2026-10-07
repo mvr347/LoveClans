@@ -28,6 +28,7 @@ import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.storage.ClanStorage;
+import me.lovelace.loveclans.util.BukkitBlockView;
 import me.lovelace.loveclans.util.ClanItemFactory;
 import me.lovelace.loveclans.util.InventorySerialization;
 import net.kyori.adventure.bossbar.BossBar;
@@ -1007,10 +1008,65 @@ public final class ClanManager {
         }
 
         Clan clan = pendingClaim.clan();
-        TerritoryKey key = TerritoryKey.fromLocation(location);
         String bannerType = pendingClaim.bannerType();
         ItemStack bannerItem = clanItemFactory.createBannerByType(bannerType, clan.id(), clan.name());
 
+        return claimTerritoryNow(clan, location, player, bannerType).thenApply(savedTerritory -> {
+            plugin.runSync(() -> {
+                placeClanBannerBlock(location, bannerItem.getType(), bannerType, clan.id());
+                player.getInventory().removeItem(bannerItem);
+                plugin.getAdvancedClaimsHook().hideClaimBorder(player);
+                plugin.getMessages().send(player, "territory.claimed-success", Map.of("clan", clan.name(), "tag", clan.tag(), "color", clan.tagColor()));
+                addExperienceAsync(clan, plugin.getConfig().getLong("leveling.territory-claim-exp", 150L));
+            });
+            return savedTerritory;
+        }).exceptionally(ex -> {
+            plugin.runSync(() -> {
+                plugin.sendOperationError(player, ex);
+                plugin.getAdvancedClaimsHook().hideClaimBorder(player);
+                player.getInventory().addItem(bannerItem);
+            });
+            return null;
+        });
+    }
+
+    /**
+     * Creates the capital territory around {@code location} right away, without the pending
+     * "place again to confirm" step - used when a clan is founded with the creation banner, where
+     * the player already confirmed everything in ClanBannerCreationMenu. Main thread only. Does NOT
+     * place the banner block: the caller does that only after this future succeeds.
+     */
+    public CompletableFuture<ClanTerritory> claimCapitalNow(Clan clan, Location location, Player player) {
+        return claimTerritoryNow(clan, location, player, "CAPITAL");
+    }
+
+    /**
+     * Same checks as {@link #initiateClaimConfirmation} that do not need an existing clan, run
+     * BEFORE anything is spent on founding a clan. Returns the lang key of the refusal, or null.
+     */
+    public String checkCapitalClaim(Player player, Location location) {
+        if (!plugin.getAdvancedClaimsHook().enabled()) {
+            return "territory.advancedclaims-disabled";
+        }
+        if (location.getWorld() == null || location.getWorld().getEnvironment() != World.Environment.NORMAL) {
+            return "territory.invalid-world";
+        }
+        Location spawnLoc = location.getWorld().getSpawnLocation();
+        int spawnProtectionRadius = plugin.getConfig().getInt("limits.spawn-protection-radius", 500);
+        if (spawnLoc.distance(location) < spawnProtectionRadius) {
+            return "territory.too-close-to-spawn";
+        }
+        if (getClanAt(TerritoryKey.fromLocation(location)).isPresent()) {
+            return "territory.already-claimed";
+        }
+        if (plugin.getAdvancedClaimsHook().isClaimed(location)) {
+            return "territory.already-claimed-by-advancedclaims";
+        }
+        return null;
+    }
+
+    /** Shared core of a confirmed claim: event, LoveClaims claim, index, spawn (capital), persist. */
+    private CompletableFuture<ClanTerritory> claimTerritoryNow(Clan clan, Location location, Player player, String bannerType) {
         ClanTerritory territory = new ClanTerritory(clan.id(), location.getWorld().getName(), player.getUniqueId(), System.currentTimeMillis())
                 .withBannerCoords(location.getBlockX(), location.getBlockY(), location.getBlockZ())
                 .withCapital(bannerType.equals("CAPITAL"));
@@ -1034,49 +1090,81 @@ public final class ClanManager {
                         ? "territory.overlaps-claim"
                         : "territory.advancedclaims-disabled");
             }
-            return territory.withAdvancedClaimId(attachment.claimId());
-        }).thenCompose(savedTerritory -> {
-            clan.addTerritory(savedTerritory);
-            indexTerritory(savedTerritory, clan.id());
-
+            ClanTerritory attached = territory.withAdvancedClaimId(attachment.claimId());
+            clan.addTerritory(attached);
+            indexTerritory(attached, clan.id());
+            Location homeLocation = null;
             if (bannerType.equals("CAPITAL")) {
-                // Клановый спавн ставится там, где стоял игрок, подтверждая захват — то есть
-                // перед баннером, лицом к нему, а не в блок самого баннера. Это то же место,
-                // что использует ручной перенос спавна (relocateHomeAsync ниже, "Перенести
-                // спавн" в ClanCapitalManagementMenu), так что оба пути остаются согласованными.
-                Location homeLocation = player.getLocation();
+                // The clan spawn is a checked safe spot next to the banner, facing it - not wherever
+                // the player happened to stand (that could be mid-air, in water or inside the banner).
+                homeLocation = BukkitBlockView.spawnNear(location.getWorld(),
+                                location.getBlockX(), location.getBlockY(), location.getBlockZ())
+                        .orElseGet(() -> BukkitBlockView.highestNear(location.getWorld(),
+                                location.getBlockX(), location.getBlockY(), location.getBlockZ()));
                 clan.setHomeLocation(homeLocation);
-                return storage.updateClanHomeLocation(clan.id(), homeLocation).thenCompose(v -> storage.saveTerritoryAsync(savedTerritory)).thenApply(v -> savedTerritory);
+            }
+            return new Object[]{attached, homeLocation};
+        }).thenCompose(pair -> {
+            ClanTerritory savedTerritory = (ClanTerritory) pair[0];
+            Location homeLocation = (Location) pair[1];
+            if (homeLocation != null) {
+                return storage.updateClanHomeLocation(clan.id(), homeLocation)
+                        .thenCompose(v -> storage.saveTerritoryAsync(savedTerritory)).thenApply(v -> savedTerritory);
             }
             return storage.saveTerritoryAsync(savedTerritory).thenApply(v -> savedTerritory);
-        }).thenApply(savedTerritory -> {
-            plugin.runSync(() -> {
-                org.bukkit.block.Block placedBlock = location.getBlock();
-                placedBlock.setType(bannerItem.getType());
-                // Переносим клановые NBT-теги (тип баннера + ID клана) на установленный блок.
-                // Без этого блок-баннер не опознаётся как клановый, и меню клановой территории
-                // не открывается при правом клике (ClanProtectionListener читает PDC блока).
-                org.bukkit.block.BlockState placedState = placedBlock.getState();
-                if (placedState instanceof org.bukkit.block.Banner bannerState) {
-                    org.bukkit.persistence.PersistentDataContainer blockPdc = bannerState.getPersistentDataContainer();
-                    blockPdc.set(ClanItemFactory.BANNER_TYPE_KEY, org.bukkit.persistence.PersistentDataType.STRING, bannerType);
-                    blockPdc.set(ClanItemFactory.CLAN_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING, clan.id().toString());
-                    bannerState.update(true, false);
-                }
-                player.getInventory().removeItem(bannerItem);
-                plugin.getAdvancedClaimsHook().hideClaimBorder(player);
-                plugin.getMessages().send(player, "territory.claimed-success", Map.of("clan", clan.name(), "tag", clan.tag(), "color", clan.tagColor()));
-                addExperienceAsync(clan, plugin.getConfig().getLong("leveling.territory-claim-exp", 150L));
-            });
-            return savedTerritory;
-        }).exceptionally(ex -> {
-            plugin.runSync(() -> {
-                plugin.sendOperationError(player, ex);
-                plugin.getAdvancedClaimsHook().hideClaimBorder(player);
-                player.getInventory().addItem(bannerItem);
-            });
-            return null;
         });
+    }
+
+    /** Places a clan banner block carrying the clan PDC tags (type + clan id). Main thread only. */
+    public void placeClanBannerBlock(Location location, Material material, String bannerType, UUID clanId) {
+        org.bukkit.block.Block placedBlock = location.getBlock();
+        placedBlock.setType(material);
+        // Без PDC блок-баннер не опознаётся как клановый, и меню клановой территории
+        // не открывается при правом клике (ClanProtectionListener читает PDC блока).
+        if (placedBlock.getState() instanceof org.bukkit.block.Banner bannerState) {
+            org.bukkit.persistence.PersistentDataContainer blockPdc = bannerState.getPersistentDataContainer();
+            blockPdc.set(ClanItemFactory.BANNER_TYPE_KEY, org.bukkit.persistence.PersistentDataType.STRING, bannerType);
+            blockPdc.set(ClanItemFactory.CLAN_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING, clanId.toString());
+            bannerState.update(true, false);
+        }
+    }
+
+    /**
+     * True if {@code block} is a clan banner standing exactly where one of its clan's territories
+     * has its banner. Only such banners are protected; a stray tagged banner (e.g. left behind by
+     * a failed claim) is an orphan and is not.
+     */
+    public boolean isRegisteredBanner(org.bukkit.block.Block block) {
+        if (block == null || !block.getType().name().endsWith("_BANNER")
+                || !(block.getState() instanceof org.bukkit.block.Banner banner)) {
+            return false;
+        }
+        String clanIdString = banner.getPersistentDataContainer().get(ClanItemFactory.CLAN_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING);
+        if (clanIdString == null) {
+            return false;
+        }
+        Clan clan;
+        try {
+            clan = clansById.get(UUID.fromString(clanIdString));
+        } catch (IllegalArgumentException ignored) {
+            return false;
+        }
+        if (clan == null) {
+            return false;
+        }
+        String worldName = block.getWorld().getName();
+        for (ClanTerritory territory : clan.territories()) {
+            if (worldName.equals(territory.world()) && territory.bannerX() == null) {
+                return true; // legacy territory without stored banner coordinates: can't tell, keep protecting
+            }
+            if (worldName.equals(territory.world())
+                    && Integer.valueOf(block.getX()).equals(territory.bannerX())
+                    && Integer.valueOf(block.getY()).equals(territory.bannerY())
+                    && Integer.valueOf(block.getZ()).equals(territory.bannerZ())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public Optional<PendingClaim> cancelPendingClaim(UUID playerId) {
@@ -1150,12 +1238,162 @@ public final class ClanManager {
     }
 
     private void teleportHomeNow(Player player, Location homeLocation) {
-        player.teleportAsync(homeLocation)
+        Location target = safeHomeTarget(player, homeLocation);
+        player.teleportAsync(target)
                 .thenRun(() -> plugin.getMessages().send(player, "territory.teleported"))
                 .exceptionally(throwable -> {
                     plugin.sendOperationError(player, throwable);
                     return null;
                 });
+    }
+
+    /**
+     * Re-validates the stored spawn right before teleporting: the area may have changed since it was
+     * set (lava poured, blocks placed). Falls back to a fresh search around the capital banner and,
+     * failing that, to the top of the column next to it.
+     */
+    private Location safeHomeTarget(Player player, Location homeLocation) {
+        if (BukkitBlockView.isStillSafe(homeLocation)) {
+            return homeLocation;
+        }
+        Optional<ClanTerritory> capital = getPlayerClan(player.getUniqueId()).flatMap(Clan::getCapitalTerritory);
+        if (capital.isEmpty() || capital.get().bannerX() == null || capital.get().bannerY() == null || capital.get().bannerZ() == null) {
+            return homeLocation;
+        }
+        ClanTerritory territory = capital.get();
+        World world = Bukkit.getWorld(territory.world());
+        if (world == null) {
+            return homeLocation;
+        }
+        return BukkitBlockView.spawnNear(world, territory.bannerX(), territory.bannerY(), territory.bannerZ())
+                .orElseGet(() -> BukkitBlockView.highestNear(world, territory.bannerX(), territory.bannerY(), territory.bannerZ()));
+    }
+
+    // --- Clan founding with the creation banner (ClanBannerCreationMenu) ---
+
+    private final Set<UUID> creatingPlayers = ConcurrentHashMap.newKeySet();
+
+    /** Reserves the founding flow for this player; false while another founding attempt is in flight. */
+    public boolean tryBeginCreation(UUID playerId) {
+        return creatingPlayers.add(playerId);
+    }
+
+    public void endCreation(UUID playerId) {
+        creatingPlayers.remove(playerId);
+    }
+
+    public boolean isCreating(UUID playerId) {
+        return creatingPlayers.contains(playerId);
+    }
+
+    /**
+     * Rolls back a clan whose founding failed half-way (e.g. the capital territory could not be
+     * created): removes it from memory and storage without the disband event, rewards, messages or
+     * conflict handling - for everyone else the clan never existed.
+     */
+    public CompletableFuture<Void> deleteClanSilentlyAsync(Clan clan) {
+        if (clan == null) return CompletableFuture.completedFuture(null);
+        return plugin.supplySync(() -> {
+            for (ClanTerritory territory : List.copyOf(clan.territories())) {
+                plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
+                unindexTerritory(territory);
+                clan.removeTerritory(territory.id());
+            }
+            unindexClan(clan);
+            applicationsByClan.remove(clan.id());
+            return null;
+        }).thenCompose(ignored -> storage.deleteClanAsync(clan.id()));
+    }
+
+    // --- Orphan clan banners and items owed to offline leaders ---
+
+    /**
+     * Removes CAPITAL/TERRITORY clan banner blocks in {@code chunk} that no territory points at
+     * (left behind by the old founding bug or a lost claim). If the banner's clan has no capital
+     * at all, its leader receives a free capital banner. Clans in a conflict are skipped: a banner
+     * may legitimately be in flux there. Main thread only.
+     */
+    public void cleanOrphanBanners(org.bukkit.Chunk chunk) {
+        for (org.bukkit.block.BlockState state : chunk.getTileEntities()) {
+            if (!(state instanceof org.bukkit.block.Banner banner)) continue;
+            org.bukkit.persistence.PersistentDataContainer pdc = banner.getPersistentDataContainer();
+            String type = pdc.get(ClanItemFactory.BANNER_TYPE_KEY, org.bukkit.persistence.PersistentDataType.STRING);
+            String clanIdString = pdc.get(ClanItemFactory.CLAN_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING);
+            if (clanIdString == null || !("CAPITAL".equals(type) || "TERRITORY".equals(type))) continue;
+            UUID clanId;
+            try {
+                clanId = UUID.fromString(clanIdString);
+            } catch (IllegalArgumentException ignored) {
+                continue;
+            }
+            Clan clan = clansById.get(clanId);
+            if (clan != null && inAnyConflict(clanId)) continue;
+            org.bukkit.block.Block block = state.getBlock();
+            if (isRegisteredBanner(block)) continue;
+            block.setType(Material.AIR, false);
+            plugin.getLogger().info("Removed orphan clan banner " + type + " of clan " + clanId + " at "
+                    + block.getWorld().getName() + " " + block.getX() + " " + block.getY() + " " + block.getZ());
+            if (clan != null && !clan.hasCapital()) {
+                grantCapitalBannerToLeader(clan);
+            }
+        }
+    }
+
+    /** Gives the clan leader a free capital banner, or queues it until they log in. */
+    private void grantCapitalBannerToLeader(Clan clan) {
+        UUID leaderId = clan.members().values().stream()
+                .filter(m -> m.rank() == ClanRank.LEADER)
+                .map(ClanMember::playerId)
+                .findFirst().orElse(null);
+        if (leaderId == null) return;
+        Player leader = Bukkit.getPlayer(leaderId);
+        if (leader != null) {
+            if (clanItemFactory.hasExistingBanner(leader, "CAPITAL", clan.id())) return;
+            giveOrDrop(leader, clanItemFactory.createCapitalBanner(clan.id(), clan.name()));
+            plugin.getMessages().send(leader, "territory.orphan-banner-returned");
+            return;
+        }
+        String guard = leaderId + ":" + clan.id();
+        if (!queuedCapitalBanners.add(guard)) return; // one queued banner per leader/clan is enough
+        storage.savePendingItemAsync(new ClanStorage.PendingClanItem(UUID.randomUUID(), leaderId, clan.id(),
+                        ClanStorage.PendingClanItem.CAPITAL_BANNER, System.currentTimeMillis()))
+                .exceptionally(t -> {
+                    queuedCapitalBanners.remove(guard);
+                    plugin.getLogger().warning("Failed to queue capital banner for " + leaderId + ": " + t.getMessage());
+                    return null;
+                });
+    }
+
+    private final Set<String> queuedCapitalBanners = ConcurrentHashMap.newKeySet();
+
+    /** Delivers items queued for {@code player} while they were offline. */
+    public void deliverPendingItems(Player player) {
+        storage.loadPendingItemsAsync(player.getUniqueId()).thenAccept(items -> plugin.runSync(() -> {
+            if (!player.isOnline()) return;
+            for (ClanStorage.PendingClanItem item : items) {
+                storage.deletePendingItemAsync(item.id());
+                queuedCapitalBanners.remove(item.playerId() + ":" + item.clanId());
+                if (!ClanStorage.PendingClanItem.CAPITAL_BANNER.equals(item.kind())) continue;
+                Clan clan = clansById.get(item.clanId());
+                // Only still useful if the player still leads a clan that still has no capital.
+                if (clan == null || clan.hasCapital()
+                        || clan.member(player.getUniqueId()).map(m -> m.rank() != ClanRank.LEADER).orElse(true)
+                        || clanItemFactory.hasExistingBanner(player, "CAPITAL", clan.id())) {
+                    continue;
+                }
+                giveOrDrop(player, clanItemFactory.createCapitalBanner(clan.id(), clan.name()));
+                plugin.getMessages().send(player, "territory.orphan-banner-returned");
+            }
+        })).exceptionally(t -> {
+            plugin.getLogger().warning("Failed to load pending items for " + player.getName() + ": " + t.getMessage());
+            return null;
+        });
+    }
+
+    private static void giveOrDrop(Player player, ItemStack item) {
+        for (ItemStack extra : player.getInventory().addItem(item).values()) {
+            player.getWorld().dropItemNaturally(player.getLocation(), extra);
+        }
     }
 
     /** Cancels a pending "/clan home" warmup, if any, hiding its bossbar and messaging the player. */

@@ -403,6 +403,17 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_trade_deliveries_clan ON clan_trade_deliveries(clan_id)");
+            // Items owed to a player who was offline when they were granted (orphan banner cleanup).
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_pending_items (
+                        id VARCHAR(36) PRIMARY KEY,
+                        player_id VARCHAR(36) NOT NULL,
+                        clan_id VARCHAR(36) NOT NULL,
+                        kind VARCHAR(32) NOT NULL,
+                        created_at BIGINT NOT NULL
+                    )
+                    """);
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_pending_items_player ON clan_pending_items(player_id)");
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_conflicts (
                         id VARCHAR(36) PRIMARY KEY,

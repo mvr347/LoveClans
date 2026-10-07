@@ -612,7 +612,9 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new PlayerConnectionListener(this), this);
         clanProtectionListener = new ClanProtectionListener(this, clanManager, warManager); // Pass clanManager and warManager
         pluginManager.registerEvents(clanProtectionListener, this);
+        me.lovelace.loveclans.listener.BannerProtectionListener.setRegisteredBannerCheck(clanManager::isRegisteredBanner);
         pluginManager.registerEvents(new me.lovelace.loveclans.listener.BannerProtectionListener(), this);
+        pluginManager.registerEvents(new me.lovelace.loveclans.listener.OrphanBannerListener(this), this);
         pluginManager.registerEvents(new CombatListener(this), this);
         pluginManager.registerEvents(new ArtifactListener(this), this);
         pluginManager.registerEvents(new ChatInputListener(this), this);

@@ -1004,6 +1004,62 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
+    @Override
+    public CompletableFuture<Void> savePendingItemAsync(PendingClanItem item) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "INSERT INTO clan_pending_items (id, player_id, clan_id, kind, created_at) VALUES (?, ?, ?, ?, ?)")) {
+                statement.setString(1, item.id().toString());
+                statement.setString(2, item.playerId().toString());
+                statement.setString(3, item.clanId().toString());
+                statement.setString(4, item.kind());
+                statement.setLong(5, item.createdAt());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save pending item " + item.id(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<List<PendingClanItem>> loadPendingItemsAsync(UUID playerId) {
+        return CompletableFuture.supplyAsync(() -> {
+            List<PendingClanItem> result = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "SELECT * FROM clan_pending_items WHERE player_id = ?")) {
+                statement.setString(1, playerId.toString());
+                try (ResultSet rs = statement.executeQuery()) {
+                    while (rs.next()) {
+                        result.add(new PendingClanItem(
+                                UUID.fromString(rs.getString("id")),
+                                UUID.fromString(rs.getString("player_id")),
+                                UUID.fromString(rs.getString("clan_id")),
+                                rs.getString("kind"),
+                                rs.getLong("created_at")));
+                    }
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load pending items of " + playerId, exception);
+            }
+            return result;
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> deletePendingItemAsync(UUID id) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("DELETE FROM clan_pending_items WHERE id = ?")) {
+                statement.setString(1, id.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete pending item " + id, exception);
+            }
+        }, database.executor());
+    }
+
     private void loadMembers(Connection connection, Map<UUID, Clan> clans) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_members");
              ResultSet result = statement.executeQuery()) {

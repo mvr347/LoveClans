@@ -21,6 +21,7 @@ public final class PlayerConnectionListener implements Listener {
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         plugin.getClanManager().updateLastSeen(event.getPlayer().getUniqueId(), System.currentTimeMillis());
+        plugin.getClanManager().deliverPendingItems(event.getPlayer());
     }
 
     @EventHandler

@@ -141,6 +141,19 @@ public interface ClanStorage {
 
     CompletableFuture<Collection<ClanTradeDelivery>> loadAllTradeDeliveriesAsync();
 
+    // --- Items owed to offline players (e.g. a free capital banner after an orphan cleanup), given on join ---
+
+    CompletableFuture<Void> savePendingItemAsync(PendingClanItem item);
+
+    CompletableFuture<List<PendingClanItem>> loadPendingItemsAsync(UUID playerId);
+
+    CompletableFuture<Void> deletePendingItemAsync(UUID id);
+
+    /** Kinds of {@link PendingClanItem}; the item itself is rebuilt on delivery from current clan data. */
+    record PendingClanItem(UUID id, UUID playerId, UUID clanId, String kind, long createdAt) {
+        public static final String CAPITAL_BANNER = "CAPITAL_BANNER";
+    }
+
     // --- Архив конфликтов: войны, осады и набеги переживают перезапуск ---
 
     CompletableFuture<Void> saveConflictAsync(ConflictRecord record);

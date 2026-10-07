@@ -1,24 +1,23 @@
 package me.lovelace.loveclans.gui;
 
+import dev.lovelace.lovecore.api.LoveCore;
+import dev.lovelace.lovecore.api.economy.LoveEconomy;
+import dev.lovelace.lovecore.api.economy.MoneyConfig;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.textures.HeadTextures;
-import me.lovelace.loveclans.util.ClanItemFactory;
 import me.lovelace.loveclans.util.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockState;
-import org.bukkit.block.TileState;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class ClanBannerCreationMenu implements InventoryHolder {
 
@@ -142,11 +141,40 @@ public final class ClanBannerCreationMenu implements InventoryHolder {
             plugin.getMessages().send(player, "clan.banner.already-in-clan");
             return;
         }
+        // A second click (or a second creation banner placed) while the first founding is still
+        // running would found a second clan / place a second banner.
+        if (!plugin.getClanManager().tryBeginCreation(player.getUniqueId())) {
+            plugin.getMessages().send(player, "clan.banner.creation-in-progress");
+            return;
+        }
+        boolean handedOff = false;
+        try {
+            // Everything that can refuse the capital is checked before anything is spent.
+            String refusal = plugin.getClanManager().checkCapitalClaim(player, bannerLocation);
+            if (refusal != null) {
+                plugin.getMessages().send(player, refusal);
+                return;
+            }
+            Block target = bannerLocation.getBlock();
+            if (!target.isEmpty() && !target.isReplaceable()) {
+                plugin.getMessages().send(player, "clan.banner.spot-occupied");
+                return;
+            }
+            if (!takeCreationBanner()) {
+                plugin.getMessages().send(player, "clan.banner.no-banner-in-hand");
+                return;
+            }
+            handedOff = true;
+            createClanAndCapital();
+        } finally {
+            if (!handedOff) {
+                plugin.getClanManager().endCreation(player.getUniqueId());
+            }
+        }
+    }
 
-        // Забираем одно знамя создания из инвентаря игрока
-        boolean removed = false;
-        ItemStack[] contents = player.getInventory().getContents();
-        for (ItemStack item : contents) {
+    private boolean takeCreationBanner() {
+        for (ItemStack item : player.getInventory().getContents()) {
             if (item != null && plugin.getClanManager().getClanItemFactory().isClanCreationBanner(item)) {
                 int amount = item.getAmount();
                 if (amount > 1) {
@@ -154,49 +182,59 @@ public final class ClanBannerCreationMenu implements InventoryHolder {
                 } else {
                     player.getInventory().remove(item);
                 }
-                removed = true;
-                break;
+                return true;
             }
         }
+        return false;
+    }
 
-        if (!removed) {
-            plugin.getMessages().send(player, "clan.banner.no-banner-in-hand");
-            return;
-        }
-
+    /**
+     * Founds the clan, then claims the capital immediately. The banner block is placed and the success
+     * message sent only after the territory really exists; any failure rolls the clan back silently and
+     * returns the creation banner (and the creation fee, if one was charged).
+     */
+    private void createClanAndCapital() {
+        AtomicReference<Clan> createdRef = new AtomicReference<>();
         plugin.getClanManager().createClanAsync(name, tag, player.getUniqueId(), open, false)
-                .thenAccept(created -> plugin.runSync(() -> {
-                    // Ставим физический баннер на место
-                    Block block = bannerLocation.getBlock();
-                    block.setType(Material.RED_BANNER);
-                    BlockState state = block.getState();
-                    if (state instanceof TileState tileState) {
-                        PersistentDataContainer blockPdc = tileState.getPersistentDataContainer();
-                        blockPdc.set(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING, "CAPITAL");
-                        blockPdc.set(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING, created.id().toString());
-                        tileState.update(true, false);
-                    }
-
-                    // Объявляем столичную территорию вокруг установленного знамени
-                    plugin.getClanManager().claimTerritoryAsync(created, bannerLocation, player, "CAPITAL")
-                            .thenRun(() -> plugin.runSync(() -> {
-                                plugin.getMessages().send(player, "gui.banner-create.success",
-                                        Map.of("tag", created.tag(), "name", created.name(), "color", created.tagColor()));
-                                plugin.getGuiManager().openMain(player, created);
-                            }))
-                            .exceptionally(t -> {
-                                plugin.runSync(() -> plugin.sendOperationError(player, t));
+                .thenCompose(created -> {
+                    createdRef.set(created);
+                    return plugin.supplySync(() -> created)
+                            .thenCompose(clan -> plugin.getClanManager().claimCapitalNow(clan, bannerLocation, player));
+                })
+                .whenComplete((territory, error) -> plugin.runSync(() -> {
+                    try {
+                        Clan created = createdRef.get();
+                        if (error == null && territory != null && created != null) {
+                            plugin.getClanManager().placeClanBannerBlock(bannerLocation, Material.RED_BANNER, "CAPITAL", created.id());
+                            plugin.getClanManager().addExperienceAsync(created,
+                                    plugin.getConfig().getLong("leveling.territory-claim-exp", 150L));
+                            plugin.getMessages().send(player, "gui.banner-create.success",
+                                    Map.of("tag", created.tag(), "name", created.name(), "color", created.tagColor()));
+                            plugin.getGuiManager().openMain(player, created);
+                            return;
+                        }
+                        if (created != null) {
+                            plugin.getClanManager().deleteClanSilentlyAsync(created).exceptionally(t -> {
+                                plugin.getLogger().warning("Failed to roll back clan " + created.id() + ": " + t.getMessage());
                                 return null;
                             });
-                }))
-                .exceptionally(t -> {
-                    plugin.runSync(() -> {
-                        // Возвращаем знамя при ошибке
-                        player.getInventory().addItem(plugin.getClanManager().getClanItemFactory().createClanCreationBanner());
-                        plugin.sendOperationError(player, t);
-                    });
-                    return null;
-                });
+                            refundCreationCost();
+                        }
+                        for (ItemStack extra : player.getInventory()
+                                .addItem(plugin.getClanManager().getClanItemFactory().createClanCreationBanner()).values()) {
+                            player.getWorld().dropItemNaturally(player.getLocation(), extra);
+                        }
+                        plugin.sendOperationError(player, error != null ? error : new IllegalStateException("general.error"));
+                    } finally {
+                        plugin.getClanManager().endCreation(player.getUniqueId());
+                    }
+                }));
+    }
+
+    private void refundCreationCost() {
+        long cost = MoneyConfig.getScaled(plugin.getConfig(), "clans.creation-cost", 0L);
+        if (cost <= 0 || !player.isOnline()) return;
+        LoveCore.service(LoveEconomy.class).ifPresent(economy -> economy.give(player, cost));
     }
 
     @Override
