@@ -32,7 +32,7 @@ public final class ClanMainMenu implements InventoryHolder {
     // Row 4: two centered buttons (gui_gen: the even count skips the middle slot 40).
     private static final int SLOT_TRADE = 39;
     private static final int SLOT_SETTINGS = 41;
-    private static final int SLOT_LEAVE = 51;
+    private static final int SLOT_LEAVE = 52;
     private static final int SLOT_CLOSE = 53;
 
     public ClanMainMenu(LoveClansPlugin plugin, Clan clan, Player player) {
@@ -167,7 +167,7 @@ public final class ClanMainMenu implements InventoryHolder {
                 .lore(plugin.getMessages().component(canManageSettings ? "gui.main.settings.lore" : "gui.main.settings.no-permission-lore", player));
         inventory.setItem(SLOT_SETTINGS, settingsItem.build());
 
-        // Footer — standalone menu: no Back button (slot 52 stays glass), Leave Clan uses the extra slot (51)
+        // Footer — standalone menu: no Back button, so Leave Clan (with confirmation) takes slot 52 right before Close
         boolean isLeader = clan.member(player.getUniqueId())
                 .map(m -> m.rank() == ClanRank.LEADER)
                 .orElse(false);

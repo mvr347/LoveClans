@@ -125,8 +125,8 @@ trade:
   delivery:
     arrived: "<prefix><green>По сделке с кланом <color><tag></color> в сундук клана поступил товар."
   server:
-    unrecognized: "<prefix><red>Ваш клан не признан сервером. Непризнанные кланы не могут сдавать ресурсы по госзакупкам."
-  # Госзакупки (2026-10-07): заказ по расписанию, общий объём на сервер.
+    unrecognized: "<prefix><red>Ваш клан не признан сервером. Непризнанные кланы не могут сдавать ресурсы в скупки."
+  # Скупки (2026-10-07): заказ по расписанию, общий объём на сервер.
   state:
     category:
       food: "Продовольствие"
@@ -336,12 +336,12 @@ diplomacy:
     empty-list: "<prefix><gray>Писем пока нет."
 
 gui:
-  # Меню «Торговля» (2026-10-07): вкладки Кланы / Запросы / Госзакупки.
+  # Меню «Торговля» (2026-10-07): вкладки Кланы / Запросы / Скупки.
   trade:
     title: "<gray>Торговля"
     info:
       name: "<gold>Торговля"
-      description: "<gray>Обмен с другими кланами и госзакупки"
+      description: "<gray>Обмен с другими кланами и скупки"
       treasury: "<gray>Казна клана: <white><amount>"
     filter-title: "<gold>Фильтр"
     sort-title: "<gold>Сортировка"
@@ -355,7 +355,7 @@ gui:
         name: "<gold>Запросы"
         description: "<gray>Входящие и исходящие запросы на обмен"
       state:
-        name: "<gold>Госзакупки"
+        name: "<gold>Скупки"
         description: "<gray>Сдача ресурсов государству за деньги в казну"
     active-session:
       name: "<green>Активная сделка"
@@ -407,13 +407,13 @@ gui:
         oldest: "Старые"
     state:
       unrecognized:
-        name: "<red>Госзакупки недоступны"
+        name: "<red>Скупки недоступны"
         lore: "<gray>Только для признанных кланов."
       none:
         name: "<gray>Сейчас закупок нет"
         lore: "<gray>Новая закупка открывается в Пн, Ср и Пт вечером."
       info:
-        name: "<gold>Госзакупка: <white><category>"
+        name: "<gold>Скупка: <white><category>"
         description: "<gray>Объём общий на весь сервер"
         progress: "<gray>Собрано: <white><filled>/<total>"
         clan: "<gray>Сдал ваш клан: <white><amount>"
@@ -919,7 +919,7 @@ gui:
     title: "<color><clan> <white>- Меню клана"
     trade:
       name: "<gold>Торговля"
-      description: "<gray>Обмен с кланами, запросы и госзакупки"
+      description: "<gray>Обмен с кланами, запросы и скупки"
       action: "<green>ЛКМ <gray>— открыть"
     no-territory-lore: "<red>Нужна клановая территория: новое знамя продаёт NPC."
     info:
