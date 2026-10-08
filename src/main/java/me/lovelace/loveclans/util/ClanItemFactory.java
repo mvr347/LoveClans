@@ -305,8 +305,12 @@ public final class ClanItemFactory {
         return false;
     }
 
-    public boolean consumeCasusBelli(Player player, UUID targetClanId, String conflictType) {
-        if (player == null) return false;
+    /**
+     * Takes ONE matching, unexpired casus belli out of the player's inventory and hands back a copy of it, so a failed
+     * declaration can return exactly that item. Main thread only.
+     */
+    public Optional<ItemStack> takeCasusBelli(Player player, UUID targetClanId, String conflictType) {
+        if (player == null) return Optional.empty();
         long now = System.currentTimeMillis();
         ItemStack[] contents = player.getInventory().getContents();
         for (int i = 0; i < contents.length; i++) {
@@ -316,12 +320,18 @@ public final class ClanItemFactory {
             if (data.isPresent()) {
                 CasusBelliData cb = data.get();
                 if (cb.targetClanId().equals(targetClanId) && cb.conflictType().equalsIgnoreCase(conflictType) && !cb.isExpired(now)) {
+                    ItemStack one = stack.clone();
+                    one.setAmount(1);
                     stack.setAmount(stack.getAmount() - 1);
                     player.getInventory().setItem(i, stack.getAmount() > 0 ? stack : null);
-                    return true;
+                    return Optional.of(one);
                 }
             }
         }
-        return false;
+        return Optional.empty();
+    }
+
+    public boolean consumeCasusBelli(Player player, UUID targetClanId, String conflictType) {
+        return takeCasusBelli(player, targetClanId, conflictType).isPresent();
     }
 }

@@ -96,8 +96,11 @@ public final class CampFortifyMenu {
 
         // Слот 13: Кнопка апгрейда
         if (currentLevel < maxLevel) {
-            long baseCost = plugin.getConfig().getLong("siege.fortification.cost-per-level", 200L);
-            long cost = baseCost * (currentLevel + 1);
+            if (!plugin.getSiegeManager().canFortify(siegeId, campIndex)) {
+                plugin.getMessages().send(player, "siege.fortify.unavailable");
+                return;
+            }
+            long cost = plugin.getSiegeManager().fortifyCost(siegeId, campIndex);
             int nextHits = 1 + (currentLevel + 1) * hitsPerLevel;
 
             inventory.setItem(SLOT_UPGRADE, ItemBuilder.of(Material.ANVIL)
@@ -192,7 +195,20 @@ public final class CampFortifyMenu {
                 int hitsReq = plugin.getSiegeManager().hitsRequired(siegeId, campIndex);
                 player.sendMessage(Component.text("§aЛагерь #" + (campIndex + 1) + " успешно укреплён до уровня " + newLevel + "! Теперь требуется " + hitsReq + " ударов."));
                 open(player, siegeId, campIndex);
+            } else {
+                // The siege ended or the camp fell between the check and now: give the money back
+                econRefund(player, clan, cost);
+                plugin.getMessages().send(player, "siege.fortify.unavailable");
             }
+        }
+    }
+
+    private void econRefund(Player player, Clan clan, long cost) {
+        if (clan.hasPermission(player.getUniqueId(), ClanPermission.BANK)) {
+            clan.addChestMoney(cost);
+            plugin.getStorage().updateClanChestMoney(clan.id(), clan.chestMoney());
+        } else {
+            economy().ifPresent(e -> e.give(player, cost));
         }
     }
 

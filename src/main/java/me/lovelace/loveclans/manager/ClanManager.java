@@ -509,6 +509,7 @@ public final class ClanManager {
             plugin.getWarManager().purgeClan(clan.id());
             plugin.getSiegeManager().purgeClan(clan.id());
             plugin.getRaidManager().purgeClan(clan.id());
+            plugin.getModifierManager().purgeClan(clan.id());
             plugin.getRitualManager().purgeClan(clan.id());
             plugin.getContractManager().purgeClan(clan.id());
             plugin.getSpiritManager().purgeClan(clan.id());

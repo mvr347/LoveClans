@@ -47,7 +47,8 @@ public final class WarManager {
     private final LoveClansPlugin plugin;
     private final Map<UUID, ClanWar> activeWars = new ConcurrentHashMap<>();
     private final Map<AbstractMap.SimpleImmutableEntry<UUID, UUID>, Long> warCooldowns = new ConcurrentHashMap<>();
-    private final Map<UUID, Material> originalContestedBanners = new ConcurrentHashMap<>();
+    /** Full snapshot (facing, patterns, PDC) of each suppressed banner, so it comes back exactly as it stood. */
+    private final Map<UUID, org.bukkit.block.BlockState> originalContestedBanners = new ConcurrentHashMap<>();
     /** Boss bars of wars in the ACTIVE phase: score, time left and banner state for both sides. */
     private final Map<UUID, BossBar> activeBossBars = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> killStreaks = new ConcurrentHashMap<>();
@@ -414,6 +415,8 @@ public final class WarManager {
                 // defender already gone and silently skip the victory/defeat titles and the
                 // defender's compass confiscation for this exact war.
                 announceWarEnd(war, result);
+                resetStreaks(war);
+                restoreBannerBlock(war);
                 confiscateWarItems(war);
                 endSiege(war);
                 resetBannerHits(war.id());
@@ -500,12 +503,14 @@ public final class WarManager {
             }
 
             announceWarEnd(war, WarResult.DRAW);
-            // A captured banner was removed from the world: without this the defender's banner is gone for good.
-            if (war.capturedBannerBy() != null) restoreBannerBlock(war);
+            // A suppressed banner has to come back, whatever way the war ended
+            restoreBannerBlock(war);
             confiscateWarItems(war);
             endSiege(war);
             resetBannerHits(war.id());
             rematchClaims.remove(war.id());
+            lastControlAward.remove(war.id());
+            resetStreaks(war);
             archiveWar(war, WarResult.DRAW);
 
             return null;
@@ -537,13 +542,18 @@ public final class WarManager {
     }
 
     public void addKillScore(Player killer, Player victim, Clan killerClan, Clan victimClan) {
-        int baseScore = 1;
+        // Only kills inside a running war count: no points, streaks or sounds for a plain fight between two clans
+        if (killerClan.id().equals(victimClan.id())
+                || activeWar(killerClan.id(), victimClan.id()).filter(w -> w.state() == WarState.ACTIVE).isEmpty()) {
+            return;
+        }
+        int baseScore = plugin.getConfig().getInt("war.objectives.kill-score", 1);
         ClanMember victimMember = victimClan.member(victim.getUniqueId()).orElse(null);
         if (victimMember != null) {
             if (victimMember.rank() == ClanRank.LEADER) {
-                baseScore = 3;
+                baseScore = plugin.getConfig().getInt("war.objectives.kill-score-leader", 5);
             } else if (victimMember.rank() == ClanRank.GUARDIAN) {
-                baseScore = 2;
+                baseScore = plugin.getConfig().getInt("war.objectives.kill-score-guardian", 3);
             }
         }
 
@@ -553,14 +563,20 @@ public final class WarManager {
         int bonus = 0;
         if (currentStreak == 3) {
             bonus = 2;
-            killer.sendMessage(Component.text("§6Стрик 3 убийства! §e+2 очка войны!"));
+            plugin.getMessages().send(killer, "war.streak", Map.of("kills", "3", "points", "2"));
         } else if (currentStreak == 5) {
             bonus = 5;
-            killer.sendMessage(Component.text("§6Стрик 5 убийств! §e+5 очков войны!"));
+            plugin.getMessages().send(killer, "war.streak", Map.of("kills", "5", "points", "5"));
         }
 
         addScore(killerClan.id(), victimClan.id(), baseScore + bonus);
-        onlineMembers(killerClan).forEach(p -> p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.4f));
+        killer.playSound(killer.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.4f);
+    }
+
+    /** A finished war ends every streak of both clans: the next war starts from zero. */
+    private void resetStreaks(ClanWar war) {
+        resolveWarClans(war).ifPresent(c -> java.util.stream.Stream.concat(c.attacker().members().keySet().stream(),
+                c.defender().members().keySet().stream()).forEach(killStreaks::remove));
     }
 
     /**
@@ -709,8 +725,19 @@ public final class WarManager {
             if (world != null && territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
                 Location bannerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
                 org.bukkit.block.Block block = bannerLoc.getBlock();
-                originalContestedBanners.put(war.id(), block.getType());
-                block.setType(Material.GRAY_BANNER);
+                originalContestedBanners.putIfAbsent(war.id(), block.getState());
+                org.bukkit.block.data.BlockData before = block.getBlockData();
+                if (before instanceof org.bukkit.block.data.Rotatable rotatable) {
+                    org.bukkit.block.data.Rotatable gray = (org.bukkit.block.data.Rotatable) Material.GRAY_BANNER.createBlockData();
+                    gray.setRotation(rotatable.getRotation());
+                    block.setBlockData(gray);
+                } else if (before instanceof org.bukkit.block.data.Directional directional) {
+                    org.bukkit.block.data.Directional gray = (org.bukkit.block.data.Directional) Material.GRAY_WALL_BANNER.createBlockData();
+                    gray.setFacing(directional.getFacing());
+                    block.setBlockData(gray);
+                } else {
+                    block.setType(Material.GRAY_BANNER);
+                }
                 if (block.getState() instanceof org.bukkit.block.Banner bannerState) {
                     bannerState.getPersistentDataContainer().set(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING,
                             territory.isCapital() ? "CAPITAL" : "TERRITORY");
@@ -725,24 +752,11 @@ public final class WarManager {
         notifyBannerBroken(updated);
     }
 
+    /** Puts the suppressed banner back; safe to call for any war, it does nothing when nothing was suppressed. */
     public void restoreBannerBlock(ClanWar war) {
-        resolveContestedTerritory(war).ifPresent(territory -> {
-            World world = Bukkit.getWorld(territory.world());
-            if (world != null && territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
-                Location bannerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
-                Material orig = originalContestedBanners.remove(war.id());
-                if (orig != null && orig != Material.AIR) {
-                    org.bukkit.block.Block block = bannerLoc.getBlock();
-                    block.setType(orig);
-                    if (block.getState() instanceof org.bukkit.block.Banner bannerState) {
-                        bannerState.getPersistentDataContainer().set(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING,
-                                territory.isCapital() ? "CAPITAL" : "TERRITORY");
-                        bannerState.getPersistentDataContainer().set(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING, war.defenderClanId().toString());
-                        bannerState.update(true);
-                    }
-                }
-            }
-        });
+        org.bukkit.block.BlockState original = originalContestedBanners.remove(war.id());
+        if (original == null) return;
+        original.update(true, false);
     }
 
     public void startBannerCapture(ClanWar war, UUID carrierId) {
@@ -787,7 +801,7 @@ public final class WarManager {
             });
 
             announceWarEnd(war, WarResult.CANCELLED);
-            if (war.capturedBannerBy() != null) restoreBannerBlock(war);
+            restoreBannerBlock(war);
             confiscateWarItems(war);
             endSiege(war);
             resetBannerHits(war.id());

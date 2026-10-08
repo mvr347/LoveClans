@@ -1412,6 +1412,7 @@ war:
   peace: "<prefix><green>Заключён мир с кланом <color><tag></color>."
   peace-confirm-prompt: "<prefix><yellow>Вы уверены, что хотите заключить мир с кланом <color><tag></color>?"
   started: "<prefix><gold>Война между <white><attacker></white> и <white><defender></white> началась!"
+  streak: "<gold>Серия из <white><kills></white> убийств! <yellow>+<points> очков войны!"
   bossbar:
     active: "<color1><attacker></color1> <white><s1></white> <gray>⚔</gray> <white><s2></white> <color2><defender></color2> <gray>• <white><time></white> <dark_gray>|</dark_gray> <gray>Знамя: <banner>"
     banner-intact: "<green>цело</green>"
@@ -1459,6 +1460,7 @@ siege:
     no-siege: "<prefix><red>Ваш клан сейчас не ведёт осаду."
     not-enough: "<prefix><red>В казне клана недостаточно средств: нужно <cost>."
     max-level: "<prefix><red>Этот лагерь укреплён до предела."
+    unavailable: "<prefix><red>Этот лагерь сейчас нельзя укрепить: он сбит, осада закончилась или достигнут предел."
     done: "<prefix><green>Лагерь <index> укреплён за <cost>. Теперь его снос требует <hits> ударов."
   max-sieges-reached: "<prefix><red>Достигнут лимит одновременных осад."
   already-in-siege: "<prefix><red>Один из кланов уже участвует в осаде."

@@ -112,9 +112,28 @@ public final class SiegeManager {
         return campFortification.getOrDefault(siegeId, Map.of()).getOrDefault(campIndex, 0);
     }
 
-    public boolean fortifyCamp(UUID siegeId, int campIndex) {
+    /** What the next fortification level of this camp costs; the GUI and the command both charge exactly this. */
+    public long fortifyCost(UUID siegeId, int campIndex) {
+        long perLevel = plugin.getConfig().getLong("siege.fortification.cost-per-level", 200L);
+        return perLevel * (fortificationLevel(siegeId, campIndex) + 1L);
+    }
+
+    /** True when {@link #fortifyCamp} would succeed: siege running, camp standing, level below the maximum. */
+    public boolean canFortify(UUID siegeId, int campIndex) {
         ClanSiege siege = activeSieges.get(siegeId);
         if (siege == null || siege.state() != SiegeState.ACTIVE || campIndex < 0 || campIndex >= siege.camps().size()) {
+            return false;
+        }
+        if (siege.camps().get(campIndex).broken()) {
+            return false;
+        }
+        int max = Math.max(1, plugin.getConfig().getInt("siege.fortification.max-level", 3));
+        return fortificationLevel(siegeId, campIndex) < max;
+    }
+
+    public boolean fortifyCamp(UUID siegeId, int campIndex) {
+        ClanSiege siege = activeSieges.get(siegeId);
+        if (!canFortify(siegeId, campIndex)) {
             return false;
         }
         int max = Math.max(1, plugin.getConfig().getInt("siege.fortification.max-level", 3));
@@ -696,40 +715,55 @@ public final class SiegeManager {
             onlineMembers(defender).forEach(p -> plugin.getMessages().send(p, "siege.chest-spoils-defender", placeholders));
         }
 
-        // Перенос до 20% предметов сундука
-        plugin.getClanManager().loadChestContentsAsync(defender).thenAccept(defContents -> {
-            if (defContents == null) return;
-            plugin.getClanManager().loadChestContentsAsync(attacker).thenAccept(atkContents -> {
-                if (atkContents == null) return;
-                List<Integer> occupied = new ArrayList<>();
-                for (int i = 0; i < defContents.length; i++) {
-                    if (defContents[i] != null && defContents[i].getType() != Material.AIR) {
-                        occupied.add(i);
-                    }
-                }
-                if (occupied.isEmpty()) return;
-
-                Collections.shuffle(occupied);
-                int itemsToTake = Math.max(1, (int) Math.round(occupied.size() * 0.20));
-                itemsToTake = Math.min(itemsToTake, occupied.size());
-
-                for (int s = 0; s < itemsToTake; s++) {
-                    int slot = occupied.get(s);
-                    ItemStack item = defContents[slot];
-                    defContents[slot] = null;
-                    for (int a = 0; a < atkContents.length; a++) {
-                        if (atkContents[a] == null || atkContents[a].getType() == Material.AIR) {
-                            atkContents[a] = item;
-                            break;
-                        }
-                    }
-                }
-                plugin.runSync(() -> {
-                    plugin.getClanManager().saveChestContentsAsync(defender.id(), defContents);
-                    plugin.getClanManager().saveChestContentsAsync(attacker.id(), atkContents);
-                });
-            });
+        // Share of the defender's stored stacks that moves over. A defender holding the chest menu open would write
+        // his stale snapshot over the change on close, so such menus are closed first.
+        onlineMembers(defender).forEach(p -> {
+            org.bukkit.inventory.Inventory top = p.getOpenInventory().getTopInventory();
+            if (top.getType() == org.bukkit.event.inventory.InventoryType.CHEST && top.getHolder() == null) p.closeInventory();
         });
+        double itemPercent = plugin.getConfig().getDouble("siege.instant-loot.item-slot-percent", 20.0);
+        plugin.getClanManager().loadChestContentsAsync(defender).thenAccept(defContents ->
+                plugin.getClanManager().loadChestContentsAsync(attacker).thenAccept(atkContents ->
+                        plugin.runSync(() -> moveSpoilItems(attacker, defender, defContents, atkContents, itemPercent))));
+    }
+
+    /**
+     * Main thread. Works on copies and only touches the unlocked rows of both chests. A stack the attacker has no
+     * room for stays with the defender instead of disappearing.
+     */
+    private void moveSpoilItems(Clan attacker, Clan defender, ItemStack[] defSource, ItemStack[] atkSource, double itemPercent) {
+        if (defSource == null || atkSource == null) return;
+        if (plugin.getClanManager().isItemChestLocked(defender.id()) || plugin.getClanManager().isItemChestLocked(attacker.id())) {
+            plugin.getLogger().warning("Siege spoils: a clan chest was in use, items were not moved.");
+            return;
+        }
+        ItemStack[] def = defSource.clone();
+        ItemStack[] atk = atkSource.clone();
+        int defLimit = me.lovelace.loveclans.gui.ChestLayout.unlockedSlots(defender.chestRows(), def.length);
+        int atkLimit = me.lovelace.loveclans.gui.ChestLayout.unlockedSlots(attacker.chestRows(), atk.length);
+        List<Integer> occupied = new ArrayList<>();
+        for (int i = 0; i < defLimit; i++) {
+            if (def[i] != null && def[i].getType() != Material.AIR) occupied.add(i);
+        }
+        int toTake = (int) Math.round(occupied.size() * (itemPercent / 100.0));
+        if (toTake <= 0) return;
+        Collections.shuffle(occupied);
+        boolean moved = false;
+        for (int n = 0; n < toTake; n++) {
+            int slot = occupied.get(n);
+            for (int a = 0; a < atkLimit; a++) {
+                if (atk[a] == null || atk[a].getType() == Material.AIR) {
+                    atk[a] = def[slot];
+                    def[slot] = null;
+                    moved = true;
+                    break;
+                }
+            }
+        }
+        if (moved) {
+            plugin.getClanManager().saveChestContentsAsync(defender.id(), def);
+            plugin.getClanManager().saveChestContentsAsync(attacker.id(), atk);
+        }
     }
 
     private void grantRandomArtifact(Clan clan) {
@@ -1029,32 +1063,40 @@ public final class SiegeManager {
     }
 
     private void updateCompassTargets(ClanSiege siege, Clan attacker, Clan defender) {
-        Location nearestForAttacker = findNearestCampLocation(siege, true);
-        Location nearestForDefender = findNearestCampLocation(siege, false);
-
-        if (nearestForAttacker != null) {
-            onlineMembers(attacker).forEach(p -> {
-                if (hasSiegeCompass(p, siege.id())) p.setCompassTarget(nearestForAttacker);
-            });
-        }
-        if (nearestForDefender != null && plugin.getConfig().getBoolean("siege.defender-compass", true)) {
+        // Each carrier is pointed at the live camp closest to HIM, not at whichever camp is listed first
+        onlineMembers(attacker).forEach(p -> {
+            Location target = nearestCamp(siege, p.getLocation(), true);
+            if (target != null && hasSiegeCompass(p, siege.id())) p.setCompassTarget(target);
+        });
+        if (plugin.getConfig().getBoolean("siege.defender-compass", true)) {
             onlineMembers(defender).forEach(p -> {
-                if (hasSiegeCompass(p, siege.id())) p.setCompassTarget(nearestForDefender);
+                Location target = nearestCamp(siege, p.getLocation(), false);
+                if (target != null && hasSiegeCompass(p, siege.id())) p.setCompassTarget(target);
             });
         }
     }
 
-    private Location findNearestCampLocation(ClanSiege siege, boolean allowBrokenFallback) {
-        for (SiegeCamp camp : siege.camps()) {
-            if (!camp.broken()) {
+    /**
+     * The closest unbroken camp to {@code from}; with {@code fallbackToBroken} the closest broken one (its respawn
+     * point) when none is alive. Camps in another world count as infinitely far.
+     */
+    private Location nearestCamp(ClanSiege siege, Location from, boolean fallbackToBroken) {
+        Location best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (int pass = 0; pass < (fallbackToBroken ? 2 : 1) && best == null; pass++) {
+            boolean wantBroken = pass == 1;
+            for (SiegeCamp camp : siege.camps()) {
+                if (camp.broken() != wantBroken) continue;
                 Location loc = camp.toLocation();
-                if (loc != null) return loc;
+                if (loc == null || loc.getWorld() == null) continue;
+                double distance = loc.getWorld().equals(from.getWorld()) ? loc.distanceSquared(from) : Double.MAX_VALUE / 2;
+                if (best == null || distance < bestDistance) {
+                    best = loc;
+                    bestDistance = distance;
+                }
             }
         }
-        if (allowBrokenFallback && !siege.camps().isEmpty()) {
-            return siege.camps().get(0).toLocation();
-        }
-        return null;
+        return best;
     }
 
     private boolean hasSiegeCompass(Player player, UUID siegeId) {

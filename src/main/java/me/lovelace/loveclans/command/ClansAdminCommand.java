@@ -325,7 +325,14 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         }
         Clan clan1 = clan1Opt.get();
         Clan clan2 = clan2Opt.get();
-        plugin.getSiegeManager().startSiegeAsync(clan1, clan2, null, true)
+        // Without a territory the siege is cancelled on activation, so the defender's capital is the target
+        Optional<me.lovelace.loveclans.model.TerritoryKey> siegeTarget = clan2.getCapitalTerritory()
+                .map(me.lovelace.loveclans.model.ClanTerritory::key);
+        if (siegeTarget.isEmpty()) {
+            plugin.getMessages().send(sender, "admin.war-no-territory");
+            return;
+        }
+        plugin.getSiegeManager().startSiegeAsync(clan1, clan2, siegeTarget.get(), true)
                 .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.siege-force-started",
                         Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()))))
                 .exceptionally(ex -> {

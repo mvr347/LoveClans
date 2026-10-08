@@ -524,6 +524,11 @@ war:
     control-min-members: 2
     control-soft-cap: 5
     camp-break-score: 3
+    # 2026-10-08: очки за убийство в войне. Лидер (5) и страж (3) дороже рядового бойца (1): охота за командованием
+    # должна окупаться сильнее, чем вырезание рекрутов, иначе выигрывает тот, у кого просто больше онлайна.
+    kill-score: 1
+    kill-score-leader: 5
+    kill-score-guardian: 3
   pre-start-minutes: 15
   duration-minutes: 45
   cooldown-hours: 48
@@ -586,7 +591,8 @@ siege:
   max-times-sieged-per-week: 2
   declare-treasury-fee: 500
   fortification:
-    cost: "10i"
+    # 2026-10-08: цена уровня укрепления = cost-per-level x номер уровня. Раньше команда и меню читали разные ключи
+    # (cost и cost-per-level) и брали разные суммы за одно и то же; остался один, чтобы цена не расходилась.
     cost-per-level: 200
     max-level: 3
     hits-per-level: 1

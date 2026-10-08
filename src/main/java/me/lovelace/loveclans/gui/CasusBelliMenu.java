@@ -335,7 +335,9 @@ public final class CasusBelliMenu {
         ItemStack item = plugin.getClanManager().getClanItemFactory().createCasusBelliItem(
                 targetClan.id(), targetClan.name(), conflictType, entry.reasonId(), entry.title(), expiresAt, entry.isJust()
         );
-        player.getInventory().addItem(item);
+        // A full inventory must not eat a paid scroll: what does not fit falls at the player's feet
+        player.getInventory().addItem(item).values()
+                .forEach(rest -> player.getWorld().dropItemNaturally(player.getLocation(), rest));
 
         if (entry.isJust()) {
             plugin.getModifierManager().consumeJustCasus(clan.id(), targetClan.id(), conflictType, entry.reasonId());

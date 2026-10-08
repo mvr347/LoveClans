@@ -874,16 +874,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
         // No success message here: WarManager#beginPendingPhase already notifies every online
         // member of both clans (including this player) once the war is actually registered.
-        plugin.getWarManager().startWarAsync(attacker, defender, territoryKey)
-                .thenRun(() -> {
-                    if (cbRequired) {
-                        plugin.getClanManager().getClanItemFactory().consumeCasusBelli(player, defender.id(), "WAR");
-                    }
-                })
-                .exceptionally(throwable -> {
-                    plugin.runSync(() -> plugin.sendOperationError(player, throwable));
-                    return null;
-                });
+        me.lovelace.loveclans.util.CasusDeclaration.declare(plugin, player, cbRequired, defender.id(), "WAR",
+                () -> plugin.getWarManager().startWarAsync(attacker, defender, territoryKey));
     }
 
     /**
@@ -930,8 +922,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         UUID siegeId = siegeIdOpt.get();
 
         int level = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
-        long cost = MoneyConfig.getScaled(plugin.getConfig(), "siege.fortification.cost", 1_000L)
-                * Math.max(1, level + 1);
+        if (!plugin.getSiegeManager().canFortify(siegeId, campIndex)) {
+            plugin.getMessages().send(player, "siege.fortify.max-level");
+            return;
+        }
+        long cost = plugin.getSiegeManager().fortifyCost(siegeId, campIndex);
         if (clan.chestMoney() < cost) {
             plugin.getMessages().send(player, "siege.fortify.not-enough",
                     Map.of("cost", CoinFormat.format(cost)));
@@ -1008,16 +1003,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
         // No success message here: SiegeManager#beginPendingPhase already notifies every online
         // member of both clans (including this player) once the siege is actually registered.
-        plugin.getSiegeManager().startSiegeAsync(attacker, defender, territoryKey)
-                .thenRun(() -> {
-                    if (cbRequired) {
-                        plugin.getClanManager().getClanItemFactory().consumeCasusBelli(player, defender.id(), "SIEGE");
-                    }
-                })
-                .exceptionally(throwable -> {
-                    plugin.runSync(() -> plugin.sendOperationError(player, throwable));
-                    return null;
-                });
+        me.lovelace.loveclans.util.CasusDeclaration.declare(plugin, player, cbRequired, defender.id(), "SIEGE",
+                () -> plugin.getSiegeManager().startSiegeAsync(attacker, defender, territoryKey));
     }
 
     private void raid(Player player, String[] args) {
