@@ -8,9 +8,15 @@ import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.TerritoryKey;
 import me.lovelace.loveclans.model.war.ClanWar;
+import me.lovelace.loveclans.model.war.WarState;
+import me.lovelace.loveclans.gui.RaidLootMenu;
+import me.lovelace.loveclans.model.raid.ClanRaid;
+import me.lovelace.loveclans.model.raid.RaidPhase;
+import me.lovelace.loveclans.model.raid.RaidState;
 import me.lovelace.loveclans.util.ClanItemFactory;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.World;
@@ -63,7 +69,31 @@ public class ClanProtectionListener implements Listener {
         ItemStack itemInHand = event.getItemInHand();
         Block placedBlock = event.getBlockPlaced();
 
-        // Check if the player is trying to place a clan banner
+        // Запрет стройки в зоне захвата активного набега
+        if (plugin.getRaidManager().isInsideCaptureZone(placedBlock.getLocation())) {
+            plugin.getMessages().send(player, "raid.capture.zone-protected");
+            event.setCancelled(true);
+            return;
+        }
+
+        // Запрет стройки в 2 блоках от осадного лагеря (анти-коробка лагеря)
+        if (plugin.getSiegeManager().isNearAnyCamp(placedBlock.getLocation(), 2)) {
+            plugin.getMessages().send(player, "siege.camp-anti-box");
+            event.setCancelled(true);
+            return;
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBucketEmpty(org.bukkit.event.player.PlayerBucketEmptyEvent event) {
+        Block block = event.getBlockClicked().getRelative(event.getBlockFace());
+        if (plugin.getSiegeManager().isNearAnyCamp(block.getLocation(), 2)) {
+            plugin.getMessages().send(event.getPlayer(), "siege.camp-anti-box");
+            event.setCancelled(true);
+        }
+    }
+
+    private void handleBannerPlacement(BlockPlaceEvent event, Player player, ItemStack itemInHand, Block placedBlock) {
         if (!itemInHand.hasItemMeta() || !itemInHand.getType().toString().endsWith("_BANNER")) {
             return; // Not a banner or no meta
         }
@@ -217,6 +247,32 @@ public class ClanProtectionListener implements Listener {
         }
 
         Block clickedBlock = event.getClickedBlock();
+        Player player = event.getPlayer();
+
+        // Клик по рейдовому сундуку
+        if (clickedBlock.getType() == Material.CHEST && plugin.getRaidManager().isChestBlock(clickedBlock.getLocation())) {
+            event.setCancelled(true);
+            Optional<ClanRaid> raidOpt = plugin.getRaidManager().getActiveRaidAtChest(clickedBlock.getLocation());
+            if (raidOpt.isPresent()) {
+                ClanRaid raid = raidOpt.get();
+                if (raid.phase() == RaidPhase.CAPTURE) {
+                    plugin.getMessages().sendActionBar(player, "raid.chest.locked", Map.of());
+                    player.playSound(player.getLocation(), Sound.BLOCK_CHEST_LOCKED, 1.0f, 1.0f);
+                } else if (raid.phase() == RaidPhase.LOOT) {
+                    Optional<Clan> attackerClanOpt = plugin.getClanManager().getPlayerClan(player.getUniqueId());
+                    if (attackerClanOpt.isPresent() && attackerClanOpt.get().id().equals(raid.attackerClanId())) {
+                        Optional<Clan> defenderClanOpt = plugin.getClanManager().getClanById(raid.defenderClanId());
+                        if (defenderClanOpt.isPresent()) {
+                            RaidLootMenu.open(plugin, raid, defenderClanOpt.get(), player);
+                        }
+                    } else {
+                        plugin.getMessages().send(player, "raid.chest.attacker-only");
+                    }
+                }
+            }
+            return;
+        }
+
         if (!clickedBlock.getType().toString().endsWith("_BANNER")) {
             return;
         }
@@ -243,7 +299,6 @@ public class ClanProtectionListener implements Listener {
         }
 
         Clan clan = clanOpt.get();
-        Player player = event.getPlayer();
 
         if ("TERRITORY".equals(bannerType)) {
             if (clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.LEADER).orElse(false)) {
@@ -282,6 +337,17 @@ public class ClanProtectionListener implements Listener {
     public void onBlockBreak(BlockBreakEvent event) {
         Block brokenBlock = event.getBlock();
         Player player = event.getPlayer();
+
+        // Запрет поломки рейдового сундука и блоков в зоне захвата
+        if (plugin.getRaidManager().isChestBlock(brokenBlock.getLocation())) {
+            event.setCancelled(true);
+            return;
+        }
+        if (plugin.getRaidManager().isInsideCaptureZone(brokenBlock.getLocation())) {
+            plugin.getMessages().send(player, "raid.capture.zone-protected");
+            event.setCancelled(true);
+            return;
+        }
 
         // The bearing block is always protected, even during a siege: letting it break would pop
         // the banner above via block-physics instead of a BlockBreakEvent on the banner itself,
@@ -350,6 +416,12 @@ public class ClanProtectionListener implements Listener {
         }
 
         ClanWar war = warOpt.get();
+        if (war.isBannerSuppressed()) {
+            plugin.getMessages().send(player, "war.banner.suppressed-cooldown");
+            event.setCancelled(true);
+            return;
+        }
+
         Optional<Clan> breakerClanOpt = clanManager.getPlayerClan(player.getUniqueId());
         if (breakerClanOpt.isEmpty() || !breakerClanOpt.get().id().equals(war.attackerClanId())) {
             plugin.getMessages().send(player, "territory.banner.not-your-clan");
@@ -382,32 +454,66 @@ public class ClanProtectionListener implements Listener {
         }
 
         warManager.resetBannerHits(war.id());
-        brokenBlock.setType(Material.AIR);
-        ItemStack capturedBanner = plugin.getClanManager().getClanItemFactory().createCapturedBanner(war.id(), clan.id(), clan.name());
-        giveItemBack(player, capturedBanner);
-        warManager.startBannerCapture(war, player.getUniqueId());
+        warManager.suppressBanner(war);
     }
 
     /**
-     * Подсвечивает эффектом Glowing вражеских (по активным войнам) игроков, находящихся на
-     * территории клана, с которым они воюют, а также игрока, несущего захваченное знамя.
-     * Эффект перевыдаётся коротким импульсом на каждый тик этого метода (см. LoveClansPlugin),
-     * поэтому сам угасает вскоре после того, как игрок покидает территорию/война заканчивается.
+     * Подсвечивает эффектом Glowing участников войны внутри оспариваемой территории (симметрично для обеих сторон).
      */
     public void updateGlowingPlayers() {
         for (ClanWar war : warManager.activeWars()) {
+            if (war.state() != WarState.ACTIVE) continue;
             Optional<Clan> attackerOpt = clanManager.getClanById(war.attackerClanId());
             Optional<Clan> defenderOpt = clanManager.getClanById(war.defenderClanId());
             if (attackerOpt.isEmpty() || defenderOpt.isEmpty()) {
                 continue;
             }
-            glowEnemiesInTerritory(defenderOpt.get(), attackerOpt.get());
-            glowEnemiesInTerritory(attackerOpt.get(), defenderOpt.get());
 
-            if (war.capturedBannerBy() != null) {
-                Player carrier = Bukkit.getPlayer(war.capturedBannerBy());
-                if (carrier != null) {
-                    applyGlowPulse(carrier);
+            Optional<ClanTerritory> contestedOpt = warManager.resolveContestedTerritory(war);
+            if (contestedOpt.isPresent()) {
+                ClanTerritory ct = contestedOpt.get();
+                World world = Bukkit.getWorld(ct.world());
+                if (world != null) {
+                    Optional<BoundingBox> boxOpt = plugin.getAdvancedClaimsHook().boundingBoxOf(ct);
+                    if (boxOpt.isPresent()) {
+                        BoundingBox box = boxOpt.get();
+                        java.util.stream.Stream.concat(warManager.onlineMembers(attackerOpt.get()), warManager.onlineMembers(defenderOpt.get()))
+                                .filter(p -> p.getWorld().equals(world) && box.contains(p.getLocation().toVector()))
+                                .forEach(this::applyGlowPulse);
+                    }
+                }
+            }
+        }
+
+        // Подсветка атакующих в набеге: ТОЛЬКО внутри claim защитника + буфер 10 блоков (§6 newraids.md)
+        for (ClanRaid raid : plugin.getRaidManager().activeRaids()) {
+            if (raid.state() != RaidState.ACTIVE) continue;
+            Optional<Clan> attackerOpt = clanManager.getClanById(raid.attackerClanId());
+            Optional<Clan> defenderOpt = clanManager.getClanById(raid.defenderClanId());
+            if (attackerOpt.isEmpty() || defenderOpt.isEmpty()) continue;
+
+            Optional<ClanTerritory> capitalOpt = defenderOpt.get().getCapitalTerritory();
+            if (capitalOpt.isEmpty()) continue;
+            ClanTerritory capital = capitalOpt.get();
+            World world = Bukkit.getWorld(capital.world());
+            if (world == null) continue;
+
+            Optional<BoundingBox> boxOpt = plugin.getAdvancedClaimsHook().boundingBoxOf(capital);
+            BoundingBox bufferBox = null;
+            if (boxOpt.isPresent()) {
+                bufferBox = boxOpt.get().clone().expand(10.0);
+            } else if (capital.bannerX() != null && capital.bannerZ() != null) {
+                bufferBox = new BoundingBox(
+                        capital.bannerX() - 35, world.getMinHeight(), capital.bannerZ() - 35,
+                        capital.bannerX() + 35, world.getMaxHeight(), capital.bannerZ() + 35
+                );
+            }
+            if (bufferBox == null) continue;
+
+            for (Player attacker : plugin.getRaidManager().onlineMembers(attackerOpt.get()).toList()) {
+                if (!attacker.getWorld().equals(world)) continue;
+                if (bufferBox.contains(attacker.getLocation().toVector())) {
+                    applyGlowPulse(attacker);
                 }
             }
         }

@@ -517,82 +517,131 @@ influence:
 war:
   # Цели войны помимо убийств: слабому в PvP клану нужен другой путь к победе
   objectives:
-    # Очки за удержание спорной территории, если на ней есть бойцы только одной стороны
-    control-score: 1
-    control-tick-seconds: 30
-    # Очки защитникам за снос осадного лагеря во время войны
+  # Очки за задачи во время войны
+  objectives:
+    control-score: 2
+    control-tick-seconds: 20
+    control-min-members: 2
+    control-soft-cap: 5
     camp-break-score: 3
-  # Таймер (босс-бар) между объявлением войны и её реальным началом (баннеры, компасы,
-  # осадный режим территории появляются только после этого таймера).
-  pre-start-minutes: 10
-  duration-minutes: 30
-  cooldown-hours: 24
-  # Сколько войн может идти на сервере одновременно.
+  pre-start-minutes: 15
+  duration-minutes: 45
+  cooldown-hours: 48
   max-concurrent: 3
-  # Сколько участников с каждой стороны должно быть онлайн, чтобы объявить войну.
   min-online: 3
-  # Сколько времени вражеский клан должен непрерывно удерживать сломанное знамя территории,
-  # прежде чем клан-защитник автоматически проигрывает войну и распускается.
-  banner-capture-minutes: 3
-  # Сколько ударов подряд нужно нанести по вражескому знамени, прежде чем оно сломается
-  # (знамя больше не ломается с одного удара во время войны).
-  banner-break-hits: 5
-  # Если по знамени не бьют дольше этого времени, прогресс поломки сбрасывается.
+  banner-break-hits: 8
+  banner-suppress-score: 25
+  banner-repair-seconds: 60
   banner-break-progress-reset-seconds: 15
 
-  # Бонус к урону по вражескому клану во время активной войны за агрессивный стиль игры
-  # атакующего (LoveCore.BehaviorLevels, ставит LoveBehavior) - "военные действия" отдают
-  # агрессивным игрокам больше, симметрично тому, как миролюбивым отдают больше в торговле.
+  reparations:
+    duration-days: 5
+    daily-amount: 500
+    min-daily: 100
+    max-daily: 3000
+    on-missed-payment: accrue
+    max-arrears-days: 3
+
   aggressive-playstyle-bonus:
     enabled: true
     damage-percent: 0.10
     playstyle-threshold: 0   # ступень стиля игры 0-6 ("агрессивный") и ниже
 
-# Осада (§3) — второй тип конфликта клана: атакующие ставят осадные лагеря вокруг территории
-# защитника, каждый лагерь должен продержаться camp-hold-minutes без разрушения, чтобы осада
-# прорвалась. Как и война, начинается не сразу, а после pre-start-minutes (босс-бар).
+# Казус белли (casus-belli) — требования и настройки поводов
+casus-belli:
+  required-for:
+    war: true
+    siege: true
+  siege-cost-multiplier: 2.5
+
+# Новая осада (newsieges.md & siege-justify-rewards.md)
 siege:
-  # Укрепление осадных лагерей: атакующие тратят казну, защитникам приходится
-  # бить лагерь несколько раз вместо одного удара.
-  fortification:
-    # Стоимость первого уровня; каждый следующий дороже кратно уровню. 2026-10-03: 500 → "10i" (1 000):
-    # осадный лагерь укрепляют из казны клана, цена в железных монетах масштабируется с номиналами.
-    cost: "10i"
-    max-level: 3
-    hits-per-level: 1
-  pre-start-minutes: 20
-  # Общий лимит времени на осаду: если атакующие не удержали лагеря за это время, побеждает защитник.
-  duration-minutes: 20
-  # Сколько все лагеря должны простоять одновременно, чтобы осада прорвалась. Всегда меньше
-  # duration-minutes - иначе у атакующего физически не остаётся времени на победу.
+  pre-start-minutes: 15
+  duration-minutes: 22
   camp-hold-minutes: 10
-  cooldown-hours: 24
-  min-attacker-online: 1
-  min-defender-online: 5
-  max-concurrent: 3
+  camp-respawn-minutes: 2
+  camp-wipe-reset-seconds: 30
   camp-count-min: 3
   camp-count-max: 4
   camp-distance-blocks: 50
-  camp-respawn-minutes: 2
-  # Доля сундука защитника, которую получает победивший атакующий (случайно между min/max).
-  win-chest-percent-min: 25
-  win-chest-percent-max: 30
+  min-attacker-online: 2
+  min-defender-online: 3
+  afk-ignore-minutes: 15
+  cooldown-hours: 36
+  max-concurrent: 3
+  defender-compass: true
+  min-attacker-clan-level: 5
+  min-defender-clan-level: 4
+  level-gap-max: 8
+  max-sieges-per-clan-per-week: 2
+  max-times-sieged-per-week: 2
+  declare-treasury-fee: 500
+  fortification:
+    cost: "10i"
+    cost-per-level: 200
+    max-level: 3
+    hits-per-level: 1
+  instant-loot:
+    money-percent-base: 20.0
+    money-percent-per-level: 0.5
+    money-percent-cap: 35.0
+    item-slot-percent: 20
+  reparations:
+    duration-days: 3
+    daily-amount: 300
+    daily-per-defender-level: 40
+    min-daily: 100
+    max-daily: 2000
+  win-exp-multiplier: 0.75
+  defend-win-exp-multiplier: 0.45
+  glow-near-camp-radius: 15
+  glow-enabled: false
   reward-artifact: true
 
-# Набег (§3.1) — третий тип конфликта: возможен только если у защитника мало людей онлайн,
-# запрещён против клана с высоким влиянием. Успешен, если атакующие вынесли хоть что-то из
-# сундука защитника (деньги и/или предметы, оба ограничены процентом от того, что было в
-# сундуке на момент начала набега) до истечения duration-minutes.
+# Новый дизайн рейдов (newraids.md)
 raid:
   pre-start-minutes: 5
-  duration-minutes: 10
+  duration-minutes: 12
   cooldown-hours: 24
-  min-attacker-online: 1
+  preparing-cancel-cooldown-hours: 2
+  post-raid-shield-hours: 12
+  min-attacker-online: 2
   max-defender-online: 2
-  loot-money-percent: 50
-  loot-item-slot-percent: 50
+  afk-ignore-minutes: 15
+  max-raids-per-clan-per-day: 5
+  max-times-raided-per-day: 1
+
+  capture:
+    radius: 5
+    base-rate-per-second: 1.5
+    per-extra-attacker: 0.6
+    max-rate-per-second: 4.0
+    passive-decay-per-second: 0.4
+    defender-decay-per-second: 1.2
+    particle-interval-ticks: 15
+
+  chest:
+    resspawn-attempts: 10
+    clear-radius: 2
+    min-distance-from-banner: 8
+    access-check: true
+
+  attacker-glow:
+    enabled: true
+    claim-buffer-blocks: 10
+
+  loot-money-percent: 40
+  loot-item-slot-percent: 40
+  win-min-money-percent: 15
+  win-min-item-slots: 1
   win-exp-multiplier: 0.5
-  # Материалы ванильных предметов для бонусного "редкого" дропа при успешном набеге; пусто = без бонуса.
+  defend-win-exp-multiplier: 0.3
+
+  extract:
+    required: true
+    seconds-after-first-loot: 60
+    must-leave-zone: true
+
   bonus-items: []
 
 integration:

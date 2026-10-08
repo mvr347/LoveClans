@@ -94,6 +94,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private AdvancedClaimsHook advancedClaimsHook;
     private ContractManager contractManager;
     private DiplomacyManager diplomacyManager;
+    private me.lovelace.loveclans.manager.ModifierManager modifierManager;
     private ClanTradeManager clanTradeManager;
     private ClanTradeSessionManager clanTradeSessionManager;
     private ClanTradeDeliveryManager clanTradeDeliveryManager;
@@ -138,6 +139,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         bannerReplacementService = new ClanBannerReplacementService(this);
         peaceService = new me.lovelace.loveclans.manager.PeaceService(this);
         diplomacyManager = new DiplomacyManager(this, storage);
+        modifierManager = new me.lovelace.loveclans.manager.ModifierManager(this, storage);
         clanTradeManager = new ClanTradeManager(this, storage);
         clanTradeSessionManager = new ClanTradeSessionManager(this);
         clanTradeDeliveryManager = new ClanTradeDeliveryManager(this, storage);
@@ -163,7 +165,10 @@ public final class LoveClansPlugin extends JavaPlugin {
             getLogger().warning("Не удалось инициализировать хук LoveClaims: " + t.getMessage());
         }
 
-        clanManager.loadAsync().thenCompose(v -> diplomacyManager.loadAsync()).thenRunAsync(() -> {
+        clanManager.loadAsync()
+                .thenCompose(v -> diplomacyManager.loadAsync())
+                .thenCompose(v -> modifierManager.loadAsync())
+                .thenRunAsync(() -> {
             // Conflicts are not persisted, but their pair cooldowns are: a restart must not reset them.
             warManager.loadCooldowns();
             siegeManager.loadCooldowns();
@@ -201,6 +206,15 @@ public final class LoveClansPlugin extends JavaPlugin {
 
                 // Скупки: загружает текущий заказ и раз в минуту проверяет расписание (Пн/Ср/Пт).
                 serverTradeManager.start();
+
+                // Модификаторы клана (репарации, щиты, дебаффы) — проверка и выплата дани раз в 10 минут
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        modifierManager.tickDaily();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Clan modifier tick failed", t);
+                    }
+                }, 20L * 15L, 20L * 60L * 10L);
 
                 // Территории без advancedClaimId (заведены до того, как LoveClaims стал
                 // обязательным для клановых территорий) — довести до нормального состояния,
@@ -508,6 +522,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public DiplomacyManager getDiplomacyManager() {
         return diplomacyManager;
+    }
+
+    public me.lovelace.loveclans.manager.ModifierManager getModifierManager() {
+        return modifierManager;
     }
 
     public ServerTradeManager getServerTradeManager() {

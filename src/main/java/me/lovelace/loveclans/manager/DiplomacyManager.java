@@ -4,7 +4,6 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
-import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.storage.ClanStorage;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -211,43 +210,7 @@ public final class DiplomacyManager {
         });
     }
 
-    // --- Письма (§5.4) ---
 
-    public CompletableFuture<ClanLetter> sendLetterAsync(Clan from, UUID actorId, Clan to, String message) {
-        return plugin.supplySync(() -> {
-            ClanManager.requireTerritory(from, to);
-            if (!from.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
-                throw new IllegalStateException("general.no-permission");
-            }
-            if (from.id().equals(to.id())) {
-                throw new IllegalStateException("general.error");
-            }
-            if (message == null || message.isBlank()) {
-                throw new IllegalStateException("diplomacy.letter.empty");
-            }
-            int maxLength = plugin.getConfig().getInt("clans.diplomacy.letter-max-length", 256);
-            if (message.length() > maxLength) {
-                throw new IllegalStateException("diplomacy.letter.too-long");
-            }
-            if (plugin.getClanManager().inConflictWith(from.id(), to.id())) {
-                throw new IllegalStateException("diplomacy.letter.conflict-blocked");
-            }
-            return new ClanLetter(UUID.randomUUID(), from.id(), to.id(), message.trim(), false, System.currentTimeMillis());
-        }).thenCompose(letter -> storage.saveLetterAsync(letter).thenApply(v -> letter))
-                .thenApply(letter -> {
-                    plugin.getClanManager().getOnlineLeader(to).ifPresent(leader ->
-                            plugin.getMessages().sendClickableLetter(leader, from.tag(), from.tagColor()));
-                    return letter;
-                });
-    }
-
-    public CompletableFuture<Collection<ClanLetter>> getLettersAsync(UUID clanA, UUID clanB) {
-        return storage.loadLettersBetweenAsync(clanA, clanB);
-    }
-
-    public CompletableFuture<Void> markLetterReadAsync(UUID letterId) {
-        return storage.markLetterReadAsync(letterId);
-    }
 
     private java.util.stream.Stream<Player> onlineMembers(Clan clan) {
         return clan.members().keySet().stream().map(Bukkit::getPlayer).filter(java.util.Objects::nonNull);

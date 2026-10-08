@@ -12,6 +12,7 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 public final class ClanItemFactory {
@@ -19,19 +20,20 @@ public final class ClanItemFactory {
     private final LoveClansPlugin plugin;
     public static final NamespacedKey BANNER_TYPE_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "banner_type");
     public static final NamespacedKey CLAN_ID_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "clan_id");
-    // Помечает боевой компас войны идентификатором войны, для которой он выдан - используется,
-    // чтобы надёжно находить и изымать компас у игрока (независимо от локали отображаемого имени).
     public static final NamespacedKey WAR_COMPASS_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "war_compass_war_id");
-    // Помечает знамя, захваченное (сломанное и поднятое) вражеским игроком во время войны,
-    // идентификатором этой войны - чтобы его можно было изъять при завершении войны.
+    public static final NamespacedKey RAID_COMPASS_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "raid_compass_raid_id");
+    public static final NamespacedKey SIEGE_COMPASS_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "siege_compass_siege_id");
+    public static final NamespacedKey RAID_CHEST_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "raid_chest_id");
     public static final NamespacedKey CAPTURED_BANNER_WAR_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "captured_banner_war_id");
-    // Помечают физический блок осадного лагеря (§3.1) идентификатором осады и индексом лагеря
-    // в её списке - используются, чтобы связать BlockBreakEvent на этом блоке с конкретным
-    // SiegeCamp в SiegeManager.
     public static final NamespacedKey SIEGE_ID_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "siege_id");
     public static final NamespacedKey SIEGE_CAMP_INDEX_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "siege_camp_index");
-    // Помечает неразмещённое знамя основания клана, покупаемое у NPC
     public static final NamespacedKey CLAN_CREATION_BANNER_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "clan_creation_banner");
+
+    public static final NamespacedKey CASUS_BELLI_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "casus_belli");
+    public static final NamespacedKey CASUS_TARGET_ID_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "casus_target_id");
+    public static final NamespacedKey CASUS_CONFLICT_TYPE_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "casus_conflict_type");
+    public static final NamespacedKey CASUS_REASON_ID_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "casus_reason_id");
+    public static final NamespacedKey CASUS_EXPIRES_AT_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "casus_expires_at");
 
     public ClanItemFactory(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -214,5 +216,112 @@ public final class ClanItemFactory {
         }
         PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
         return pdc.has(CLAN_CREATION_BANNER_KEY, PersistentDataType.INTEGER);
+    }
+
+    public record CasusBelliData(UUID targetClanId, String conflictType, String reasonId, long expiresAt) {
+        public boolean isExpired(long now) {
+            return expiresAt > 0 && now >= expiresAt;
+        }
+    }
+
+    public ItemStack createCasusBelliItem(UUID targetClanId, String targetClanName, String conflictType, String reasonId, String reasonTitle, long expiresAt, boolean isJust) {
+        ItemStack item = new ItemStack(Material.PAPER);
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            PersistentDataContainer pdc = meta.getPersistentDataContainer();
+            pdc.set(CASUS_BELLI_KEY, PersistentDataType.INTEGER, 1);
+            pdc.set(CASUS_TARGET_ID_KEY, PersistentDataType.STRING, targetClanId.toString());
+            pdc.set(CASUS_CONFLICT_TYPE_KEY, PersistentDataType.STRING, conflictType.toUpperCase());
+            pdc.set(CASUS_REASON_ID_KEY, PersistentDataType.STRING, reasonId.toLowerCase());
+            pdc.set(CASUS_EXPIRES_AT_KEY, PersistentDataType.LONG, expiresAt);
+
+            String conflictTitle = conflictType.equalsIgnoreCase("WAR") ? "Война" : "Осада";
+            String title = (isJust ? "§cКазус белли: §e" : "§6Казус белли: §f") + reasonTitle;
+            meta.displayName(Component.text(title));
+
+            List<Component> lore = new java.util.ArrayList<>();
+            lore.add(Component.text("§8────────────────────────"));
+            lore.add(Component.text("§7Цель:  §c[" + targetClanName + "]"));
+            lore.add(Component.text("§7Тип:   §f" + conflictTitle));
+            lore.add(Component.text("§7Повод: §a" + reasonTitle));
+            if (expiresAt > 0) {
+                long remaining = Math.max(0, expiresAt - System.currentTimeMillis());
+                lore.add(Component.text("§7Годен: §e" + TimeUtil.formatDuration(remaining)));
+            } else {
+                lore.add(Component.text("§7Годен: §eБессрочно"));
+            }
+            lore.add(Component.text("§8────────────────────────"));
+            if (isJust) {
+                lore.add(Component.text("§aСправедливое право на объявление"));
+                lore.add(Component.text("§aоформлено у Гильдмастера."));
+                meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 1, true);
+                meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
+            } else {
+                lore.add(Component.text("§7Повод сомнительный, но оплачен"));
+                lore.add(Component.text("§7звонкой монетой."));
+            }
+            meta.lore(lore);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    public Optional<CasusBelliData> getCasusBelliData(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return Optional.empty();
+        PersistentDataContainer pdc = item.getItemMeta().getPersistentDataContainer();
+        if (!pdc.has(CASUS_BELLI_KEY, PersistentDataType.INTEGER)) return Optional.empty();
+        try {
+            String targetStr = pdc.get(CASUS_TARGET_ID_KEY, PersistentDataType.STRING);
+            String typeStr = pdc.get(CASUS_CONFLICT_TYPE_KEY, PersistentDataType.STRING);
+            String reasonStr = pdc.get(CASUS_REASON_ID_KEY, PersistentDataType.STRING);
+            Long exp = pdc.get(CASUS_EXPIRES_AT_KEY, PersistentDataType.LONG);
+            if (targetStr == null || typeStr == null) return Optional.empty();
+            return Optional.of(new CasusBelliData(
+                    UUID.fromString(targetStr),
+                    typeStr,
+                    reasonStr != null ? reasonStr : "",
+                    exp != null ? exp : 0L
+            ));
+        } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    public boolean matchesCasusBelli(ItemStack item, UUID targetClanId, String conflictType) {
+        return getCasusBelliData(item).map(data ->
+                data.targetClanId().equals(targetClanId)
+                && data.conflictType().equalsIgnoreCase(conflictType)
+                && !data.isExpired(System.currentTimeMillis())
+        ).orElse(false);
+    }
+
+    public boolean hasCasusBelli(Player player, UUID targetClanId, String conflictType) {
+        if (player == null) return false;
+        for (ItemStack stack : player.getInventory().getContents()) {
+            if (stack != null && matchesCasusBelli(stack, targetClanId, conflictType)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean consumeCasusBelli(Player player, UUID targetClanId, String conflictType) {
+        if (player == null) return false;
+        long now = System.currentTimeMillis();
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack stack = contents[i];
+            if (stack == null) continue;
+            Optional<CasusBelliData> data = getCasusBelliData(stack);
+            if (data.isPresent()) {
+                CasusBelliData cb = data.get();
+                if (cb.targetClanId().equals(targetClanId) && cb.conflictType().equalsIgnoreCase(conflictType) && !cb.isExpired(now)) {
+                    stack.setAmount(stack.getAmount() - 1);
+                    player.getInventory().setItem(i, stack.getAmount() > 0 ? stack : null);
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

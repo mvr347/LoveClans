@@ -3,20 +3,34 @@ package me.lovelace.loveclans.manager;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
+import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.DiplomacyRelation;
-import me.lovelace.loveclans.model.raid.ClanRaid;
 import me.lovelace.loveclans.model.history.ConflictKind;
+import me.lovelace.loveclans.model.raid.ClanRaid;
+import me.lovelace.loveclans.model.raid.RaidPhase;
 import me.lovelace.loveclans.model.raid.RaidResult;
 import me.lovelace.loveclans.model.raid.RaidState;
+import me.lovelace.loveclans.util.ClanItemFactory;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.Sound;
+import org.bukkit.World;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.util.BoundingBox;
 
 import java.time.Duration;
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -29,25 +43,36 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
- * Третий тип клановых конфликтов (§3.1): в отличие от войны/осады, набег не трогает мир (нет
- * баннеров/лагерей) - атакующие просто вскрывают сундук защитника (у которого мало людей онлайн)
- * на ограниченное время и выносят часть денег/предметов. Тот же PREPARING->ACTIVE->FINISHED
- * паттерн, что у {@link WarManager}/{@link SiegeManager}, но без физического мира.
+ * Менеджер рейдов по новому дизайну (newraids.md):
+ * - Рейдовый сундук на капитальной территории защитника
+ * - Зона захвата (цилиндр радиус 5, dy +-3)
+ * - Скорость захвата 0..100% с блокировкой и спадом при защитниках в зоне
+ * - Компас выдаётся ТОЛЬКО атакующим
+ * - Подсветка атакующих ТОЛЬКО внутри claim защитника + буфер 10 блоков
+ * - Snapshot казны (40% денег, 40% предметов) при 100% захвата
+ * - Substantial loot (15% денег или 1 предмет) + 60s extract таймер выхода из зоны
+ * - Щит на защитника после рейда 12 часов
+ * - Игроки в AFK > 15 минут не учитываются в порогах онлайна
  */
 public final class RaidManager {
     private final LoveClansPlugin plugin;
     private final Map<UUID, ClanRaid> activeRaids = new ConcurrentHashMap<>();
     private final Map<AbstractMap.SimpleImmutableEntry<UUID, UUID>, Long> raidCooldowns = new ConcurrentHashMap<>();
+    private final Map<Location, Material> originalChestBlocks = new ConcurrentHashMap<>();
 
-    /** Restores the pair cooldowns after a restart (blocking read, called once from an async startup task). */
-    public void loadCooldowns() {
-        plugin.getConflictCooldownStore().loadInto(me.lovelace.loveclans.storage.ConflictCooldownStore.RAID, raidCooldowns);
-    }
-    private final Map<UUID, BossBar> pendingBossBars = new ConcurrentHashMap<>();
+    private final Map<UUID, List<Long>> attackerRaidTimestamps = new ConcurrentHashMap<>();
+    private final Map<UUID, List<Long>> defenderRaidTimestamps = new ConcurrentHashMap<>();
+
+    private final Map<UUID, BossBar> raidBossBars = new ConcurrentHashMap<>();
     private final Set<UUID> oneMinuteWarned = ConcurrentHashMap.newKeySet();
 
     public RaidManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    /** Restores the pair cooldowns after a restart. */
+    public void loadCooldowns() {
+        plugin.getConflictCooldownStore().loadInto(me.lovelace.loveclans.storage.ConflictCooldownStore.RAID, raidCooldowns);
     }
 
     private Duration preStartDuration() {
@@ -55,11 +80,15 @@ public final class RaidManager {
     }
 
     private Duration raidDuration() {
-        return Duration.ofMinutes(plugin.getConfig().getLong("raid.duration-minutes", 10));
+        return Duration.ofMinutes(plugin.getConfig().getLong("raid.duration-minutes", 12));
     }
 
     private Duration cooldownDuration() {
         return Duration.ofHours(plugin.getConfig().getLong("raid.cooldown-hours", 24));
+    }
+
+    private Duration preparingCancelCooldownDuration() {
+        return Duration.ofHours(plugin.getConfig().getLong("raid.preparing-cancel-cooldown-hours", 2));
     }
 
     private AbstractMap.SimpleImmutableEntry<UUID, UUID> pairKey(UUID clan1, UUID clan2) {
@@ -68,28 +97,39 @@ public final class RaidManager {
                 : new AbstractMap.SimpleImmutableEntry<>(clan2, clan1);
     }
 
-    private int countOnline(Clan clan) {
+    private int countOnlineNonAfk(Clan clan, long afkIgnoreMinutes) {
         int online = 0;
         for (UUID memberId : clan.members().keySet()) {
-            if (Bukkit.getPlayer(memberId) != null) online++;
+            Player p = Bukkit.getPlayer(memberId);
+            if (p != null && !plugin.getAfkManager().isAfkMinutes(memberId, afkIgnoreMinutes)) {
+                online++;
+            }
         }
         return online;
     }
 
-    /** §8.3: a clan can't be raided if its influence is at/above (server average influence) * raid-immunity-multiplier. */
-    public boolean isImmuneToRaid(Clan clan) {
-        Collection<Clan> all = plugin.getClanManager().getAllClans();
-        if (all.isEmpty()) return false;
-        double average = all.stream().mapToLong(Clan::influence).average().orElse(0);
-        double multiplier = plugin.getConfig().getDouble("influence.raid-immunity-multiplier", 2.0);
-        return clan.influence() >= average * multiplier;
+    public int countRaidsAsAttackerToday(UUID clanId) {
+        long cutoff = System.currentTimeMillis() - 86_400_000L;
+        List<Long> timestamps = attackerRaidTimestamps.computeIfAbsent(clanId, k -> new ArrayList<>());
+        timestamps.removeIf(t -> t < cutoff);
+        return timestamps.size();
+    }
+
+    public int countRaidsAsDefenderToday(UUID clanId) {
+        long cutoff = System.currentTimeMillis() - 86_400_000L;
+        List<Long> timestamps = defenderRaidTimestamps.computeIfAbsent(clanId, k -> new ArrayList<>());
+        timestamps.removeIf(t -> t < cutoff);
+        return timestamps.size();
+    }
+
+    private void recordRaidStart(UUID attackerId, UUID defenderId) {
+        long now = System.currentTimeMillis();
+        attackerRaidTimestamps.computeIfAbsent(attackerId, k -> new ArrayList<>()).add(now);
+        defenderRaidTimestamps.computeIfAbsent(defenderId, k -> new ArrayList<>()).add(now);
     }
 
     public CompletableFuture<ClanRaid> startRaidAsync(Clan attacker, Clan defender) {
         return plugin.supplySync(() -> {
-            // Без капитальной территории набегать/обороняться не от чего (нет своей земли, за
-            // которую отвечать) — startRaidAsync не принимает force-параметр, здесь нет
-            // admin-обхода, который нужно было бы сохранить.
             if (attacker.id().equals(defender.id())) {
                 throw new IllegalStateException("war.cannot-target-self");
             }
@@ -108,17 +148,34 @@ public final class RaidManager {
             if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
                 throw new IllegalStateException("war.cannot-declare-on-ally");
             }
-            if (isImmuneToRaid(defender)) {
-                throw new IllegalStateException("raid.target-immune");
-            }
-            int maxDefenderOnline = plugin.getConfig().getInt("raid.max-defender-online", 2);
-            if (countOnline(defender) > maxDefenderOnline) {
-                throw new IllegalStateException("raid.too-many-defenders");
-            }
-            if (countOnline(attacker) < plugin.getConfig().getInt("raid.min-attacker-online", 1)) {
-                throw new IllegalStateException("raid.not-enough-attackers");
+
+            // Щит на защитника после рейда (12 часов)
+            if (plugin.getModifierManager().hasPostRaidShield(defender.id())) {
+                throw new IllegalStateException("raid.defender-shielded");
             }
 
+            long afkMinutes = plugin.getConfig().getLong("raid.afk-ignore-minutes", 15L);
+            int minAttackerOnline = plugin.getConfig().getInt("raid.min-attacker-online", 2);
+            int maxDefenderOnline = plugin.getConfig().getInt("raid.max-defender-online", 2);
+
+            if (countOnlineNonAfk(attacker, afkMinutes) < minAttackerOnline) {
+                throw new IllegalStateException("raid.not-enough-attackers");
+            }
+            if (countOnlineNonAfk(defender, afkMinutes) > maxDefenderOnline) {
+                throw new IllegalStateException("raid.too-many-defenders");
+            }
+
+            // Суточные лимиты
+            int maxAttackerPerDay = plugin.getConfig().getInt("raid.max-raids-per-clan-per-day", 5);
+            int maxDefenderPerDay = plugin.getConfig().getInt("raid.max-times-raided-per-day", 1);
+            if (countRaidsAsAttackerToday(attacker.id()) >= maxAttackerPerDay) {
+                throw new IllegalStateException("raid.limit-reached-attacker");
+            }
+            if (countRaidsAsDefenderToday(defender.id()) >= maxDefenderPerDay) {
+                throw new IllegalStateException("raid.limit-reached-defender");
+            }
+
+            // Кулдаун пары кланов
             AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = pairKey(attacker.id(), defender.id());
             long now = System.currentTimeMillis();
             Long lastRaidTime = raidCooldowns.get(cooldownKey);
@@ -132,6 +189,7 @@ public final class RaidManager {
             activeRaids.put(raid.id(), raid);
             raidCooldowns.put(cooldownKey, now);
             plugin.getConflictCooldownStore().saveAsync(me.lovelace.loveclans.storage.ConflictCooldownStore.RAID, cooldownKey, now);
+            recordRaidStart(attacker.id(), defender.id());
 
             beginPendingPhase(raid, attacker, defender);
             return raid;
@@ -153,7 +211,7 @@ public final class RaidManager {
                 "attacker", attacker.tag(), "color1", attacker.tagColor(),
                 "defender", defender.tag(), "color2", defender.tagColor(), "time", time));
         BossBar bar = BossBar.bossBar(title, 1.0f, BossBar.Color.PURPLE, BossBar.Overlay.PROGRESS);
-        pendingBossBars.put(raid.id(), bar);
+        raidBossBars.put(raid.id(), bar);
 
         java.util.stream.Stream.concat(onlineMembers(attacker), onlineMembers(defender)).forEach(p -> p.showBossBar(bar));
         onlineMembers(attacker).forEach(p -> plugin.getMessages().send(p, "raid.pending.declared",
@@ -162,8 +220,8 @@ public final class RaidManager {
                 Map.of("tag", attacker.tag(), "color", attacker.tagColor(), "time", time)));
     }
 
-    private void clearPendingPhase(UUID raidId, RaidClans clans) {
-        BossBar bar = pendingBossBars.remove(raidId);
+    private void clearBossBar(UUID raidId, RaidClans clans) {
+        BossBar bar = raidBossBars.remove(raidId);
         oneMinuteWarned.remove(raidId);
         if (bar != null && clans != null) {
             java.util.stream.Stream.concat(onlineMembers(clans.attacker()), onlineMembers(clans.defender()))
@@ -173,7 +231,6 @@ public final class RaidManager {
 
     private void activateRaid(ClanRaid raid) {
         Optional<RaidClans> clansOpt = resolveClans(raid);
-        clearPendingPhase(raid.id(), clansOpt.orElse(null));
         if (clansOpt.isEmpty()) {
             activeRaids.remove(raid.id());
             return;
@@ -181,18 +238,195 @@ public final class RaidManager {
         Clan attacker = clansOpt.get().attacker();
         Clan defender = clansOpt.get().defender();
 
-        long now = System.currentTimeMillis();
-        long moneyCap = Math.round(defender.chestMoney() * (plugin.getConfig().getInt("raid.loot-money-percent", 50) / 100.0));
-        int unlockedSlots = me.lovelace.loveclans.gui.ChestLayout.unlockedSlots(defender.chestRows(), ClanManager.CHEST_MAX_SIZE);
-        int itemSlotCap = (int) Math.round(unlockedSlots * (plugin.getConfig().getInt("raid.loot-item-slot-percent", 50) / 100.0));
+        // 1. Поиск локации и спавн сундука
+        Location chestLoc = locateAndSpawnChest(defender);
+        if (chestLoc == null) {
+            plugin.getLogger().warning("Failed to locate solid ground for raid chest in defender capital! Cancelling raid.");
+            endRaid(raid, RaidResult.CANCELLED);
+            return;
+        }
 
-        ClanRaid activated = raid.activate(now + raidDuration().toMillis(), moneyCap, itemSlotCap);
+        // 2. Создание голограммы над сундуком
+        ArmorStand hologram = spawnChestHologram(chestLoc);
+        UUID hologramId = hologram != null ? hologram.getUniqueId() : null;
+
+        // 3. Вычисление лимита лута
+        long now = System.currentTimeMillis();
+        long moneyCap = Math.round(defender.chestMoney() * (plugin.getConfig().getInt("raid.loot-money-percent", 40) / 100.0));
+        int unlockedSlots = me.lovelace.loveclans.gui.ChestLayout.unlockedSlots(defender.chestRows(), ClanManager.CHEST_MAX_SIZE);
+        int itemSlotCap = (int) Math.round(unlockedSlots * (plugin.getConfig().getInt("raid.loot-item-slot-percent", 40) / 100.0));
+
+        ClanRaid activated = raid.activate(now + raidDuration().toMillis(), chestLoc, hologramId, moneyCap, itemSlotCap);
         activeRaids.put(activated.id(), activated);
 
-        onlineMembers(attacker).forEach(p -> plugin.getMessages().sendTitle(p, "raid.start.attacker-title", "raid.start.attacker-subtitle",
-                Map.of("tag", defender.tag(), "color", defender.tagColor())));
-        onlineMembers(defender).forEach(p -> plugin.getMessages().sendTitle(p, "raid.start.defender-title", "raid.start.defender-subtitle",
-                Map.of("tag", attacker.tag(), "color", attacker.tagColor())));
+        // 4. Компас выдаётся ТОЛЬКО атакующим
+        distributeRaidCompasses(activated, attacker, defender, chestLoc);
+
+        // 5. Аларм защитникам и атакующим (title + sound)
+        onlineMembers(attacker).forEach(p -> {
+            plugin.getMessages().sendTitle(p, "raid.start.attacker-title", "raid.start.attacker-subtitle",
+                    Map.of("tag", defender.tag(), "color", defender.tagColor()));
+            p.playSound(p.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_0, 1.0f, 1.0f);
+        });
+
+        onlineMembers(defender).forEach(p -> {
+            plugin.getMessages().sendTitle(p, "raid.start.defender-title", "raid.start.defender-subtitle",
+                    Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
+            p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.8f, 1.2f);
+        });
+    }
+
+    private Location locateAndSpawnChest(Clan defender) {
+        Optional<ClanTerritory> capitalOpt = defender.getCapitalTerritory();
+        if (capitalOpt.isEmpty()) return null;
+        ClanTerritory capital = capitalOpt.get();
+
+        World world = Bukkit.getWorld(capital.world());
+        if (world == null) return null;
+
+        Optional<BoundingBox> boxOpt = plugin.getAdvancedClaimsHook().boundingBoxOf(capital);
+        int minX, maxX, minZ, maxZ;
+        if (boxOpt.isPresent()) {
+            BoundingBox box = boxOpt.get();
+            minX = (int) box.getMinX() + 3;
+            maxX = (int) box.getMaxX() - 3;
+            minZ = (int) box.getMinZ() + 3;
+            maxZ = (int) box.getMaxZ() - 3;
+        } else if (capital.bannerX() != null && capital.bannerZ() != null) {
+            minX = capital.bannerX() - 25;
+            maxX = capital.bannerX() + 25;
+            minZ = capital.bannerZ() - 25;
+            maxZ = capital.bannerZ() + 25;
+        } else {
+            return null;
+        }
+
+        if (minX > maxX) { int t = minX; minX = maxX; maxX = t; }
+        if (minZ > maxZ) { int t = minZ; minZ = maxZ; maxZ = t; }
+
+        int attempts = plugin.getConfig().getInt("raid.chest.resspawn-attempts", 10);
+        double minBannerDist = plugin.getConfig().getDouble("raid.chest.min-distance-from-banner", 8.0);
+        double minBannerDistSq = minBannerDist * minBannerDist;
+
+        for (int i = 0; i < attempts; i++) {
+            int rx = ThreadLocalRandom.current().nextInt(minX, maxX + 1);
+            int rz = ThreadLocalRandom.current().nextInt(minZ, maxZ + 1);
+
+            if (capital.bannerX() != null && capital.bannerZ() != null) {
+                double bx = capital.bannerX();
+                double bz = capital.bannerZ();
+                double distSq = (rx - bx) * (rx - bx) + (rz - bz) * (rz - bz);
+                if (distSq < minBannerDistSq) continue;
+            }
+
+            int highestY = world.getHighestBlockYAt(rx, rz);
+            if (highestY <= world.getMinHeight() || highestY >= world.getMaxHeight() - 2) continue;
+
+            Location floorLoc = new Location(world, rx, highestY - 1, rz);
+            Material floorMat = floorLoc.getBlock().getType();
+            if (!floorMat.isSolid() || floorMat == Material.LAVA || floorMat == Material.WATER || floorMat == Material.FIRE) {
+                continue;
+            }
+
+            Location chestLoc = new Location(world, rx, highestY, rz);
+            Location aboveChest = chestLoc.clone().add(0, 1, 0);
+
+            // Убеждаемся, что над сундуком есть воздух
+            if (!chestLoc.getBlock().getType().isAir() && chestLoc.getBlock().getType() != Material.SHORT_GRASS) {
+                continue;
+            }
+            if (!aboveChest.getBlock().getType().isAir()) {
+                continue;
+            }
+
+            // Очистка препятствий в радиусе 2
+            int clearRadius = plugin.getConfig().getInt("raid.chest.clear-radius", 2);
+            for (int dx = -clearRadius; dx <= clearRadius; dx++) {
+                for (int dz = -clearRadius; dz <= clearRadius; dz++) {
+                    for (int dy = 0; dy <= 2; dy++) {
+                        if (dx == 0 && dz == 0 && dy == 0) continue;
+                        Location clearLoc = chestLoc.clone().add(dx, dy, dz);
+                        Material blockType = clearLoc.getBlock().getType();
+                        if (!blockType.isAir() && blockType != Material.BEDROCK && !blockType.toString().endsWith("_BANNER")
+                                && blockType != Material.CHEST && blockType != Material.BARREL) {
+                            if (blockType.getHardness() <= 5.0f) {
+                                clearLoc.getBlock().setType(Material.AIR);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Сохраняем исходный блок и ставим сундук
+            originalChestBlocks.put(chestLoc, chestLoc.getBlock().getType());
+            chestLoc.getBlock().setType(Material.CHEST);
+            return chestLoc;
+        }
+
+        return null;
+    }
+
+    private ArmorStand spawnChestHologram(Location chestLoc) {
+        World world = chestLoc.getWorld();
+        if (world == null) return null;
+        Location holoLoc = chestLoc.clone().add(0.5, 1.2, 0.5);
+        ArmorStand stand = (ArmorStand) world.spawnEntity(holoLoc, EntityType.ARMOR_STAND);
+        stand.setVisible(false);
+        stand.setGravity(false);
+        stand.setMarker(true);
+        stand.setCustomNameVisible(true);
+        stand.customName(Component.text("§c§lРейдовый Сундук\n§eЗахват: 0%"));
+        return stand;
+    }
+
+    private void updateChestHologram(ClanRaid raid) {
+        if (raid.chestHologramId() == null) return;
+        Entity entity = Bukkit.getEntity(raid.chestHologramId());
+        if (!(entity instanceof ArmorStand stand)) return;
+
+        if (raid.phase() == RaidPhase.CAPTURE) {
+            stand.customName(Component.text("§c§lРейдовый Сундук\n§eЗахват: " + (int) raid.captureProgress() + "%"));
+        } else if (raid.phase() == RaidPhase.LOOT) {
+            stand.customName(Component.text("§a§lРейдовый Сундук (ВЗЛОМАН)\n§e[ПКМ для лута]"));
+        }
+    }
+
+    private void distributeRaidCompasses(ClanRaid raid, Clan attacker, Clan defender, Location chestLoc) {
+        onlineMembers(attacker).forEach(p -> giveRaidCompass(p, raid, chestLoc, defender));
+    }
+
+    private void giveRaidCompass(Player player, ClanRaid raid, Location targetLocation, Clan enemyClan) {
+        ItemStack compass = new ItemStack(Material.COMPASS);
+        ItemMeta meta = compass.getItemMeta();
+        if (meta != null) {
+            meta.getPersistentDataContainer().set(ClanItemFactory.RAID_COMPASS_KEY, PersistentDataType.STRING, raid.id().toString());
+            meta.displayName(plugin.getMessages().component("raid.compass.name", Map.of("tag", enemyClan.tag())));
+            meta.lore(List.of(plugin.getMessages().component("raid.compass.lore")));
+            compass.setItemMeta(meta);
+        }
+        player.setCompassTarget(targetLocation);
+        Map<Integer, ItemStack> overflow = player.getInventory().addItem(compass);
+        overflow.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
+    }
+
+    private void removeRaidCompasses(ClanRaid raid) {
+        Optional<RaidClans> clansOpt = resolveClans(raid);
+        if (clansOpt.isEmpty()) return;
+        onlineMembers(clansOpt.get().attacker()).forEach(player -> clearRaidCompass(player, raid.id()));
+    }
+
+    private void clearRaidCompass(Player player, UUID raidId) {
+        player.setCompassTarget(player.getWorld().getSpawnLocation());
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack item = contents[i];
+            if (item != null && item.getType() == Material.COMPASS && item.hasItemMeta()) {
+                String taggedRaidId = item.getItemMeta().getPersistentDataContainer().get(ClanItemFactory.RAID_COMPASS_KEY, PersistentDataType.STRING);
+                if (taggedRaidId != null && taggedRaidId.equals(raidId.toString())) {
+                    player.getInventory().setItem(i, null);
+                }
+            }
+        }
     }
 
     // --- Looting ---
@@ -201,7 +435,6 @@ public final class RaidManager {
         return activeRaids.values().stream().filter(r -> r.between(first, second)).findFirst();
     }
 
-    /** The raid (any phase) where {@code attackerClanId} is the attacking side, if any - used by /clan raid loot|items which only know their own clan. */
     public Optional<ClanRaid> findActiveRaidAsAttacker(UUID attackerClanId) {
         return activeRaids.values().stream()
                 .filter(r -> r.attackerClanId().equals(attackerClanId))
@@ -210,13 +443,12 @@ public final class RaidManager {
 
     private record MoneyLootResult(Clan defender, long amountTaken) {}
 
-    /** Loots up to {@code amount} (capped by what's left of the raid's money allowance and the defender's balance) into the player's inventory. */
     public CompletableFuture<Long> lootMoneyAsync(ClanRaid raid, Player looter, long amount) {
         if (raid == null || looter == null || amount <= 0)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Raid, looter and amount must be valid."));
         return plugin.supplySync(() -> {
             ClanRaid current = activeRaids.get(raid.id());
-            if (current == null || current.state() != RaidState.ACTIVE) {
+            if (current == null || current.state() != RaidState.ACTIVE || current.phase() != RaidPhase.LOOT) {
                 throw new IllegalStateException("raid.not-active");
             }
             Clan defender = plugin.getClanManager().getClanById(current.defenderClanId())
@@ -229,17 +461,28 @@ public final class RaidManager {
             dev.lovelace.lovecore.api.LoveCore
                     .service(dev.lovelace.lovecore.api.economy.LoveEconomy.class)
                     .ifPresent(economy -> economy.give(looter, take));
-            activeRaids.put(current.id(), current.withMoneyLooted(take));
+
+            ClanRaid updated = current.withMoneyLooted(take);
+            if (updated.hasSubstantialLoot(plugin.getConfig().getDouble("raid.win-min-money-percent", 15.0),
+                    plugin.getConfig().getInt("raid.win-min-item-slots", 1)) && updated.firstLootAt() == 0) {
+                updated = updated.withFirstLootAt(System.currentTimeMillis());
+                looter.sendMessage(plugin.getMessages().component("raid.extract.prompt", Map.of("time", "60")));
+            }
+            activeRaids.put(current.id(), updated);
             return new MoneyLootResult(defender, take);
         }).thenCompose(result -> plugin.getStorage().updateClanChestMoney(result.defender().id(), result.defender().chestMoney())
                 .thenApply(v -> result.amountTaken()));
     }
 
-    /** Called by RaidLootMenu when a previously-full item slot becomes empty during an active raid loot session. */
     public void recordItemSlotLooted(UUID raidId) {
         ClanRaid current = activeRaids.get(raidId);
-        if (current != null && current.state() == RaidState.ACTIVE) {
-            activeRaids.put(raidId, current.withItemSlotsLooted(1));
+        if (current != null && current.state() == RaidState.ACTIVE && current.phase() == RaidPhase.LOOT) {
+            ClanRaid updated = current.withItemSlotsLooted(1);
+            if (updated.hasSubstantialLoot(plugin.getConfig().getDouble("raid.win-min-money-percent", 15.0),
+                    plugin.getConfig().getInt("raid.win-min-item-slots", 1)) && updated.firstLootAt() == 0) {
+                updated = updated.withFirstLootAt(System.currentTimeMillis());
+            }
+            activeRaids.put(raidId, updated);
         }
     }
 
@@ -247,7 +490,7 @@ public final class RaidManager {
         return Optional.ofNullable(activeRaids.get(raidId));
     }
 
-    // --- Lifecycle queries ---
+    // --- Lifecycle queries & Protection helpers ---
 
     public boolean isInRaid(UUID clanId) {
         return activeRaids.values().stream().anyMatch(r -> r.involves(clanId));
@@ -259,6 +502,62 @@ public final class RaidManager {
 
     public Collection<ClanRaid> activeRaids() {
         return List.copyOf(activeRaids.values());
+    }
+
+    public boolean isChestBlock(Location loc) {
+        if (loc == null) return false;
+        for (ClanRaid raid : activeRaids.values()) {
+            if (raid.state() == RaidState.ACTIVE && raid.chestLocation() != null) {
+                Location cl = raid.chestLocation();
+                if (cl.getWorld() != null && cl.getWorld().equals(loc.getWorld())
+                        && cl.getBlockX() == loc.getBlockX()
+                        && cl.getBlockY() == loc.getBlockY()
+                        && cl.getBlockZ() == loc.getBlockZ()) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isInCaptureZone(Location loc, Location chestLoc, double radiusSq) {
+        if (loc == null || chestLoc == null || loc.getWorld() == null || !loc.getWorld().equals(chestLoc.getWorld())) {
+            return false;
+        }
+        double dx = loc.getX() - chestLoc.getX();
+        double dz = loc.getZ() - chestLoc.getZ();
+        double dy = loc.getY() - chestLoc.getY();
+        return (dx * dx + dz * dz <= radiusSq) && (dy >= -2.0 && dy <= 4.0);
+    }
+
+    public boolean isInsideCaptureZone(Location loc) {
+        if (loc == null) return false;
+        double radius = plugin.getConfig().getDouble("raid.capture.radius", 5.0);
+        double radiusSq = radius * radius;
+        for (ClanRaid raid : activeRaids.values()) {
+            if (raid.state() == RaidState.ACTIVE && raid.chestLocation() != null) {
+                if (isInCaptureZone(loc, raid.chestLocation(), radiusSq)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public Optional<ClanRaid> getActiveRaidAtChest(Location loc) {
+        if (loc == null) return Optional.empty();
+        for (ClanRaid raid : activeRaids.values()) {
+            if (raid.state() == RaidState.ACTIVE && raid.chestLocation() != null) {
+                Location cl = raid.chestLocation();
+                if (cl.getWorld() != null && cl.getWorld().equals(loc.getWorld())
+                        && cl.getBlockX() == loc.getBlockX()
+                        && cl.getBlockY() == loc.getBlockY()
+                        && cl.getBlockZ() == loc.getBlockZ()) {
+                    return Optional.of(raid);
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     public CompletableFuture<Void> peaceAsync(Clan source, Clan target) {
@@ -274,10 +573,38 @@ public final class RaidManager {
     private void endRaid(ClanRaid raid, RaidResult result) {
         activeRaids.remove(raid.id());
         Optional<RaidClans> clansOpt = resolveClans(raid);
-        clearPendingPhase(raid.id(), clansOpt.orElse(null));
+        clearBossBar(raid.id(), clansOpt.orElse(null));
+
+        // Очистка сундука в мире и голограммы
+        if (raid.chestLocation() != null) {
+            Location cl = raid.chestLocation();
+            Material orig = originalChestBlocks.remove(cl);
+            if (orig == null) orig = Material.AIR;
+            cl.getBlock().setType(orig);
+        }
+        if (raid.chestHologramId() != null) {
+            Entity holo = Bukkit.getEntity(raid.chestHologramId());
+            if (holo != null) {
+                holo.remove();
+            } else if (raid.chestLocation() != null && raid.chestLocation().getWorld() != null) {
+                World w = raid.chestLocation().getWorld();
+                int cx = raid.chestLocation().getBlockX() >> 4;
+                int cz = raid.chestLocation().getBlockZ() >> 4;
+                if (!w.isChunkLoaded(cx, cz)) {
+                    w.loadChunk(cx, cz);
+                    Entity loadedHolo = Bukkit.getEntity(raid.chestHologramId());
+                    if (loadedHolo != null) loadedHolo.remove();
+                }
+            }
+        }
+
+        // Изъятие компасов набега
+        removeRaidCompasses(raid);
+
         if (clansOpt.isEmpty() || result == RaidResult.CANCELLED) {
             return;
         }
+
         Clan attacker = clansOpt.get().attacker();
         Clan defender = clansOpt.get().defender();
 
@@ -295,15 +622,32 @@ public final class RaidManager {
             });
             grantBonusItem(attacker);
         } else {
+            // Если защитник победил, а часть денег была взята, возвращаем деньги в казну защитника
+            if (raid.moneyLooted() > 0) {
+                defender.addChestMoney(raid.moneyLooted());
+                plugin.getStorage().updateClanChestMoney(defender.id(), defender.chestMoney());
+            }
+
+            double multiplier = plugin.getConfig().getDouble("raid.defend-win-exp-multiplier", 0.3);
+            long reward = Math.round(plugin.getConfig().getLong("leveling.war-win-exp", 1200L) * multiplier);
+            plugin.getClanManager().addExperienceAsync(defender, reward).exceptionally(t -> {
+                plugin.getLogger().warning("Failed to award defend experience to clan " + defender.id() + ": " + t.getMessage());
+                return null;
+            });
+
             onlineMembers(defender).forEach(p -> plugin.getMessages().sendTitle(p, "raid.end.repelled-title", "raid.end.repelled-subtitle",
                     Map.of("tag", attacker.tag(), "color", attacker.tagColor())));
             onlineMembers(attacker).forEach(p -> plugin.getMessages().sendTitle(p, "raid.end.failed-title", "raid.end.failed-subtitle",
                     Map.of("tag", defender.tag(), "color", defender.tagColor())));
         }
 
+        // Щит на защитника после любого завершённого набега на 12 часов (§8)
+        int shieldHours = plugin.getConfig().getInt("raid.post-raid-shield-hours", 12);
+        plugin.getModifierManager().grantPostRaidShield(defender.id(), shieldHours);
+
         plugin.getConflictArchive().record(ConflictKind.RAID, raid.attackerClanId(), raid.defenderClanId(),
                 result == RaidResult.ATTACKER_WIN ? raid.attackerClanId() : raid.defenderClanId(),
-                0, 0, raid.startedAt());
+                (int) raid.moneyLooted(), 0, raid.startedAt());
 
         plugin.getClanManager().recordRaidResultAsync(attacker, result == RaidResult.ATTACKER_WIN).exceptionally(t -> {
             plugin.getLogger().warning("Failed to record raid result for clan " + attacker.id() + ": " + t.getMessage());
@@ -329,6 +673,8 @@ public final class RaidManager {
 
     public void purgeClan(UUID clanId) {
         raidCooldowns.keySet().removeIf(pair -> pair.getKey().equals(clanId) || pair.getValue().equals(clanId));
+        attackerRaidTimestamps.remove(clanId);
+        defenderRaidTimestamps.remove(clanId);
         plugin.getConflictCooldownStore().deleteClanAsync(clanId);
     }
 
@@ -340,15 +686,9 @@ public final class RaidManager {
         }
     }
 
-    /**
-     * Снимает все активные набеги при выключении плагина. В отличие от войны и осады набег не
-     * трогает мир, поэтому убрать нужно только босс-бары ожидания - иначе они остаются висеть
-     * у игроков до перезахода.
-     */
     public void shutdown() {
         for (ClanRaid raid : activeRaids()) {
-            activeRaids.remove(raid.id());
-            clearPendingPhase(raid.id(), resolveClans(raid).orElse(null));
+            endRaid(raid, RaidResult.CANCELLED);
         }
     }
 
@@ -360,35 +700,217 @@ public final class RaidManager {
         for (ClanRaid raid : activeRaids.values()) {
             if (raid.state() == RaidState.PREPARING) {
                 tickPending(raid, now);
-                continue;
-            }
-            if (raid.endsAt() <= now) {
-                endRaid(raid, raid.anyLooted() ? RaidResult.ATTACKER_WIN : RaidResult.DEFENDER_WIN);
+            } else if (raid.state() == RaidState.ACTIVE) {
+                tickActive(raid, now);
             }
         }
     }
 
     private void tickPending(ClanRaid raid, long now) {
         long remainingMs = raid.endsAt() - now;
+        Optional<RaidClans> clansOpt = resolveClans(raid);
+        if (clansOpt.isEmpty()) {
+            endRaid(raid, RaidResult.CANCELLED);
+            return;
+        }
+
+        // Проверка отмены в PREPARING: если защитников не-AFK стало больше max-defender-online
+        long afkMinutes = plugin.getConfig().getLong("raid.afk-ignore-minutes", 15L);
+        int maxDefenderOnline = plugin.getConfig().getInt("raid.max-defender-online", 2);
+        if (countOnlineNonAfk(clansOpt.get().defender(), afkMinutes) > maxDefenderOnline) {
+            // Отменяем набег и ставим кулдаун пары на 2 часа
+            AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = pairKey(raid.attackerClanId(), raid.defenderClanId());
+            long cancelCooldownTime = now - (cooldownDuration().toMillis() - preparingCancelCooldownDuration().toMillis());
+            raidCooldowns.put(cooldownKey, cancelCooldownTime);
+            plugin.getConflictCooldownStore().saveAsync(me.lovelace.loveclans.storage.ConflictCooldownStore.RAID, cooldownKey, cancelCooldownTime);
+
+            java.util.stream.Stream.concat(onlineMembers(clansOpt.get().attacker()), onlineMembers(clansOpt.get().defender()))
+                    .forEach(p -> plugin.getMessages().send(p, "raid.pending.cancelled-defenders"));
+
+            endRaid(raid, RaidResult.CANCELLED);
+            return;
+        }
+
         if (remainingMs <= 0) {
             activateRaid(raid);
             return;
         }
-        BossBar bar = pendingBossBars.get(raid.id());
-        Optional<RaidClans> clansOpt = resolveClans(raid);
-        if (bar == null || clansOpt.isEmpty()) return;
 
-        long totalMs = preStartDuration().toMillis();
-        bar.progress(Math.max(0f, Math.min(1f, (float) remainingMs / (float) totalMs)));
-        bar.name(plugin.getMessages().component("raid.pending.bossbar", Map.of(
-                "attacker", clansOpt.get().attacker().tag(), "color1", clansOpt.get().attacker().tagColor(),
-                "defender", clansOpt.get().defender().tag(), "color2", clansOpt.get().defender().tagColor(),
-                "time", formatDuration(remainingMs))));
+        BossBar bar = raidBossBars.get(raid.id());
+        if (bar != null) {
+            long totalMs = preStartDuration().toMillis();
+            bar.progress(Math.max(0f, Math.min(1f, (float) remainingMs / (float) totalMs)));
+            bar.name(plugin.getMessages().component("raid.pending.bossbar", Map.of(
+                    "attacker", clansOpt.get().attacker().tag(), "color1", clansOpt.get().attacker().tagColor(),
+                    "defender", clansOpt.get().defender().tag(), "color2", clansOpt.get().defender().tagColor(),
+                    "time", formatDuration(remainingMs))));
+        }
 
         if (remainingMs <= 60_000L && oneMinuteWarned.add(raid.id())) {
             java.util.stream.Stream.concat(onlineMembers(clansOpt.get().attacker()), onlineMembers(clansOpt.get().defender()))
                     .forEach(p -> plugin.getMessages().send(p, "raid.pending.one-minute-warning"));
         }
+    }
+
+    private void tickActive(ClanRaid raid, long now) {
+        Optional<RaidClans> clansOpt = resolveClans(raid);
+        if (clansOpt.isEmpty()) {
+            endRaid(raid, RaidResult.CANCELLED);
+            return;
+        }
+        Clan attacker = clansOpt.get().attacker();
+        Clan defender = clansOpt.get().defender();
+        Location chestLoc = raid.chestLocation();
+
+        if (chestLoc == null) {
+            endRaid(raid, RaidResult.CANCELLED);
+            return;
+        }
+
+        double radius = plugin.getConfig().getDouble("raid.capture.radius", 5.0);
+        double radiusSq = radius * radius;
+        long afkMinutes = plugin.getConfig().getLong("raid.afk-ignore-minutes", 15L);
+
+        // Подсчёт атакующих и защитников в цилиндре захвата
+        int attackersInZone = 0;
+        int defendersInZone = 0;
+        for (Player p : onlineMembers(attacker).toList()) {
+            if (isInCaptureZone(p.getLocation(), chestLoc, radiusSq)) {
+                attackersInZone++;
+            }
+        }
+        for (Player p : onlineMembers(defender).toList()) {
+            if (isInCaptureZone(p.getLocation(), chestLoc, radiusSq) && !plugin.getAfkManager().isAfkMinutes(p.getUniqueId(), afkMinutes)) {
+                defendersInZone++;
+            }
+        }
+
+        // Партиклы периметра зоны захвата
+        World world = chestLoc.getWorld();
+        if (world != null) {
+            for (int degree = 0; degree < 360; degree += 24) {
+                double rad = Math.toRadians(degree);
+                double px = chestLoc.getX() + 0.5 + radius * Math.cos(rad);
+                double pz = chestLoc.getZ() + 0.5 + radius * Math.sin(rad);
+                world.spawnParticle(raid.phase() == RaidPhase.LOOT ? Particle.HAPPY_VILLAGER : Particle.FLAME,
+                        px, chestLoc.getY() + 0.1, pz, 1, 0, 0, 0, 0);
+            }
+            world.spawnParticle(Particle.ENCHANT, chestLoc.clone().add(0.5, 0.8, 0.5), 4, 0.2, 0.2, 0.2, 0.05);
+        }
+
+        long remainingActiveMs = Math.max(0L, raid.endsAt() - now);
+
+        // Фаза 1: CAPTURE
+        if (raid.phase() == RaidPhase.CAPTURE) {
+            double currentProgress = raid.captureProgress();
+            double delta;
+            if (defendersInZone > 0) {
+                delta = -plugin.getConfig().getDouble("raid.capture.defender-decay-per-second", 1.2);
+            } else if (attackersInZone > 0) {
+                double base = plugin.getConfig().getDouble("raid.capture.base-rate-per-second", 1.5);
+                double perExtra = plugin.getConfig().getDouble("raid.capture.per-extra-attacker", 0.6);
+                double maxRate = plugin.getConfig().getDouble("raid.capture.max-rate-per-second", 4.0);
+                delta = Math.min(maxRate, base + (attackersInZone - 1) * perExtra);
+            } else {
+                delta = -plugin.getConfig().getDouble("raid.capture.passive-decay-per-second", 0.4);
+            }
+
+            double nextProgress = Math.max(0.0, Math.min(100.0, currentProgress + delta));
+            ClanRaid updated = raid.withProgress(nextProgress);
+
+            if (nextProgress >= 100.0) {
+                // Взлом сундука! Переход в фазу LOOT
+                updated = updated.withPhase(RaidPhase.LOOT);
+                activeRaids.put(updated.id(), updated);
+                updateChestHologram(updated);
+
+                // Оповещения о взломе
+                onlineMembers(attacker).forEach(p -> {
+                    plugin.getMessages().sendTitle(p, "raid.loot.hacked-title", "raid.loot.hacked-subtitle",
+                            Map.of("tag", defender.tag(), "color", defender.tagColor()));
+                    p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                });
+                onlineMembers(defender).forEach(p -> {
+                    plugin.getMessages().sendTitle(p, "raid.loot.defender-breached-title", "raid.loot.defender-breached-subtitle",
+                            Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
+                    p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 1.0f, 0.7f);
+                });
+            } else {
+                activeRaids.put(updated.id(), updated);
+                updateChestHologram(updated);
+            }
+
+            // Обновление BossBar
+            BossBar bar = raidBossBars.get(raid.id());
+            if (bar != null) {
+                bar.color(nextProgress >= 50.0 ? BossBar.Color.YELLOW : BossBar.Color.RED);
+                bar.progress((float) (nextProgress / 100.0));
+                bar.name(plugin.getMessages().component("raid.active.bossbar.capture", Map.of(
+                        "attacker", attacker.tag(), "color1", attacker.tagColor(),
+                        "defender", defender.tag(), "color2", defender.tagColor(),
+                        "progress", String.valueOf((int) nextProgress),
+                        "time", formatDuration(remainingActiveMs))));
+            }
+
+            if (remainingActiveMs <= 0) {
+                endRaid(raid, RaidResult.DEFENDER_WIN);
+                return;
+            }
+        }
+        // Фаза 2: LOOT и EXTRACT
+        else if (raid.phase() == RaidPhase.LOOT) {
+            double minMoneyPercent = plugin.getConfig().getDouble("raid.win-min-money-percent", 15.0);
+            int minItemSlots = plugin.getConfig().getInt("raid.win-min-item-slots", 1);
+            boolean hasSubstantial = raid.hasSubstantialLoot(minMoneyPercent, minItemSlots);
+
+            if (hasSubstantial) {
+                // Если взят substantial лут, проверяем выход атакующих из зоны сундука (extract)
+                boolean allLeftZone = checkAllAttackersLeftZone(raid);
+                if (allLeftZone) {
+                    endRaid(raid, RaidResult.ATTACKER_WIN);
+                    return;
+                }
+
+                // Таймер эвакуации 60 секунд после первого substantial забора
+                long extractSeconds = plugin.getConfig().getLong("raid.extract.seconds-after-first-loot", 60L);
+                if (raid.firstLootAt() > 0 && (now - raid.firstLootAt() >= extractSeconds * 1000L)) {
+                    // Таймер эвакуации истёк, а атакующие не вышли из зоны!
+                    endRaid(raid, RaidResult.DEFENDER_WIN);
+                    return;
+                }
+            }
+
+            BossBar bar = raidBossBars.get(raid.id());
+            if (bar != null) {
+                bar.color(BossBar.Color.YELLOW);
+                bar.progress(1.0f);
+                bar.name(plugin.getMessages().component("raid.active.bossbar.loot", Map.of(
+                        "attacker", attacker.tag(), "color1", attacker.tagColor(),
+                        "defender", defender.tag(), "color2", defender.tagColor(),
+                        "time", formatDuration(remainingActiveMs))));
+            }
+
+            if (remainingActiveMs <= 0) {
+                endRaid(raid, RaidResult.DEFENDER_WIN);
+            }
+        }
+    }
+
+    private boolean checkAllAttackersLeftZone(ClanRaid raid) {
+        Location chestLoc = raid.chestLocation();
+        if (chestLoc == null) return true;
+        Optional<Clan> attackerOpt = plugin.getClanManager().getClanById(raid.attackerClanId());
+        if (attackerOpt.isEmpty()) return true;
+        List<Player> attackers = onlineMembers(attackerOpt.get()).toList();
+        if (attackers.isEmpty()) return false;
+        double radius = plugin.getConfig().getDouble("raid.capture.radius", 5.0);
+        double radiusSq = radius * radius;
+        for (Player p : attackers) {
+            if (isInCaptureZone(p.getLocation(), chestLoc, radiusSq)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private String formatDuration(long millis) {
@@ -398,7 +920,7 @@ public final class RaidManager {
         return String.format("%d:%02d", minutes, seconds);
     }
 
-    private java.util.stream.Stream<Player> onlineMembers(Clan clan) {
+    public java.util.stream.Stream<Player> onlineMembers(Clan clan) {
         return clan.members().values().stream()
                 .map(ClanMember::playerId)
                 .map(Bukkit::getPlayer)

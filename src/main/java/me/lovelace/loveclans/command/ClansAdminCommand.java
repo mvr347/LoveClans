@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
 public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "reload", "createnpc", "removenpc", "disband", "war", "siege", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "help"
+            "reload", "createnpc", "removenpc", "disband", "war", "siege", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "casus", "help"
     );
     private static final List<String> AMOUNT_ACTIONS = List.of("add", "remove", "set");
     private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "end");
@@ -79,6 +79,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "recognize" -> setRecognized(sender, args, true);
                 case "unrecognize" -> setRecognized(sender, args, false);
                 case "givebanner" -> giveBanner(sender, args);
+                case "casus" -> casus(sender, args);
                 default -> sendHelp(sender);
             }
         } catch (IllegalStateException exception) {
@@ -193,9 +194,44 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(sender, "general.player-not-found");
             return;
         }
-        target.getInventory().addItem(plugin.getClanManager().getClanItemFactory().createClanCreationBanner());
+        var bannerOverflow = target.getInventory().addItem(plugin.getClanManager().getClanItemFactory().createClanCreationBanner());
+        bannerOverflow.values().forEach(drop -> target.getWorld().dropItemNaturally(target.getLocation(), drop));
         plugin.getMessages().send(sender, "admin.givebanner.success", Map.of("player", target.getName()));
         plugin.getMessages().send(target, "clan.banner.received");
+    }
+
+    private void casus(CommandSender sender, String[] args) {
+        if (args.length < 6 || !args[1].equalsIgnoreCase("give")) {
+            sender.sendMessage(net.kyori.adventure.text.Component.text("§cИспользование: /loveclansadmin casus give <player> <targetTag> <war|siege> <reasonId>"));
+            return;
+        }
+        Player targetPlayer = org.bukkit.Bukkit.getPlayer(args[2]);
+        if (targetPlayer == null) {
+            plugin.getMessages().send(sender, "general.player-not-found");
+            return;
+        }
+        Optional<Clan> targetClanOpt = plugin.getClanManager().getClanByTag(args[3]);
+        if (targetClanOpt.isEmpty()) {
+            plugin.getMessages().send(sender, "clan.not-found");
+            return;
+        }
+        Clan targetClan = targetClanOpt.get();
+        String conflictType = args[4].toUpperCase(Locale.ROOT);
+        if (!conflictType.equals("WAR") && !conflictType.equals("SIEGE")) {
+            sender.sendMessage(net.kyori.adventure.text.Component.text("§cТип конфликта должен быть war или siege!"));
+            return;
+        }
+        String reasonId = args[5].toLowerCase(Locale.ROOT);
+        boolean isJust = reasonId.startsWith("revenge_") || reasonId.equals("unpaid_tribute") || reasonId.equals("broken_peace");
+        long expiresAt = System.currentTimeMillis() + 14L * 24 * 3600_000L;
+
+        org.bukkit.inventory.ItemStack item = plugin.getClanManager().getClanItemFactory().createCasusBelliItem(
+                targetClan.id(), targetClan.name(), conflictType, reasonId, reasonId, expiresAt, isJust
+        );
+        var overflow = targetPlayer.getInventory().addItem(item);
+        overflow.values().forEach(drop -> targetPlayer.getWorld().dropItemNaturally(targetPlayer.getLocation(), drop));
+        sender.sendMessage(net.kyori.adventure.text.Component.text("§aВыдан казус белли (" + conflictType + ", " + reasonId + ") игроку " + targetPlayer.getName() + " против клана " + targetClan.name()));
+        targetPlayer.sendMessage(net.kyori.adventure.text.Component.text("§aВам выдан казус белли против клана §f" + targetClan.name()));
     }
 
     private void disband(CommandSender sender, String[] args) {
@@ -417,6 +453,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "war" -> WAR_ACTIONS;
                 case "siege" -> SIEGE_ACTIONS;
                 case "exp", "points" -> AMOUNT_ACTIONS;
+                case "casus" -> List.of("give");
                 case "artifact" -> Arrays.stream(ArtifactType.values())
                         .map(type -> type.name().toLowerCase(Locale.ROOT))
                         .collect(Collectors.toList());
@@ -429,6 +466,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
             List<String> completions = switch (action) {
                 case "diplo", "war", "siege" -> clanTags;
                 case "exp", "points" -> clanTags;
+                case "casus" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
                 default -> List.of();
             };
             return StringUtil.copyPartialMatches(args[2], completions, new ArrayList<>());
@@ -437,8 +475,18 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         if (args.length == 4 && action.equals("diplo")) {
             return StringUtil.copyPartialMatches(args[3], RELATIONS, new ArrayList<>());
         }
-        if (args.length == 4 && (action.equals("war") || action.equals("siege"))) {
+        if (args.length == 4 && (action.equals("war") || action.equals("siege") || action.equals("casus"))) {
             return StringUtil.copyPartialMatches(args[3], clanTags, new ArrayList<>());
+        }
+        if (args.length == 5 && action.equals("casus")) {
+            return StringUtil.copyPartialMatches(args[4], List.of("war", "siege"), new ArrayList<>());
+        }
+        if (args.length == 6 && action.equals("casus")) {
+            List<String> reasons = List.of(
+                    "revenge_war", "revenge_siege", "revenge_raid", "unpaid_tribute", "broken_peace",
+                    "insult", "dislike", "looked_wrong", "bad_fashion", "land_envy", "drunk_dare"
+            );
+            return StringUtil.copyPartialMatches(args[5], reasons, new ArrayList<>());
         }
 
         return Collections.emptyList();

@@ -64,11 +64,16 @@ public final class CombatListener implements Listener {
         if (!plugin.getConfig().getBoolean("war.aggressive-playstyle-bonus.enabled", true)) {
             return;
         }
-        int threshold = plugin.getConfig().getInt("war.aggressive-playstyle-bonus.playstyle-threshold", 0);
-        double bonusPercent = plugin.getConfig().getDouble("war.aggressive-playstyle-bonus.damage-percent", 0.10);
-        dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.social.BehaviorLevels.class)
-                .filter(levels -> levels.playstyleLevel(attackerId) <= threshold)
-                .ifPresent(levels -> event.setDamage(event.getDamage() * (1.0 + bonusPercent)));
+        if (org.bukkit.Bukkit.getPluginManager().getPlugin("LoveCore") == null) {
+            return;
+        }
+        try {
+            int threshold = plugin.getConfig().getInt("war.aggressive-playstyle-bonus.playstyle-threshold", 0);
+            double bonusPercent = plugin.getConfig().getDouble("war.aggressive-playstyle-bonus.damage-percent", 0.10);
+            dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.social.BehaviorLevels.class)
+                    .filter(levels -> levels.playstyleLevel(attackerId) <= threshold)
+                    .ifPresent(levels -> event.setDamage(event.getDamage() * (1.0 + bonusPercent)));
+        } catch (Throwable ignored) {}
     }
 
     @EventHandler
@@ -76,20 +81,6 @@ public final class CombatListener implements Listener {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
         
-        // Handle banner drop on death. Deliberately not gated on the victim still being in a
-        // clan: they may have been kicked/left while carrying a captured banner, and the war's
-        // capturedBannerBy() would otherwise keep pointing at them with no way to clear it.
-        for (ClanWar war : plugin.getWarManager().activeWars()) {
-            if (war.capturedBannerBy() != null && war.capturedBannerBy().equals(victim.getUniqueId())) {
-                plugin.getWarManager().resetBannerCapture(war.id());
-                // Remove only the captured banner tagged with this war, not any other banner
-                // (e.g. a decorative one) the victim might be carrying.
-                event.getDrops().removeIf(item -> plugin.getClanManager().getClanItemFactory().isCapturedBanner(item, war.id()));
-                plugin.getMessages().send(victim, "war.banner-dropped");
-                break;
-            }
-        }
-
         if (killer == null) {
             return;
         }
@@ -98,7 +89,7 @@ public final class CombatListener implements Listener {
         if (killerClan.isEmpty() || victimClan.isEmpty()) {
             return;
         }
-        plugin.getWarManager().addKillScore(killerClan.get().id(), victimClan.get().id());
+        plugin.getWarManager().addKillScore(killer, victim, killerClan.get(), victimClan.get());
     }
 
     private Player player(Entity entity) {

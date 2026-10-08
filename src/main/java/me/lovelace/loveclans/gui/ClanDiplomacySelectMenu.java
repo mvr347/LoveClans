@@ -126,8 +126,17 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
                     .name(plugin.getMessages().component("gui.diplomacy-select.clan-item.name",
                             Map.of("tag", target.tag(), "color", target.tagColor(), "name", target.name()), player))
                     .lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.relation",
-                            Map.of("relation", plugin.getMessages().relationName(sourceClan.relationTo(target.id()))), player))
-                    .lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.hint", player));
+                            Map.of("relation", plugin.getMessages().relationName(sourceClan.relationTo(target.id()))), player));
+
+            if (plugin.getWarManager().areAtWar(sourceClan.id(), target.id())) {
+                builder.lore(Component.text("§c⚔ Идёт война"));
+            } else if (plugin.getSiegeManager().areInSiege(sourceClan.id(), target.id())) {
+                builder.lore(Component.text("§6🏕 Идёт осада"));
+            } else if (plugin.getRaidManager().areInRaid(sourceClan.id(), target.id())) {
+                builder.lore(Component.text("§e🏹 Идёт набег"));
+            }
+
+            builder.lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.hint", player));
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, target.id().toString()));
             inventory.setItem(targetSlot, builder.build());

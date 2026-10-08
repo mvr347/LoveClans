@@ -21,6 +21,8 @@ public enum ClanMenuType {
     GUILDMASTER,
     RECOGNITION_CONFIRM,
     CHEST_MONEY,
-    LETTERS,
-    TRADE
+    MODIFIERS,
+    CASUS_BELLI,
+    TRADE,
+    CAMP_FORTIFY
 }

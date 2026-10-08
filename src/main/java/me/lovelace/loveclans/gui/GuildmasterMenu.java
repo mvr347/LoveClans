@@ -6,6 +6,7 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.util.ItemBuilder;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -30,7 +31,7 @@ public final class GuildmasterMenu {
     private static final int SLOT_FOOTER_FILL = 25;
     private static final int SLOT_CLOSE = 26;
 
-    enum Action { VOWS, RECOGNITION, CLAN_LIST }
+    enum Action { VOWS, RECOGNITION, CLAN_LIST, CASUS_BELLI }
 
     public static final class Holder extends ClanMenuHolder {
         private final Map<Integer, Action> actions;
@@ -56,6 +57,7 @@ public final class GuildmasterMenu {
     /** True when the player gets this menu rather than the plain clan list. */
     public static boolean hasMenu(Clan clan, UUID playerId) {
         return clan.hasPermission(playerId, ClanPermission.CONTRACTS)
+                || clan.hasPermission(playerId, ClanPermission.DIPLOMACY)
                 || (ClanRecognitionService.isOwner(clan, playerId) && !clan.isRecognized());
     }
 
@@ -66,6 +68,9 @@ public final class GuildmasterMenu {
         }
         if (ClanRecognitionService.isOwner(clan, playerId) && !clan.isRecognized()) {
             buttons.add(Action.RECOGNITION);
+        }
+        if (clan.hasPermission(playerId, ClanPermission.DIPLOMACY)) {
+            buttons.add(Action.CASUS_BELLI);
         }
         buttons.add(Action.CLAN_LIST);
         return buttons;
@@ -115,6 +120,13 @@ public final class GuildmasterMenu {
                     .name(plugin.getMessages().component("gui.guildmaster.button.clans.name", player))
                     .lore(plugin.getMessages().components("gui.guildmaster.button.clans.lore", player))
                     .build();
+            case CASUS_BELLI -> ItemBuilder.of(org.bukkit.Material.WRITTEN_BOOK)
+                    .name(Component.text("§6Оформить повод к войне"))
+                    .lore(Component.text("§7Получение казус белли для объявления"))
+                    .lore(Component.text("§7войны или осады вражескому клану."))
+                    .lore(Component.empty())
+                    .lore(Component.text("§eНажмите для оформления"))
+                    .build();
         };
     }
 
@@ -136,6 +148,7 @@ public final class GuildmasterMenu {
             // open() re-checks owner / not yet recognized
             case RECOGNITION -> recognitionMenu.open(player, clan);
             case CLAN_LIST -> plugin.getGuiManager().openClanList(player);
+            case CASUS_BELLI -> plugin.getGuiManager().openCasusBelli(player, clan);
         }
     }
 }

@@ -29,8 +29,9 @@ public final class ClanMainMenu implements InventoryHolder {
     private static final int SLOT_CHEST = 29;
     private static final int SLOT_TREASURY = 31;
     private static final int SLOT_SPIRIT = 33;
-    // Row 4: two centered buttons (gui_gen: the even count skips the middle slot 40).
+    // Row 4: centered buttons (Trade 39, Modifiers 40, Settings 41)
     private static final int SLOT_TRADE = 39;
+    private static final int SLOT_MODIFIERS = 40;
     private static final int SLOT_SETTINGS = 41;
     private static final int SLOT_LEAVE = 52;
     private static final int SLOT_CLOSE = 53;
@@ -160,6 +161,14 @@ public final class ClanMainMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.main.no-territory-lore", player))
                         .build());
 
+        inventory.setItem(SLOT_MODIFIERS, ItemBuilder.of(Material.WRITTEN_BOOK)
+                .name(Component.text("§6Модификаторы клана"))
+                .lore(Component.text("§7Просмотр активных репараций, дани,"))
+                .lore(Component.text("§7щитов от набегов и доступных казус белли."))
+                .lore(Component.empty())
+                .lore(Component.text("§eНажмите для открытия"))
+                .build());
+
         ItemBuilder settingsItem = canManageSettings
                 ? ItemBuilder.head(ItemBuilder.HEAD_MAIN_SETTINGS)
                 : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE);
@@ -282,6 +291,7 @@ public final class ClanMainMenu implements InventoryHolder {
                 }
                 plugin.getGuiManager().openTrade(clicker, clan, null);
             }
+            case SLOT_MODIFIERS -> plugin.getGuiManager().openModifiers(clicker, clan);
             case SLOT_SETTINGS -> {
                 if (clan.hasPermission(clicker.getUniqueId(), ClanPermission.SETTINGS)) {
                     plugin.getGuiManager().openSettings(clicker, clan);

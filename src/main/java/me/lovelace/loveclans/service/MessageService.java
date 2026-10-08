@@ -173,6 +173,14 @@ public final class MessageService {
         audience.sendMessage(component(key, placeholders, player));
     }
 
+    public void sendCustom(CommandSender sender, String rawMiniMessage) {
+        if (sender != null) {
+            String prefix = lang.getString("prefix", "");
+            String resolved = rawMiniMessage.replace("<prefix>", prefix);
+            sender.sendMessage(miniMessage.deserialize(resolved));
+        }
+    }
+
     public void sendClickableApplication(Player leader, String applicantName, String clanTag, String clanColor) {
         Component msg = component("clan.application-received",
                 Map.of("player", applicantName, "tag", clanTag, "color", clanColor), leader)
@@ -222,14 +230,6 @@ public final class MessageService {
         guildmaster.sendMessage(msg);
     }
 
-    public void sendClickableLetter(Player leader, String senderTag, String senderColor) {
-        Component msg = component("diplomacy.letter.received",
-                Map.of("tag", senderTag, "color", senderColor), leader)
-                .append(Component.text(" "))
-                .append(component("diplomacy.letter.open", leader)
-                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan letters " + senderTag)));
-        leader.sendMessage(msg);
-    }
 
     public void sendClickableTrade(Player recipient, java.util.UUID tradeId, String senderTag, String senderColor) {
         Component msg = component("trade.offer-received",

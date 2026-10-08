@@ -32,10 +32,18 @@ public final class AfkManager implements Listener {
     }
 
     public boolean isAfk(UUID playerId) {
+        long thresholdMillis = plugin.getConfig().getLong("mechanics.afk.threshold-seconds", 120L) * 1000L;
+        return isAfk(playerId, thresholdMillis);
+    }
+
+    public boolean isAfk(UUID playerId, long thresholdMillis) {
         Long last = lastActivity.get(playerId);
         if (last == null) return false;
-        long thresholdMillis = plugin.getConfig().getLong("mechanics.afk.threshold-seconds", 120L) * 1000L;
         return System.currentTimeMillis() - last >= thresholdMillis;
+    }
+
+    public boolean isAfkMinutes(UUID playerId, long minutes) {
+        return isAfk(playerId, minutes * 60_000L);
     }
 
     private void markActive(Player player) {

@@ -7,8 +7,9 @@ import me.lovelace.loveclans.model.ClanPerk;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
-import me.lovelace.loveclans.model.diplomacy.ClanLetter;
+
 import me.lovelace.loveclans.model.history.ConflictRecord;
+import me.lovelace.loveclans.model.modifier.ClanModifier;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.model.trade.ClanTrade;
@@ -121,11 +122,7 @@ public interface ClanStorage {
 
     CompletableFuture<Void> deleteBlockadeAsync(UUID blockerClanId, UUID blockedClanId);
 
-    CompletableFuture<Void> saveLetterAsync(ClanLetter letter);
 
-    CompletableFuture<Collection<ClanLetter>> loadLettersBetweenAsync(UUID clanA, UUID clanB);
-
-    CompletableFuture<Void> markLetterReadAsync(UUID letterId);
 
     // --- Торговля между кланами через сундук (§4.2) ---
 
@@ -178,4 +175,14 @@ public interface ClanStorage {
 
     /** Конфликты только между этими двумя кланами, новые первыми. */
     CompletableFuture<List<ConflictRecord>> loadConflictsBetweenAsync(UUID first, UUID second, int limit);
+
+    // --- Модификаторы клана ---
+
+    CompletableFuture<Void> saveModifierAsync(ClanModifier modifier);
+
+    CompletableFuture<Void> deleteModifierAsync(UUID modifierId);
+
+    CompletableFuture<List<ClanModifier>> loadModifiersForClanAsync(UUID clanId);
+
+    CompletableFuture<List<ClanModifier>> loadAllModifiersAsync();
 }

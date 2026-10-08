@@ -362,17 +362,20 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
 
-            // Письма между кланами (§5.4).
+            // Модификаторы клана (репарации, щиты, дебаффы, доступные поводы).
             statement.executeUpdate("""
-                    CREATE TABLE IF NOT EXISTS clan_letters (
+                    CREATE TABLE IF NOT EXISTS clan_modifiers (
                         id VARCHAR(36) PRIMARY KEY,
-                        clan_from VARCHAR(36) NOT NULL,
-                        clan_to VARCHAR(36) NOT NULL,
-                        message TEXT NOT NULL,
-                        is_read TINYINT NOT NULL DEFAULT 0,
-                        created_at BIGINT NOT NULL
+                        clan_id VARCHAR(36) NOT NULL,
+                        type VARCHAR(32) NOT NULL,
+                        payload TEXT,
+                        started_at BIGINT NOT NULL,
+                        ends_at BIGINT NOT NULL,
+                        stacks INT NOT NULL DEFAULT 1,
+                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);
+            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_modifiers_clan ON clan_modifiers(clan_id)");
 
             // Торговля между кланами через сундук (§4.2) — money/items уже списаны с clan_from
             // (эскроу) на момент создания строки; при ACCEPTED оба зачисляются clan_to, при
