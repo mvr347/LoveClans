@@ -707,6 +707,8 @@ public final class RaidManager {
                 return null;
             });
             grantBonusItem(attacker);
+            // The robbed clan may answer with a cheap casus belli
+            plugin.getModifierManager().grantJustCasusBoth(defender.id(), attacker.id(), "revenge_raid");
         } else {
             double multiplier = plugin.getConfig().getDouble("raid.defend-win-exp-multiplier", 0.3);
             long reward = Math.round(plugin.getConfig().getLong("leveling.war-win-exp", 1200L) * multiplier);

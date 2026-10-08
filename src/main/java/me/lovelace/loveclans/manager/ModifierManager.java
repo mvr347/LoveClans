@@ -182,6 +182,19 @@ public final class ModifierManager {
         addModifier(modifier);
     }
 
+    /** A just casus usable for both a war and a siege; the lifetime comes from {@code casus-belli.just-reasons}. */
+    public void grantJustCasusBoth(UUID clanId, UUID targetClanId, String reasonId) {
+        int ttl = me.lovelace.loveclans.util.CasusPrices.ttlDays(plugin.getConfig().getConfigurationSection("casus-belli"), reasonId);
+        // One scroll per (clan, target, type, reason): a repeat grant refreshes it instead of stacking duplicates
+        for (String type : new String[]{"WAR", "SIEGE"}) {
+            getModifiers(clanId).stream()
+                    .filter(m -> ClanModifier.TYPE_JUST_CASUS.equals(m.type()) && targetClanId.equals(m.targetClanId())
+                            && type.equalsIgnoreCase(m.conflictType()) && reasonId.equalsIgnoreCase(m.reasonId()))
+                    .forEach(m -> removeModifier(m.id()));
+            grantJustCasus(clanId, targetClanId, type, reasonId, ttl);
+        }
+    }
+
     public void grantJustCasus(UUID clanId, UUID targetClanId, String conflictType, String reasonId, int ttlDays) {
         long now = System.currentTimeMillis();
         long endsAt = ttlDays > 0 ? now + ((long) ttlDays * 24 * 3600_000L) : 0L;
@@ -295,7 +308,7 @@ public final class ModifierManager {
 
                     // Exactly at the threshold: the casus is granted once, not again on every later missed day
                     if (arrears == maxArrears) {
-                        grantJustCasus(creditorClanId, debtorClanId, "WAR", "unpaid_tribute", 7);
+                        grantJustCasusBoth(creditorClanId, debtorClanId, "unpaid_tribute");
                         broadcastToClan(creditor, "<gold><bold>Казус белли получен!</bold> Из-за 3 неуплат дани вы можете объявить войну клану <white>" + debtor.name() + "<gold>!");
                     }
                 }

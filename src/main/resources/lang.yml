@@ -9,7 +9,7 @@
 
 # Версия lang.yml (2026-10-08): при росте версии админский файл получает из jar переписанные разделы
 # (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
-lang-version: 2
+lang-version: 3
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -282,7 +282,6 @@ clan:
     war: "<aqua>/clan war <start|peace> <tag></aqua> <gray>- управление войной клана</gray>"
     siege: "<aqua>/clan siege <tag></aqua> <gray>- устроить осаду клана, стоя на его территории</gray>"
     raid: "<aqua>/clan raid <tag|loot <сумма>|items></aqua> <gray>- устроить набег или вынести добычу</gray>"
-    letters: "<aqua>/clan letters <tag></aqua> <gray>- переписка с кланом</gray>"
     trade: "<aqua>/clan trade <tag></aqua> <gray>- отправить запрос на обмен клану (или /clan trade <accept|decline|cancel> <id>)</gray>"
     # Подкоманды /loveclansadmin (алиасы /clansadmin, /ca) - тот же заголовок/подвал,
     # что и у /clan help, чтобы весь список команд плагина выглядел единообразно.
@@ -331,15 +330,6 @@ diplomacy:
     cancelled: "<prefix><green>Блокада клана <color><tag></color> отменена."
     lifted: "<prefix><green>Клан <color><tag></color> снял с вас блокаду."
     overthrown: "<prefix><gold>Вы восстали против угнетателя и сняли блокаду, победив его в войне!"
-  letter:
-    empty: "<prefix><red>Письмо не может быть пустым."
-    too-long: "<prefix><red>Письмо слишком длинное."
-    conflict-blocked: "<prefix><red>Во время войны/осады/набега письма недоступны."
-    received: "<prefix><color><tag></color> отправил вам письмо!"
-    open: "<green>[Открыть]"
-    sent: "<prefix><green>Письмо отправлено клану <color><tag></color>."
-    prompt: "<prefix><yellow>Введите текст письма в чат."
-    empty-list: "<prefix><gray>Писем пока нет."
 
 gui:
   modifiers:
@@ -521,16 +511,6 @@ gui:
         name: "<red>Взять"
         lore: "<gray>ЛКМ - забрать деньги из сундука"
         prompt: "<prefix><yellow>Введите сумму для снятия в чат.<gray> Можно числом (в медных) или так: 3i 50c (c — медная, i — железная, g — золотая, d — алмазная)."
-  letters:
-    title: "<gray>Письма с кланом <color><tag>"
-    write:
-      name: "<green>Написать письмо"
-      lore: "<gray>ЛКМ - написать новое письмо этому клану"
-    item:
-      sent-name: "<gray>Кому: <color><tag>"
-      received-name: "<gold>От: <color><tag>"
-      preview: "<gray>\"<text>\""
-      date: "<dark_gray><date>"
   contracts-title: "<gray>Обеты клана <color><tag>"
   contracts:
     board:
@@ -829,9 +809,6 @@ gui:
       cancel-lore: "<gray>ЛКМ - отменить блокаду"
       blocked-name: "<dark_gray>Вы заблокированы"
       blocked-lore: "<gray>Этот клан уже блокирует вас."
-    letters:
-      name: "<gold>Письма"
-      lore: "<gray>ЛКМ - открыть переписку с этим кланом"
     trade:
       name: "<green>Торговля"
       lore: "<gray>ЛКМ - отправить запрос на обмен этому клану"

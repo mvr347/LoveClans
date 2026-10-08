@@ -680,8 +680,7 @@ public final class SiegeManager {
             plugin.getModifierManager().grantSiegePressure(defender.id(), 3);
 
             // Casus мести защитнику
-            plugin.getModifierManager().grantJustCasus(defender.id(), attacker.id(), "SIEGE", "revenge_siege", 14);
-            plugin.getModifierManager().grantJustCasus(defender.id(), attacker.id(), "WAR", "revenge_siege", 14);
+            plugin.getModifierManager().grantJustCasusBoth(defender.id(), attacker.id(), "revenge_siege");
 
             if (plugin.getConfig().getBoolean("siege.reward-artifact", true)) {
                 grantRandomArtifact(attacker);

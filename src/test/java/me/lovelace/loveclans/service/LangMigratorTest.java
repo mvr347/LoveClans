@@ -35,4 +35,15 @@ class LangMigratorTest {
         assertFalse(LangMigrator.migrate(server, bundled));
         assertEquals("custom", server.getString("gui.a"));
     }
+
+    @Test
+    void version2FileGetsVersion3Sections() {
+        var server = yaml("lang-version: 2\nraid:\n  old: x\nkeep: mine\n");
+        var bundled = yaml("lang-version: 3\nraid:\n  new: y\nkeep: jar\n");
+        assertTrue(LangMigrator.migrate(server, bundled));
+        assertEquals("y", server.getString("raid.new"));
+        assertNull(server.get("raid.old"));
+        assertEquals("mine", server.getString("keep"));
+        assertEquals(3, server.getInt("lang-version"));
+    }
 }

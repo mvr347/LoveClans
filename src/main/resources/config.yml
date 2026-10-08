@@ -102,10 +102,6 @@ clans:
         politeness-threshold: 5   # ступень вежливости 0-6
         playstyle-threshold: 6    # ступень стиля игры 0-6 ("добрый")
 
-  # Эмбарго/блокада/письма (§5). Влияние для блокады берётся из influence.blockade-multiplier.
-  diplomacy:
-    letter-max-length: 256
-
   # Торговля между кланами через сундук (§4.2). Без ограничения по количеству - только кулдаун
   # на пару кланов. Требует permission ClanPermission.TRADE.
   trade:
@@ -566,7 +562,38 @@ casus-belli:
   required-for:
     war: true
     siege: true
+  # 2026-10-08: цены и сроки поводов. Справедливые (месть, долг) дёшевы: игрок уже пострадал, и повод должен быть
+  # доступен сразу. Шуточные в десятки раз дороже, чтобы войну "за косой взгляд" можно было позволить себе, но не
+  # спамить ею. Осада стоит в siege-cost-multiplier раз больше войны (она ломает ритм сервера на ~40 минут);
+  # точечная цена осады задаётся блоком siege.just-reasons / siege.frivolous-reasons и главнее множителя.
   siege-cost-multiplier: 2.5
+  just-reasons:
+    revenge_raid: { cost: 50, ttl-days: 14 }
+    revenge_war: { cost: 50, ttl-days: 14 }
+    revenge_siege: { cost: 50, ttl-days: 14 }
+    unpaid_tribute: { cost: 25, ttl-days: 21 }
+    broken_peace: { cost: 50, ttl-days: 14 }
+  frivolous-reasons:
+    insult: { cost: 2000 }
+    dislike: { cost: 2000 }
+    looked_wrong: { cost: 2500 }
+    bad_fashion: { cost: 2500 }
+    land_envy: { cost: 3000 }
+    drunk_dare: { cost: 1500 }
+  siege:
+    just-reasons:
+      revenge_raid: { cost: 150 }
+      revenge_war: { cost: 150 }
+      revenge_siege: { cost: 100 }
+      unpaid_tribute: { cost: 80 }
+      broken_peace: { cost: 100 }
+    frivolous-reasons:
+      insult: { cost: 6000 }
+      dislike: { cost: 6000 }
+      looked_wrong: { cost: 7500 }
+      bad_fashion: { cost: 7500 }
+      land_envy: { cost: 9000 }
+      drunk_dare: { cost: 5000 }
 
 # Новая осада (newsieges.md & siege-justify-rewards.md)
 siege:

@@ -81,6 +81,8 @@ public final class CampFortifyMenu {
 
         // Стандарт gui-gen-5: заливка рамки 27 слотов (1-8 и 18-24 стекло)
         GuiFrames.fillFrame27(inventory);
+        // No Back button here (the menu opens from a camp, not from another menu): the slot keeps its glass
+        inventory.setItem(25, GuiFrames.glassPane());
 
         int currentLevel = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
         int maxLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.max-level", 3));
@@ -88,7 +90,7 @@ public final class CampFortifyMenu {
         int hitsPerLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.hits-per-level", 1));
 
         // Слот 0: Инфо о лагере
-        inventory.setItem(SLOT_INFO, ItemBuilder.of(Material.CAMPFIRE)
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(Component.text("§6Осадный лагерь #" + (campIndex + 1)))
                 .lore(Component.text("§7Текущее укрепление: §e" + currentLevel + " / " + maxLevel))
                 .lore(Component.text("§7Ударов для сноса: §c" + hitsRequired))

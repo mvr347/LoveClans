@@ -6,6 +6,7 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.history.ConflictRecord;
 import me.lovelace.loveclans.model.modifier.ClanModifier;
+import me.lovelace.loveclans.util.CasusPrices;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -86,7 +87,7 @@ public final class CasusBelliMenu {
         GuiFrames.fillFrame54(inventory);
 
         // Слот 0: Инфо
-        inventory.setItem(SLOT_INFO, ItemBuilder.of(Material.WRITTEN_BOOK)
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(Component.text("§6Оформление повода"))
                 .lore(Component.text("§7Выберите тип конфликта и клан-цель,"))
                 .lore(Component.text("§7чтобы перейти к выбору поводов."))
@@ -175,9 +176,7 @@ public final class CasusBelliMenu {
         GuiFrames.fillFrame54(inventory);
 
         // Слот 0: эмблема цели
-        Material emblem = targetClan.emblem() != null && targetClan.emblem().name().endsWith("_BANNER")
-                ? targetClan.emblem() : Material.WHITE_BANNER;
-        inventory.setItem(SLOT_INFO, ItemBuilder.of(emblem)
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(Component.text("§6Цель: §f" + targetClan.name() + " §7[" + targetClan.tag() + "]"))
                 .lore(Component.text("§7Тип: §e" + typeTitle))
                 .lore(Component.text("§7Уровень атакующего: §b" + clan.level()))
@@ -196,12 +195,15 @@ public final class CasusBelliMenu {
         // Проверка уровней для осады
         String siegeError = null;
         if (!isWar) {
-            if (clan.level() < 5) {
-                siegeError = "Клан слишком слаб для осады (требуется ур. 5)";
-            } else if (targetClan.level() < 4) {
-                siegeError = "Цель ещё не готова к осаде (требуется ур. 4)";
-            } else if (clan.level() - targetClan.level() > 8) {
-                siegeError = "Нельзя осаждать слабейших (разница > 8 уровней)";
+            int minAttacker = plugin.getConfig().getInt("siege.min-attacker-clan-level", 5);
+            int minDefender = plugin.getConfig().getInt("siege.min-defender-clan-level", 4);
+            int gapMax = plugin.getConfig().getInt("siege.level-gap-max", 8);
+            if (clan.level() < minAttacker) {
+                siegeError = "Клан слишком слаб для осады (требуется ур. " + minAttacker + ")";
+            } else if (targetClan.level() < minDefender) {
+                siegeError = "Цель ещё не готова к осаде (требуется ур. " + minDefender + ")";
+            } else if (clan.level() - targetClan.level() > gapMax) {
+                siegeError = "Нельзя осаждать слабейших (разница > " + gapMax + " уровней)";
             }
         }
 
@@ -330,7 +332,7 @@ public final class CasusBelliMenu {
             return;
         }
 
-        long ttlDays = conflictType.equalsIgnoreCase("WAR") ? 14L : 14L;
+        long ttlDays = CasusPrices.ttlDays(plugin.getConfig().getConfigurationSection("casus-belli"), entry.reasonId());
         long expiresAt = System.currentTimeMillis() + ttlDays * 24 * 3600_000L;
         ItemStack item = plugin.getClanManager().getClanItemFactory().createCasusBelliItem(
                 targetClan.id(), targetClan.name(), conflictType, entry.reasonId(), entry.title(), expiresAt, entry.isJust()
@@ -348,39 +350,42 @@ public final class CasusBelliMenu {
         player.closeInventory();
     }
 
+    private int price(boolean just, String reasonId, boolean war) {
+        return (int) Math.min(Integer.MAX_VALUE, CasusPrices.cost(plugin.getConfig().getConfigurationSection("casus-belli"), just, reasonId, war));
+    }
+
     private List<ReasonEntry> buildJustReasons(Clan clan, Clan targetClan, String conflictType, String siegeError) {
         boolean isWar = conflictType.equalsIgnoreCase("WAR");
-        int baseCost = isWar ? 50 : 150;
 
         List<ReasonEntry> list = new ArrayList<>();
 
         // 1. revenge_raid
         boolean hasRaid = plugin.getModifierManager().hasJustCasus(clan.id(), targetClan.id(), conflictType, "revenge_raid");
-        list.add(new ReasonEntry("revenge_raid", "Месть за набег", isWar ? 50 : 150, true,
+        list.add(new ReasonEntry("revenge_raid", "Месть за набег", price(true, "revenge_raid", isWar), true,
                 siegeError == null && hasRaid,
                 siegeError != null ? siegeError : "Требуется недавний набег цели на ваш клан"));
 
         // 2. revenge_war
         boolean hasWar = plugin.getModifierManager().hasJustCasus(clan.id(), targetClan.id(), conflictType, "revenge_war");
-        list.add(new ReasonEntry("revenge_war", "Месть за войну", isWar ? 50 : 150, true,
+        list.add(new ReasonEntry("revenge_war", "Месть за войну", price(true, "revenge_war", isWar), true,
                 siegeError == null && hasWar,
                 siegeError != null ? siegeError : "Требуется поражение в недавней войне от цели"));
 
         // 3. revenge_siege
         boolean hasSiege = plugin.getModifierManager().hasJustCasus(clan.id(), targetClan.id(), conflictType, "revenge_siege");
-        list.add(new ReasonEntry("revenge_siege", "Месть за осаду", isWar ? 50 : 100, true,
+        list.add(new ReasonEntry("revenge_siege", "Месть за осаду", price(true, "revenge_siege", isWar), true,
                 siegeError == null && hasSiege,
                 siegeError != null ? siegeError : "Требуется недавняя осада от цели"));
 
         // 4. unpaid_tribute
         boolean hasTribute = plugin.getModifierManager().hasJustCasus(clan.id(), targetClan.id(), conflictType, "unpaid_tribute");
-        list.add(new ReasonEntry("unpaid_tribute", "Неуплата дани", isWar ? 50 : 80, true,
+        list.add(new ReasonEntry("unpaid_tribute", "Неуплата дани", price(true, "unpaid_tribute", isWar), true,
                 siegeError == null && hasTribute,
                 siegeError != null ? siegeError : "Требуется задолженность по выплате дани цели вам"));
 
         // 5. broken_peace
         boolean hasBroken = plugin.getModifierManager().hasJustCasus(clan.id(), targetClan.id(), conflictType, "broken_peace");
-        list.add(new ReasonEntry("broken_peace", "Нарушение мира", isWar ? 50 : 100, true,
+        list.add(new ReasonEntry("broken_peace", "Нарушение мира", price(true, "broken_peace", isWar), true,
                 siegeError == null && hasBroken,
                 siegeError != null ? siegeError : "Требуется нарушение мирного договора или эмбарго"));
 
@@ -391,12 +396,12 @@ public final class CasusBelliMenu {
         boolean isWar = conflictType.equalsIgnoreCase("WAR");
 
         List<ReasonEntry> list = new ArrayList<>();
-        list.add(new ReasonEntry("insult", "Оскорбление чести", isWar ? 2000 : 6000, false, siegeError == null, siegeError));
-        list.add(new ReasonEntry("dislike", "Просто не нравятся", isWar ? 2000 : 6000, false, siegeError == null, siegeError));
-        list.add(new ReasonEntry("looked_wrong", "Криво посмотрели на знамя", isWar ? 2500 : 7500, false, siegeError == null, siegeError));
-        list.add(new ReasonEntry("bad_fashion", "Уродские щиты", isWar ? 2500 : 7500, false, siegeError == null, siegeError));
-        list.add(new ReasonEntry("land_envy", "Зависть к землям", isWar ? 3000 : 9000, false, siegeError == null, siegeError));
-        list.add(new ReasonEntry("drunk_dare", "Пьяный спор в таверне", isWar ? 1500 : 5000, false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("insult", "Оскорбление чести", price(false, "insult", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("dislike", "Просто не нравятся", price(false, "dislike", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("looked_wrong", "Криво посмотрели на знамя", price(false, "looked_wrong", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("bad_fashion", "Уродские щиты", price(false, "bad_fashion", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("land_envy", "Зависть к землям", price(false, "land_envy", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("drunk_dare", "Пьяный спор в таверне", price(false, "drunk_dare", isWar), false, siegeError == null, siegeError));
 
         return list;
     }

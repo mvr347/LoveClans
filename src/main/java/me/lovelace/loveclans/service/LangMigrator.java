@@ -16,7 +16,9 @@ public final class LangMigrator {
 
     /** Sections overwritten when migrating to version N (index = N - 2). */
     private static final List<List<String>> OVERWRITE_BY_VERSION = List.of(
-            List.of("gui", "war", "territory.banner", "trade", "item.war-compass", "admin", "clan.help")
+            List.of("gui", "war", "territory.banner", "trade", "item.war-compass", "admin", "clan.help"),
+            // v3: conflicts revamp - boss bars, raid/siege/casus/diplomacy texts were reworded or added
+            List.of("gui", "war", "raid", "siege", "casus", "diplomacy", "item", "admin", "clan.help", "modifier")
     );
 
     private LangMigrator() {

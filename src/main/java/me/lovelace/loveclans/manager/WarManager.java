@@ -451,7 +451,7 @@ public final class WarManager {
 
                     // Репарации и Casus мести (newwars-1.md)
                     plugin.getModifierManager().grantReparations(war.defenderClanId(), war.attackerClanId(), durationDays, dailyAmount);
-                    plugin.getModifierManager().grantJustCasus(war.defenderClanId(), war.attackerClanId(), "war", "revenge_war", 14);
+                    plugin.getModifierManager().grantJustCasusBoth(war.defenderClanId(), war.attackerClanId(), "revenge_war");
 
                 } else if (result == WarResult.DEFENDER_WIN) {
                     plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(clan -> {
@@ -474,7 +474,7 @@ public final class WarManager {
 
                     // Репарации и Casus мести (newwars-1.md)
                     plugin.getModifierManager().grantReparations(war.attackerClanId(), war.defenderClanId(), durationDays, dailyAmount);
-                    plugin.getModifierManager().grantJustCasus(war.attackerClanId(), war.defenderClanId(), "war", "revenge_war", 14);
+                    plugin.getModifierManager().grantJustCasusBoth(war.attackerClanId(), war.defenderClanId(), "revenge_war");
                 }
             }
             return null;
