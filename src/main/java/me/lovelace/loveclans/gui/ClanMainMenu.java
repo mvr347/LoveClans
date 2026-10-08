@@ -24,15 +24,16 @@ public final class ClanMainMenu implements InventoryHolder {
     private final Player player;
     private Inventory inventory;
 
+    // Header row: the two utility buttons, centred in slots 2-7 (same spot rule as the other menus)
+    private static final int SLOT_MODIFIERS = 3;
+    private static final int SLOT_SETTINGS = 5;
     private static final int SLOT_CHEST = 29;
     private static final int SLOT_TREASURY = 31;
     private static final int SLOT_SPIRIT = 33;
-    // Row 4: five centered buttons (Activity 38, Trade 39, Modifiers 40, Settings 41, Chronicle 42)
+    // Row 4: three centred buttons (Activity 38, Trade 40, Chronicle 42)
     private static final int SLOT_ACTIVITY = 38;
+    private static final int SLOT_TRADE = 40;
     private static final int SLOT_HISTORY = 42;
-    private static final int SLOT_TRADE = 39;
-    private static final int SLOT_MODIFIERS = 40;
-    private static final int SLOT_SETTINGS = 41;
     private static final int SLOT_LEAVE = 52;
     private static final int SLOT_CLOSE = 53;
 
@@ -84,7 +85,7 @@ public final class ClanMainMenu implements InventoryHolder {
             membersItem.lore(plugin.getMessages().component("gui.main.members.applications-lore",
                     Map.of("count", String.valueOf(applicationsCount)), player));
         }
-        inventory.setItem(19, membersItem.build());
+        inventory.setItem(19, withOpenHint(membersItem).build());
 
         // Кнопки управления территориями/улучшениями/настройками/дипломатией становятся
         // неактивными (серый череп), если у игрока нет соответствующего права клана.
@@ -105,7 +106,7 @@ public final class ClanMainMenu implements InventoryHolder {
         diplomacyItem.name(plugin.getMessages().component("gui.main.diplomacy.name", player))
                 .lore(plugin.getMessages().component(!canManageDiplomacy ? "gui.main.diplomacy.no-permission-lore"
                         : !hasTerritory ? "gui.main.no-territory-lore" : "gui.main.diplomacy.lore", player));
-        inventory.setItem(21, diplomacyItem.build());
+        inventory.setItem(21, withOpenHint(diplomacyItem).build());
 
         boolean clanHouseInactive = atWar || !canManageTerritories;
         ItemBuilder clanHouseItem;
@@ -123,7 +124,7 @@ public final class ClanMainMenu implements InventoryHolder {
                     .name(plugin.getMessages().component("gui.main.territories.name", player))
                     .lore(plugin.getMessages().component("gui.main.territories.lore", player));
         }
-        inventory.setItem(23, clanHouseItem.build());
+        inventory.setItem(23, withOpenHint(clanHouseItem).build());
 
         boolean upgradesInactive = atWar || !canUpgrade;
         ItemBuilder upgradesItem = upgradesInactive
@@ -136,54 +137,47 @@ public final class ClanMainMenu implements InventoryHolder {
         } else if (!canUpgrade) {
             upgradesItem.lore(plugin.getMessages().component("gui.main.upgrades.no-permission-lore", player));
         }
-        inventory.setItem(25, upgradesItem.build());
+        inventory.setItem(25, withOpenHint(upgradesItem).build());
 
         // Row 3 — clan storage and the spirit
         boolean hasCapital = clan.hasCapital();
         boolean taxLocked = clan.isChestTaxLocked();
         inventory.setItem(SLOT_CHEST, chestItem(hasCapital, taxLocked));
         inventory.setItem(SLOT_TREASURY, treasuryItem(hasCapital));
-        inventory.setItem(SLOT_SPIRIT, ItemBuilder.head(ItemBuilder.HEAD_SPIRIT)
+        inventory.setItem(SLOT_SPIRIT, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_SPIRIT)
                 .name(plugin.getMessages().component("gui.main.spirit.name", player))
-                .lore(plugin.getMessages().component("gui.main.spirit.lore", player))
+                .lore(plugin.getMessages().component("gui.main.spirit.lore", player)))
                 .build());
 
         // Row 4 — trade and settings
         inventory.setItem(SLOT_TRADE, hasTerritory
-                ? ItemBuilder.head(ItemBuilder.HEAD_TRADE)
+                ? withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_TRADE)
                         .name(plugin.getMessages().component("gui.main.trade.name", player))
-                        .lore(plugin.getMessages().component("gui.main.trade.description", player))
-                        .lore(Component.empty())
-                        .lore(plugin.getMessages().component("gui.main.trade.action", player))
+                        .lore(plugin.getMessages().component("gui.main.trade.description", player)))
                         .build()
                 : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                         .name(plugin.getMessages().component("gui.main.trade.name", player))
                         .lore(plugin.getMessages().component("gui.main.no-territory-lore", player))
                         .build());
 
-        inventory.setItem(SLOT_ACTIVITY, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
+        inventory.setItem(SLOT_ACTIVITY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
                 .name(plugin.getMessages().component("gui.main.activity.name", player))
-                .lore(plugin.getMessages().component("gui.main.activity.description", player))
-                .build());
-        inventory.setItem(SLOT_HISTORY, ItemBuilder.head(ItemBuilder.HEAD_MAP)
+                .lore(plugin.getMessages().component("gui.main.activity.description", player))).build());
+        inventory.setItem(SLOT_HISTORY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_MAP)
                 .name(plugin.getMessages().component("gui.main.history.name", player))
-                .lore(plugin.getMessages().component("gui.main.history.description", player))
-                .build());
+                .lore(plugin.getMessages().component("gui.main.history.description", player))).build());
 
-        inventory.setItem(SLOT_MODIFIERS, ItemBuilder.of(Material.WRITTEN_BOOK)
-                .name(Component.text("§6Модификаторы клана"))
-                .lore(Component.text("§7Просмотр активных репараций, дани,"))
-                .lore(Component.text("§7щитов от набегов и доступных казус белли."))
-                .lore(Component.empty())
-                .lore(Component.text("§eНажмите для открытия"))
-                .build());
+        // Header: modifiers, then settings (both are header buttons now, not work-zone items)
+        inventory.setItem(SLOT_MODIFIERS, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_QUEST)
+                .name(plugin.getMessages().component("gui.main.modifiers.name", player))
+                .lore(plugin.getMessages().component("gui.main.modifiers.description", player))).build());
 
         ItemBuilder settingsItem = canManageSettings
                 ? ItemBuilder.head(ItemBuilder.HEAD_MAIN_SETTINGS)
                 : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE);
         settingsItem.name(plugin.getMessages().component("gui.main.settings.name", player))
                 .lore(plugin.getMessages().component(canManageSettings ? "gui.main.settings.lore" : "gui.main.settings.no-permission-lore", player));
-        inventory.setItem(SLOT_SETTINGS, settingsItem.build());
+        inventory.setItem(SLOT_SETTINGS, withOpenHint(settingsItem).build());
 
         // Footer — standalone menu: no Back button, so Leave Clan (with confirmation) takes slot 52 right before Close
         boolean isLeader = clan.member(player.getUniqueId())
@@ -203,6 +197,11 @@ public final class ClanMainMenu implements InventoryHolder {
         player.openInventory(inventory);
     }
 
+    /** Standard footer of a main-menu button: an empty line, then the left-click action. */
+    private ItemBuilder withOpenHint(ItemBuilder builder) {
+        return builder.lore(Component.empty()).lore(plugin.getMessages().component("gui.main.open-hint", player));
+    }
+
     private ItemStack chestItem(boolean hasCapital, boolean taxLocked) {
         if (!hasCapital) {
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
@@ -216,10 +215,9 @@ public final class ClanMainMenu implements InventoryHolder {
                     .lore(plugin.getMessages().components("gui.chest.locked-warning.lore", Map.of(), player))
                     .build();
         }
-        return ItemBuilder.head(ItemBuilder.HEAD_CHEST)
+        return withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_CHEST)
                 .name(plugin.getMessages().component("gui.chest.items-button.name", player))
-                .lore(plugin.getMessages().component("gui.chest.items-button.lore", player))
-                .build();
+                .lore(plugin.getMessages().component("gui.chest.items-button.lore", player))).build();
     }
 
     /** Treasury button: coins of the clan. */
@@ -231,10 +229,9 @@ public final class ClanMainMenu implements InventoryHolder {
                     .build();
         }
         // Name plus one description line like every other main menu button: balance and tax live in the treasury itself
-        return ItemBuilder.head(clan.isChestTaxLocked() ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST_MONEY)
+        return withOpenHint(ItemBuilder.head(clan.isChestTaxLocked() ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.chest.money-button.name", player))
-                .lore(plugin.getMessages().component("gui.chest.money-button.description", player))
-                .build();
+                .lore(plugin.getMessages().component("gui.chest.money-button.description", player))).build();
     }
 
     public void handleInventoryClick(Player clicker, int slot) {

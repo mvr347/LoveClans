@@ -1,6 +1,8 @@
 package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.activity.ActivityPeriod;
+import me.lovelace.loveclans.activity.PlayerActivity;
 import me.lovelace.loveclans.gui.MembersView.Entry;
 import me.lovelace.loveclans.gui.MembersView.Filter;
 import me.lovelace.loveclans.gui.MembersView.Kind;
@@ -38,8 +40,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class ClanMembersMenu {
     private static final int SIZE = 54;
     private static final int SLOT_INFO = 0;
-    private static final int SLOT_FILTER = 3;
-    private static final int SLOT_SORT = 5;
+    // Three header controls centred in slots 2-7: filter, activity period, sort
+    private static final int SLOT_FILTER = 2;
+    private static final int SLOT_ACTIVITY = 4;
+    private static final int SLOT_SORT = 6;
     private static final int SLOT_PREV = 36;
     private static final int SLOT_NEXT = 44;
     private static final int SLOT_INVITE = 51;
@@ -52,6 +56,9 @@ public final class ClanMembersMenu {
     };
 
     private record State(Filter filter, Sort sort, int page) {}
+
+    /** Period the activity column and the activity sort use; remembered per viewer like the filter. */
+    private final Map<UUID, ActivityPeriod> periodByPlayer = new ConcurrentHashMap<>();
 
     public static final class Holder extends ClanMenuHolder {
         private final Map<Integer, Entry> entries;
@@ -75,6 +82,7 @@ public final class ClanMembersMenu {
 
     public void clearPlayer(UUID playerId) {
         stateByPlayer.remove(playerId);
+        periodByPlayer.remove(playerId);
     }
 
     /** Opens the screen with the player's remembered filter/sort/page. */
@@ -97,12 +105,17 @@ public final class ClanMembersMenu {
         return offline.getName() != null ? offline.getName() : id.toString().substring(0, 8);
     }
 
-    private List<Entry> collect(Clan clan, boolean manager) {
+    private List<Entry> collect(Clan clan, boolean manager, ActivityPeriod period) {
         List<Entry> entries = new ArrayList<>();
+        Map<UUID, Long> activity = new HashMap<>();
+        for (PlayerActivity row : plugin.getActivityManager().getClanMembersRanking(clan.id(), period)) {
+            activity.put(row.playerId(), row.total());
+        }
         for (ClanMember member : clan.members().values()) {
             OfflinePlayer offline = Bukkit.getOfflinePlayer(member.playerId());
             entries.add(new Entry(Kind.MEMBER, member.playerId(), nameOf(offline, member.playerId()),
-                    member.rank().weight(), member.contribution(), member.joinedAt(), offline.isOnline()));
+                    member.rank().weight(), member.contribution(), activity.getOrDefault(member.playerId(), 0L),
+                    member.joinedAt(), offline.isOnline()));
         }
         if (manager) {
             for (ClanApplication application : plugin.getClanManager().getClanApplications(clan.id())) {
@@ -123,7 +136,8 @@ public final class ClanMembersMenu {
         boolean manager = canHandleRequests(clan, player.getUniqueId());
         // A filter the viewer may not use (rights lost since it was remembered) falls back to "all".
         Filter filter = requested.filter().needsManager() && !manager ? Filter.ALL : requested.filter();
-        List<Entry> shown = MembersView.apply(collect(clan, manager), filter, requested.sort(), manager);
+        ActivityPeriod period = periodByPlayer.getOrDefault(player.getUniqueId(), ActivityPeriod.LIFETIME);
+        List<Entry> shown = MembersView.apply(collect(clan, manager, period), filter, requested.sort(), manager);
         int page = MembersView.clampPage(requested.page(), shown.size());
         int pages = MembersView.pageCount(shown.size());
         stateByPlayer.put(player.getUniqueId(), new State(filter, requested.sort(), page));
@@ -152,6 +166,8 @@ public final class ClanMembersMenu {
                 .build());
 
         inventory.setItem(SLOT_FILTER, cycleButton("filter", Filter.values(), filter, manager, player));
+        inventory.setItem(SLOT_ACTIVITY, CycleButton.build(plugin, player, ItemBuilder.HEAD_EXPERIENCE,
+                "gui.activity.period.name", "gui.activity.period.", ActivityPeriod.values(), period));
         inventory.setItem(SLOT_SORT, cycleButton("sort", Sort.values(), requested.sort(), true, player));
 
         if (shown.isEmpty()) {
@@ -209,7 +225,9 @@ public final class ClanMembersMenu {
                                 Map.of("rank", member != null ? member.rank().displayName() : "—"), viewer))
                         .lore(plugin.getMessages().component("gui.members.item.status", Map.of("status", status), viewer))
                         .lore(plugin.getMessages().component("gui.members.item.contribution",
-                                Map.of("amount", String.valueOf(entry.contribution())), viewer));
+                                Map.of("amount", String.valueOf(entry.contribution())), viewer))
+                        .lore(plugin.getMessages().component("gui.members.item.activity",
+                                Map.of("points", String.valueOf(entry.activity())), viewer));
                 if (clan.hasPermission(viewer.getUniqueId(), ClanPermission.KICK) && !entry.id().equals(viewer.getUniqueId())) {
                     builder.lore(plugin.getMessages().component("gui.members.item.hint", viewer));
                 }
@@ -245,6 +263,11 @@ public final class ClanMembersMenu {
             case SLOT_CLOSE -> player.closeInventory();
             case SLOT_BACK -> plugin.getGuiManager().openMain(player, clan);
             case SLOT_FILTER -> render(player, clan, new State(state.filter().step(forward, manager), state.sort(), 0));
+            case SLOT_ACTIVITY -> {
+                ActivityPeriod current = periodByPlayer.getOrDefault(player.getUniqueId(), ActivityPeriod.LIFETIME);
+                periodByPlayer.put(player.getUniqueId(), CycleButton.step(current, ActivityPeriod.values(), forward));
+                render(player, clan, new State(state.filter(), state.sort(), 0));
+            }
             case SLOT_SORT -> render(player, clan, new State(state.filter(), state.sort().step(forward), 0));
             case SLOT_PREV -> render(player, clan, new State(state.filter(), state.sort(), state.page() - 1));
             case SLOT_NEXT -> render(player, clan, new State(state.filter(), state.sort(), state.page() + 1));

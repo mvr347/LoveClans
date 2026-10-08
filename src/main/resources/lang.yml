@@ -517,6 +517,7 @@ gui:
     sort:
       rank: "По рангу"
       contribution: "По вкладу"
+      activity: "По активности"
       name: "По имени"
       date: "По дате"
     empty:
@@ -967,6 +968,10 @@ gui:
       name: "<gray>Других участников нет"
       lore: "<gray>Кроме главы, в этом клане пока никто не состоит."
   main:
+    open-hint: "<green>ЛКМ <gray>— открыть"
+    modifiers:
+      name: "<gold>Модификаторы"
+      description: "<gray>Активные репарации, дань, щиты и казус белли."
     activity:
       name: "<gold>Активность"
       description: "<gray>Очки клана и участников за войны, набеги, осады, казну."
@@ -994,8 +999,8 @@ gui:
       hub-lore: "<gray>Участники клана, заявки и приглашения."
       applications-lore: "<yellow>Новых заявок: <white><count>"
     territories:
-      name: "<gold>Клановый спавн"
-      lore: "<gray>Управление клановым спавном и территориями клана."
+      name: "<gold>Территория"
+      lore: "<gray>Клановый спавн и территории клана."
       no-permission-lore: "<red>Нет прав на управление — откроется в режиме просмотра/телепортации."
     upgrades:
       name: "<gold>Улучшения"
@@ -1062,6 +1067,7 @@ gui:
       status-online: "<green>В сети</green>"
       status-offline: "<red>Оффлайн</red>"
       contribution: "<gray>Вклад: <white><amount>"
+      activity: "<gray>Активность: <white><points>"
       hint: "<gray>ЛКМ - изменить ранг, ПКМ - исключить"
   player-applications:
     title: "<gold>Мои заявки и приглашения"

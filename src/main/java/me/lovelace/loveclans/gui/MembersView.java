@@ -39,7 +39,7 @@ public final class MembersView {
     }
 
     public enum Sort {
-        RANK, CONTRIBUTION, NAME, DATE;
+        RANK, CONTRIBUTION, ACTIVITY, NAME, DATE;
 
         public Sort step(boolean forward) {
             Sort[] all = values();
@@ -52,7 +52,13 @@ public final class MembersView {
      * invitation, which only stores its expiry - when it expires; "newest first" therefore puts the
      * freshest invitation first as well.
      */
-    public record Entry(Kind kind, UUID id, String name, int rankWeight, int contribution, long date, boolean online) {}
+    public record Entry(Kind kind, UUID id, String name, int rankWeight, int contribution, long activity, long date,
+                        boolean online) {
+        /** Entry without activity points (applications, invitations, and members outside the ranking). */
+        public Entry(Kind kind, UUID id, String name, int rankWeight, int contribution, long date, boolean online) {
+            this(kind, id, name, rankWeight, contribution, 0L, date, online);
+        }
+    }
 
     /** Entries the filter lets through, in display order. */
     public static List<Entry> apply(List<Entry> entries, Filter filter, Sort sort, boolean manager) {
@@ -82,6 +88,7 @@ public final class MembersView {
         return switch (sort) {
             case RANK -> Comparator.comparingInt(Entry::rankWeight).reversed().thenComparing(byName);
             case CONTRIBUTION -> Comparator.comparingInt(Entry::contribution).reversed().thenComparing(byName);
+            case ACTIVITY -> Comparator.comparingLong(Entry::activity).reversed().thenComparing(byName);
             case NAME -> byName;
             case DATE -> Comparator.comparingLong(Entry::date).reversed().thenComparing(byName);
         };
