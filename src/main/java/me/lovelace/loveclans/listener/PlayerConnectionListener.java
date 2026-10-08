@@ -24,6 +24,7 @@ public final class PlayerConnectionListener implements Listener {
         plugin.getClanManager().deliverPendingItems(event.getPlayer());
         // boss bars and the war compass for someone who logs in while their clan is at war
         plugin.getWarManager().syncPlayer(event.getPlayer());
+        plugin.getRaidManager().syncPlayer(event.getPlayer());
     }
 
     @EventHandler

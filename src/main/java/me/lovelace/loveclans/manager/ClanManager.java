@@ -699,6 +699,11 @@ public final class ClanManager {
             if (departedName == null) departedName = playerId.toString();
             clan.removeMember(playerId);
             clanByPlayer.remove(playerId);
+            Player leaver = Bukkit.getPlayer(playerId);
+            if (leaver != null) {
+                // A former member must not keep the raid bar or the raid compass of the clan he just left
+                plugin.getRaidManager().detachPlayer(leaver);
+            }
 
             OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerId);
             for (ClanTerritory territory : clan.territories()) {
@@ -1795,6 +1800,9 @@ public final class ClanManager {
             if (clan.isChestTaxLocked()) {
                 throw new IllegalStateException("chest.tax-locked");
             }
+            if (plugin.getRaidManager().isRaidDefender(clan.id())) {
+                throw new IllegalStateException("raid.treasury-frozen");
+            }
             if (amount <= 0) {
                 throw new IllegalStateException("chest.invalid-amount");
             }
@@ -1842,6 +1850,9 @@ public final class ClanManager {
         }
         if (clan.isChestTaxLocked()) {
             return "chest.tax-locked";
+        }
+        if (plugin.getRaidManager().isRaidDefender(clan.id())) {
+            return "raid.treasury-frozen";
         }
         if (clan.chestMoney() < amount) {
             return "chest.insufficient-items";

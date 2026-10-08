@@ -59,6 +59,8 @@ public final class RaidManager {
     private final Map<UUID, ClanRaid> activeRaids = new ConcurrentHashMap<>();
     private final Map<AbstractMap.SimpleImmutableEntry<UUID, UUID>, Long> raidCooldowns = new ConcurrentHashMap<>();
     private final Map<Location, Material> originalChestBlocks = new ConcurrentHashMap<>();
+    /** Money taken from the defender during LOOT, per raid and looter: paid out only on ATTACKER_WIN. */
+    private final Map<UUID, Map<UUID, Long>> lootBags = new ConcurrentHashMap<>();
 
     private final Map<UUID, List<Long>> attackerRaidTimestamps = new ConcurrentHashMap<>();
     private final Map<UUID, List<Long>> defenderRaidTimestamps = new ConcurrentHashMap<>();
@@ -120,6 +122,13 @@ public final class RaidManager {
         List<Long> timestamps = defenderRaidTimestamps.computeIfAbsent(clanId, k -> new ArrayList<>());
         timestamps.removeIf(t -> t < cutoff);
         return timestamps.size();
+    }
+
+    private void refundRaidCount(UUID attackerId, UUID defenderId) {
+        List<Long> a = attackerRaidTimestamps.get(attackerId);
+        if (a != null && !a.isEmpty()) a.remove(a.size() - 1);
+        List<Long> d = defenderRaidTimestamps.get(defenderId);
+        if (d != null && !d.isEmpty()) d.remove(d.size() - 1);
     }
 
     private void recordRaidStart(UUID attackerId, UUID defenderId) {
@@ -242,6 +251,13 @@ public final class RaidManager {
         Location chestLoc = locateAndSpawnChest(defender);
         if (chestLoc == null) {
             plugin.getLogger().warning("Failed to locate solid ground for raid chest in defender capital! Cancelling raid.");
+            // Not the attackers' fault: the short cooldown of a cancelled PREPARING, and the day's counters are refunded
+            AbstractMap.SimpleImmutableEntry<UUID, UUID> failedKey = pairKey(raid.attackerClanId(), raid.defenderClanId());
+            long shortCooldown = System.currentTimeMillis() - (cooldownDuration().toMillis() - preparingCancelCooldownDuration().toMillis());
+            raidCooldowns.put(failedKey, shortCooldown);
+            plugin.getConflictCooldownStore().saveAsync(me.lovelace.loveclans.storage.ConflictCooldownStore.RAID, failedKey, shortCooldown);
+            refundRaidCount(raid.attackerClanId(), raid.defenderClanId());
+            onlineMembers(attacker).forEach(p -> plugin.getMessages().send(p, "raid.chest-failed"));
             endRaid(raid, RaidResult.CANCELLED);
             return;
         }
@@ -259,13 +275,22 @@ public final class RaidManager {
         ClanRaid activated = raid.activate(now + raidDuration().toMillis(), chestLoc, hologramId, moneyCap, itemSlotCap);
         activeRaids.put(activated.id(), activated);
 
+        // The defenders' own chest/treasury menus would hold the item-chest lock for the whole raid
+        onlineMembers(defender).forEach(p -> {
+            org.bukkit.inventory.Inventory top = p.getOpenInventory().getTopInventory();
+            if (top.getType() == org.bukkit.event.inventory.InventoryType.CHEST && top.getHolder() == null) {
+                p.closeInventory();
+            }
+        });
+
         // 4. Компас выдаётся ТОЛЬКО атакующим
         distributeRaidCompasses(activated, attacker, defender, chestLoc);
 
         // 5. Аларм защитникам и атакующим (title + sound)
         onlineMembers(attacker).forEach(p -> {
             plugin.getMessages().sendTitle(p, "raid.start.attacker-title", "raid.start.attacker-subtitle",
-                    Map.of("tag", defender.tag(), "color", defender.tagColor()));
+                    Map.of("tag", defender.tag(), "color", defender.tagColor(),
+                            "time", String.valueOf(raidDuration().toMinutes())));
             p.playSound(p.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_0, 1.0f, 1.0f);
         });
 
@@ -319,51 +344,99 @@ public final class RaidManager {
                 if (distSq < minBannerDistSq) continue;
             }
 
-            int highestY = world.getHighestBlockYAt(rx, rz);
-            if (highestY <= world.getMinHeight() || highestY >= world.getMaxHeight() - 2) continue;
+            // getHighestBlockYAt returns the Y of the topmost solid block: the chest goes ON it
+            int floorY = world.getHighestBlockYAt(rx, rz);
+            if (floorY <= world.getMinHeight() || floorY >= world.getMaxHeight() - 3) continue;
 
-            Location floorLoc = new Location(world, rx, highestY - 1, rz);
-            Material floorMat = floorLoc.getBlock().getType();
-            if (!floorMat.isSolid() || floorMat == Material.LAVA || floorMat == Material.WATER || floorMat == Material.FIRE) {
+            Material floorMat = world.getBlockAt(rx, floorY, rz).getType();
+            if (!floorMat.isSolid() || floorMat == Material.MAGMA_BLOCK || floorMat == Material.CACTUS) {
                 continue;
             }
 
-            Location chestLoc = new Location(world, rx, highestY, rz);
-            Location aboveChest = chestLoc.clone().add(0, 1, 0);
-
-            // Убеждаемся, что над сундуком есть воздух
-            if (!chestLoc.getBlock().getType().isAir() && chestLoc.getBlock().getType() != Material.SHORT_GRASS) {
-                continue;
-            }
-            if (!aboveChest.getBlock().getType().isAir()) {
+            Location chestLoc = new Location(world, rx, floorY + 1, rz);
+            if (!isFreeSpace(chestLoc.getBlock().getType()) || !isFreeSpace(chestLoc.clone().add(0, 1, 0).getBlock().getType())) {
                 continue;
             }
 
-            // Очистка препятствий в радиусе 2
+            // Only soft decorations (grass, flowers, snow layers) around the chest are cleared: never a build
             int clearRadius = plugin.getConfig().getInt("raid.chest.clear-radius", 2);
             for (int dx = -clearRadius; dx <= clearRadius; dx++) {
                 for (int dz = -clearRadius; dz <= clearRadius; dz++) {
                     for (int dy = 0; dy <= 2; dy++) {
                         if (dx == 0 && dz == 0 && dy == 0) continue;
-                        Location clearLoc = chestLoc.clone().add(dx, dy, dz);
-                        Material blockType = clearLoc.getBlock().getType();
-                        if (!blockType.isAir() && blockType != Material.BEDROCK && !blockType.toString().endsWith("_BANNER")
-                                && blockType != Material.CHEST && blockType != Material.BARREL) {
-                            if (blockType.getHardness() <= 5.0f) {
-                                clearLoc.getBlock().setType(Material.AIR);
-                            }
+                        org.bukkit.block.Block around = chestLoc.clone().add(dx, dy, dz).getBlock();
+                        if (org.bukkit.Tag.REPLACEABLE.isTagged(around.getType()) && !around.getType().isAir()) {
+                            around.setType(Material.AIR);
                         }
                     }
                 }
             }
 
-            // Сохраняем исходный блок и ставим сундук
             originalChestBlocks.put(chestLoc, chestLoc.getBlock().getType());
             chestLoc.getBlock().setType(Material.CHEST);
+            persistChest(chestLoc, originalChestBlocks.get(chestLoc));
             return chestLoc;
         }
 
         return null;
+    }
+
+    private static boolean isFreeSpace(Material material) {
+        return material.isAir() || org.bukkit.Tag.REPLACEABLE.isTagged(material);
+    }
+
+    // --- Crash safety: the chest block is world state, so its location is kept on disk until the raid ends ---
+
+    private java.io.File chestFile() {
+        return new java.io.File(plugin.getDataFolder(), "raid-chests.yml");
+    }
+
+    private void persistChest(Location loc, Material original) {
+        org.bukkit.configuration.file.YamlConfiguration yaml = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(chestFile());
+        List<String> entries = new ArrayList<>(yaml.getStringList("chests"));
+        entries.add(loc.getWorld().getName() + "," + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ() + "," + original.name());
+        yaml.set("chests", entries);
+        saveChestFile(yaml);
+    }
+
+    private void forgetChest(Location loc) {
+        org.bukkit.configuration.file.YamlConfiguration yaml = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(chestFile());
+        String prefix = loc.getWorld().getName() + "," + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ() + ",";
+        List<String> entries = new ArrayList<>(yaml.getStringList("chests"));
+        if (entries.removeIf(e -> e.startsWith(prefix))) {
+            yaml.set("chests", entries);
+            saveChestFile(yaml);
+        }
+    }
+
+    private void saveChestFile(org.bukkit.configuration.file.YamlConfiguration yaml) {
+        try {
+            yaml.save(chestFile());
+        } catch (java.io.IOException e) {
+            plugin.getLogger().warning("Could not write raid-chests.yml: " + e.getMessage());
+        }
+    }
+
+    /** Removes raid chests left in the world by a crash (the in-memory registry is gone, the file is not). */
+    public void recoverOrphanChests() {
+        org.bukkit.configuration.file.YamlConfiguration yaml = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(chestFile());
+        for (String entry : yaml.getStringList("chests")) {
+            String[] parts = entry.split(",");
+            if (parts.length != 5) continue;
+            World world = Bukkit.getWorld(parts[0]);
+            Material original = Material.matchMaterial(parts[4]);
+            if (world == null) continue;
+            try {
+                org.bukkit.block.Block block = world.getBlockAt(Integer.parseInt(parts[1]), Integer.parseInt(parts[2]), Integer.parseInt(parts[3]));
+                if (block.getType() == Material.CHEST) {
+                    block.setType(original == null ? Material.AIR : original);
+                }
+            } catch (NumberFormatException ignored) {
+                // malformed line: drop it
+            }
+        }
+        yaml.set("chests", List.of());
+        saveChestFile(yaml);
     }
 
     private ArmorStand spawnChestHologram(Location chestLoc) {
@@ -375,7 +448,9 @@ public final class RaidManager {
         stand.setGravity(false);
         stand.setMarker(true);
         stand.setCustomNameVisible(true);
-        stand.customName(Component.text("§c§lРейдовый Сундук\n§eЗахват: 0%"));
+        // Never saved with the chunk: a crash cannot leave a ghost label behind
+        stand.setPersistent(false);
+        stand.customName(plugin.getMessages().component("raid.chest.label-capture", Map.of("progress", "0")));
         return stand;
     }
 
@@ -385,9 +460,10 @@ public final class RaidManager {
         if (!(entity instanceof ArmorStand stand)) return;
 
         if (raid.phase() == RaidPhase.CAPTURE) {
-            stand.customName(Component.text("§c§lРейдовый Сундук\n§eЗахват: " + (int) raid.captureProgress() + "%"));
+            stand.customName(plugin.getMessages().component("raid.chest.label-capture",
+                    Map.of("progress", String.valueOf((int) raid.captureProgress()))));
         } else if (raid.phase() == RaidPhase.LOOT) {
-            stand.customName(Component.text("§a§lРейдовый Сундук (ВЗЛОМАН)\n§e[ПКМ для лута]"));
+            stand.customName(plugin.getMessages().component("raid.chest.label-loot"));
         }
     }
 
@@ -402,9 +478,12 @@ public final class RaidManager {
             meta.getPersistentDataContainer().set(ClanItemFactory.RAID_COMPASS_KEY, PersistentDataType.STRING, raid.id().toString());
             meta.displayName(plugin.getMessages().component("raid.compass.name", Map.of("tag", enemyClan.tag())));
             meta.lore(List.of(plugin.getMessages().component("raid.compass.lore")));
+            if (meta instanceof org.bukkit.inventory.meta.CompassMeta compassMeta && targetLocation.getWorld() != null) {
+                compassMeta.setLodestone(targetLocation);
+                compassMeta.setLodestoneTracked(false);
+            }
             compass.setItemMeta(meta);
         }
-        player.setCompassTarget(targetLocation);
         Map<Integer, ItemStack> overflow = player.getInventory().addItem(compass);
         overflow.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
     }
@@ -416,7 +495,6 @@ public final class RaidManager {
     }
 
     private void clearRaidCompass(Player player, UUID raidId) {
-        player.setCompassTarget(player.getWorld().getSpawnLocation());
         ItemStack[] contents = player.getInventory().getContents();
         for (int i = 0; i < contents.length; i++) {
             ItemStack item = contents[i];
@@ -441,6 +519,17 @@ public final class RaidManager {
                 .findFirst();
     }
 
+    /**
+     * Looting needs the LOOT phase and an attacking clan member standing inside the capture zone:
+     * the chest cannot be emptied remotely, from the capture phase or by the defenders.
+     */
+    public boolean canLoot(ClanRaid raid, Player player) {
+        if (raid == null || player == null || raid.state() != RaidState.ACTIVE || raid.phase() != RaidPhase.LOOT) return false;
+        if (!plugin.getClanManager().getPlayerClan(player.getUniqueId()).map(c -> c.id().equals(raid.attackerClanId())).orElse(false)) return false;
+        double radius = plugin.getConfig().getDouble("raid.capture.radius", 5.0);
+        return isInCaptureZone(player.getLocation(), raid.chestLocation(), radius * radius);
+    }
+
     private record MoneyLootResult(Clan defender, long amountTaken) {}
 
     public CompletableFuture<Long> lootMoneyAsync(ClanRaid raid, Player looter, long amount) {
@@ -451,6 +540,9 @@ public final class RaidManager {
             if (current == null || current.state() != RaidState.ACTIVE || current.phase() != RaidPhase.LOOT) {
                 throw new IllegalStateException("raid.not-active");
             }
+            if (!canLoot(current, looter)) {
+                throw new IllegalStateException("raid.loot.not-in-zone");
+            }
             Clan defender = plugin.getClanManager().getClanById(current.defenderClanId())
                     .orElseThrow(() -> new IllegalStateException("clan.not-found"));
             long take = Math.min(amount, Math.min(current.moneyRemaining(), defender.chestMoney()));
@@ -458,15 +550,15 @@ public final class RaidManager {
                 throw new IllegalStateException("raid.nothing-left");
             }
             defender.addChestMoney(-take);
-            dev.lovelace.lovecore.api.LoveCore
-                    .service(dev.lovelace.lovecore.api.economy.LoveEconomy.class)
-                    .ifPresent(economy -> economy.give(looter, take));
+            // Held in the raid's bag: it reaches the looter only when the raid is won, otherwise it goes back
+            lootBags.computeIfAbsent(current.id(), k -> new ConcurrentHashMap<>()).merge(looter.getUniqueId(), take, Long::sum);
 
             ClanRaid updated = current.withMoneyLooted(take);
             if (updated.hasSubstantialLoot(plugin.getConfig().getDouble("raid.win-min-money-percent", 15.0),
                     plugin.getConfig().getInt("raid.win-min-item-slots", 1)) && updated.firstLootAt() == 0) {
                 updated = updated.withFirstLootAt(System.currentTimeMillis());
-                looter.sendMessage(plugin.getMessages().component("raid.extract.prompt", Map.of("time", "60")));
+                looter.sendMessage(plugin.getMessages().component("raid.extract.prompt", Map.of("time",
+                        String.valueOf(plugin.getConfig().getLong("raid.extract.seconds-after-first-loot", 60L)))));
             }
             activeRaids.put(current.id(), updated);
             return new MoneyLootResult(defender, take);
@@ -491,6 +583,11 @@ public final class RaidManager {
     }
 
     // --- Lifecycle queries & Protection helpers ---
+
+    /** A defender's treasury is frozen from the declaration to the end, so it cannot be emptied before the snapshot. */
+    public boolean isRaidDefender(UUID clanId) {
+        return activeRaids.values().stream().anyMatch(r -> r.defenderClanId().equals(clanId));
+    }
 
     public boolean isInRaid(UUID clanId) {
         return activeRaids.values().stream().anyMatch(r -> r.involves(clanId));
@@ -575,28 +672,17 @@ public final class RaidManager {
         Optional<RaidClans> clansOpt = resolveClans(raid);
         clearBossBar(raid.id(), clansOpt.orElse(null));
 
-        // Очистка сундука в мире и голограммы
+        // The chest block and its label leave the world with the raid
         if (raid.chestLocation() != null) {
             Location cl = raid.chestLocation();
             Material orig = originalChestBlocks.remove(cl);
             if (orig == null) orig = Material.AIR;
-            cl.getBlock().setType(orig);
+            if (cl.getBlock().getType() == Material.CHEST) cl.getBlock().setType(orig);
+            forgetChest(cl);
         }
-        if (raid.chestHologramId() != null) {
-            Entity holo = Bukkit.getEntity(raid.chestHologramId());
-            if (holo != null) {
-                holo.remove();
-            } else if (raid.chestLocation() != null && raid.chestLocation().getWorld() != null) {
-                World w = raid.chestLocation().getWorld();
-                int cx = raid.chestLocation().getBlockX() >> 4;
-                int cz = raid.chestLocation().getBlockZ() >> 4;
-                if (!w.isChunkLoaded(cx, cz)) {
-                    w.loadChunk(cx, cz);
-                    Entity loadedHolo = Bukkit.getEntity(raid.chestHologramId());
-                    if (loadedHolo != null) loadedHolo.remove();
-                }
-            }
-        }
+        removeHologram(raid);
+
+        settleLootBag(raid, result, clansOpt);
 
         // Изъятие компасов набега
         removeRaidCompasses(raid);
@@ -622,12 +708,6 @@ public final class RaidManager {
             });
             grantBonusItem(attacker);
         } else {
-            // Если защитник победил, а часть денег была взята, возвращаем деньги в казну защитника
-            if (raid.moneyLooted() > 0) {
-                defender.addChestMoney(raid.moneyLooted());
-                plugin.getStorage().updateClanChestMoney(defender.id(), defender.chestMoney());
-            }
-
             double multiplier = plugin.getConfig().getDouble("raid.defend-win-exp-multiplier", 0.3);
             long reward = Math.round(plugin.getConfig().getLong("leveling.war-win-exp", 1200L) * multiplier);
             plugin.getClanManager().addExperienceAsync(defender, reward).exceptionally(t -> {
@@ -657,6 +737,90 @@ public final class RaidManager {
             plugin.getLogger().warning("Failed to record raid result for clan " + defender.id() + ": " + t.getMessage());
             return null;
         });
+    }
+
+    /**
+     * A login picks up the raid state of the player's clan: the boss bar, the attacker's compass, and compasses
+     * left over from raids that ended while the owner was offline are taken away.
+     */
+    public void syncPlayer(Player player) {
+        Set<String> live = new java.util.HashSet<>();
+        for (ClanRaid raid : activeRaids.values()) live.add(raid.id().toString());
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack item = contents[i];
+            if (item == null || item.getType() != Material.COMPASS || !item.hasItemMeta()) continue;
+            String tagged = item.getItemMeta().getPersistentDataContainer().get(ClanItemFactory.RAID_COMPASS_KEY, PersistentDataType.STRING);
+            if (tagged != null && !live.contains(tagged)) player.getInventory().setItem(i, null);
+        }
+        plugin.getClanManager().getPlayerClan(player.getUniqueId()).flatMap(c -> activeRaids.values().stream()
+                .filter(r -> r.involves(c.id())).findFirst().map(r -> Map.entry(c, r))).ifPresent(entry -> {
+            ClanRaid raid = entry.getValue();
+            BossBar bar = raidBossBars.get(raid.id());
+            if (bar != null) player.showBossBar(bar);
+            if (raid.state() == RaidState.ACTIVE && raid.chestLocation() != null
+                    && raid.attackerClanId().equals(entry.getKey().id()) && !hasRaidCompass(player, raid.id())) {
+                plugin.getClanManager().getClanById(raid.defenderClanId())
+                        .ifPresent(defender -> giveRaidCompass(player, raid, raid.chestLocation(), defender));
+            }
+        });
+    }
+
+    private boolean hasRaidCompass(Player player, UUID raidId) {
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == Material.COMPASS && item.hasItemMeta()) {
+                String tagged = item.getItemMeta().getPersistentDataContainer().get(ClanItemFactory.RAID_COMPASS_KEY, PersistentDataType.STRING);
+                if (raidId.toString().equals(tagged)) return true;
+            }
+        }
+        return false;
+    }
+
+    /** Called when a player leaves or is removed from a clan: bar and compass of that clan's raid go with them. */
+    public void detachPlayer(Player player) {
+        raidBossBars.values().forEach(player::hideBossBar);
+        for (ClanRaid raid : activeRaids.values()) clearRaidCompass(player, raid.id());
+    }
+
+    private void removeHologram(ClanRaid raid) {
+        if (raid.chestHologramId() == null) return;
+        Entity holo = Bukkit.getEntity(raid.chestHologramId());
+        if (holo == null && raid.chestLocation() != null && raid.chestLocation().getWorld() != null) {
+            // The label may sit in an unloaded chunk: loading it exposes its entities through the chunk
+            for (Entity e : raid.chestLocation().getChunk().getEntities()) {
+                if (e.getUniqueId().equals(raid.chestHologramId())) { holo = e; break; }
+            }
+        }
+        if (holo != null) holo.remove();
+    }
+
+    /** Pays the looters on a win; on a loss or a cancel the money goes back to the defender's treasury. */
+    private void settleLootBag(ClanRaid raid, RaidResult result, Optional<RaidClans> clansOpt) {
+        Map<UUID, Long> bag = lootBags.remove(raid.id());
+        if (bag == null || bag.isEmpty() || clansOpt.isEmpty()) return;
+        Clan attacker = clansOpt.get().attacker();
+        Clan defender = clansOpt.get().defender();
+        long total = bag.values().stream().mapToLong(Long::longValue).sum();
+        if (result != RaidResult.ATTACKER_WIN) {
+            defender.addChestMoney(total);
+            plugin.getStorage().updateClanChestMoney(defender.id(), defender.chestMoney());
+            return;
+        }
+        var economy = dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.economy.LoveEconomy.class);
+        long toTreasury = 0L;
+        for (Map.Entry<UUID, Long> entry : bag.entrySet()) {
+            Player looter = Bukkit.getPlayer(entry.getKey());
+            if (looter != null && economy.isPresent()) {
+                economy.get().give(looter, entry.getValue());
+            } else {
+                // Offline looter or no economy service: the share is kept for the attacking clan instead of vanishing
+                toTreasury += entry.getValue();
+            }
+        }
+        if (toTreasury > 0) {
+            attacker.addChestMoney(toTreasury);
+            plugin.getStorage().updateClanChestMoney(attacker.id(), attacker.chestMoney());
+        }
     }
 
     private void grantBonusItem(Clan attacker) {

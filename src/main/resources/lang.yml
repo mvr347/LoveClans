@@ -1452,6 +1452,8 @@ war:
     cancelled-subtitle: "<gray>Клан <color><tag></color> был расформирован"
 
 siege:
+  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя кланового спавна."
+  defender-no-capital: "<prefix><red>У клана-защитника нет установленной клановой территории."
   fortify:
     usage: "<prefix><yellow>Использование: /clan siege fortify <номер лагеря>"
     no-siege: "<prefix><red>Ваш клан сейчас не ведёт осаду."
@@ -1500,7 +1502,11 @@ siege:
 raid:
   already-in-raid: "<prefix><red>Один из кланов уже участвует в набеге."
   conflict-in-progress: "<prefix><red>Нельзя начать набег - один из кланов уже в конфликте."
-  target-immune: "<prefix><red>Этот клан слишком влиятелен, чтобы стать целью набега."
+  defender-shielded: "<prefix><red>На этот клан недавно совершали набег: он под защитой."
+  limit-reached-attacker: "<prefix><red>Ваш клан исчерпал суточный лимит набегов."
+  limit-reached-defender: "<prefix><red>Этот клан уже подвергался набегу сегодня."
+  chest-failed: "<prefix><red>В столице клана не нашлось места для рейдового сундука - набег отменён, кулдаун сокращён."
+  treasury-frozen: "<prefix><red>Казна заморожена, пока на клан идёт набег."
   too-many-defenders: "<prefix><red>У защитников слишком много игроков онлайн для набега."
   not-enough-attackers: "<prefix><red>Недостаточно атакующих онлайн для начала набега."
   attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя кланового спавна."
@@ -1508,7 +1514,24 @@ raid:
   not-active: "<prefix><red>Набег сейчас не активен."
   nothing-left: "<prefix><red>Больше нечего вынести - лимит набега исчерпан или сундук пуст."
   bonus-item: "<prefix><gold>Бонусная добыча: <white><item></white>!"
+  active:
+    bossbar:
+      capture: "<red>Рейд</red> <white>[</white><color1><attacker></color1><white>]</white> <gray>→</gray> <white>[</white><color2><defender></color2><white>]</white> <dark_gray>|</dark_gray> <yellow>Захват <progress>%</yellow> <dark_gray>|</dark_gray> <white><time></white>"
+      loot: "<red>Рейд</red> <white>[</white><color1><attacker></color1><white>]</white> <gray>→</gray> <white>[</white><color2><defender></color2><white>]</white> <dark_gray>|</dark_gray> <green>Сундук взломан</green> <dark_gray>|</dark_gray> <white><time></white>"
+  chest:
+    label-capture: "<red><bold>Рейдовый сундук</bold></red> <yellow>Захват: <progress>%</yellow>"
+    label-loot: "<green><bold>Рейдовый сундук</bold></green> <yellow>[ПКМ - лут]</yellow>"
+    locked: "<red>Сундук ещё заперт: удерживайте зону, пока шкала захвата не заполнится."
+    attacker-only: "<prefix><red>Этот сундук могут вскрыть только участники набега."
+  capture:
+    zone-protected: "<prefix><red>Строить и ломать вокруг рейдового сундука нельзя."
+  compass:
+    name: "<gold>Рейдовый компас <white><tag>"
+    lore: "<gray>Указывает на сундук клана, который вы грабите."
+  extract:
+    prompt: "<prefix><green>Добыча в руках! Покиньте зону сундука за <white><time></white> сек., иначе набег провален."
   pending:
+    cancelled-defenders: "<prefix><red>Набег отменён: у защитников стало слишком много игроков онлайн."
     bossbar: "<color1><attacker></color1> <white>🏹</white> <color2><defender></color2> <gray>— набег через <white><time></white>"
     declared: "<prefix><gold>Клан <color><tag></color> готовит набег! Начало через <white><time></white>."
     one-minute-warning: "<prefix><red>Набег начнётся через 1 минуту!"
@@ -1528,7 +1551,9 @@ raid:
     failed-subtitle: "<gray>Не удалось ничего вынести из сундука клана <color><tag></color>"
   loot:
     title: "<red>Грабёж: <color><tag>"
-    money-button:
-      name: "<gold>Забрать деньги"
-      lore: "<gray>Доступно: <white><amount>"
+    not-in-zone: "<prefix><red>Грабить можно только во время взлома, стоя рядом с рейдовым сундуком."
+    hacked-title: "<green><bold>Сундук взломан!"
+    hacked-subtitle: "<gray>Заберите добычу клана <color><tag></color> и уходите из зоны"
+    defender-breached-title: "<red><bold>Сундук взломан!"
+    defender-breached-subtitle: "<gray>Клан <color><tag></color> грабит ваше хранилище"
     prompt: "<prefix><yellow>Введите количество денег, чтобы забрать, в чат."

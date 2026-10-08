@@ -240,6 +240,17 @@ public class ClanProtectionListener implements Listener {
         }
     }
 
+    /** The raid chest cannot be blown up: the raid would go on with nothing to capture. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onRaidChestExplode(org.bukkit.event.entity.EntityExplodeEvent event) {
+        event.blockList().removeIf(b -> plugin.getRaidManager().isChestBlock(b.getLocation()));
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onRaidChestBlockExplode(org.bukkit.event.block.BlockExplodeEvent event) {
+        event.blockList().removeIf(b -> plugin.getRaidManager().isChestBlock(b.getLocation()));
+    }
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (!event.hasBlock() || event.getClickedBlock() == null || !event.getAction().isRightClick()) {
