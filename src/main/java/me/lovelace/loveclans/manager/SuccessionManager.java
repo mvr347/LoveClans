@@ -117,8 +117,10 @@ public final class SuccessionManager {
         if (winner.isEmpty() || !clan.hasMember(winner.get())) {
             return;
         }
+        UUID oldLeader = clan.leaderId().orElse(null);
         clan.leaderId().ifPresent(old -> clan.setRank(old, ClanRank.GUARDIAN));
         clan.setRank(winner.get(), ClanRank.LEADER);
+        Bukkit.getPluginManager().callEvent(new me.lovelace.loveclans.api.events.ClanLeaderChangeEvent(clan, oldLeader, winner.get()));
         plugin.getStorage().saveClanAsync(clan);
         OfflinePlayer promoted = Bukkit.getOfflinePlayer(winner.get());
         clan.members().keySet().stream()

@@ -78,6 +78,9 @@ public final class LoveClansPlugin extends JavaPlugin {
     private WarManager warManager;
     private SiegeManager siegeManager;
     private RaidManager raidManager;
+    private me.lovelace.loveclans.activity.ActivityManager activityManager;
+    private me.lovelace.loveclans.history.HistoryManager historyManager;
+    private final me.lovelace.loveclans.activity.ConflictParticipants conflictParticipants = new me.lovelace.loveclans.activity.ConflictParticipants();
     private RitualManager ritualManager;
     private ClanRecognitionService recognitionService;
     private ClanBannerReplacementService bannerReplacementService;
@@ -123,6 +126,8 @@ public final class LoveClansPlugin extends JavaPlugin {
         warManager = new WarManager(this);
         siegeManager = new SiegeManager(this);
         raidManager = new RaidManager(this);
+        activityManager = new me.lovelace.loveclans.activity.ActivityManager(this, databaseManager);
+        historyManager = new me.lovelace.loveclans.history.HistoryManager(this, databaseManager);
         ritualManager = new RitualManager(this);
         successionManager = new SuccessionManager(this);
         spiritManager = new SpiritManager(this);
@@ -173,6 +178,7 @@ public final class LoveClansPlugin extends JavaPlugin {
             warManager.loadCooldowns();
             siegeManager.loadCooldowns();
             raidManager.loadCooldowns();
+            activityManager.load();
             runSync(() -> {
                 // A crash mid-raid leaves the raid chest in the world: put the ground back
                 raidManager.recoverOrphanChests();
@@ -249,6 +255,16 @@ public final class LoveClansPlugin extends JavaPlugin {
                         getLogger().log(java.util.logging.Level.SEVERE, "Contract tick failed", t);
                     }
                 }, contractTickTicks, contractTickTicks);
+
+                // Activity totals live in memory and reach the database in one batch every 30 seconds
+                long activityFlushTicks = 20L * Math.max(10, getConfig().getInt("activity.flush-seconds", 30));
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        activityManager.flushAsync();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.SEVERE, "Activity flush failed", t);
+                    }
+                }, activityFlushTicks, activityFlushTicks);
 
                 // Прогресс обетов пишется в БД не на каждое действие, а пачкой раз в N секунд.
                 long contractFlushTicks = 20L * Math.max(5, getConfig().getInt("clans.contracts.progress-flush-seconds", 30));
@@ -408,6 +424,9 @@ public final class LoveClansPlugin extends JavaPlugin {
         if (contractManager != null) {
             contractManager.flushDirty();
         }
+        if (activityManager != null) {
+            activityManager.flushNow();
+        }
         if (databaseManager != null) {
             databaseManager.close();
         }
@@ -456,6 +475,18 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public SiegeManager getSiegeManager() {
         return siegeManager;
+    }
+
+    public me.lovelace.loveclans.activity.ActivityManager getActivityManager() {
+        return activityManager;
+    }
+
+    public me.lovelace.loveclans.history.HistoryManager getHistoryManager() {
+        return historyManager;
+    }
+
+    public me.lovelace.loveclans.activity.ConflictParticipants getConflictParticipants() {
+        return conflictParticipants;
     }
 
     public RaidManager getRaidManager() {
@@ -633,6 +664,8 @@ public final class LoveClansPlugin extends JavaPlugin {
         PluginManager pluginManager = Bukkit.getPluginManager();
         pluginManager.registerEvents(guiManager, this);
         pluginManager.registerEvents(new PlayerConnectionListener(this), this);
+        pluginManager.registerEvents(new me.lovelace.loveclans.activity.ActivityListener(this, activityManager), this);
+        pluginManager.registerEvents(new me.lovelace.loveclans.history.HistoryListener(this, historyManager), this);
         clanProtectionListener = new ClanProtectionListener(this, clanManager, warManager); // Pass clanManager and warManager
         pluginManager.registerEvents(clanProtectionListener, this);
         me.lovelace.loveclans.listener.BannerProtectionListener.setRegisteredBannerCheck(clanManager::isRegisteredBanner);

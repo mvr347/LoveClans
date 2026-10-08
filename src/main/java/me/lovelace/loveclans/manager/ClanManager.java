@@ -325,9 +325,10 @@ public final class ClanManager {
                 throw new IllegalStateException("general.no-permission");
             }
             pendingAllianceRequests.remove(requesterClan.id());
+            DiplomacyRelation before = acceptorClan.relationTo(requesterClan.id());
             acceptorClan.setDiplomacy(requesterClan.id(), DiplomacyRelation.ALLY);
             requesterClan.setDiplomacy(acceptorClan.id(), DiplomacyRelation.ALLY);
-            Bukkit.getPluginManager().callEvent(new ClanDiplomacyChangeEvent(acceptorClan.id(), requesterClan.id(), DiplomacyRelation.ALLY));
+            Bukkit.getPluginManager().callEvent(new ClanDiplomacyChangeEvent(acceptorClan.id(), requesterClan.id(), DiplomacyRelation.ALLY, before));
             return null;
         }).thenCompose(v -> storage.saveDiplomacyAsync(acceptorClan.id(), requesterClan.id(), DiplomacyRelation.ALLY)
                 .thenCompose(x -> storage.saveDiplomacyAsync(requesterClan.id(), acceptorClan.id(), DiplomacyRelation.ALLY)));
@@ -470,7 +471,11 @@ public final class ClanManager {
             }
 
             return clan;
-        }).thenCompose(clan -> storage.saveClanAsync(clan).thenApply(ignored -> clan));
+        }).thenCompose(clan -> storage.saveClanAsync(clan).thenApply(ignored -> {
+            plugin.getHistoryManager().add(clan.id(), me.lovelace.loveclans.history.HistoryType.CLAN_CREATED,
+                    clan.leaderId().orElse(null), Map.of("name", clan.name()));
+            return clan;
+        }));
     }
 
     public CompletableFuture<Void> disbandClanAsync(Clan clan, UUID actorId) {
@@ -510,6 +515,8 @@ public final class ClanManager {
             plugin.getSiegeManager().purgeClan(clan.id());
             plugin.getRaidManager().purgeClan(clan.id());
             plugin.getModifierManager().purgeClan(clan.id());
+            plugin.getActivityManager().purgeClan(clan.id());
+            plugin.getHistoryManager().purgeClan(clan.id());
             plugin.getRitualManager().purgeClan(clan.id());
             plugin.getContractManager().purgeClan(clan.id());
             plugin.getSpiritManager().purgeClan(clan.id());
@@ -794,6 +801,7 @@ public final class ClanManager {
             clan.setRank(actorId, ClanRank.GUARDIAN);
             clan.setRank(newLeaderId, ClanRank.LEADER);
             Bukkit.getPluginManager().callEvent(new ClanRankChangeEvent(clan, newLeaderId, ClanRank.RECRUIT, ClanRank.LEADER));
+            Bukkit.getPluginManager().callEvent(new me.lovelace.loveclans.api.events.ClanLeaderChangeEvent(clan, actorId, newLeaderId));
 
             OfflinePlayer oldLeaderPlayer = Bukkit.getOfflinePlayer(actorId);
             OfflinePlayer newLeaderPlayer = Bukkit.getOfflinePlayer(newLeaderId);
@@ -1599,8 +1607,9 @@ public final class ClanManager {
                         plugin.getMessages().sendClickableAlliance(leader, source.tag(), source.tagColor()));
                 return source;
             }
+            DiplomacyRelation before = source.relationTo(target.id());
             source.setDiplomacy(target.id(), relation);
-            Bukkit.getPluginManager().callEvent(new ClanDiplomacyChangeEvent(source.id(), target.id(), relation));
+            Bukkit.getPluginManager().callEvent(new ClanDiplomacyChangeEvent(source.id(), target.id(), relation, before));
             return source;
         }).thenCompose(clan -> relation == DiplomacyRelation.ALLY ? CompletableFuture.completedFuture(clan)
                 : storage.saveDiplomacyAsync(clan.id(), target.id(), relation).thenApply(ignored -> clan));
@@ -1823,6 +1832,14 @@ public final class ClanManager {
      * inventory slot) on the main thread, so the balance changes here synchronously and only the
      * write is async - there is no window where the coins exist both in hand and in the treasury.
      */
+    public long depositTreasuryCoins(Clan clan, long amount, UUID actorId) {
+        long balance = depositTreasuryCoins(clan, amount);
+        if (clan != null && amount > 0) {
+            Bukkit.getPluginManager().callEvent(new me.lovelace.loveclans.api.events.ClanTreasuryDepositEvent(clan, actorId, amount));
+        }
+        return balance;
+    }
+
     public long depositTreasuryCoins(Clan clan, long amount) {
         if (clan == null || amount <= 0) {
             return clan == null ? 0L : clan.chestMoney();

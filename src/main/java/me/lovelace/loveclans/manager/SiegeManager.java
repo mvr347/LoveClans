@@ -269,6 +269,8 @@ public final class SiegeManager {
         plugin.getConflictCooldownStore().saveAsync(me.lovelace.loveclans.storage.ConflictCooldownStore.SIEGE, cooldownKey, now);
 
         beginPendingPhase(siege, attacker, defender);
+        me.lovelace.loveclans.activity.ConflictEvents.declared(me.lovelace.loveclans.model.history.ConflictKind.SIEGE,
+                siege.id(), attacker.id(), defender.id());
         return siege;
     }
 
@@ -623,8 +625,13 @@ public final class SiegeManager {
         Clan defender = clansOpt.get().defender();
 
         if (result == SiegeResult.CANCELLED) {
+            plugin.getConflictParticipants().forget(siege.id());
             return;
         }
+        me.lovelace.loveclans.activity.ConflictEvents.resolved(plugin, me.lovelace.loveclans.model.history.ConflictKind.SIEGE,
+                siege.id(), siege.attackerClanId(), siege.defenderClanId(),
+                result == SiegeResult.ATTACKER_WIN ? me.lovelace.loveclans.api.events.ConflictOutcome.ATTACKER_WIN
+                        : me.lovelace.loveclans.api.events.ConflictOutcome.DEFENDER_WIN);
 
         Clan winner = result == SiegeResult.ATTACKER_WIN ? attacker : defender;
         Clan loser = result == SiegeResult.ATTACKER_WIN ? defender : attacker;
@@ -852,6 +859,21 @@ public final class SiegeManager {
         }
         Clan attacker = clansOpt.get().attacker();
         Clan defender = clansOpt.get().defender();
+
+        // Members who are actually at the camps (not AFK, within the assault radius) are the participants
+        double presenceRadiusSq = Math.pow(plugin.getConfig().getDouble("siege.participation-radius", 40.0), 2);
+        for (Clan side : List.of(attacker, defender)) {
+            for (Player p : onlineMembers(side).toList()) {
+                for (SiegeCamp camp : siege.camps()) {
+                    Location campLoc = camp.toLocation();
+                    if (campLoc != null && campLoc.getWorld() != null && campLoc.getWorld().equals(p.getWorld())
+                            && campLoc.distanceSquared(p.getLocation()) <= presenceRadiusSq) {
+                        me.lovelace.loveclans.activity.ConflictEvents.mark(plugin, siege.id(), p, side.id());
+                        break;
+                    }
+                }
+            }
+        }
 
         List<SiegeCamp> updatedCamps = null;
         int unbrokenCount = 0;

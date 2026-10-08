@@ -203,6 +203,8 @@ public final class WarManager {
             plugin.getDiplomacyManager().liftBlockadesBetween(attacker.id(), defender.id());
 
             beginPendingPhase(war, attacker, defender);
+            me.lovelace.loveclans.activity.ConflictEvents.declared(me.lovelace.loveclans.model.history.ConflictKind.WAR,
+                    war.id(), attacker.id(), defender.id());
 
             return war;
         });
@@ -423,6 +425,8 @@ public final class WarManager {
                 rematchClaims.remove(war.id());
                 lastControlAward.remove(war.id());
                 archiveWar(war, result);
+                me.lovelace.loveclans.activity.ConflictEvents.resolved(plugin, me.lovelace.loveclans.model.history.ConflictKind.WAR,
+                        war.id(), war.attackerClanId(), war.defenderClanId(), outcomeOf(result));
 
                 announceResult(war, result);
 
@@ -512,6 +516,8 @@ public final class WarManager {
             lastControlAward.remove(war.id());
             resetStreaks(war);
             archiveWar(war, WarResult.DRAW);
+            me.lovelace.loveclans.activity.ConflictEvents.resolved(plugin, me.lovelace.loveclans.model.history.ConflictKind.WAR,
+                    war.id(), war.attackerClanId(), war.defenderClanId(), me.lovelace.loveclans.api.events.ConflictOutcome.DRAW);
 
             return null;
         });
@@ -569,6 +575,8 @@ public final class WarManager {
             plugin.getMessages().send(killer, "war.streak", Map.of("kills", "5", "points", "5"));
         }
 
+        activeWar(killerClan.id(), victimClan.id()).ifPresent(w ->
+                me.lovelace.loveclans.activity.ConflictEvents.mark(plugin, w.id(), killer, killerClan.id()));
         addScore(killerClan.id(), victimClan.id(), baseScore + bonus);
         killer.playSound(killer.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.4f);
     }
@@ -807,6 +815,7 @@ public final class WarManager {
             resetBannerHits(war.id());
             rematchClaims.remove(war.id());
             lastControlAward.remove(war.id());
+            plugin.getConflictParticipants().forget(war.id());
         }
     }
 
@@ -923,12 +932,16 @@ public final class WarManager {
             return;
         }
         String territoryWorld = territoryOpt.get().world();
-        long attackers = onlineMembers(clansOpt.get().attacker())
+        List<Player> attackerPresent = onlineMembers(clansOpt.get().attacker())
                 .filter(p -> p.getWorld().getName().equals(territoryWorld) && box.contains(p.getLocation().toVector()))
-                .count();
-        long defenders = onlineMembers(clansOpt.get().defender())
+                .toList();
+        List<Player> defenderPresent = onlineMembers(clansOpt.get().defender())
                 .filter(p -> p.getWorld().getName().equals(territoryWorld) && box.contains(p.getLocation().toVector()))
-                .count();
+                .toList();
+        long attackers = attackerPresent.size();
+        long defenders = defenderPresent.size();
+        attackerPresent.forEach(p -> me.lovelace.loveclans.activity.ConflictEvents.mark(plugin, war.id(), p, war.attackerClanId()));
+        defenderPresent.forEach(p -> me.lovelace.loveclans.activity.ConflictEvents.mark(plugin, war.id(), p, war.defenderClanId()));
 
         Long last = lastControlAward.get(war.id());
         long elapsed = last == null ? everySeconds * 1000L : (now - last);
@@ -1151,6 +1164,14 @@ public final class WarManager {
      * Кладёт завершённую войну в архив. Отменённые войны не записываются: они ничем
      * не закончились, и в истории противостояния им не место.
      */
+    private static me.lovelace.loveclans.api.events.ConflictOutcome outcomeOf(WarResult result) {
+        return switch (result) {
+            case ATTACKER_WIN -> me.lovelace.loveclans.api.events.ConflictOutcome.ATTACKER_WIN;
+            case DEFENDER_WIN -> me.lovelace.loveclans.api.events.ConflictOutcome.DEFENDER_WIN;
+            default -> me.lovelace.loveclans.api.events.ConflictOutcome.DRAW;
+        };
+    }
+
     private void archiveWar(ClanWar war, WarResult result) {
         if (result == WarResult.CANCELLED) {
             return;

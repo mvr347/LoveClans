@@ -248,6 +248,10 @@ public final class DatabaseManager implements AutoCloseable {
                     """);
 
             ConflictCooldownStore.createTable(statement);
+            statement.executeUpdate(me.lovelace.loveclans.activity.ActivitySchema.CREATE_ACTIVITY);
+            statement.executeUpdate(me.lovelace.loveclans.activity.ActivitySchema.CREATE_PROCESSED);
+            statement.executeUpdate(me.lovelace.loveclans.history.HistorySchema.CREATE_TABLE);
+            me.lovelace.loveclans.history.HistoryManager.createIndexes(statement);
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_diplomacy (
                         source_clan_id VARCHAR(36) NOT NULL,

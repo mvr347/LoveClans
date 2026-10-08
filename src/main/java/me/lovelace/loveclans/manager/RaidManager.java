@@ -201,6 +201,8 @@ public final class RaidManager {
             recordRaidStart(attacker.id(), defender.id());
 
             beginPendingPhase(raid, attacker, defender);
+            me.lovelace.loveclans.activity.ConflictEvents.declared(me.lovelace.loveclans.model.history.ConflictKind.RAID,
+                    raid.id(), attacker.id(), defender.id());
             return raid;
         });
     }
@@ -688,6 +690,7 @@ public final class RaidManager {
         removeRaidCompasses(raid);
 
         if (clansOpt.isEmpty() || result == RaidResult.CANCELLED) {
+            plugin.getConflictParticipants().forget(raid.id());
             return;
         }
 
@@ -730,6 +733,11 @@ public final class RaidManager {
         plugin.getConflictArchive().record(ConflictKind.RAID, raid.attackerClanId(), raid.defenderClanId(),
                 result == RaidResult.ATTACKER_WIN ? raid.attackerClanId() : raid.defenderClanId(),
                 (int) raid.moneyLooted(), 0, raid.startedAt());
+
+        me.lovelace.loveclans.activity.ConflictEvents.resolved(plugin, me.lovelace.loveclans.model.history.ConflictKind.RAID,
+                raid.id(), raid.attackerClanId(), raid.defenderClanId(),
+                result == RaidResult.ATTACKER_WIN ? me.lovelace.loveclans.api.events.ConflictOutcome.ATTACKER_WIN
+                        : me.lovelace.loveclans.api.events.ConflictOutcome.DEFENDER_WIN);
 
         plugin.getClanManager().recordRaidResultAsync(attacker, result == RaidResult.ATTACKER_WIN).exceptionally(t -> {
             plugin.getLogger().warning("Failed to record raid result for clan " + attacker.id() + ": " + t.getMessage());
@@ -943,11 +951,13 @@ public final class RaidManager {
         for (Player p : onlineMembers(attacker).toList()) {
             if (isInCaptureZone(p.getLocation(), chestLoc, radiusSq)) {
                 attackersInZone++;
+                me.lovelace.loveclans.activity.ConflictEvents.mark(plugin, raid.id(), p, attacker.id());
             }
         }
         for (Player p : onlineMembers(defender).toList()) {
             if (isInCaptureZone(p.getLocation(), chestLoc, radiusSq) && !plugin.getAfkManager().isAfkMinutes(p.getUniqueId(), afkMinutes)) {
                 defendersInZone++;
+                me.lovelace.loveclans.activity.ConflictEvents.mark(plugin, raid.id(), p, defender.id());
             }
         }
 
