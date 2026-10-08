@@ -147,7 +147,7 @@ public final class GuildmasterMenu {
             }
             // open() re-checks owner / not yet recognized
             case RECOGNITION -> recognitionMenu.open(player, clan);
-            case CLAN_LIST -> plugin.getGuiManager().openClanList(player);
+            case CLAN_LIST -> plugin.getGuiManager().openClanListFromGuildmaster(player);
             case CASUS_BELLI -> plugin.getGuiManager().openCasusBelli(player, clan);
         }
     }

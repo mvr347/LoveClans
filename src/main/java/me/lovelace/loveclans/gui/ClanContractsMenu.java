@@ -158,7 +158,13 @@ public final class ClanContractsMenu {
     public void handleInventoryClick(Player player, Clan clan, int slot) {
         switch (slot) {
             case SLOT_CLOSE -> player.closeInventory();
-            case SLOT_BACK -> plugin.getGuiManager().openMain(player, clan);
+            case SLOT_BACK -> {
+                if (plugin.getGuiManager().inGuildmasterSession(player)) {
+                    plugin.getGuiManager().openGuildmaster(player, clan);
+                } else {
+                    plugin.getGuiManager().openMain(player, clan);
+                }
+            }
             case SLOT_WEEKLY -> handleVow(player, clan, ContractType.WEEKLY);
             case SLOT_MONTHLY -> handleVow(player, clan, ContractType.MONTHLY);
             default -> {

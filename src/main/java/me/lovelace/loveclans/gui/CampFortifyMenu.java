@@ -81,6 +81,8 @@ public final class CampFortifyMenu {
 
         // Стандарт gui-gen-5: заливка рамки 27 слотов (1-8 и 18-24 стекло)
         GuiFrames.fillFrame27(inventory);
+        // No Back button here (the menu opens from a camp, not from another menu): the slot keeps its glass
+        inventory.setItem(25, GuiFrames.glassPane());
 
         int currentLevel = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
         int maxLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.max-level", 3));
@@ -88,7 +90,7 @@ public final class CampFortifyMenu {
         int hitsPerLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.hits-per-level", 1));
 
         // Слот 0: Инфо о лагере
-        inventory.setItem(SLOT_INFO, ItemBuilder.of(Material.CAMPFIRE)
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(Component.text("§6Осадный лагерь #" + (campIndex + 1)))
                 .lore(Component.text("§7Текущее укрепление: §e" + currentLevel + " / " + maxLevel))
                 .lore(Component.text("§7Ударов для сноса: §c" + hitsRequired))
@@ -96,8 +98,11 @@ public final class CampFortifyMenu {
 
         // Слот 13: Кнопка апгрейда
         if (currentLevel < maxLevel) {
-            long baseCost = plugin.getConfig().getLong("siege.fortification.cost-per-level", 200L);
-            long cost = baseCost * (currentLevel + 1);
+            if (!plugin.getSiegeManager().canFortify(siegeId, campIndex)) {
+                plugin.getMessages().send(player, "siege.fortify.unavailable");
+                return;
+            }
+            long cost = plugin.getSiegeManager().fortifyCost(siegeId, campIndex);
             int nextHits = 1 + (currentLevel + 1) * hitsPerLevel;
 
             inventory.setItem(SLOT_UPGRADE, ItemBuilder.of(Material.ANVIL)
@@ -192,7 +197,20 @@ public final class CampFortifyMenu {
                 int hitsReq = plugin.getSiegeManager().hitsRequired(siegeId, campIndex);
                 player.sendMessage(Component.text("§aЛагерь #" + (campIndex + 1) + " успешно укреплён до уровня " + newLevel + "! Теперь требуется " + hitsReq + " ударов."));
                 open(player, siegeId, campIndex);
+            } else {
+                // The siege ended or the camp fell between the check and now: give the money back
+                econRefund(player, clan, cost);
+                plugin.getMessages().send(player, "siege.fortify.unavailable");
             }
+        }
+    }
+
+    private void econRefund(Player player, Clan clan, long cost) {
+        if (clan.hasPermission(player.getUniqueId(), ClanPermission.BANK)) {
+            clan.addChestMoney(cost);
+            plugin.getStorage().updateClanChestMoney(clan.id(), clan.chestMoney());
+        } else {
+            economy().ifPresent(e -> e.give(player, cost));
         }
     }
 

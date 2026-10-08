@@ -268,7 +268,7 @@ public final class ClanChestMoneyMenu implements Listener {
     }
 
     private void credit(Player player, Clan clan, long amount) {
-        long balance = plugin.getClanManager().depositTreasuryCoins(clan, amount);
+        long balance = plugin.getClanManager().depositTreasuryCoins(clan, amount, player.getUniqueId());
         plugin.getMessages().send(player, "chest.deposit-success",
                 Map.of("amount", CoinFormat.format(amount), "balance", CoinFormat.format(balance)));
         refreshAll(clan);

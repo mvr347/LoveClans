@@ -7,6 +7,9 @@
 # (see MessageService#parse). The special <prefix> tag is replaced with the value of
 # the top-level "prefix" key below.
 
+# Версия lang.yml (2026-10-08): при росте версии админский файл получает из jar переписанные разделы
+# (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
+lang-version: 3
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -36,6 +39,9 @@ admin:
   points-updated: "<prefix><green>Очки улучшений клана <color><tag></color> обновлены."
   war-ended: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> завершена администратором."
   war-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> начата администратором."
+  war-skipped: "<prefix><green>Таймер подготовки войны <color1><clan1></color1> и <color2><clan2></color2> пропущен: война началась."
+  war-not-preparing: "<prefix><red>Между этими кланами нет войны в стадии подготовки."
+  war-no-territory: "<prefix><red>У клана <color><clan></color> нет столицы: война не за что, начать её нельзя."
   war-force-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
   siege-force-started: "<prefix><green>Осада <color1><clan1></color1> против <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
   clan-recognized: "<prefix><green>Клан <yellow><tag></yellow> (<white><name></white>) получил статус признанного клана."
@@ -276,7 +282,8 @@ clan:
     war: "<aqua>/clan war <start|peace> <tag></aqua> <gray>- управление войной клана</gray>"
     siege: "<aqua>/clan siege <tag></aqua> <gray>- устроить осаду клана, стоя на его территории</gray>"
     raid: "<aqua>/clan raid <tag|loot <сумма>|items></aqua> <gray>- устроить набег или вынести добычу</gray>"
-    letters: "<aqua>/clan letters <tag></aqua> <gray>- переписка с кланом</gray>"
+    activity: "<aqua>/clan activity</aqua> <gray>- очки активности клана и участников</gray>"
+    history: "<aqua>/clan history</aqua> <gray>- летопись клана; архив конфликтов - /clan conflicts [тег]</gray>"
     trade: "<aqua>/clan trade <tag></aqua> <gray>- отправить запрос на обмен клану (или /clan trade <accept|decline|cancel> <id>)</gray>"
     # Подкоманды /loveclansadmin (алиасы /clansadmin, /ca) - тот же заголовок/подвал,
     # что и у /clan help, чтобы весь список команд плагина выглядел единообразно.
@@ -286,7 +293,7 @@ clan:
     admin-npc: "<aqua>/loveclansadmin createnpc <guildmaster|banner></aqua> <gray>- привязать NPC Гильдмастера или NPC-основателя (смотрите на него)</gray>"
     admin-npc-remove: "<aqua>/loveclansadmin removenpc <guildmaster|banner> <id></aqua> <gray>- отвязать NPC</gray>"
     admin-disband: "<aqua>/loveclansadmin disband <tag></aqua> <gray>- распустить клан</gray>"
-    admin-war: "<aqua>/loveclansadmin war <start|forcestart|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, для тестов)</gray>"
+    admin-war: "<aqua>/loveclansadmin war <start|forcestart|skip|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, skip - пропустить таймер подготовки)</gray>"
     admin-siege: "<aqua>/loveclansadmin siege forcestart <clan1> <clan2></aqua> <gray>- принудительно начать осаду без проверок готовности (для тестов)</gray>"
     admin-diplo: "<aqua>/loveclansadmin diplo <clan1> <clan2> <relation></aqua> <gray>- изменить отношения между кланами</gray>"
     admin-exp: "<aqua>/loveclansadmin exp <add|remove|set> <tag> <amount></aqua> <gray>- изменить опыт клана</gray>"
@@ -325,17 +332,72 @@ diplomacy:
     cancelled: "<prefix><green>Блокада клана <color><tag></color> отменена."
     lifted: "<prefix><green>Клан <color><tag></color> снял с вас блокаду."
     overthrown: "<prefix><gold>Вы восстали против угнетателя и сняли блокаду, победив его в войне!"
-  letter:
-    empty: "<prefix><red>Письмо не может быть пустым."
-    too-long: "<prefix><red>Письмо слишком длинное."
-    conflict-blocked: "<prefix><red>Во время войны/осады/набега письма недоступны."
-    received: "<prefix><color><tag></color> отправил вам письмо!"
-    open: "<green>[Открыть]"
-    sent: "<prefix><green>Письмо отправлено клану <color><tag></color>."
-    prompt: "<prefix><yellow>Введите текст письма в чат."
-    empty-list: "<prefix><gray>Писем пока нет."
 
 gui:
+  activity:
+    title: "<dark_gray>Активность: <clan>"
+    info:
+      name: "<gold>Активность клана"
+      lore: "<gray>Очки за участие в войнах, набегах, осадах, казну и дипломатию."
+    tab-clan: "<gold>Клан"
+    tab-members: "<gold>Участники"
+    period:
+      name: "<gold>Период"
+      lifetime: "Всё время"
+      weekly: "Неделя"
+      monthly: "Месяц"
+    category:
+      war: "<red>Войны"
+      raid: "<gold>Набеги"
+      siege: "<yellow>Осады"
+      territory: "<green>Территории"
+      economy: "<yellow>Экономика"
+      diplomacy: "<aqua>Дипломатия"
+    category-lore: "<gray>Очки: <white><points>"
+    total: "<gold>Всего: <white><points>"
+    total-lore: "<gray>Очки не тратятся: это мера участия клана в жизни сервера."
+    member:
+      name: "<gold>#<place> <white><player>"
+      total: "<gray>Всего: <white><points>"
+      details: "<gray>Войны <white><war></white> · набеги <white><raid></white> · осады <white><siege></white> · казна <white><economy></white> · дипломатия <white><diplomacy></white>"
+  history:
+    title: "<dark_gray>Летопись: <clan> (<page>)"
+    info:
+      name: "<gold>Летопись клана"
+      lore: "<gray>Важные события: войны, набеги, осады, участники и союзы."
+    filter:
+      name: "<gold>Фильтр событий"
+      all: "Все"
+      wars: "Войны"
+      raids: "Набеги"
+      sieges: "Осады"
+      territories: "Территории"
+      diplomacy: "Дипломатия"
+      members: "Участники"
+    empty: "<gray>Здесь пока ничего не произошло."
+    entry-date: "<dark_gray><date> (<ago> назад)"
+    entry:
+      CLAN_CREATED: "<gold>Клан основан"
+      CLAN_LEVEL_UP: "<green>Клан достиг уровня <white><level>"
+      MEMBER_JOINED: "<green><player> вступил в клан"
+      MEMBER_LEFT: "<gray><player> покинул клан"
+      MEMBER_KICKED: "<red><player> изгнан из клана"
+      RANK_CHANGED: "<yellow><player>: роль <old> → <new>"
+      LEADER_CHANGED: "<gold>Новый глава клана: <white><player>"
+      WAR_DECLARED: "<red>Война с кланом <color><tag></color>"
+      WAR_WON: "<green>Победа в войне над кланом <color><tag></color>"
+      WAR_LOST: "<red>Поражение в войне от клана <color><tag></color>"
+      RAID_STARTED: "<gold>Набег: клан <color><tag></color>"
+      RAID_WON: "<green>Набег с кланом <color><tag></color> удался"
+      RAID_LOST: "<red>Набег с кланом <color><tag></color> провален"
+      SIEGE_DECLARED: "<yellow>Осада: клан <color><tag></color>"
+      SIEGE_WON: "<green>Осада клана <color><tag></color> удалась"
+      SIEGE_LOST: "<red>Осада с кланом <color><tag></color> проиграна"
+      SIEGE_DEFENDED: "<green>Осада клана <color><tag></color> отбита"
+      TERRITORY_CAPTURED: "<green>Захвачена территория"
+      TERRITORY_LOST: "<red>Потеряна территория"
+      DIPLOMACY_CREATED: "<aqua>Союз с кланом <color><tag></color>"
+      DIPLOMACY_ENDED: "<gray>Союз с кланом <color><tag></color> разорван"
   modifiers:
     title: "<gray>Модификаторы: <gold><clan>"
   # Меню «Торговля» (2026-10-07): вкладки Кланы / Запросы / Скупки.
@@ -484,7 +546,7 @@ gui:
       rows: "<gray>Рядов предметов: <white><rows></white>/<max>"
     money-button:
       name: "<gold>Казна"
-      description: "<gray>Деньги клана монетами, которые можно взять в руки."
+      description: "<gray>Монеты клана: положить и взять мышкой."
       lore: "<gray>Баланс: <white><amount>"
     items-button:
       name: "<gold>Склад"
@@ -515,16 +577,6 @@ gui:
         name: "<red>Взять"
         lore: "<gray>ЛКМ - забрать деньги из сундука"
         prompt: "<prefix><yellow>Введите сумму для снятия в чат.<gray> Можно числом (в медных) или так: 3i 50c (c — медная, i — железная, g — золотая, d — алмазная)."
-  letters:
-    title: "<gray>Письма с кланом <color><tag>"
-    write:
-      name: "<green>Написать письмо"
-      lore: "<gray>ЛКМ - написать новое письмо этому клану"
-    item:
-      sent-name: "<gray>Кому: <color><tag>"
-      received-name: "<gold>От: <color><tag>"
-      preview: "<gray>\"<text>\""
-      date: "<dark_gray><date>"
   contracts-title: "<gray>Обеты клана <color><tag>"
   contracts:
     board:
@@ -823,9 +875,6 @@ gui:
       cancel-lore: "<gray>ЛКМ - отменить блокаду"
       blocked-name: "<dark_gray>Вы заблокированы"
       blocked-lore: "<gray>Этот клан уже блокирует вас."
-    letters:
-      name: "<gold>Письма"
-      lore: "<gray>ЛКМ - открыть переписку с этим кланом"
     trade:
       name: "<green>Торговля"
       lore: "<gray>ЛКМ - отправить запрос на обмен этому клану"
@@ -918,6 +967,12 @@ gui:
       name: "<gray>Других участников нет"
       lore: "<gray>Кроме главы, в этом клане пока никто не состоит."
   main:
+    activity:
+      name: "<gold>Активность"
+      description: "<gray>Очки клана и участников за войны, набеги, осады, казну."
+    history:
+      name: "<gold>Летопись"
+      description: "<gray>Важные события клана: победы, союзы, участники."
     title: "<color><clan> <white>- Меню клана"
     trade:
       name: "<gold>Торговля"
@@ -1272,7 +1327,7 @@ item:
       - "<yellow>провозгласить столицу!"
   war-compass:
     name: "<gold>Боевой компас <white><tag>"
-    lore: "<gray>Указывает направление к territории противника во время войны."
+    lore: "<gray>Указывает направление к территории противника во время войны."
   siege-compass:
     name: "<gold>Осадный компас <white><tag>"
     lore: "<gray>Указывает направление к осадным лагерям."
@@ -1406,7 +1461,17 @@ war:
   peace: "<prefix><green>Заключён мир с кланом <color><tag></color>."
   peace-confirm-prompt: "<prefix><yellow>Вы уверены, что хотите заключить мир с кланом <color><tag></color>?"
   started: "<prefix><gold>Война между <white><attacker></white> и <white><defender></white> началась!"
+  streak: "<gold>Серия из <white><kills></white> убийств! <yellow>+<points> очков войны!"
+  bossbar:
+    active: "<color1><attacker></color1> <white><s1></white> <gray>⚔</gray> <white><s2></white> <color2><defender></color2> <gray>• <white><time></white> <dark_gray>|</dark_gray> <gray>Знамя: <banner>"
+    banner-intact: "<green>цело</green>"
+    banner-broken: "<red>СБИТО</red>"
+  broadcast:
+    started: "<prefix><gold>⚔ Война! Клан <color1><attacker></color1> напал на клан <color2><defender></color2>."
+    ended: "<prefix><gold>⚔ Война окончена: клан <color1><winner></color1> победил клан <color2><loser></color2> со счётом <white><s1>:<s2></white>."
   banner:
+    not-started: "<prefix><yellow>Война ещё не началась: знамя можно будет ломать через <white><time></white>."
+    wrong-territory: "<prefix><red>Это знамя сейчас не оспаривается. Цель войны — знамя на <white><x> <y> <z></white>, компас покажет путь."
     progress: "<red>Знамя повреждено: <white><hits></white>/<white><required></white>"
     suppressed-cooldown: "<prefix><yellow>Знамя оспариваемой территории уже подавлено и восстанавливается!"
     broken-defender-title: "<red><bold>Ваше знамя подавлено!"
@@ -1437,11 +1502,14 @@ war:
     cancelled-subtitle: "<gray>Клан <color><tag></color> был расформирован"
 
 siege:
+  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя кланового спавна."
+  defender-no-capital: "<prefix><red>У клана-защитника нет установленной клановой территории."
   fortify:
     usage: "<prefix><yellow>Использование: /clan siege fortify <номер лагеря>"
     no-siege: "<prefix><red>Ваш клан сейчас не ведёт осаду."
     not-enough: "<prefix><red>В казне клана недостаточно средств: нужно <cost>."
     max-level: "<prefix><red>Этот лагерь укреплён до предела."
+    unavailable: "<prefix><red>Этот лагерь сейчас нельзя укрепить: он сбит, осада закончилась или достигнут предел."
     done: "<prefix><green>Лагерь <index> укреплён за <cost>. Теперь его снос требует <hits> ударов."
   max-sieges-reached: "<prefix><red>Достигнут лимит одновременных осад."
   already-in-siege: "<prefix><red>Один из кланов уже участвует в осаде."
@@ -1485,7 +1553,11 @@ siege:
 raid:
   already-in-raid: "<prefix><red>Один из кланов уже участвует в набеге."
   conflict-in-progress: "<prefix><red>Нельзя начать набег - один из кланов уже в конфликте."
-  target-immune: "<prefix><red>Этот клан слишком влиятелен, чтобы стать целью набега."
+  defender-shielded: "<prefix><red>На этот клан недавно совершали набег: он под защитой."
+  limit-reached-attacker: "<prefix><red>Ваш клан исчерпал суточный лимит набегов."
+  limit-reached-defender: "<prefix><red>Этот клан уже подвергался набегу сегодня."
+  chest-failed: "<prefix><red>В столице клана не нашлось места для рейдового сундука - набег отменён, кулдаун сокращён."
+  treasury-frozen: "<prefix><red>Казна заморожена, пока на клан идёт набег."
   too-many-defenders: "<prefix><red>У защитников слишком много игроков онлайн для набега."
   not-enough-attackers: "<prefix><red>Недостаточно атакующих онлайн для начала набега."
   attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя кланового спавна."
@@ -1493,7 +1565,24 @@ raid:
   not-active: "<prefix><red>Набег сейчас не активен."
   nothing-left: "<prefix><red>Больше нечего вынести - лимит набега исчерпан или сундук пуст."
   bonus-item: "<prefix><gold>Бонусная добыча: <white><item></white>!"
+  active:
+    bossbar:
+      capture: "<red>Рейд</red> <white>[</white><color1><attacker></color1><white>]</white> <gray>→</gray> <white>[</white><color2><defender></color2><white>]</white> <dark_gray>|</dark_gray> <yellow>Захват <progress>%</yellow> <dark_gray>|</dark_gray> <white><time></white>"
+      loot: "<red>Рейд</red> <white>[</white><color1><attacker></color1><white>]</white> <gray>→</gray> <white>[</white><color2><defender></color2><white>]</white> <dark_gray>|</dark_gray> <green>Сундук взломан</green> <dark_gray>|</dark_gray> <white><time></white>"
+  chest:
+    label-capture: "<red><bold>Рейдовый сундук</bold></red> <yellow>Захват: <progress>%</yellow>"
+    label-loot: "<green><bold>Рейдовый сундук</bold></green> <yellow>[ПКМ - лут]</yellow>"
+    locked: "<red>Сундук ещё заперт: удерживайте зону, пока шкала захвата не заполнится."
+    attacker-only: "<prefix><red>Этот сундук могут вскрыть только участники набега."
+  capture:
+    zone-protected: "<prefix><red>Строить и ломать вокруг рейдового сундука нельзя."
+  compass:
+    name: "<gold>Рейдовый компас <white><tag>"
+    lore: "<gray>Указывает на сундук клана, который вы грабите."
+  extract:
+    prompt: "<prefix><green>Добыча в руках! Покиньте зону сундука за <white><time></white> сек., иначе набег провален."
   pending:
+    cancelled-defenders: "<prefix><red>Набег отменён: у защитников стало слишком много игроков онлайн."
     bossbar: "<color1><attacker></color1> <white>🏹</white> <color2><defender></color2> <gray>— набег через <white><time></white>"
     declared: "<prefix><gold>Клан <color><tag></color> готовит набег! Начало через <white><time></white>."
     one-minute-warning: "<prefix><red>Набег начнётся через 1 минуту!"
@@ -1513,7 +1602,9 @@ raid:
     failed-subtitle: "<gray>Не удалось ничего вынести из сундука клана <color><tag></color>"
   loot:
     title: "<red>Грабёж: <color><tag>"
-    money-button:
-      name: "<gold>Забрать деньги"
-      lore: "<gray>Доступно: <white><amount>"
+    not-in-zone: "<prefix><red>Грабить можно только во время взлома, стоя рядом с рейдовым сундуком."
+    hacked-title: "<green><bold>Сундук взломан!"
+    hacked-subtitle: "<gray>Заберите добычу клана <color><tag></color> и уходите из зоны"
+    defender-breached-title: "<red><bold>Сундук взломан!"
+    defender-breached-subtitle: "<gray>Клан <color><tag></color> грабит ваше хранилище"
     prompt: "<prefix><yellow>Введите количество денег, чтобы забрать, в чат."

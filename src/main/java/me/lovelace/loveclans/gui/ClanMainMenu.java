@@ -5,9 +5,7 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
-import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.util.ItemBuilder;
-import me.lovelace.loveclans.util.TimeUtil;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -29,7 +27,9 @@ public final class ClanMainMenu implements InventoryHolder {
     private static final int SLOT_CHEST = 29;
     private static final int SLOT_TREASURY = 31;
     private static final int SLOT_SPIRIT = 33;
-    // Row 4: centered buttons (Trade 39, Modifiers 40, Settings 41)
+    // Row 4: five centered buttons (Activity 38, Trade 39, Modifiers 40, Settings 41, Chronicle 42)
+    private static final int SLOT_ACTIVITY = 38;
+    private static final int SLOT_HISTORY = 42;
     private static final int SLOT_TRADE = 39;
     private static final int SLOT_MODIFIERS = 40;
     private static final int SLOT_SETTINGS = 41;
@@ -161,6 +161,15 @@ public final class ClanMainMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.main.no-territory-lore", player))
                         .build());
 
+        inventory.setItem(SLOT_ACTIVITY, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
+                .name(plugin.getMessages().component("gui.main.activity.name", player))
+                .lore(plugin.getMessages().component("gui.main.activity.description", player))
+                .build());
+        inventory.setItem(SLOT_HISTORY, ItemBuilder.head(ItemBuilder.HEAD_MAP)
+                .name(plugin.getMessages().component("gui.main.history.name", player))
+                .lore(plugin.getMessages().component("gui.main.history.description", player))
+                .build());
+
         inventory.setItem(SLOT_MODIFIERS, ItemBuilder.of(Material.WRITTEN_BOOK)
                 .name(Component.text("§6Модификаторы клана"))
                 .lore(Component.text("§7Просмотр активных репараций, дани,"))
@@ -210,15 +219,10 @@ public final class ClanMainMenu implements InventoryHolder {
         return ItemBuilder.head(ItemBuilder.HEAD_CHEST)
                 .name(plugin.getMessages().component("gui.chest.items-button.name", player))
                 .lore(plugin.getMessages().component("gui.chest.items-button.lore", player))
-                .lore(plugin.getMessages().component("gui.chest.info.rows",
-                        Map.of("rows", String.valueOf(clan.chestRows()),
-                               "max", String.valueOf(plugin.getClanManager().maxChestRows())), player))
-                .lore(net.kyori.adventure.text.Component.empty())
-                .lore(plugin.getMessages().component("gui.chest.open-action", player))
                 .build();
     }
 
-    /** Money of the clan chest plus the weekly tax status (what the old chest hub showed on its info head). */
+    /** Treasury button: coins of the clan. */
     private ItemStack treasuryItem(boolean hasCapital) {
         if (!hasCapital) {
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
@@ -226,29 +230,11 @@ public final class ClanMainMenu implements InventoryHolder {
                     .lore(plugin.getMessages().component("gui.capital.no-house-lore", player))
                     .build();
         }
-        ItemBuilder item = ItemBuilder.head(clan.isChestTaxLocked() ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST_MONEY)
+        // Name plus one description line like every other main menu button: balance and tax live in the treasury itself
+        return ItemBuilder.head(clan.isChestTaxLocked() ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.chest.money-button.name", player))
                 .lore(plugin.getMessages().component("gui.chest.money-button.description", player))
-                .lore(plugin.getMessages().component("gui.chest.money-button.lore",
-                        Map.of("amount", CoinFormat.format(clan.chestMoney())), player));
-        if (!plugin.getClanManager().isTaxApplicable(clan)) {
-            item.lore(plugin.getMessages().component("gui.chest.info.tax-none", player));
-        } else if (clan.isChestTaxLocked()) {
-            item.lore(plugin.getMessages().component("gui.chest.info.tax-locked", player));
-        } else {
-            item.lore(plugin.getMessages().component("gui.chest.info.tax-ok", player));
-            long remaining = clan.lastTaxAt() + java.time.Duration.ofDays(7).toMillis() - System.currentTimeMillis();
-            item.lore(plugin.getMessages().component("gui.chest.info.next-tax",
-                    Map.of("time", TimeUtil.formatDuration(Math.max(0, remaining))), player));
-        }
-        // The tax amount is only useful to whoever plans the clan's finances - BANK holders (the leader always).
-        if (plugin.getClanManager().isTaxApplicable(clan) && clan.hasPermission(player.getUniqueId(), ClanPermission.BANK)) {
-            item.lore(plugin.getMessages().component("gui.chest.info.tax-amount",
-                    Map.of("amount", CoinFormat.format(plugin.getClanManager().weeklyChestTax(clan))), player));
-        }
-        item.lore(net.kyori.adventure.text.Component.empty())
-                .lore(plugin.getMessages().component("gui.chest.open-action", player));
-        return item.build();
+                .build();
     }
 
     public void handleInventoryClick(Player clicker, int slot) {
@@ -292,6 +278,8 @@ public final class ClanMainMenu implements InventoryHolder {
                 plugin.getGuiManager().openTrade(clicker, clan, null);
             }
             case SLOT_MODIFIERS -> plugin.getGuiManager().openModifiers(clicker, clan);
+            case SLOT_ACTIVITY -> plugin.getGuiManager().openActivity(clicker, clan);
+            case SLOT_HISTORY -> plugin.getGuiManager().openHistory(clicker, clan);
             case SLOT_SETTINGS -> {
                 if (clan.hasPermission(clicker.getUniqueId(), ClanPermission.SETTINGS)) {
                     plugin.getGuiManager().openSettings(clicker, clan);

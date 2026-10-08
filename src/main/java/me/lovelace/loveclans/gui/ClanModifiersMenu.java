@@ -52,9 +52,7 @@ public final class ClanModifiersMenu {
         GuiFrames.fillFrame54(inventory);
 
         // Слот 0 — эмблема/инфо клана
-        Material clanEmblem = clan.emblem() != null && clan.emblem().name().endsWith("_BANNER")
-                ? clan.emblem() : Material.WHITE_BANNER;
-        inventory.setItem(SLOT_INFO, ItemBuilder.of(clanEmblem)
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(Component.text("§6Модификаторы клана §f" + clan.name()))
                 .lore(Component.text("§7Список активных эффектов, репараций,"))
                 .lore(Component.text("§7щитов и доступных казус белли."))
@@ -64,7 +62,7 @@ public final class ClanModifiersMenu {
         long now = System.currentTimeMillis();
 
         if (modifiers.isEmpty()) {
-            inventory.setItem(31, ItemBuilder.of(Material.BARRIER)
+            inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
                     .name(Component.text("§cНет активных модификаторов"))
                     .lore(Component.text("§7У вашего клана в данный момент нет"))
                     .lore(Component.text("§7выплат дани, щитов или казус белли."))

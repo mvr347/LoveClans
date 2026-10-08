@@ -201,5 +201,9 @@ public final class ClanTradeManager {
         };
         if (key == null) return;
         onlineMembers(from).forEach(p -> plugin.getMessages().send(p, key, Map.of("tag", to.tag(), "color", to.tagColor())));
+        if (trade.status() == TradeStatus.CANCELLED) {
+            // the cancelled offer disappears for the other side too, tell them why
+            onlineMembers(to).forEach(p -> plugin.getMessages().send(p, key, Map.of("tag", from.tag(), "color", from.tagColor())));
+        }
     }
 }

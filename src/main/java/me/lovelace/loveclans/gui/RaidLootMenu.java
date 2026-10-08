@@ -50,6 +50,11 @@ public final class RaidLootMenu implements Listener {
     }
 
     public static void open(LoveClansPlugin plugin, ClanRaid raid, Clan defender, Player looter) {
+        // Phase, clan and capture-zone are checked here so the command path and the chest click behave the same
+        if (!plugin.getRaidManager().canLoot(raid, looter)) {
+            plugin.getMessages().send(looter, "raid.loot.not-in-zone");
+            return;
+        }
         // Same lock as ClanChestMenu, keyed by the defender's clan id - it's the identical
         // physical chest storage. Without it, two attackers looting concurrently (or an attacker
         // and the defender's own officer opening chest storage) each snapshot the same contents
@@ -117,23 +122,29 @@ public final class RaidLootMenu implements Listener {
             return;
         }
 
+        // Every take is handled here, in the same tick: the stack is moved to the looter and counted at once,
+        // so shift-clicks, double clicks and several clicks in one tick cannot get past the slot cap.
+        event.setCancelled(true);
+        ItemStack stack = inventory.getItem(rawSlot);
+        if (stack == null || stack.getType().isAir()) {
+            return;
+        }
         ClanRaid raid = plugin.getRaidManager().getRaid(raidId).orElse(null);
-        boolean slotHadItem = event.getCurrentItem() != null && event.getCurrentItem().getType() != org.bukkit.Material.AIR;
-        boolean capReached = raid == null || raid.itemSlotsRemaining() <= 0;
-        if (slotHadItem && capReached) {
-            event.setCancelled(true);
+        if (!plugin.getRaidManager().canLoot(raid, looter)) {
+            plugin.getMessages().send(looter, "raid.loot.not-in-zone");
+            Bukkit.getScheduler().runTask(plugin, () -> looter.closeInventory());
+            return;
+        }
+        if (raid.itemSlotsRemaining() <= 0) {
             plugin.getMessages().send(looter, "raid.nothing-left");
             return;
         }
-
-        if (slotHadItem) {
-            int slot = rawSlot;
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                ItemStack after = inventory.getItem(slot);
-                if (after == null || after.getType() == org.bukkit.Material.AIR) {
-                    plugin.getRaidManager().recordItemSlotLooted(raidId);
-                }
-            });
+        Map<Integer, ItemStack> leftover = looter.getInventory().addItem(stack.clone());
+        if (leftover.isEmpty()) {
+            inventory.setItem(rawSlot, null);
+            plugin.getRaidManager().recordItemSlotLooted(raidId);
+        } else {
+            inventory.setItem(rawSlot, leftover.values().iterator().next());
         }
     }
 

@@ -38,7 +38,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "invites", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "modifiers", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
+            "activity", "history", "conflicts", "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "modifiers", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "accept", "invites", "list", "info"
@@ -147,7 +147,9 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 // того, чтобы команда молча ничего не делала для тех, кто набирает старый путь
                 // по привычке.
                 case "artifact" -> redirectToAdmin(sender, args.length > 1 ? "artifact " + args[1] : "artifact");
-                case "history" -> history(sender, args);
+                case "history" -> openHistory(sender);
+                case "activity" -> openActivity(sender);
+                case "conflicts" -> history(sender, args);
                 case "reload" -> redirectToAdmin(sender, "reload");
                 case "admin" -> redirectToAdmin(sender, args.length > 1 ? String.join(" ", Arrays.asList(args).subList(1, args.length)) : "help");
                 case "settings" -> openSettings(requirePlayer(sender));
@@ -669,6 +671,28 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         plugin.getGuiManager().openMain(player, optionalClan.get());
     }
 
+    private void openHistory(CommandSender sender) {
+        Player player = requirePlayer(sender);
+        requirePermission(player, Permissions.MENU);
+        Optional<Clan> clan = requireClan(player);
+        if (clan.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        plugin.getGuiManager().openHistory(player, clan.get());
+    }
+
+    private void openActivity(CommandSender sender) {
+        Player player = requirePlayer(sender);
+        requirePermission(player, Permissions.MENU);
+        Optional<Clan> clan = requireClan(player);
+        if (clan.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        plugin.getGuiManager().openActivity(player, clan.get());
+    }
+
     private void openMembers(Player player) {
         requirePermission(player, Permissions.MENU);
         Optional<Clan> optionalClan = requireClan(player);
@@ -723,6 +747,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.not-in-clan");
             return;
         }
+        plugin.getGuiManager().endGuildmasterSession(player);
         plugin.getGuiManager().openContracts(player, optionalClan.get());
     }
 
@@ -790,6 +815,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.list.empty");
             return;
         }
+        plugin.getGuiManager().endGuildmasterSession(player);
         new ClanListMenu(plugin, player).open();
     }
 
@@ -872,16 +898,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
         // No success message here: WarManager#beginPendingPhase already notifies every online
         // member of both clans (including this player) once the war is actually registered.
-        plugin.getWarManager().startWarAsync(attacker, defender, territoryKey)
-                .thenRun(() -> {
-                    if (cbRequired) {
-                        plugin.getClanManager().getClanItemFactory().consumeCasusBelli(player, defender.id(), "WAR");
-                    }
-                })
-                .exceptionally(throwable -> {
-                    plugin.runSync(() -> plugin.sendOperationError(player, throwable));
-                    return null;
-                });
+        me.lovelace.loveclans.util.CasusDeclaration.declare(plugin, player, cbRequired, defender.id(), "WAR",
+                () -> plugin.getWarManager().startWarAsync(attacker, defender, territoryKey));
     }
 
     /**
@@ -928,8 +946,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         UUID siegeId = siegeIdOpt.get();
 
         int level = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
-        long cost = MoneyConfig.getScaled(plugin.getConfig(), "siege.fortification.cost", 1_000L)
-                * Math.max(1, level + 1);
+        if (!plugin.getSiegeManager().canFortify(siegeId, campIndex)) {
+            plugin.getMessages().send(player, "siege.fortify.max-level");
+            return;
+        }
+        long cost = plugin.getSiegeManager().fortifyCost(siegeId, campIndex);
         if (clan.chestMoney() < cost) {
             plugin.getMessages().send(player, "siege.fortify.not-enough",
                     Map.of("cost", CoinFormat.format(cost)));
@@ -1006,16 +1027,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
         // No success message here: SiegeManager#beginPendingPhase already notifies every online
         // member of both clans (including this player) once the siege is actually registered.
-        plugin.getSiegeManager().startSiegeAsync(attacker, defender, territoryKey)
-                .thenRun(() -> {
-                    if (cbRequired) {
-                        plugin.getClanManager().getClanItemFactory().consumeCasusBelli(player, defender.id(), "SIEGE");
-                    }
-                })
-                .exceptionally(throwable -> {
-                    plugin.runSync(() -> plugin.sendOperationError(player, throwable));
-                    return null;
-                });
+        me.lovelace.loveclans.util.CasusDeclaration.declare(plugin, player, cbRequired, defender.id(), "SIEGE",
+                () -> plugin.getSiegeManager().startSiegeAsync(attacker, defender, territoryKey));
     }
 
     private void raid(Player player, String[] args) {
@@ -1231,6 +1244,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.help.info");
             plugin.getMessages().send(player, "clan.help.war");
             plugin.getMessages().send(player, "clan.help.diplomacy");
+            plugin.getMessages().send(player, "clan.help.activity");
+            plugin.getMessages().send(player, "clan.help.history");
             if (isLeader) {
                 plugin.getMessages().send(player, "clan.help.invite");
                 plugin.getMessages().send(player, "clan.help.kick");

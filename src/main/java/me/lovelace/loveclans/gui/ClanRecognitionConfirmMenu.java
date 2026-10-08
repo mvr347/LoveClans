@@ -104,7 +104,12 @@ public final class ClanRecognitionConfirmMenu {
             player.closeInventory();
             plugin.getRecognitionService().recognize(player, holder.cost());
         } else if (slot == SLOT_CANCEL) {
-            player.closeInventory();
+            var clan = plugin.getClanManager().getPlayerClan(player.getUniqueId());
+            if (plugin.getGuiManager().inGuildmasterSession(player) && clan.isPresent()) {
+                plugin.getGuiManager().openGuildmaster(player, clan.get());
+            } else {
+                player.closeInventory();
+            }
         }
     }
 }

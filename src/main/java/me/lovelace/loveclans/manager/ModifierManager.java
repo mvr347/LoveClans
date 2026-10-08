@@ -50,6 +50,17 @@ public final class ModifierManager {
         storage.saveModifierAsync(modifier);
     }
 
+    /** A disbanded clan takes its modifiers with it, and so does everything that points at it (tribute, casus). */
+    public void purgeClan(UUID clanId) {
+        List<UUID> doomed = new java.util.ArrayList<>();
+        for (List<ClanModifier> list : modifiers.values()) {
+            for (ClanModifier m : list) {
+                if (m.clanId().equals(clanId) || clanId.equals(m.targetClanId())) doomed.add(m.id());
+            }
+        }
+        doomed.forEach(this::removeModifier);
+    }
+
     public void removeModifier(UUID modifierId) {
         for (Map.Entry<UUID, List<ClanModifier>> entry : modifiers.entrySet()) {
             entry.getValue().removeIf(m -> m.id().equals(modifierId));
@@ -84,7 +95,27 @@ public final class ModifierManager {
 
     public void grantReparations(UUID debtorClanId, UUID creditorClanId, int days, long dailyAmount) {
         long now = System.currentTimeMillis();
-        long endsAt = now + ((long) days * 24 * 3600_000L);
+        // One extra day of slack: the payments are counted by days_left, not by the clock. With endsAt exactly
+        // days x 24h the last scheduled payment fell after the expiry and the debtor paid one day too few.
+        long endsAt = now + ((long) (days + 1) * 24 * 3600_000L);
+        String configRoot = "war.reparations.";
+        long minDaily = plugin.getConfig().getLong(configRoot + "min-daily", 0L);
+        long maxDaily = plugin.getConfig().getLong(configRoot + "max-daily", Long.MAX_VALUE);
+        if (maxDaily > 0) {
+            dailyAmount = Math.max(minDaily, Math.min(maxDaily, dailyAmount));
+        }
+
+        // A fresh victory flips the relation: the tribute running the other way between the same two clans ends
+        for (ClanModifier m : getModifiers(creditorClanId)) {
+            if (ClanModifier.TYPE_REPARATIONS_DEBT.equals(m.type()) && debtorClanId.equals(m.targetClanId())) {
+                removeModifier(m.id());
+            }
+        }
+        for (ClanModifier m : getModifiers(debtorClanId)) {
+            if (ClanModifier.TYPE_REPARATIONS_INCOME.equals(m.type()) && creditorClanId.equals(m.targetClanId())) {
+                removeModifier(m.id());
+            }
+        }
 
         for (ClanModifier m : getModifiers(debtorClanId)) {
             if (ClanModifier.TYPE_REPARATIONS_DEBT.equals(m.type()) && creditorClanId.equals(m.targetClanId())) {
@@ -149,6 +180,19 @@ public final class ModifierManager {
                 1
         );
         addModifier(modifier);
+    }
+
+    /** A just casus usable for both a war and a siege; the lifetime comes from {@code casus-belli.just-reasons}. */
+    public void grantJustCasusBoth(UUID clanId, UUID targetClanId, String reasonId) {
+        int ttl = me.lovelace.loveclans.util.CasusPrices.ttlDays(plugin.getConfig().getConfigurationSection("casus-belli"), reasonId);
+        // One scroll per (clan, target, type, reason): a repeat grant refreshes it instead of stacking duplicates
+        for (String type : new String[]{"WAR", "SIEGE"}) {
+            getModifiers(clanId).stream()
+                    .filter(m -> ClanModifier.TYPE_JUST_CASUS.equals(m.type()) && targetClanId.equals(m.targetClanId())
+                            && type.equalsIgnoreCase(m.conflictType()) && reasonId.equalsIgnoreCase(m.reasonId()))
+                    .forEach(m -> removeModifier(m.id()));
+            grantJustCasus(clanId, targetClanId, type, reasonId, ttl);
+        }
     }
 
     public void grantJustCasus(UUID clanId, UUID targetClanId, String conflictType, String reasonId, int ttlDays) {
@@ -217,7 +261,7 @@ public final class ModifierManager {
         // 1. Process reparations
         for (List<ClanModifier> list : modifiers.values()) {
             for (ClanModifier m : list) {
-                if (!ClanModifier.TYPE_REPARATIONS_DEBT.equals(m.type()) || m.isExpired(now)) {
+                if (!ClanModifier.TYPE_REPARATIONS_DEBT.equals(m.type()) || m.daysLeft() <= 0) {
                     continue;
                 }
                 long lastTickedAt = 0L;
@@ -242,8 +286,14 @@ public final class ModifierManager {
                 long amount = m.dailyAmount();
                 int daysLeft = m.daysLeft() - 1;
                 int arrears = m.arrears();
+                // on-missed-payment: accrue - what was not paid is added to the next payment; skip - it is forgiven
+                boolean accrue = "accrue".equalsIgnoreCase(plugin.getConfig().getString("war.reparations.on-missed-payment", "accrue"));
+                long owed = accrue ? amount * (1L + arrears) : amount;
+                int maxArrears = Math.max(1, plugin.getConfig().getInt("war.reparations.max-arrears-days", 3));
+                amount = owed;
 
                 if (debtor.chestMoney() >= amount) {
+                    arrears = 0;
                     debtor.addChestMoney(-amount);
                     creditor.addChestMoney(amount);
                     plugin.getStorage().updateClanChestMoney(debtor.id(), debtor.chestMoney());
@@ -256,8 +306,9 @@ public final class ModifierManager {
                     broadcastToClan(debtor, "<red><bold>Внимание!</bold> В казне клана недостаточно средств для выплаты дани клану <gold>" + creditor.name() + "<red>! Долг зафиксирован (неуплата #" + arrears + ").");
                     broadcastToClan(creditor, "<red>Клан <gold>" + debtor.name() + "<red> не смог выплатить ежедневную дань! (неуплата #" + arrears + ").");
 
-                    if (arrears >= 3) {
-                        grantJustCasus(creditorClanId, debtorClanId, "WAR", "unpaid_tribute", 7);
+                    // Exactly at the threshold: the casus is granted once, not again on every later missed day
+                    if (arrears == maxArrears) {
+                        grantJustCasusBoth(creditorClanId, debtorClanId, "unpaid_tribute");
                         broadcastToClan(creditor, "<gold><bold>Казус белли получен!</bold> Из-за 3 неуплат дани вы можете объявить войну клану <white>" + debtor.name() + "<gold>!");
                     }
                 }

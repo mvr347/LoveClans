@@ -110,8 +110,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
         // the working zone (18-44) hosts the clan grid.
         GuiFrames.fillFrame54(inventory);
 
-        Material sourceEmblem = sourceClan.emblem().name().endsWith("_BANNER") ? sourceClan.emblem() : Material.WHITE_BANNER;
-        inventory.setItem(SLOT_INFO, ItemBuilder.of(sourceEmblem)
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(plugin.getMessages().component("gui.diplomacy-select.title", Map.of("tag", sourceClan.tag(), "color", sourceClan.tagColor()), player))
                 .build());
 

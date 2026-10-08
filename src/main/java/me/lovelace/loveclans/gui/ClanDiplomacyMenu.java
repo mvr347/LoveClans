@@ -380,13 +380,8 @@ public final class ClanDiplomacyMenu {
                         player.sendMessage(Component.text("§cУ вас нет подходящего Casus Belli!"));
                         return;
                     }
-                    plugin.getWarManager().startWarAsync(sourceClan, targetClan, territory.get())
-                            .thenRun(() -> {
-                                if (cbRequired) {
-                                    plugin.getClanManager().getClanItemFactory().consumeCasusBelli(player, targetClan.id(), "WAR");
-                                }
-                            })
-                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                    me.lovelace.loveclans.util.CasusDeclaration.declare(plugin, player, cbRequired, targetClan.id(), "WAR",
+                            () -> plugin.getWarManager().startWarAsync(sourceClan, targetClan, territory.get()));
                 },
                 () -> plugin.runSync(() -> open(player, sourceClan, targetClan)));
     }
@@ -442,13 +437,8 @@ public final class ClanDiplomacyMenu {
                         player.sendMessage(Component.text("§cУ вас нет подходящего Casus Belli!"));
                         return;
                     }
-                    plugin.getSiegeManager().startSiegeAsync(sourceClan, targetClan, territory.get())
-                            .thenRun(() -> {
-                                if (cbRequired) {
-                                    plugin.getClanManager().getClanItemFactory().consumeCasusBelli(player, targetClan.id(), "SIEGE");
-                                }
-                            })
-                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                    me.lovelace.loveclans.util.CasusDeclaration.declare(plugin, player, cbRequired, targetClan.id(), "SIEGE",
+                            () -> plugin.getSiegeManager().startSiegeAsync(sourceClan, targetClan, territory.get()));
                 },
                 () -> plugin.runSync(() -> open(player, sourceClan, targetClan)));
     }

@@ -240,6 +240,17 @@ public class ClanProtectionListener implements Listener {
         }
     }
 
+    /** The raid chest cannot be blown up: the raid would go on with nothing to capture. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onRaidChestExplode(org.bukkit.event.entity.EntityExplodeEvent event) {
+        event.blockList().removeIf(b -> plugin.getRaidManager().isChestBlock(b.getLocation()));
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onRaidChestBlockExplode(org.bukkit.event.block.BlockExplodeEvent event) {
+        event.blockList().removeIf(b -> plugin.getRaidManager().isChestBlock(b.getLocation()));
+    }
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (!event.hasBlock() || event.getClickedBlock() == null || !event.getAction().isRightClick()) {
@@ -404,7 +415,16 @@ public class ClanProtectionListener implements Listener {
         if (warOpt.isEmpty()) {
             // Not the banner actually being contested right now (or the clan isn't in a war
             // over it at all) - protect it same as in peacetime.
-            if (warManager.isAtWar(clanId)) {
+            Optional<ClanWar> anyWar = warManager.warOf(clanId);
+            if (anyWar.isPresent() && anyWar.get().state() == me.lovelace.loveclans.model.war.WarState.PREPARING) {
+                plugin.getMessages().send(player, "war.banner.not-started",
+                        java.util.Map.of("time", warManager.remainingText(anyWar.get())));
+            } else if (anyWar.isPresent() && anyWar.get().defenderClanId().equals(clanId)
+                    && warManager.contestedBannerLocation(anyWar.get()).isPresent()) {
+                org.bukkit.Location at = warManager.contestedBannerLocation(anyWar.get()).get();
+                plugin.getMessages().send(player, "war.banner.wrong-territory", java.util.Map.of(
+                        "x", String.valueOf(at.getBlockX()), "y", String.valueOf(at.getBlockY()), "z", String.valueOf(at.getBlockZ())));
+            } else if (anyWar.isPresent()) {
                 plugin.getMessages().send(player, "territory.banner.not-contested");
             } else {
                 plugin.getMessages().send(player, "CAPITAL".equals(bannerType)

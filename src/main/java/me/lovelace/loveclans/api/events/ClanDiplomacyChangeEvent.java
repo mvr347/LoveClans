@@ -11,11 +11,22 @@ public final class ClanDiplomacyChangeEvent extends Event {
     private final UUID sourceClanId;
     private final UUID targetClanId;
     private final DiplomacyRelation relation;
+    private final DiplomacyRelation oldRelation;
 
     public ClanDiplomacyChangeEvent(UUID sourceClanId, UUID targetClanId, DiplomacyRelation relation) {
+        this(sourceClanId, targetClanId, relation, null);
+    }
+
+    public ClanDiplomacyChangeEvent(UUID sourceClanId, UUID targetClanId, DiplomacyRelation relation, DiplomacyRelation oldRelation) {
         this.sourceClanId = sourceClanId;
         this.targetClanId = targetClanId;
         this.relation = relation;
+        this.oldRelation = oldRelation;
+    }
+
+    /** The relation before the change, or null when the firing code did not know it. */
+    public DiplomacyRelation oldRelation() {
+        return oldRelation;
     }
 
     public UUID sourceClanId() {

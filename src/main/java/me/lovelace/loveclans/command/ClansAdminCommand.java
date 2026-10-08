@@ -42,7 +42,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
             "reload", "createnpc", "removenpc", "disband", "war", "siege", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "casus", "help"
     );
     private static final List<String> AMOUNT_ACTIONS = List.of("add", "remove", "set");
-    private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "end");
+    private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "skip", "end");
     private static final List<String> SIEGE_ACTIONS = List.of("forcestart");
     private static final List<String> RELATIONS = List.of("ally", "enemy", "neutral");
 
@@ -268,9 +268,25 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         Clan clan1 = clan1Opt.get();
         Clan clan2 = clan2Opt.get();
 
-        if (subAction.equals("start") || subAction.equals("forcestart")) {
+        if (subAction.equals("skip")) {
+            if (plugin.getWarManager().skipPreparation(clan1.id(), clan2.id())) {
+                plugin.getMessages().send(sender, "admin.war-skipped",
+                        Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()));
+            } else {
+                plugin.getMessages().send(sender, "admin.war-not-preparing");
+            }
+        } else if (subAction.equals("start") || subAction.equals("forcestart")) {
             boolean force = subAction.equals("forcestart");
-            plugin.getWarManager().startWarAsync(clan1, clan2, null, force)
+            // The war must be about a concrete territory (the defender's capital), otherwise it starts without
+            // compasses, siege mode or a breakable banner and just runs out its timer.
+            me.lovelace.loveclans.model.TerritoryKey contested = clan2.getCapitalTerritory()
+                    .map(me.lovelace.loveclans.model.ClanTerritory::key).orElse(null);
+            if (contested == null) {
+                plugin.getMessages().send(sender, "admin.war-no-territory",
+                        Map.of("clan", clan2.tag(), "color", clan2.tagColor()));
+                return;
+            }
+            plugin.getWarManager().startWarAsync(clan1, clan2, contested, force)
                     .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender,
                             force ? "admin.war-force-started" : "admin.war-started",
                             Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()))))
@@ -309,7 +325,14 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         }
         Clan clan1 = clan1Opt.get();
         Clan clan2 = clan2Opt.get();
-        plugin.getSiegeManager().startSiegeAsync(clan1, clan2, null, true)
+        // Without a territory the siege is cancelled on activation, so the defender's capital is the target
+        Optional<me.lovelace.loveclans.model.TerritoryKey> siegeTarget = clan2.getCapitalTerritory()
+                .map(me.lovelace.loveclans.model.ClanTerritory::key);
+        if (siegeTarget.isEmpty()) {
+            plugin.getMessages().send(sender, "admin.war-no-territory");
+            return;
+        }
+        plugin.getSiegeManager().startSiegeAsync(clan1, clan2, siegeTarget.get(), true)
                 .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.siege-force-started",
                         Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()))))
                 .exceptionally(ex -> {
