@@ -10,7 +10,6 @@ import me.lovelace.loveclans.model.ClanSpirit;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.DiplomacyRelation;
-import me.lovelace.loveclans.model.diplomacy.ClanLetter;
 import me.lovelace.loveclans.model.history.ConflictKind;
 import me.lovelace.loveclans.model.history.ConflictRecord;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
@@ -37,6 +36,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import me.lovelace.loveclans.model.modifier.ClanModifier;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -45,6 +48,9 @@ import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 public final class SqlClanStorage implements ClanStorage {
+    private static final Gson GSON = new Gson();
+    private static final Type MAP_STRING_STRING = new TypeToken<Map<String, String>>() {}.getType();
+
     private final DatabaseManager database;
 
     public SqlClanStorage(DatabaseManager database) {
@@ -814,72 +820,7 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
-    @Override
-    public CompletableFuture<Void> saveLetterAsync(ClanLetter letter) {
-        return CompletableFuture.runAsync(() -> {
-            String sql = database.type() == DatabaseType.MYSQL
-                    ? "INSERT INTO clan_letters (id, clan_from, clan_to, message, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?) " +
-                      "ON DUPLICATE KEY UPDATE is_read = VALUES(is_read)"
-                    : "INSERT INTO clan_letters (id, clan_from, clan_to, message, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?) " +
-                      "ON CONFLICT(id) DO UPDATE SET is_read = excluded.is_read";
-            try (Connection connection = database.dataSource().getConnection();
-                 PreparedStatement statement = connection.prepareStatement(sql)) {
-                statement.setString(1, letter.id().toString());
-                statement.setString(2, letter.fromClanId().toString());
-                statement.setString(3, letter.toClanId().toString());
-                statement.setString(4, letter.message());
-                statement.setInt(5, letter.read() ? 1 : 0);
-                statement.setLong(6, letter.createdAt());
-                statement.executeUpdate();
-            } catch (SQLException exception) {
-                throw new StorageException("Unable to save letter " + letter.id(), exception);
-            }
-        }, database.executor());
-    }
 
-    @Override
-    public CompletableFuture<Collection<ClanLetter>> loadLettersBetweenAsync(UUID clanA, UUID clanB) {
-        return CompletableFuture.supplyAsync(() -> {
-            List<ClanLetter> result = new ArrayList<>();
-            String sql = "SELECT * FROM clan_letters WHERE (clan_from = ? AND clan_to = ?) OR (clan_from = ? AND clan_to = ?) ORDER BY created_at DESC";
-            try (Connection connection = database.dataSource().getConnection();
-                 PreparedStatement statement = connection.prepareStatement(sql)) {
-                statement.setString(1, clanA.toString());
-                statement.setString(2, clanB.toString());
-                statement.setString(3, clanB.toString());
-                statement.setString(4, clanA.toString());
-                try (ResultSet rs = statement.executeQuery()) {
-                    while (rs.next()) {
-                        result.add(new ClanLetter(
-                                UUID.fromString(rs.getString("id")),
-                                UUID.fromString(rs.getString("clan_from")),
-                                UUID.fromString(rs.getString("clan_to")),
-                                rs.getString("message"),
-                                rs.getInt("is_read") != 0,
-                                rs.getLong("created_at")
-                        ));
-                    }
-                }
-            } catch (SQLException exception) {
-                throw new StorageException("Unable to load letters between " + clanA + " and " + clanB, exception);
-            }
-            return result;
-        }, database.executor());
-    }
-
-    @Override
-    public CompletableFuture<Void> markLetterReadAsync(UUID letterId) {
-        return CompletableFuture.runAsync(() -> {
-            try (Connection connection = database.dataSource().getConnection();
-                 PreparedStatement statement = connection.prepareStatement(
-                         "UPDATE clan_letters SET is_read = 1 WHERE id = ?")) {
-                statement.setString(1, letterId.toString());
-                statement.executeUpdate();
-            } catch (SQLException exception) {
-                throw new StorageException("Unable to mark letter " + letterId + " as read", exception);
-            }
-        }, database.executor());
-    }
 
     // --- Торговля между кланами через сундук (§4.2) ---
 
@@ -1582,5 +1523,99 @@ public final class SqlClanStorage implements ClanStorage {
             }
         }
         return records;
+    }
+
+    @Override
+    public CompletableFuture<Void> saveModifierAsync(ClanModifier modifier) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = database.type() == DatabaseType.MYSQL
+                    ? "INSERT INTO clan_modifiers (id, clan_id, type, payload, started_at, ends_at, stacks) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                      + "ON DUPLICATE KEY UPDATE clan_id = VALUES(clan_id), type = VALUES(type), payload = VALUES(payload), started_at = VALUES(started_at), ends_at = VALUES(ends_at), stacks = VALUES(stacks)"
+                    : "INSERT INTO clan_modifiers (id, clan_id, type, payload, started_at, ends_at, stacks) VALUES (?, ?, ?, ?, ?, ?, ?) "
+                      + "ON CONFLICT(id) DO UPDATE SET clan_id = excluded.clan_id, type = excluded.type, payload = excluded.payload, started_at = excluded.started_at, ends_at = excluded.ends_at, stacks = excluded.stacks";
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setString(1, modifier.id().toString());
+                statement.setString(2, modifier.clanId().toString());
+                statement.setString(3, modifier.type());
+                statement.setString(4, GSON.toJson(modifier.payload()));
+                statement.setLong(5, modifier.startedAt());
+                statement.setLong(6, modifier.endsAt());
+                statement.setInt(7, modifier.stacks());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save clan modifier " + modifier.id(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteModifierAsync(UUID modifierId) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("DELETE FROM clan_modifiers WHERE id = ?")) {
+                statement.setString(1, modifierId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete clan modifier " + modifierId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<List<ClanModifier>> loadModifiersForClanAsync(UUID clanId) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_modifiers WHERE clan_id = ?")) {
+                statement.setString(1, clanId.toString());
+                try (ResultSet result = statement.executeQuery()) {
+                    List<ClanModifier> list = new ArrayList<>();
+                    while (result.next()) {
+                        list.add(readModifier(result));
+                    }
+                    return list;
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load modifiers for clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<List<ClanModifier>> loadAllModifiersAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_modifiers")) {
+                try (ResultSet result = statement.executeQuery()) {
+                    List<ClanModifier> list = new ArrayList<>();
+                    while (result.next()) {
+                        list.add(readModifier(result));
+                    }
+                    return list;
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load all clan modifiers", exception);
+            }
+        }, database.executor());
+    }
+
+    private ClanModifier readModifier(ResultSet result) throws SQLException {
+        UUID id = UUID.fromString(result.getString("id"));
+        UUID clanId = UUID.fromString(result.getString("clan_id"));
+        String type = result.getString("type");
+        String rawPayload = result.getString("payload");
+        Map<String, String> payload = Map.of();
+        if (rawPayload != null && !rawPayload.isBlank()) {
+            try {
+                Map<String, String> parsed = GSON.fromJson(rawPayload, MAP_STRING_STRING);
+                if (parsed != null) {
+                    payload = parsed;
+                }
+            } catch (Exception ignored) {}
+        }
+        long startedAt = result.getLong("started_at");
+        long endsAt = result.getLong("ends_at");
+        int stacks = result.getInt("stacks");
+        return new ClanModifier(id, clanId, type, payload, startedAt, endsAt, stacks);
     }
 }

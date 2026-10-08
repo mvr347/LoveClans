@@ -1,12 +1,13 @@
 package me.lovelace.loveclans.manager;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.gui.CampFortifyMenu;
 import me.lovelace.loveclans.gui.ClanBannerCreationMenu;
 import me.lovelace.loveclans.gui.ClanCapitalManagementMenu;
 import me.lovelace.loveclans.gui.ClanChestMenu;
 import me.lovelace.loveclans.gui.ClanChestMoneyMenu;
 import me.lovelace.loveclans.gui.ClanColorPickerMenu;
-import me.lovelace.loveclans.gui.ClanLettersMenu;
+
 import me.lovelace.loveclans.gui.ClanConfirmMenu;
 import me.lovelace.loveclans.gui.ClanContractChoiceMenu;
 import me.lovelace.loveclans.gui.ClanContractsMenu;
@@ -18,12 +19,12 @@ import me.lovelace.loveclans.gui.ClanRelationMenu;
 import me.lovelace.loveclans.gui.ClanPerkMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacySelectMenu;
 import me.lovelace.loveclans.gui.ClanInfoMenu;
-import me.lovelace.loveclans.gui.ClanBannerCreationMenu;
-import me.lovelace.loveclans.gui.ClanCreateMenu;
 import me.lovelace.loveclans.gui.ClanListMenu;
 import me.lovelace.loveclans.gui.ClanMainMenu;
 import me.lovelace.loveclans.gui.ClanMemberDetailMenu;
 import me.lovelace.loveclans.gui.ClanMembersMenu;
+import me.lovelace.loveclans.gui.ClanModifiersMenu;
+import me.lovelace.loveclans.gui.CasusBelliMenu;
 import me.lovelace.loveclans.gui.MembersView;
 import me.lovelace.loveclans.gui.ClanMenuHolder;
 import me.lovelace.loveclans.gui.ClanMenuType;
@@ -74,8 +75,10 @@ public class GuiManager implements Listener {
     private final ClanRecognitionConfirmMenu recognitionMenu;
     private final GuildmasterMenu guildmasterMenu;
     private final ClanChestMoneyMenu chestMoneyMenu;
-    private final ClanLettersMenu lettersMenu;
     private final ClanTradeMenu tradeMenu;
+    private final ClanModifiersMenu modifiersMenu;
+    private final CasusBelliMenu casusBelliMenu;
+    private final CampFortifyMenu campFortifyMenu;
 
     private final Map<UUID, Runnable> confirmYes = new ConcurrentHashMap<>();
     private final Map<UUID, Runnable> confirmNo = new ConcurrentHashMap<>();
@@ -99,8 +102,14 @@ public class GuiManager implements Listener {
         this.recognitionMenu = new ClanRecognitionConfirmMenu(plugin);
         this.guildmasterMenu = new GuildmasterMenu(plugin, recognitionMenu);
         this.chestMoneyMenu = new ClanChestMoneyMenu(plugin);
-        this.lettersMenu = new ClanLettersMenu(plugin);
         this.tradeMenu = new ClanTradeMenu(plugin);
+        this.modifiersMenu = new ClanModifiersMenu(plugin);
+        this.casusBelliMenu = new CasusBelliMenu(plugin);
+        this.campFortifyMenu = new CampFortifyMenu(plugin);
+    }
+
+    public void openCampFortify(Player player, UUID siegeId, int campIndex) {
+        campFortifyMenu.open(player, siegeId, campIndex);
     }
 
     /** "Торговля": other clans, trade requests and state orders; {@code tab} null keeps the remembered tab. */
@@ -114,6 +123,14 @@ public class GuiManager implements Listener {
 
     public void openTradeRequests(Player player, Clan clan) {
         openTrade(player, clan, ClanTradeMenu.Tab.REQUESTS);
+    }
+
+    public void openModifiers(Player player, Clan clan) {
+        modifiersMenu.open(player, clan);
+    }
+
+    public void openCasusBelli(Player player, Clan clan) {
+        casusBelliMenu.open(player, clan);
     }
 
     /**
@@ -146,9 +163,7 @@ public class GuiManager implements Listener {
         openTrade(player, clan, ClanTradeMenu.Tab.STATE);
     }
 
-    public void openLetters(Player player, Clan sourceClan, Clan targetClan) {
-        lettersMenu.open(player, sourceClan, targetClan);
-    }
+
 
     public void openContracts(Player player, Clan clan) {
         contractsMenu.open(player, clan);
@@ -457,12 +472,15 @@ public class GuiManager implements Listener {
                             recognitionMenu.handleInventoryClick(player, slot, recognitionHolder);
                         }
                     }
-                    case LETTERS -> lettersMenu.handleInventoryClick(player, clan, slot);
+
                     case TRADE -> {
                         if (holder instanceof ClanTradeMenu.Holder tradeHolder) {
                             tradeMenu.handleInventoryClick(event, player, clan, tradeHolder);
                         }
                     }
+                    case MODIFIERS -> modifiersMenu.handleInventoryClick(player, clan, slot);
+                    case CASUS_BELLI -> casusBelliMenu.handleInventoryClick(player, clan, slot);
+                    case CAMP_FORTIFY -> campFortifyMenu.handleInventoryClick(player, slot);
                     default -> {
                     }
                 }

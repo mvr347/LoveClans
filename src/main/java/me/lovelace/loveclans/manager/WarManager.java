@@ -20,7 +20,9 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Particle;
 import org.bukkit.Sound;
+import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.CompassMeta;
@@ -45,6 +47,10 @@ public final class WarManager {
     private final LoveClansPlugin plugin;
     private final Map<UUID, ClanWar> activeWars = new ConcurrentHashMap<>();
     private final Map<AbstractMap.SimpleImmutableEntry<UUID, UUID>, Long> warCooldowns = new ConcurrentHashMap<>();
+    private final Map<UUID, Material> originalContestedBanners = new ConcurrentHashMap<>();
+    /** Boss bars of wars in the ACTIVE phase: score, time left and banner state for both sides. */
+    private final Map<UUID, BossBar> activeBossBars = new ConcurrentHashMap<>();
+    private final Map<UUID, Integer> killStreaks = new ConcurrentHashMap<>();
 
     /** Restores the pair cooldowns after a restart (blocking read, called once from an async startup task). */
     public void loadCooldowns() {
@@ -63,8 +69,6 @@ public final class WarManager {
     // сторонам, пока война находится в состоянии PREPARING (объявлена, но ещё не началась).
     private final Map<UUID, BossBar> pendingBossBars = new ConcurrentHashMap<>();
     private final Set<UUID> oneMinuteWarned = ConcurrentHashMap.newKeySet();
-    /** Boss bars of wars in the ACTIVE phase: score, time left and capture progress for both sides. */
-    private final Map<UUID, BossBar> activeBossBars = new ConcurrentHashMap<>();
 
     public WarManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -287,16 +291,17 @@ public final class WarManager {
         return plugin.getConfig().getBoolean("war.effects.enabled", true);
     }
 
-    private Component activeBarTitle(ClanWar war, Clan attacker, Clan defender, long remainingMs, boolean capture) {
-        return plugin.getMessages().component(capture ? "war.bossbar.capture" : "war.bossbar.active", Map.of(
+    private Component activeBarTitle(ClanWar war, Clan attacker, Clan defender, long remainingMs) {
+        return plugin.getMessages().component("war.bossbar.active", Map.of(
                 "attacker", attacker.tag(), "color1", attacker.tagColor(),
                 "defender", defender.tag(), "color2", defender.tagColor(),
                 "s1", String.valueOf(war.attackerScore()), "s2", String.valueOf(war.defenderScore()),
-                "time", formatDuration(remainingMs)));
+                "time", formatDuration(remainingMs),
+                "banner", plugin.getMessages().raw(war.isBannerSuppressed() ? "war.bossbar.banner-broken" : "war.bossbar.banner-intact")));
     }
 
     private void beginActivePhase(ClanWar war, Clan attacker, Clan defender) {
-        BossBar bar = BossBar.bossBar(activeBarTitle(war, attacker, defender, war.endsAt() - System.currentTimeMillis(), false),
+        BossBar bar = BossBar.bossBar(activeBarTitle(war, attacker, defender, war.endsAt() - System.currentTimeMillis()),
                 1.0f, BossBar.Color.RED, BossBar.Overlay.NOTCHED_10);
         activeBossBars.put(war.id(), bar);
         java.util.stream.Stream.concat(onlineMembers(attacker), onlineMembers(defender)).forEach(p -> p.showBossBar(bar));
@@ -313,32 +318,21 @@ public final class WarManager {
         BossBar bar = activeBossBars.get(war.id());
         Optional<WarClans> clans = resolveWarClans(war);
         if (bar == null || clans.isEmpty()) return;
-        boolean capture = war.capturedBannerBy() != null;
-        long remaining;
-        float progress;
-        if (capture) {
-            long total = bannerCaptureDuration().toMillis();
-            remaining = total - (now - war.bannerCapturedAt());
-            progress = (float) remaining / (float) Math.max(1L, total);
-            bar.color(BossBar.Color.PURPLE);
-        } else {
-            long total = warDuration().toMillis();
-            remaining = war.endsAt() - now;
-            progress = (float) remaining / (float) Math.max(1L, total);
-            bar.color(BossBar.Color.RED);
-        }
-        bar.progress(Math.max(0f, Math.min(1f, progress)));
-        bar.name(activeBarTitle(war, clans.get().attacker(), clans.get().defender(), Math.max(0L, remaining), capture));
+        long remaining = war.endsAt() - now;
+        long total = warDuration().toMillis();
+        bar.progress(Math.max(0f, Math.min(1f, (float) remaining / (float) Math.max(1L, total))));
+        bar.color(remaining <= 300_000L ? BossBar.Color.YELLOW : BossBar.Color.RED);
+        bar.name(activeBarTitle(war, clans.get().attacker(), clans.get().defender(), Math.max(0L, remaining)));
     }
 
-    /** A red beam over the banner everyone is fighting for (purple while it is being captured). */
+    /** A red beam over the banner everyone is fighting for (grey while the banner is suppressed). */
     private void spawnBannerEffects(ClanWar war) {
         if (!effectsEnabled()) return;
         contestedBannerLocation(war).ifPresent(loc -> {
             org.bukkit.World world = loc.getWorld();
             if (world == null || !world.isChunkLoaded(loc.getBlockX() >> 4, loc.getBlockZ() >> 4)) return;
             Particle.DustOptions dust = new Particle.DustOptions(
-                    war.capturedBannerBy() != null ? Color.PURPLE : Color.RED, 1.6f);
+                    war.isBannerSuppressed() ? Color.GRAY : Color.RED, 1.6f);
             for (int i = 0; i < 10; i++) {
                 world.spawnParticle(Particle.DUST, loc.getX() + 0.5, loc.getY() + 1.0 + i * 0.6, loc.getZ() + 0.5,
                         2, 0.15, 0.1, 0.15, 0.0, dust);
@@ -375,8 +369,8 @@ public final class WarManager {
         return false;
     }
 
-    /** Winner takes a share of the loser's treasury; draws and cancelled wars pay nothing. */
-    private void awardTrophies(ClanWar war, WarResult result) {
+    /** Server-wide result announcement; the prize of a war is the tribute (ModifierManager), not treasury loot. */
+    private void announceResult(ClanWar war, WarResult result) {
         if (result != WarResult.ATTACKER_WIN && result != WarResult.DEFENDER_WIN) return;
         Optional<WarClans> clans = resolveWarClans(war);
         if (clans.isEmpty()) return;
@@ -392,17 +386,6 @@ public final class WarManager {
                         "s2", String.valueOf(result == WarResult.ATTACKER_WIN ? war.defenderScore() : war.attackerScore())));
             }
         }
-
-        int percent = plugin.getConfig().getInt("war.trophies.treasury-percent", 10);
-        long cap = plugin.getConfig().getLong("war.trophies.max-amount", 0L);
-        long prize = me.lovelace.loveclans.util.WarTrophies.amount(loser.chestMoney(), percent, cap);
-        long moved = plugin.getClanManager().transferTreasuryMoney(loser, winner, prize);
-        if (moved <= 0) return;
-        String amount = me.lovelace.loveclans.util.CoinFormat.format(moved);
-        onlineMembers(winner).forEach(p -> plugin.getMessages().send(p, "war.trophies.won",
-                Map.of("amount", amount, "tag", loser.tag(), "color", loser.tagColor())));
-        onlineMembers(loser).forEach(p -> plugin.getMessages().send(p, "war.trophies.lost",
-                Map.of("amount", amount, "tag", winner.tag(), "color", winner.tagColor())));
     }
 
     private void clearPendingPhase(UUID warId, WarClans clans) {
@@ -410,10 +393,11 @@ public final class WarManager {
         BossBar activeBar = activeBossBars.remove(warId);
         oneMinuteWarned.remove(warId);
         if (clans != null) {
-            java.util.stream.Stream.concat(onlineMembers(clans.attacker()), onlineMembers(clans.defender())).forEach(p -> {
-                if (bar != null) p.hideBossBar(bar);
-                if (activeBar != null) p.hideBossBar(activeBar);
-            });
+            java.util.stream.Stream.concat(onlineMembers(clans.attacker()), onlineMembers(clans.defender()))
+                    .forEach(p -> {
+                        if (bar != null) p.hideBossBar(bar);
+                        if (activeBar != null) p.hideBossBar(activeBar);
+                    });
         }
     }
 
@@ -437,10 +421,12 @@ public final class WarManager {
                 lastControlAward.remove(war.id());
                 archiveWar(war, result);
 
-                // Before the defender may be disbanded below: the spoils come out of a treasury that still exists
-                awardTrophies(war, result);
+                announceResult(war, result);
 
                 long reward = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
+                int durationDays = plugin.getConfig().getInt("war.reparations.duration-days", 5);
+                long dailyAmount = plugin.getConfig().getLong("war.reparations.daily-amount", 500L);
+
                 if (result == WarResult.ATTACKER_WIN) {
                     plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(clan -> {
                         plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
@@ -459,16 +445,11 @@ public final class WarManager {
                                 return null;
                             }));
                     plugin.getDiplomacyManager().liftBlockadeOnVictory(war.attackerClanId(), war.defenderClanId());
-                    if (war.capturedBannerBy() != null) {
-                        // null actorId: this is a forced system disband (the attacker who captured
-                        // the banner is not a member of the defender clan, so passing their UUID
-                        // as actorId would always fail Clan#hasPermission and silently no-op).
-                        plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(defender ->
-                                plugin.getClanManager().disbandClanAsync(defender, null).exceptionally(t -> {
-                                    plugin.getLogger().warning("Failed to disband clan " + defender.id() + " after war loss: " + t.getMessage());
-                                    return null;
-                                }));
-                    }
+
+                    // Репарации и Casus мести (newwars-1.md)
+                    plugin.getModifierManager().grantReparations(war.defenderClanId(), war.attackerClanId(), durationDays, dailyAmount);
+                    plugin.getModifierManager().grantJustCasus(war.defenderClanId(), war.attackerClanId(), "war", "revenge_war", 14);
+
                 } else if (result == WarResult.DEFENDER_WIN) {
                     plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(clan -> {
                         plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
@@ -487,6 +468,10 @@ public final class WarManager {
                                 return null;
                             }));
                     plugin.getDiplomacyManager().liftBlockadeOnVictory(war.defenderClanId(), war.attackerClanId());
+
+                    // Репарации и Casus мести (newwars-1.md)
+                    plugin.getModifierManager().grantReparations(war.attackerClanId(), war.defenderClanId(), durationDays, dailyAmount);
+                    plugin.getModifierManager().grantJustCasus(war.attackerClanId(), war.defenderClanId(), "war", "revenge_war", 14);
                 }
             }
             return null;
@@ -549,6 +534,33 @@ public final class WarManager {
 
     public void addKillScore(UUID killerClanId, UUID victimClanId) {
         addScore(killerClanId, victimClanId, 1);
+    }
+
+    public void addKillScore(Player killer, Player victim, Clan killerClan, Clan victimClan) {
+        int baseScore = 1;
+        ClanMember victimMember = victimClan.member(victim.getUniqueId()).orElse(null);
+        if (victimMember != null) {
+            if (victimMember.rank() == ClanRank.LEADER) {
+                baseScore = 3;
+            } else if (victimMember.rank() == ClanRank.GUARDIAN) {
+                baseScore = 2;
+            }
+        }
+
+        int currentStreak = killStreaks.compute(killer.getUniqueId(), (k, v) -> v == null ? 1 : v + 1);
+        killStreaks.remove(victim.getUniqueId());
+
+        int bonus = 0;
+        if (currentStreak == 3) {
+            bonus = 2;
+            killer.sendMessage(Component.text("§6Стрик 3 убийства! §e+2 очка войны!"));
+        } else if (currentStreak == 5) {
+            bonus = 5;
+            killer.sendMessage(Component.text("§6Стрик 5 убийств! §e+5 очков войны!"));
+        }
+
+        addScore(killerClan.id(), victimClan.id(), baseScore + bonus);
+        onlineMembers(killerClan).forEach(p -> p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.4f));
     }
 
     /**
@@ -614,56 +626,6 @@ public final class WarManager {
                                         Map.of("percent", String.valueOf((int) Math.round(percent))))));
                     });
                 });
-    }
-
-    public void setBannerCapture(UUID warId, UUID playerId) {
-        ClanWar war = activeWars.get(warId);
-        if (war != null) {
-            activeWars.put(warId, war.withBannerCapture(playerId, System.currentTimeMillis()));
-        }
-    }
-
-    public void resetBannerCapture(UUID warId) {
-        ClanWar war = activeWars.get(warId);
-        if (war != null) {
-            activeWars.put(warId, war.withBannerCapture(null, 0));
-            restoreBannerBlock(war);
-            announceCaptureReset(war);
-        }
-    }
-
-    /**
-     * Ставит знамя оспариваемой территории обратно, если его сломал захвативший игрок, но не
-     * удержал (умер/вышел до истечения таймера капитуляции). Без этого блок навсегда остаётся
-     * воздухом после первого сброса - сломать (и тем самым перезапустить захват) будет уже нечего,
-     * и оставшаяся часть войны молча деградирует до победы по очкам/таймеру.
-     */
-    private void restoreBannerBlock(ClanWar war) {
-        Optional<ClanTerritory> territoryOpt = resolveContestedTerritory(war);
-        if (territoryOpt.isEmpty()) {
-            return;
-        }
-        ClanTerritory territory = territoryOpt.get();
-        if (territory.bannerX() == null || territory.bannerY() == null || territory.bannerZ() == null) {
-            return;
-        }
-        org.bukkit.World world = Bukkit.getWorld(territory.key().world());
-        if (world == null) {
-            return;
-        }
-        org.bukkit.block.Block block = world.getBlockAt(territory.bannerX(), territory.bannerY(), territory.bannerZ());
-        if (block.getType() != Material.AIR) {
-            return; // Not broken (or already restored) - nothing to do.
-        }
-        plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(defender -> {
-            block.setType(defender.emblem());
-            if (block.getState() instanceof org.bukkit.block.Banner bannerState) {
-                bannerState.getPersistentDataContainer().set(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING,
-                        territory.isCapital() ? "CAPITAL" : "TERRITORY");
-                bannerState.getPersistentDataContainer().set(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING, defender.id().toString());
-                bannerState.update(true);
-            }
-        });
     }
 
     /**
@@ -737,13 +699,54 @@ public final class WarManager {
         return Math.max(1, plugin.getConfig().getLong("war.banner-break-progress-reset-seconds", 15)) * 1000L;
     }
 
-    /**
-     * Знамя территории сломано атакующим - запускает отсчёт до капитуляции клана-защитника
-     * и уведомляет обе стороны.
-     */
+    public void suppressBanner(ClanWar war) {
+        int suppressScore = plugin.getConfig().getInt("war.banner-suppress-score", 25);
+        ClanWar updated = war.withBannerSuppressed(true, System.currentTimeMillis()).addAttackerScore(suppressScore);
+        activeWars.put(war.id(), updated);
+
+        resolveContestedTerritory(war).ifPresent(territory -> {
+            World world = Bukkit.getWorld(territory.world());
+            if (world != null && territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
+                Location bannerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
+                org.bukkit.block.Block block = bannerLoc.getBlock();
+                originalContestedBanners.put(war.id(), block.getType());
+                block.setType(Material.GRAY_BANNER);
+                if (block.getState() instanceof org.bukkit.block.Banner bannerState) {
+                    bannerState.getPersistentDataContainer().set(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING,
+                            territory.isCapital() ? "CAPITAL" : "TERRITORY");
+                    bannerState.getPersistentDataContainer().set(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING, war.defenderClanId().toString());
+                    bannerState.update(true);
+                }
+                world.spawnParticle(Particle.ASH, bannerLoc.clone().add(0.5, 0.5, 0.5), 30, 0.3, 0.3, 0.3, 0.05);
+                world.playSound(bannerLoc, Sound.ENTITY_WITHER_BREAK_BLOCK, 1.0f, 0.8f);
+            }
+        });
+
+        notifyBannerBroken(updated);
+    }
+
+    public void restoreBannerBlock(ClanWar war) {
+        resolveContestedTerritory(war).ifPresent(territory -> {
+            World world = Bukkit.getWorld(territory.world());
+            if (world != null && territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
+                Location bannerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
+                Material orig = originalContestedBanners.remove(war.id());
+                if (orig != null && orig != Material.AIR) {
+                    org.bukkit.block.Block block = bannerLoc.getBlock();
+                    block.setType(orig);
+                    if (block.getState() instanceof org.bukkit.block.Banner bannerState) {
+                        bannerState.getPersistentDataContainer().set(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING,
+                                territory.isCapital() ? "CAPITAL" : "TERRITORY");
+                        bannerState.getPersistentDataContainer().set(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING, war.defenderClanId().toString());
+                        bannerState.update(true);
+                    }
+                }
+            }
+        });
+    }
+
     public void startBannerCapture(ClanWar war, UUID carrierId) {
-        activeWars.put(war.id(), war.withBannerCapture(carrierId, System.currentTimeMillis()));
-        notifyBannerBroken(war);
+        suppressBanner(war);
     }
 
     public void purgeClan(UUID clanId) {
@@ -808,9 +811,7 @@ public final class WarManager {
         for (ClanWar war : activeWars()) {
             activeWars.remove(war.id());
             clearPendingPhase(war.id(), resolveWarClans(war).orElse(null));
-            if (war.capturedBannerBy() != null) {
-                restoreBannerBlock(war);
-            }
+            restoreBannerBlock(war);
             confiscateWarItems(war);
             endSiege(war);
             resetBannerHits(war.id());
@@ -828,23 +829,44 @@ public final class WarManager {
                 continue;
             }
 
-            updateActiveBar(war, now);
-            spawnBannerEffects(war);
+            if (war.isBannerSuppressed()) {
+                resolveContestedTerritory(war).ifPresent(territory -> {
+                    World world = Bukkit.getWorld(territory.world());
+                    if (world != null && territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
+                        Location bannerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
+                        Optional<WarClans> clansOpt = resolveWarClans(war);
+                        if (clansOpt.isPresent()) {
+                            boolean defenderNear = onlineMembers(clansOpt.get().defender())
+                                    .anyMatch(p -> p.getWorld().equals(world) && p.getLocation().distanceSquared(bannerLoc) <= 9.0);
+                            if (defenderNear) {
+                                double repairSeconds = plugin.getConfig().getDouble("war.banner-repair-seconds", 60.0);
+                                double delta = 100.0 / Math.max(1.0, repairSeconds);
+                                double nextProgress = war.bannerRepairProgress() + delta;
+                                world.spawnParticle(Particle.HAPPY_VILLAGER, bannerLoc.clone().add(0.5, 0.8, 0.5), 4, 0.2, 0.2, 0.2, 0.02);
+                                onlineMembers(clansOpt.get().defender())
+                                        .filter(p -> p.getWorld().equals(world) && p.getLocation().distanceSquared(bannerLoc) <= 9.0)
+                                        .forEach(p -> p.sendActionBar(Component.text("§aПочинка знамени: " + (int) nextProgress + "%")));
 
-            if (war.capturedBannerBy() != null) {
-                long remainingMs = bannerCaptureDuration().toMillis() - (now - war.bannerCapturedAt());
-                if (remainingMs <= 0) {
-                    endWarAsync(war.id(), WarResult.ATTACKER_WIN);
-                    continue;
-                }
-                broadcastCapitulationCountdown(war, remainingMs);
-                // Пока идёт отсчёт капитуляции, таймер войны её не обрывает: иначе истечение
-                // duration-minutes посреди отсчёта завершало бы войну по очкам, и уже сломанное
-                // знамя молча переставало что-либо решать.
-                continue;
+                                if (nextProgress >= 100.0) {
+                                    ClanWar restored = war.withBannerRestored();
+                                    activeWars.put(war.id(), restored);
+                                    restoreBannerBlock(restored);
+                                    world.playSound(bannerLoc, Sound.BLOCK_ANVIL_USE, 1.0f, 1.0f);
+                                    announceBannerRepaired(restored);
+                                } else {
+                                    activeWars.put(war.id(), war.withRepairProgress(nextProgress));
+                                }
+                            } else {
+                                world.spawnParticle(Particle.SMOKE, bannerLoc.clone().add(0.5, 0.5, 0.5), 2, 0.1, 0.1, 0.1, 0.01);
+                            }
+                        }
+                    }
+                });
             }
 
             tickTerritoryControl(war, now);
+            updateActiveBar(war, now);
+            spawnBannerEffects(war);
 
             if (war.endsAt() <= now) {
                 WarResult result = war.attackerScore() > war.defenderScore()
@@ -855,21 +877,20 @@ public final class WarManager {
         }
     }
 
-    /**
-     * Очки за удержание спорной территории. До этого единственным источником очков были
-     * убийства, и война сводилась к дефматчу: клану, слабому в PvP, нечего было
-     * противопоставить. Очки идут только когда на территории есть бойцы одной стороны и
-     * нет другой — за пустую территорию награды нет, за спорную тоже.
-     */
-    private void tickTerritoryControl(ClanWar war, long now) {
-        int score = plugin.getConfig().getInt("war.objectives.control-score", 1);
-        int everySeconds = plugin.getConfig().getInt("war.objectives.control-tick-seconds", 30);
-        if (score <= 0 || everySeconds <= 0) {
-            return;
-        }
+    private void announceBannerRepaired(ClanWar war) {
+        Optional<WarClans> clansOpt = resolveWarClans(war);
+        if (clansOpt.isEmpty()) return;
+        onlineMembers(clansOpt.get().defender()).forEach(p ->
+                p.sendTitle("§a§lЗНАМЯ ВОССТАНОВЛЕНО!", "§7Знамя починено и снова готово к защите!", 10, 40, 10));
+        onlineMembers(clansOpt.get().attacker()).forEach(p ->
+                p.sendTitle("§c§lЗНАМЯ ВОССТАНОВЛЕНО!", "§7Защитники починили знамя!", 10, 40, 10));
+    }
 
-        Long last = lastControlAward.get(war.id());
-        if (last != null && now - last < everySeconds * 1000L) {
+    private void tickTerritoryControl(ClanWar war, long now) {
+        int score = plugin.getConfig().getInt("war.objectives.control-score", 2);
+        int everySeconds = plugin.getConfig().getInt("war.objectives.control-tick-seconds", 20);
+        int minMembers = plugin.getConfig().getInt("war.objectives.control-min-members", 2);
+        if (score <= 0 || everySeconds <= 0) {
             return;
         }
 
@@ -895,13 +916,36 @@ public final class WarManager {
                 .filter(p -> p.getWorld().getName().equals(territoryWorld) && box.contains(p.getLocation().toVector()))
                 .count();
 
-        lastControlAward.put(war.id(), now);
-        if (attackers > 0 && defenders == 0) {
-            addScore(war.attackerClanId(), war.defenderClanId(), score);
-            announceControl(clansOpt.get().attacker(), score);
-        } else if (defenders > 0 && attackers == 0) {
-            addScore(war.defenderClanId(), war.attackerClanId(), score);
-            announceControl(clansOpt.get().defender(), score);
+        Long last = lastControlAward.get(war.id());
+        long elapsed = last == null ? everySeconds * 1000L : (now - last);
+        long remainingSec = Math.max(0, (everySeconds * 1000L - elapsed) / 1000);
+
+        World world = Bukkit.getWorld(territoryWorld);
+        if (world != null) {
+            String dominanceMsg;
+            if (attackers > defenders && attackers >= minMembers) {
+                dominanceMsg = "Доминирование: ATK " + attackers + " — " + defenders + " DEF  |  +" + score + " очков через " + remainingSec + "с";
+            } else if (defenders > attackers && defenders >= minMembers) {
+                dominanceMsg = "Доминирование: ATK " + attackers + " — " + defenders + " DEF  |  +" + score + " очков через " + remainingSec + "с";
+            } else {
+                dominanceMsg = "Оспариваемая земля: ATK " + attackers + " — " + defenders + " DEF";
+            }
+            for (Player p : java.util.stream.Stream.concat(onlineMembers(clansOpt.get().attacker()), onlineMembers(clansOpt.get().defender())).toList()) {
+                if (p.getWorld().equals(world) && box.contains(p.getLocation().toVector())) {
+                    p.sendActionBar(Component.text("§6" + dominanceMsg));
+                }
+            }
+        }
+
+        if (elapsed >= everySeconds * 1000L) {
+            lastControlAward.put(war.id(), now);
+            if (attackers > defenders && attackers >= minMembers) {
+                addScore(war.attackerClanId(), war.defenderClanId(), score);
+                onlineMembers(clansOpt.get().attacker()).forEach(p -> p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 1.2f));
+            } else if (defenders > attackers && defenders >= minMembers) {
+                addScore(war.defenderClanId(), war.attackerClanId(), score);
+                onlineMembers(clansOpt.get().defender()).forEach(p -> p.playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.8f, 1.2f));
+            }
         }
     }
 
@@ -1165,34 +1209,6 @@ public final class WarManager {
         });
     }
 
-    private void announceCaptureReset(ClanWar war) {
-        resolveWarClans(war).ifPresent(warClans -> {
-            onlineMembers(warClans.attacker()).forEach(player -> plugin.getMessages().send(player, "war.banner.capture-reset"));
-            onlineMembers(warClans.defender()).forEach(player -> plugin.getMessages().send(player, "war.banner.capture-reset"));
-        });
-    }
-
-    private void broadcastCapitulationCountdown(ClanWar war, long remainingMs) {
-        Optional<WarClans> warClansOpt = resolveWarClans(war);
-        if (warClansOpt.isEmpty()) {
-            return;
-        }
-        Clan defender = warClansOpt.get().defender();
-        String time = formatDuration(remainingMs);
-
-        // Glowing the carrier is handled once per tick by ClanProtectionListener.updateGlowingPlayers()
-        // (called from the same scheduled task, right after WarManager#tick()) - not duplicated here.
-        Player carrier = Bukkit.getPlayer(war.capturedBannerBy());
-        String carrierName = carrier != null ? carrier.getName() : "?";
-
-        onlineMembers(warClansOpt.get().defender()).forEach(player ->
-                plugin.getMessages().sendActionBar(player, "war.banner.capitulation-actionbar-defender",
-                        Map.of("time", time, "player", carrierName)));
-        onlineMembers(warClansOpt.get().attacker()).forEach(player ->
-                plugin.getMessages().sendActionBar(player, "war.banner.capitulation-actionbar-attacker",
-                        Map.of("time", time, "tag", defender.tag(), "color", defender.tagColor())));
-    }
-
     private String formatDuration(long millis) {
         long totalSeconds = Math.max(0, millis / 1000);
         long minutes = totalSeconds / 60;
@@ -1200,7 +1216,7 @@ public final class WarManager {
         return String.format("%d:%02d", minutes, seconds);
     }
 
-    private java.util.stream.Stream<Player> onlineMembers(Clan clan) {
+    public java.util.stream.Stream<Player> onlineMembers(Clan clan) {
         return clan.members().values().stream()
                 .map(ClanMember::playerId)
                 .map(Bukkit::getPlayer)

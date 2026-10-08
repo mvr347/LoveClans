@@ -38,7 +38,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "invites", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "letters", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
+            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "modifiers", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "accept", "invites", "list", "info"
@@ -138,7 +138,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "enemy" -> diplomacy(requirePlayer(sender), args, DiplomacyRelation.ENEMY);
                 case "neutral" -> diplomacy(requirePlayer(sender), args, DiplomacyRelation.NEUTRAL);
                 case "diplo" -> openDiplomacyFor(requirePlayer(sender), args.length > 1 ? args[1] : null);
-                case "letters" -> openLetters(requirePlayer(sender), args);
+                case "modifiers" -> openModifiers(requirePlayer(sender));
                 case "decline" -> declineInvite(requirePlayer(sender), args);
                 case "ritual" -> ritual(requirePlayer(sender), args);
                 case "vote" -> vote(requirePlayer(sender), args);
@@ -195,7 +195,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             }
             if (args.length == 2) {
                 switch (args[0].toLowerCase(Locale.ROOT)) {
-                    case "accept", "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "info", "letters" ->
+                    case "accept", "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "info", "diplo" ->
                             completions.addAll(plugin.getClanManager().getAllClans().stream().map(Clan::tag).collect(Collectors.toList()));
                     case "trade" -> {
                         completions.addAll(List.of("review", "accept", "decline", "cancel"));
@@ -288,19 +288,13 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         new ClanDiplomacyMenu(plugin).open(player, sourceClan.get(), target);
     }
 
-    private void openLetters(Player player, String[] args) {
-        requirePermission(player, Permissions.DIPLOMACY);
-        if (args.length < 2) {
-            plugin.getMessages().send(player, "clan.help.letters");
-            return;
-        }
-        Optional<Clan> sourceClan = requireClan(player);
-        if (sourceClan.isEmpty()) {
+    private void openModifiers(Player player) {
+        Optional<Clan> clanOpt = requireClan(player);
+        if (clanOpt.isEmpty()) {
             plugin.getMessages().send(player, "clan.not-in-clan");
             return;
         }
-        Clan target = plugin.getClanManager().getClanByTag(args[1]).orElseThrow(() -> new IllegalStateException("war.not-found"));
-        plugin.getGuiManager().openLetters(player, sourceClan.get(), target);
+        plugin.getGuiManager().openModifiers(player, clanOpt.get());
     }
 
     private void allianceAccept(Player player, String sourceClanTag) {
@@ -872,9 +866,20 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         TerritoryKey territoryKey = contestedTerritory.get().key();
 
+        boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.war", true);
+        if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, defender.id(), "WAR")) {
+            plugin.sendOperationError(player, new IllegalStateException("casus.missing.war"));
+            return;
+        }
+
         // No success message here: WarManager#beginPendingPhase already notifies every online
         // member of both clans (including this player) once the war is actually registered.
         plugin.getWarManager().startWarAsync(attacker, defender, territoryKey)
+                .thenRun(() -> {
+                    if (cbRequired) {
+                        plugin.getClanManager().getClanItemFactory().consumeCasusBelli(player, defender.id(), "WAR");
+                    }
+                })
                 .exceptionally(throwable -> {
                     plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                     return null;
@@ -995,9 +1000,20 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         TerritoryKey territoryKey = contestedTerritory.get().key();
 
+        boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.siege", true);
+        if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, defender.id(), "SIEGE")) {
+            plugin.sendOperationError(player, new IllegalStateException("casus.missing.siege"));
+            return;
+        }
+
         // No success message here: SiegeManager#beginPendingPhase already notifies every online
         // member of both clans (including this player) once the siege is actually registered.
         plugin.getSiegeManager().startSiegeAsync(attacker, defender, territoryKey)
+                .thenRun(() -> {
+                    if (cbRequired) {
+                        plugin.getClanManager().getClanItemFactory().consumeCasusBelli(player, defender.id(), "SIEGE");
+                    }
+                })
                 .exceptionally(throwable -> {
                     plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                     return null;

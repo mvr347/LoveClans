@@ -50,4 +50,32 @@ public final class SiegeCampListener implements Listener {
             plugin.getMessages().send(player, "siege.camp.not-your-camp");
         }
     }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerInteract(org.bukkit.event.player.PlayerInteractEvent event) {
+        if (event.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        if (event.getClickedBlock() == null || event.getClickedBlock().getType() != Material.CAMPFIRE) {
+            return;
+        }
+        SiegeManager siegeManager = plugin.getSiegeManager();
+        Optional<SiegeManager.SiegeCampRef> campOpt = siegeManager.findCampAt(event.getClickedBlock().getLocation());
+        if (campOpt.isEmpty()) {
+            return;
+        }
+        event.setCancelled(true);
+
+        Player player = event.getPlayer();
+        Optional<Clan> clanOpt = plugin.getClanManager().getPlayerClan(player.getUniqueId());
+        if (clanOpt.isEmpty()) {
+            return;
+        }
+
+        SiegeManager.SiegeCampRef camp = campOpt.get();
+        Optional<me.lovelace.loveclans.model.siege.ClanSiege> siegeOpt = siegeManager.findSiegeById(camp.siegeId());
+        if (siegeOpt.isPresent() && siegeOpt.get().attackerClanId().equals(clanOpt.get().id())) {
+            plugin.getGuiManager().openCampFortify(player, camp.siegeId(), camp.campIndex());
+        }
+    }
 }

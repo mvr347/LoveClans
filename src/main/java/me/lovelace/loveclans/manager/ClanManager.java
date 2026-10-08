@@ -1810,31 +1810,6 @@ public final class ClanManager {
     }
 
     /**
-     * War trophies: moves coins between two treasuries on the main thread (balances change synchronously, only the
-     * writes are async), so the loser is debited in the same step the winner is credited. Returns what was moved.
-     */
-    public long transferTreasuryMoney(Clan from, Clan to, long amount) {
-        if (from == null || to == null || amount <= 0) {
-            return 0L;
-        }
-        long moved = Math.min(amount, from.chestMoney());
-        if (moved <= 0) {
-            return 0L;
-        }
-        from.addChestMoney(-moved);
-        long winnerBalance = to.addChestMoney(moved);
-        storage.updateClanChestMoney(from.id(), from.chestMoney()).exceptionally(t -> {
-            plugin.getLogger().warning("Failed to persist trophy debit for clan " + from.id() + ": " + t.getMessage());
-            return null;
-        });
-        storage.updateClanChestMoney(to.id(), winnerBalance).exceptionally(t -> {
-            plugin.getLogger().warning("Failed to persist trophy credit for clan " + to.id() + ": " + t.getMessage());
-            return null;
-        });
-        return moved;
-    }
-
-    /**
      * Treasury screen deposit: the caller has ALREADY removed the coins from the player (cursor or
      * inventory slot) on the main thread, so the balance changes here synchronously and only the
      * write is async - there is no window where the coins exist both in hand and in the treasury.

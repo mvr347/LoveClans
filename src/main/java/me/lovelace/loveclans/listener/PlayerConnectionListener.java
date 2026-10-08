@@ -44,22 +44,5 @@ public final class PlayerConnectionListener implements Listener {
         if (plugin.getClanManager().hasPendingHomeTeleport(playerId)) {
             plugin.getClanManager().cancelHomeTeleport(playerId, null);
         }
-
-        // Deliberately not gated on the player still being in a clan: they may have been
-        // kicked/left while carrying a captured banner (see CombatListener.onDeath for the
-        // matching death-path fix).
-        for (ClanWar war : plugin.getWarManager().activeWars()) {
-            if (war.capturedBannerBy() != null && war.capturedBannerBy().equals(playerId)) {
-                plugin.getWarManager().resetBannerCapture(war.id());
-                for (int i = 0; i < player.getInventory().getSize(); i++) {
-                    ItemStack item = player.getInventory().getItem(i);
-                    if (plugin.getClanManager().getClanItemFactory().isCapturedBanner(item, war.id())) {
-                        player.getInventory().setItem(i, null);
-                    }
-                }
-                plugin.getMessages().send(player, "war.banner-dropped");
-                break;
-            }
-        }
     }
 }

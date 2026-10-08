@@ -31,7 +31,7 @@ public final class ClanDiplomacyMenu {
     private static final int SLOT_INFO = 0;
     // Шапка: только разделы. Отношения, эмбарго и блокада переехали в рабочую зону —
     // раньше они стояли наверху и мешались с разделами.
-    private static final int SLOT_LETTERS = 51; // footer extra-button slot (gui_gen v2.1): the header holds only controls
+
     // Рабочая зона, ряд 1 — состояние отношений.
     private static final int SLOT_RELATIONS = 20;
     private static final int SLOT_EMBARGO = 22;
@@ -100,10 +100,7 @@ public final class ClanDiplomacyMenu {
         }
         inventory.setItem(SLOT_BLOCKADE, blockadeItem.build());
 
-        inventory.setItem(SLOT_LETTERS, ItemBuilder.head(ItemBuilder.HEAD_LETTERS)
-                .name(plugin.getMessages().component("gui.diplomacy.letters.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.letters.lore", player))
-                .build());
+        inventory.setItem(51, GuiFrames.glassPane());
 
         inventory.setItem(SLOT_TRADE, buildTradeItem(sourceClan, targetClan, player).build());
 
@@ -176,31 +173,73 @@ public final class ClanDiplomacyMenu {
     private ItemBuilder buildWarItem(Player player, Clan sourceClan, Clan targetClan, boolean inConflict) {
         boolean inTargetTerritory = resolveContestedTerritory(player, targetClan).isPresent();
         boolean missingCapital = !sourceClan.hasCapital() || !targetClan.hasCapital();
-        if (inConflict || !inTargetTerritory || missingCapital) {
-            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.diplomacy.war.name", player))
-                    .lore(plugin.getMessages().component(inConflict ? "gui.diplomacy.war.unavailable-conflict"
-                            : missingCapital ? "gui.diplomacy.war.unavailable-no-capital"
-                            : "gui.diplomacy.war.unavailable-location", player));
+        boolean hasCasus = plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "WAR");
+        boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.war", true);
+
+        if (inConflict || !inTargetTerritory || missingCapital || (cbRequired && !hasCasus)) {
+            ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.diplomacy.war.name", player));
+            if (inConflict) {
+                builder.lore(plugin.getMessages().component("gui.diplomacy.war.unavailable-conflict", player));
+            } else if (missingCapital) {
+                builder.lore(plugin.getMessages().component("gui.diplomacy.war.unavailable-no-capital", player));
+            } else if (!inTargetTerritory) {
+                builder.lore(plugin.getMessages().component("gui.diplomacy.war.unavailable-location", player));
+            } else if (cbRequired && !hasCasus) {
+                builder.lore(Component.text("§cТребуется Casus Belli в инвентаре!"));
+                builder.lore(Component.text("§7Оформите повод у Гильдмастера."));
+            }
+            return builder;
         }
-        return ItemBuilder.head(ItemBuilder.HEAD_RELATION_HOSTILE)
+        ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_RELATION_HOSTILE)
                 .name(plugin.getMessages().component("gui.diplomacy.war.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.war.lore", player));
+        if (cbRequired) {
+            builder.lore(Component.text("§a✔ Casus Belli готов в инвентаре"));
+        }
+        return builder;
     }
 
     private ItemBuilder buildSiegeItem(Player player, Clan sourceClan, Clan targetClan, boolean inConflict) {
         boolean inTargetTerritory = resolveContestedTerritory(player, targetClan).isPresent();
         boolean missingCapital = !sourceClan.hasCapital() || !targetClan.hasCapital();
-        if (inConflict || !inTargetTerritory || missingCapital) {
-            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.diplomacy.siege.name", player))
-                    .lore(plugin.getMessages().component(inConflict ? "gui.diplomacy.siege.unavailable-conflict"
-                            : missingCapital ? "gui.diplomacy.siege.unavailable-no-capital"
-                            : "gui.diplomacy.siege.unavailable-location", player));
+        boolean hasCasus = plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "SIEGE");
+        boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.siege", true);
+
+        int minAtkLevel = plugin.getConfig().getInt("siege.min-attacker-clan-level", 5);
+        int minDefLevel = plugin.getConfig().getInt("siege.min-defender-clan-level", 4);
+        int maxGap = plugin.getConfig().getInt("siege.level-gap-max", 8);
+
+        boolean levelError = sourceClan.level() < minAtkLevel || targetClan.level() < minDefLevel || (sourceClan.level() - targetClan.level() > maxGap);
+
+        if (inConflict || !inTargetTerritory || missingCapital || (cbRequired && !hasCasus) || levelError) {
+            ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.diplomacy.siege.name", player));
+            if (inConflict) {
+                builder.lore(plugin.getMessages().component("gui.diplomacy.siege.unavailable-conflict", player));
+            } else if (missingCapital) {
+                builder.lore(plugin.getMessages().component("gui.diplomacy.siege.unavailable-no-capital", player));
+            } else if (!inTargetTerritory) {
+                builder.lore(plugin.getMessages().component("gui.diplomacy.siege.unavailable-location", player));
+            } else if (sourceClan.level() < minAtkLevel) {
+                builder.lore(Component.text("§cКлан слишком слаб для осады (нужен ур. " + minAtkLevel + ")"));
+            } else if (targetClan.level() < minDefLevel) {
+                builder.lore(Component.text("§cЦель ещё не готова к осаде (нужен ур. " + minDefLevel + ")"));
+            } else if (sourceClan.level() - targetClan.level() > maxGap) {
+                builder.lore(Component.text("§cРазница в уровнях слишком велика (> " + maxGap + ")"));
+            } else if (cbRequired && !hasCasus) {
+                builder.lore(Component.text("§cТребуется Casus Belli: Осада!"));
+                builder.lore(Component.text("§7Оформите повод у Гильдмастера."));
+            }
+            return builder;
         }
-        return ItemBuilder.head(ItemBuilder.HEAD_BLOCKADE)
+        ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_BLOCKADE)
                 .name(plugin.getMessages().component("gui.diplomacy.siege.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.siege.lore", player));
+        if (cbRequired) {
+            builder.lore(Component.text("§a✔ Casus Belli готов в инвентаре"));
+        }
+        return builder;
     }
 
     private ItemBuilder buildRaidItem(Player player, Clan sourceClan, Clan targetClan, boolean inConflict) {
@@ -258,10 +297,7 @@ public final class ClanDiplomacyMenu {
             handleBlockadeToggle(player, sourceClan, targetClan);
             return;
         }
-        if (slot == SLOT_LETTERS) {
-            plugin.getGuiManager().openLetters(player, sourceClan, targetClan);
-            return;
-        }
+
         if (slot == SLOT_TRADE) {
             if (!sourceClan.hasPermission(player.getUniqueId(), ClanPermission.TRADE)) {
                 plugin.getMessages().send(player, "general.no-permission");
@@ -329,11 +365,29 @@ public final class ClanDiplomacyMenu {
             plugin.sendOperationError(player, new IllegalStateException("war.must-be-in-enemy-territory"));
             return;
         }
+
+        boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.war", true);
+        if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "WAR")) {
+            player.sendMessage(Component.text("§cДля объявления войны требуется предмет Casus Belli! Оформите его у Гильдмастера."));
+            return;
+        }
+
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.war.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                Component.empty(),
-                () -> plugin.getWarManager().startWarAsync(sourceClan, targetClan, territory.get())
-                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
+                Component.text("§7Будет израсходован Casus Belli: Война"),
+                () -> {
+                    if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "WAR")) {
+                        player.sendMessage(Component.text("§cУ вас нет подходящего Casus Belli!"));
+                        return;
+                    }
+                    plugin.getWarManager().startWarAsync(sourceClan, targetClan, territory.get())
+                            .thenRun(() -> {
+                                if (cbRequired) {
+                                    plugin.getClanManager().getClanItemFactory().consumeCasusBelli(player, targetClan.id(), "WAR");
+                                }
+                            })
+                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                },
                 () -> plugin.runSync(() -> open(player, sourceClan, targetClan)));
     }
 
@@ -350,16 +404,52 @@ public final class ClanDiplomacyMenu {
             plugin.sendOperationError(player, new IllegalStateException("siege.defender-no-capital"));
             return;
         }
+
+        int minAtkLevel = plugin.getConfig().getInt("siege.min-attacker-clan-level", 5);
+        int minDefLevel = plugin.getConfig().getInt("siege.min-defender-clan-level", 4);
+        int maxGap = plugin.getConfig().getInt("siege.level-gap-max", 8);
+
+        if (sourceClan.level() < minAtkLevel) {
+            player.sendMessage(Component.text("§cВаш клан слишком слаб для осады (требуется ур. " + minAtkLevel + ")."));
+            return;
+        }
+        if (targetClan.level() < minDefLevel) {
+            player.sendMessage(Component.text("§cКлан цели ещё не готов к осаде (требуется ур. " + minDefLevel + ")."));
+            return;
+        }
+        if (sourceClan.level() - targetClan.level() > maxGap) {
+            player.sendMessage(Component.text("§cНельзя осаждать слабейших ради лёгкой дани (разница более " + maxGap + " уровней)."));
+            return;
+        }
+
         Optional<TerritoryKey> territory = resolveContestedTerritory(player, targetClan);
         if (territory.isEmpty()) {
             plugin.sendOperationError(player, new IllegalStateException("war.must-be-in-enemy-territory"));
             return;
         }
+
+        boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.siege", true);
+        if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "SIEGE")) {
+            player.sendMessage(Component.text("§cДля объявления осады требуется предмет Casus Belli! Оформите его у Гильдмастера."));
+            return;
+        }
+
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.siege.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                Component.empty(),
-                () -> plugin.getSiegeManager().startSiegeAsync(sourceClan, targetClan, territory.get())
-                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
+                Component.text("§7Будет израсходован Casus Belli: Осада"),
+                () -> {
+                    if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "SIEGE")) {
+                        player.sendMessage(Component.text("§cУ вас нет подходящего Casus Belli!"));
+                        return;
+                    }
+                    plugin.getSiegeManager().startSiegeAsync(sourceClan, targetClan, territory.get())
+                            .thenRun(() -> {
+                                if (cbRequired) {
+                                    plugin.getClanManager().getClanItemFactory().consumeCasusBelli(player, targetClan.id(), "SIEGE");
+                                }
+                            })
+                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                },
                 () -> plugin.runSync(() -> open(player, sourceClan, targetClan)));
     }
 
