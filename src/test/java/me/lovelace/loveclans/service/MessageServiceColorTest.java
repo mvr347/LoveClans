@@ -23,4 +23,26 @@ class MessageServiceColorTest {
     void textWithoutColorIsUntouched() {
         assertEquals("<green>ok", MessageService.stripUnboundColorTag("<green>ok", Map.of()));
     }
+
+    private static String plain(String raw) {
+        return net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText()
+                .serialize(net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(raw));
+    }
+
+    @Test
+    void expandedColorClosesAndDoesNotLeakLiteralTag() {
+        String raw = me.lovelace.loveclans.util.ClanColorTags.expand("<green>Клан <color>ABC</color> создан", "color", "<gold>");
+        assertEquals("Клан ABC создан", plain(raw));
+        var c = net.kyori.adventure.text.minimessage.MiniMessage.miniMessage().deserialize(raw);
+        // last child must be green again, not gold
+        var last = c.children().get(c.children().size() - 1);
+        assertEquals(net.kyori.adventure.text.format.NamedTextColor.GREEN, last.color() != null ? last.color() : c.color());
+    }
+
+    @Test
+    void hexAndNumberedKeys() {
+        String raw = me.lovelace.loveclans.util.ClanColorTags.expand("<color1>A</color1> vs <color2>B</color2>", "color1", "<#ff8800>");
+        raw = me.lovelace.loveclans.util.ClanColorTags.expand(raw, "color2", "<red>");
+        assertEquals("A vs B", plain(raw));
+    }
 }

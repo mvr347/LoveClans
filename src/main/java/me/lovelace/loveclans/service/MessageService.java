@@ -40,9 +40,14 @@ public final class MessageService {
      * реализацию позже, см. {@code LoveCore.service(...)} javadoc в LoveCore.
      */
     private boolean isNotifyChannelEnabled(Player player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel channel) {
-        return dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.notify.LoveNotify.class)
-                .map(n -> n.isChannelEnabled(player.getUniqueId(), channel))
-                .orElse(true);
+        try {
+            return dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.notify.LoveNotify.class)
+                    .map(n -> n.isChannelEnabled(player.getUniqueId(), channel))
+                    .orElse(true);
+        } catch (NoClassDefFoundError missingLoveCore) {
+            // LoveCore is only a softdepend: without it every channel counts as enabled
+            return true;
+        }
     }
 
     public void reload() {
@@ -54,6 +59,16 @@ public final class MessageService {
         try (InputStream stream = plugin.getResource("lang.yml")) {
             if (stream != null) {
                 YamlConfiguration defaults = YamlConfiguration.loadConfiguration(new InputStreamReader(stream, StandardCharsets.UTF_8));
+                if (LangMigrator.migrate(lang, defaults)) {
+                    // keep the owner's previous texts next to the file before the reworded sections replace them
+                    File backup = new File(plugin.getDataFolder(), "lang.yml.v1.bak");
+                    if (!backup.exists()) {
+                        java.nio.file.Files.copy(file.toPath(), backup.toPath());
+                    }
+                    lang.save(file);
+                    plugin.getLogger().info("lang.yml migrated to version " + LangMigrator.latestVersion()
+                            + " (old file saved as lang.yml.v1.bak)");
+                }
                 lang.setDefaults(defaults);
                 lang.options().copyDefaults(true);
             }
@@ -123,6 +138,10 @@ public final class MessageService {
         List<TagResolver> resolvers = new ArrayList<>();
         for (Map.Entry<String, String> entry : placeholders.entrySet()) {
             String val = entry.getValue();
+            if (me.lovelace.loveclans.util.ClanColorTags.isColorKey(entry.getKey(), val)) {
+                raw = me.lovelace.loveclans.util.ClanColorTags.expand(raw, entry.getKey(), val);
+                continue;
+            }
             if (val.contains("%img_")) {
                 // coin glyph tags inside a placeholder value (see util.CoinFormat) are resolved per recipient
                 val = me.lovelace.loveclans.util.ItemsAdderFontHook.resolve(player, val);

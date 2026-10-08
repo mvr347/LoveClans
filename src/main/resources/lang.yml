@@ -7,6 +7,9 @@
 # (see MessageService#parse). The special <prefix> tag is replaced with the value of
 # the top-level "prefix" key below.
 
+# Версия lang.yml (2026-10-08): при росте версии админский файл получает из jar переписанные разделы
+# (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
+lang-version: 2
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -36,6 +39,9 @@ admin:
   points-updated: "<prefix><green>Очки улучшений клана <color><tag></color> обновлены."
   war-ended: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> завершена администратором."
   war-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> начата администратором."
+  war-skipped: "<prefix><green>Таймер подготовки войны <color1><clan1></color1> и <color2><clan2></color2> пропущен: война началась."
+  war-not-preparing: "<prefix><red>Между этими кланами нет войны в стадии подготовки."
+  war-no-territory: "<prefix><red>У клана <color><clan></color> нет столицы: война не за что, начать её нельзя."
   war-force-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
   siege-force-started: "<prefix><green>Осада <color1><clan1></color1> против <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
   clan-recognized: "<prefix><green>Клан <yellow><tag></yellow> (<white><name></white>) получил статус признанного клана."
@@ -286,7 +292,7 @@ clan:
     admin-npc: "<aqua>/loveclansadmin createnpc <guildmaster|banner></aqua> <gray>- привязать NPC Гильдмастера или NPC-основателя (смотрите на него)</gray>"
     admin-npc-remove: "<aqua>/loveclansadmin removenpc <guildmaster|banner> <id></aqua> <gray>- отвязать NPC</gray>"
     admin-disband: "<aqua>/loveclansadmin disband <tag></aqua> <gray>- распустить клан</gray>"
-    admin-war: "<aqua>/loveclansadmin war <start|forcestart|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, для тестов)</gray>"
+    admin-war: "<aqua>/loveclansadmin war <start|forcestart|skip|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, skip - пропустить таймер подготовки)</gray>"
     admin-siege: "<aqua>/loveclansadmin siege forcestart <clan1> <clan2></aqua> <gray>- принудительно начать осаду без проверок готовности (для тестов)</gray>"
     admin-diplo: "<aqua>/loveclansadmin diplo <clan1> <clan2> <relation></aqua> <gray>- изменить отношения между кланами</gray>"
     admin-exp: "<aqua>/loveclansadmin exp <add|remove|set> <tag> <amount></aqua> <gray>- изменить опыт клана</gray>"
@@ -482,7 +488,7 @@ gui:
       rows: "<gray>Рядов предметов: <white><rows></white>/<max>"
     money-button:
       name: "<gold>Казна"
-      description: "<gray>Деньги клана монетами, которые можно взять в руки."
+      description: "<gray>Монеты клана: положить и взять мышкой."
       lore: "<gray>Баланс: <white><amount>"
     items-button:
       name: "<gold>Склад"
@@ -1270,7 +1276,7 @@ item:
       - "<yellow>провозгласить столицу!"
   war-compass:
     name: "<gold>Боевой компас <white><tag>"
-    lore: "<gray>Указывает направление к territории противника во время войны."
+    lore: "<gray>Указывает направление к территории противника во время войны."
   captured-banner:
     name: "<red>Захваченное знамя <white><clan>"
     lore:
@@ -1396,7 +1402,18 @@ war:
   peace: "<prefix><green>Заключён мир с кланом <color><tag></color>."
   peace-confirm-prompt: "<prefix><yellow>Вы уверены, что хотите заключить мир с кланом <color><tag></color>?"
   started: "<prefix><gold>Война между <white><attacker></white> и <white><defender></white> началась!"
+  bossbar:
+    active: "<color1><attacker></color1> <white><s1></white> <gray>⚔</gray> <white><s2></white> <color2><defender></color2> <gray>• до конца <white><time></white>"
+    capture: "<red>Знамя клана <color2><defender></color2> захвачено! <gray>Капитуляция через <white><time></white>"
+  broadcast:
+    started: "<prefix><gold>⚔ Война! Клан <color1><attacker></color1> напал на клан <color2><defender></color2>."
+    ended: "<prefix><gold>⚔ Война окончена: клан <color1><winner></color1> победил клан <color2><loser></color2> со счётом <white><s1>:<s2></white>."
+  trophies:
+    won: "<prefix><green>Трофеи войны: <white><amount></white> из казны клана <color><tag></color>."
+    lost: "<prefix><red>Клан <color><tag></color> забрал из вашей казны <white><amount></white> как трофей."
   banner:
+    not-started: "<prefix><yellow>Война ещё не началась: знамя можно будет ломать через <white><time></white>."
+    wrong-territory: "<prefix><red>Это знамя сейчас не оспаривается. Цель войны — знамя на <white><x> <y> <z></white>, компас покажет путь."
     progress: "<red>Знамя повреждено: <white><hits></white>/<white><required></white>"
     broken-defender-title: "<red><bold>Ваш баннер сломали!"
     broken-defender-subtitle: "<gray>Клан <color><tag></color> захватывает вашу территорию"

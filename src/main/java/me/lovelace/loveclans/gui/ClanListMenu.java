@@ -41,6 +41,8 @@ public final class ClanListMenu implements InventoryHolder {
     private static final int SLOT_PREVIOUS = 36;
     private static final int SLOT_NEXT = 44;
     private static final int SLOT_MY_APPLICATIONS = 52;
+    // Back exists only for the Guildmaster flow; that player is in a clan, so it never shares 52 with applications
+    private static final int SLOT_BACK = 52;
     private static final int SLOT_CLOSE = 53;
 
     private enum SortMode {
@@ -182,6 +184,11 @@ public final class ClanListMenu implements InventoryHolder {
                     .build());
         }
 
+        if (plugin.getGuiManager().inGuildmasterSession(player)) {
+            inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+                    .name(plugin.getMessages().component("gui.back", player)).build());
+        }
+
         inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player)).build());
 
@@ -273,6 +280,11 @@ public final class ClanListMenu implements InventoryHolder {
     public void handleInventoryClick(int slot, boolean rightClick) {
         if (slot == SLOT_CLOSE) {
             player.closeInventory();
+            return;
+        }
+        if (slot == SLOT_BACK && plugin.getGuiManager().inGuildmasterSession(player)) {
+            plugin.getClanManager().getPlayerClan(player.getUniqueId())
+                    .ifPresentOrElse(clan -> plugin.getGuiManager().openGuildmaster(player, clan), player::closeInventory);
             return;
         }
         if (slot == SLOT_MY_CLAN) {

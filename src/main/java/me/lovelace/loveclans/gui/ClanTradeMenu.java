@@ -11,12 +11,10 @@ import me.lovelace.loveclans.util.ItemBuilder;
 import me.lovelace.loveclans.util.TimeUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.SkullMeta;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -256,9 +254,8 @@ public final class ClanTradeMenu {
     private ItemStack clanItem(Clan source, Clan target, Player player) {
         String reason = blockReason(source, target);
         Map<String, String> names = Map.of("tag", target.tag(), "color", target.tagColor(), "name", target.name());
-        ItemBuilder builder = reason == null
-                ? ItemBuilder.of(Material.PLAYER_HEAD)
-                : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE);
+        // The clan's banner stands for the clan; a blocked clan is shown as a gray one
+        ItemBuilder builder = ItemBuilder.of(reason == null ? me.lovelace.loveclans.util.ClanIcons.emblem(target) : Material.GRAY_BANNER);
         builder.name(plugin.getMessages().component("gui.trade.clan.name", names, player))
                 .lore(plugin.getMessages().component("gui.trade.clan.relation",
                         Map.of("relation", plugin.getMessages().relationName(source.relationTo(target.id()))), player))
@@ -272,12 +269,6 @@ public final class ClanTradeMenu {
                     Map.of("reason", plugin.getMessages().raw(reason)), player));
         } else {
             builder.lore(plugin.getMessages().component("gui.trade.clan.hint", player));
-            target.leaderId().ifPresent(leaderId -> {
-                OfflinePlayer leader = Bukkit.getOfflinePlayer(leaderId);
-                builder.mutate(meta -> {
-                    if (meta instanceof SkullMeta skull) skull.setOwningPlayer(leader);
-                });
-            });
         }
         return builder.build();
     }
@@ -467,8 +458,11 @@ public final class ClanTradeMenu {
             plugin.getMessages().send(player, "trade.blocked");
             return;
         }
-        player.closeInventory();
         plugin.getClanTradeManager().proposeTradeAsync(clan, player.getUniqueId(), target)
+                // show the sent request right away instead of silently closing the menu
+                .thenRun(() -> plugin.runSync(() -> {
+                    if (player.isOnline()) plugin.getGuiManager().openTrade(player, clan, Tab.REQUESTS);
+                }))
                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
     }
 

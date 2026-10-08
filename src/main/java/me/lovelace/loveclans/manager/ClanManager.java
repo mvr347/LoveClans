@@ -367,7 +367,7 @@ public final class ClanManager {
     public List<Player> getOnlineMembersWithPermission(Clan clan, ClanPermission permission) {
         if (clan == null) return List.of();
         return clan.members().values().stream()
-                .filter(member -> clan.getPermission(member.rank(), permission))
+                .filter(member -> clan.hasPermission(member.playerId(), permission))
                 .map(member -> Bukkit.getPlayer(member.playerId()))
                 .filter(Objects::nonNull)
                 .toList();
@@ -1807,6 +1807,31 @@ public final class ClanManager {
             economy.give(player, amount);
             return null;
         }).thenCompose(ignored -> storage.updateClanChestMoney(clan.id(), clan.chestMoney()));
+    }
+
+    /**
+     * War trophies: moves coins between two treasuries on the main thread (balances change synchronously, only the
+     * writes are async), so the loser is debited in the same step the winner is credited. Returns what was moved.
+     */
+    public long transferTreasuryMoney(Clan from, Clan to, long amount) {
+        if (from == null || to == null || amount <= 0) {
+            return 0L;
+        }
+        long moved = Math.min(amount, from.chestMoney());
+        if (moved <= 0) {
+            return 0L;
+        }
+        from.addChestMoney(-moved);
+        long winnerBalance = to.addChestMoney(moved);
+        storage.updateClanChestMoney(from.id(), from.chestMoney()).exceptionally(t -> {
+            plugin.getLogger().warning("Failed to persist trophy debit for clan " + from.id() + ": " + t.getMessage());
+            return null;
+        });
+        storage.updateClanChestMoney(to.id(), winnerBalance).exceptionally(t -> {
+            plugin.getLogger().warning("Failed to persist trophy credit for clan " + to.id() + ": " + t.getMessage());
+            return null;
+        });
+        return moved;
     }
 
     /**

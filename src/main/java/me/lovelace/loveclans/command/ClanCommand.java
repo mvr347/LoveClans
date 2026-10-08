@@ -729,6 +729,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.not-in-clan");
             return;
         }
+        plugin.getGuiManager().endGuildmasterSession(player);
         plugin.getGuiManager().openContracts(player, optionalClan.get());
     }
 
@@ -796,6 +797,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.list.empty");
             return;
         }
+        plugin.getGuiManager().endGuildmasterSession(player);
         new ClanListMenu(plugin, player).open();
     }
 

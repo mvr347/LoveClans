@@ -155,6 +155,7 @@ public class GuiManager implements Listener {
     }
 
     public void openGuildmaster(Player player, Clan clan) {
+        guildmasterSession.add(player.getUniqueId());
         guildmasterMenu.open(player, clan);
     }
 
@@ -164,7 +165,19 @@ public class GuiManager implements Listener {
 
     // ── Main menu ──────────────────────────────────────────────────────────────
 
+    /** Players who came through the Guildmaster NPC menu: their Back buttons lead there instead of the main menu. */
+    private final java.util.Set<java.util.UUID> guildmasterSession = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    public boolean inGuildmasterSession(Player player) {
+        return guildmasterSession.contains(player.getUniqueId());
+    }
+
+    public void endGuildmasterSession(Player player) {
+        guildmasterSession.remove(player.getUniqueId());
+    }
+
     public void openMain(Player player, Clan clan) {
+        endGuildmasterSession(player);
         new ClanMainMenu(plugin, clan, player).open();
     }
 
@@ -200,7 +213,17 @@ public class GuiManager implements Listener {
         membersMenu.open(player, clan, MembersView.Filter.APPLICATIONS);
     }
 
+    /** Clan list opened from the Guildmaster menu: keeps the session so the list gets a Back button. */
+    public void openClanListFromGuildmaster(Player player) {
+        openClanListInternal(player);
+    }
+
     public void openClanList(Player player) {
+        endGuildmasterSession(player);
+        openClanListInternal(player);
+    }
+
+    private void openClanListInternal(Player player) {
         // Same guard as /clans: an empty list is a message, not an empty screen.
         if (plugin.getClanManager().getAllClans().isEmpty()) {
             plugin.getMessages().send(player, "clan.list.empty");
