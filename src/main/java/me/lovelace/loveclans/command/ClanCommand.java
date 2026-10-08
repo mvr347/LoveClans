@@ -38,7 +38,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "invites", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "modifiers", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
+            "activity", "history", "conflicts", "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "modifiers", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
             "help", "accept", "invites", "list", "info"
@@ -147,7 +147,9 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 // того, чтобы команда молча ничего не делала для тех, кто набирает старый путь
                 // по привычке.
                 case "artifact" -> redirectToAdmin(sender, args.length > 1 ? "artifact " + args[1] : "artifact");
-                case "history" -> history(sender, args);
+                case "history" -> openHistory(sender);
+                case "activity" -> openActivity(sender);
+                case "conflicts" -> history(sender, args);
                 case "reload" -> redirectToAdmin(sender, "reload");
                 case "admin" -> redirectToAdmin(sender, args.length > 1 ? String.join(" ", Arrays.asList(args).subList(1, args.length)) : "help");
                 case "settings" -> openSettings(requirePlayer(sender));
@@ -667,6 +669,28 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         plugin.getGuiManager().openMain(player, optionalClan.get());
+    }
+
+    private void openHistory(CommandSender sender) {
+        Player player = requirePlayer(sender);
+        requirePermission(player, Permissions.MENU);
+        Optional<Clan> clan = requireClan(player);
+        if (clan.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        plugin.getGuiManager().openHistory(player, clan.get());
+    }
+
+    private void openActivity(CommandSender sender) {
+        Player player = requirePlayer(sender);
+        requirePermission(player, Permissions.MENU);
+        Optional<Clan> clan = requireClan(player);
+        if (clan.isEmpty()) {
+            plugin.getMessages().send(player, "clan.not-in-clan");
+            return;
+        }
+        plugin.getGuiManager().openActivity(player, clan.get());
     }
 
     private void openMembers(Player player) {
@@ -1220,6 +1244,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(player, "clan.help.info");
             plugin.getMessages().send(player, "clan.help.war");
             plugin.getMessages().send(player, "clan.help.diplomacy");
+            plugin.getMessages().send(player, "clan.help.activity");
+            plugin.getMessages().send(player, "clan.help.history");
             if (isLeader) {
                 plugin.getMessages().send(player, "clan.help.invite");
                 plugin.getMessages().send(player, "clan.help.kick");

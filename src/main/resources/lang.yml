@@ -282,6 +282,8 @@ clan:
     war: "<aqua>/clan war <start|peace> <tag></aqua> <gray>- управление войной клана</gray>"
     siege: "<aqua>/clan siege <tag></aqua> <gray>- устроить осаду клана, стоя на его территории</gray>"
     raid: "<aqua>/clan raid <tag|loot <сумма>|items></aqua> <gray>- устроить набег или вынести добычу</gray>"
+    activity: "<aqua>/clan activity</aqua> <gray>- очки активности клана и участников</gray>"
+    history: "<aqua>/clan history</aqua> <gray>- летопись клана; архив конфликтов - /clan conflicts [тег]</gray>"
     trade: "<aqua>/clan trade <tag></aqua> <gray>- отправить запрос на обмен клану (или /clan trade <accept|decline|cancel> <id>)</gray>"
     # Подкоманды /loveclansadmin (алиасы /clansadmin, /ca) - тот же заголовок/подвал,
     # что и у /clan help, чтобы весь список команд плагина выглядел единообразно.
@@ -332,6 +334,70 @@ diplomacy:
     overthrown: "<prefix><gold>Вы восстали против угнетателя и сняли блокаду, победив его в войне!"
 
 gui:
+  activity:
+    title: "<dark_gray>Активность: <clan>"
+    info:
+      name: "<gold>Активность клана"
+      lore: "<gray>Очки за участие в войнах, набегах, осадах, казну и дипломатию."
+    tab-clan: "<gold>Клан"
+    tab-members: "<gold>Участники"
+    period:
+      name: "<gold>Период"
+      lifetime: "Всё время"
+      weekly: "Неделя"
+      monthly: "Месяц"
+    category:
+      war: "<red>Войны"
+      raid: "<gold>Набеги"
+      siege: "<yellow>Осады"
+      territory: "<green>Территории"
+      economy: "<yellow>Экономика"
+      diplomacy: "<aqua>Дипломатия"
+    category-lore: "<gray>Очки: <white><points>"
+    total: "<gold>Всего: <white><points>"
+    total-lore: "<gray>Очки не тратятся: это мера участия клана в жизни сервера."
+    member:
+      name: "<gold>#<place> <white><player>"
+      total: "<gray>Всего: <white><points>"
+      details: "<gray>Войны <white><war></white> · набеги <white><raid></white> · осады <white><siege></white> · казна <white><economy></white> · дипломатия <white><diplomacy></white>"
+  history:
+    title: "<dark_gray>Летопись: <clan> (<page>)"
+    info:
+      name: "<gold>Летопись клана"
+      lore: "<gray>Важные события: войны, набеги, осады, участники и союзы."
+    filter:
+      name: "<gold>Фильтр событий"
+      all: "Все"
+      wars: "Войны"
+      raids: "Набеги"
+      sieges: "Осады"
+      territories: "Территории"
+      diplomacy: "Дипломатия"
+      members: "Участники"
+    empty: "<gray>Здесь пока ничего не произошло."
+    entry-date: "<dark_gray><date> (<ago> назад)"
+    entry:
+      CLAN_CREATED: "<gold>Клан основан"
+      CLAN_LEVEL_UP: "<green>Клан достиг уровня <white><level>"
+      MEMBER_JOINED: "<green><player> вступил в клан"
+      MEMBER_LEFT: "<gray><player> покинул клан"
+      MEMBER_KICKED: "<red><player> изгнан из клана"
+      RANK_CHANGED: "<yellow><player>: роль <old> → <new>"
+      LEADER_CHANGED: "<gold>Новый глава клана: <white><player>"
+      WAR_DECLARED: "<red>Война с кланом <color><tag></color>"
+      WAR_WON: "<green>Победа в войне над кланом <color><tag></color>"
+      WAR_LOST: "<red>Поражение в войне от клана <color><tag></color>"
+      RAID_STARTED: "<gold>Набег: клан <color><tag></color>"
+      RAID_WON: "<green>Набег с кланом <color><tag></color> удался"
+      RAID_LOST: "<red>Набег с кланом <color><tag></color> провален"
+      SIEGE_DECLARED: "<yellow>Осада: клан <color><tag></color>"
+      SIEGE_WON: "<green>Осада клана <color><tag></color> удалась"
+      SIEGE_LOST: "<red>Осада с кланом <color><tag></color> проиграна"
+      SIEGE_DEFENDED: "<green>Осада клана <color><tag></color> отбита"
+      TERRITORY_CAPTURED: "<green>Захвачена территория"
+      TERRITORY_LOST: "<red>Потеряна территория"
+      DIPLOMACY_CREATED: "<aqua>Союз с кланом <color><tag></color>"
+      DIPLOMACY_ENDED: "<gray>Союз с кланом <color><tag></color> разорван"
   modifiers:
     title: "<gray>Модификаторы: <gold><clan>"
   # Меню «Торговля» (2026-10-07): вкладки Кланы / Запросы / Скупки.
@@ -901,6 +967,12 @@ gui:
       name: "<gray>Других участников нет"
       lore: "<gray>Кроме главы, в этом клане пока никто не состоит."
   main:
+    activity:
+      name: "<gold>Активность"
+      description: "<gray>Очки клана и участников за войны, набеги, осады, казну."
+    history:
+      name: "<gold>Летопись"
+      description: "<gray>Важные события клана: победы, союзы, участники."
     title: "<color><clan> <white>- Меню клана"
     trade:
       name: "<gold>Торговля"

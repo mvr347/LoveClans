@@ -24,5 +24,7 @@ public enum ClanMenuType {
     MODIFIERS,
     CASUS_BELLI,
     TRADE,
-    CAMP_FORTIFY
+    CAMP_FORTIFY,
+    ACTIVITY,
+    HISTORY
 }

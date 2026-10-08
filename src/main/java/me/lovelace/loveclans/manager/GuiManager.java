@@ -23,6 +23,8 @@ import me.lovelace.loveclans.gui.ClanListMenu;
 import me.lovelace.loveclans.gui.ClanMainMenu;
 import me.lovelace.loveclans.gui.ClanMemberDetailMenu;
 import me.lovelace.loveclans.gui.ClanMembersMenu;
+import me.lovelace.loveclans.gui.ClanActivityMenu;
+import me.lovelace.loveclans.gui.ClanHistoryMenu;
 import me.lovelace.loveclans.gui.ClanModifiersMenu;
 import me.lovelace.loveclans.gui.CasusBelliMenu;
 import me.lovelace.loveclans.gui.MembersView;
@@ -77,6 +79,8 @@ public class GuiManager implements Listener {
     private final ClanChestMoneyMenu chestMoneyMenu;
     private final ClanTradeMenu tradeMenu;
     private final ClanModifiersMenu modifiersMenu;
+    private final ClanActivityMenu activityMenu;
+    private final ClanHistoryMenu historyMenu;
     private final CasusBelliMenu casusBelliMenu;
     private final CampFortifyMenu campFortifyMenu;
 
@@ -104,6 +108,8 @@ public class GuiManager implements Listener {
         this.chestMoneyMenu = new ClanChestMoneyMenu(plugin);
         this.tradeMenu = new ClanTradeMenu(plugin);
         this.modifiersMenu = new ClanModifiersMenu(plugin);
+        this.activityMenu = new ClanActivityMenu(plugin);
+        this.historyMenu = new ClanHistoryMenu(plugin);
         this.casusBelliMenu = new CasusBelliMenu(plugin);
         this.campFortifyMenu = new CampFortifyMenu(plugin);
     }
@@ -123,6 +129,14 @@ public class GuiManager implements Listener {
 
     public void openTradeRequests(Player player, Clan clan) {
         openTrade(player, clan, ClanTradeMenu.Tab.REQUESTS);
+    }
+
+    public void openActivity(Player player, Clan clan) {
+        activityMenu.open(player, clan);
+    }
+
+    public void openHistory(Player player, Clan clan) {
+        historyMenu.open(player, clan);
     }
 
     public void openModifiers(Player player, Clan clan) {
@@ -318,6 +332,8 @@ public class GuiManager implements Listener {
 
     public void clearPlayerCache(UUID playerId) {
         membersMenu.clearPlayer(playerId);
+        activityMenu.clear(playerId);
+        historyMenu.clear(playerId);
         tradeMenu.clearPlayer(playerId);
         ClanListMenu.clearPlayer(playerId);
         rankPermissionsMenu.clearPlayer(playerId);
@@ -481,6 +497,8 @@ public class GuiManager implements Listener {
                     case MODIFIERS -> modifiersMenu.handleInventoryClick(player, clan, slot);
                     case CASUS_BELLI -> casusBelliMenu.handleInventoryClick(player, clan, slot);
                     case CAMP_FORTIFY -> campFortifyMenu.handleInventoryClick(player, slot);
+                    case ACTIVITY -> activityMenu.handleInventoryClick(event, player, clan);
+                    case HISTORY -> historyMenu.handleInventoryClick(event, player, clan);
                     default -> {
                     }
                 }
