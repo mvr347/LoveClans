@@ -24,6 +24,8 @@ economy:
     # economy.scale-version в LoveCore. 5 — середина между ростом цен в 3–8 раз; перед пересчётом делается копия
     # loveclans.db.pre-economy-v*. Остаток правится индексом цен.
     factor: 5.0
+  # Порог крупного снятия с казны, требующий подтверждения без усталости (>500)
+  large-withdraw-confirm-threshold: 500
 
 clans:
   tag:
@@ -553,6 +555,13 @@ casus-belli:
     war: true
     siege: true
   siege-cost-multiplier: 2.5
+  # Идентификатор кастомного предмета в ItemsAdder (например: "loveclans:casus_belli_scroll").
+  # Если плагин ItemsAdder установлен и предмет найден, казус белли создаётся на его основе.
+  # Оставьте пустым (""), чтобы использовать стандартную бумагу (PAPER).
+  itemsadder-id: ""
+  # Можно также переопределить ItemsAdder ID отдельно для войны и осады:
+  war-itemsadder-id: ""
+  siege-itemsadder-id: ""
 
 # Новая осада (newsieges.md & siege-justify-rewards.md)
 siege:

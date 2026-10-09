@@ -253,7 +253,7 @@ public final class SiegeManager {
         return siege;
     }
 
-    private int countActiveOnline(Clan clan, int afkIgnoreMinutes) {
+    public int countActiveOnline(Clan clan, int afkIgnoreMinutes) {
         int online = 0;
         for (UUID memberId : clan.members().keySet()) {
             Player p = Bukkit.getPlayer(memberId);
@@ -535,6 +535,10 @@ public final class SiegeManager {
 
     public Optional<ClanSiege> findSiege(UUID first, UUID second) {
         return activeSieges.values().stream().filter(s -> s.between(first, second)).findFirst();
+    }
+
+    public Optional<ClanSiege> getActiveSiege(UUID clanId) {
+        return activeSieges.values().stream().filter(s -> s.involves(clanId)).findFirst();
     }
 
     public Optional<ClanSiege> findSiegeById(UUID id) {
@@ -1081,5 +1085,18 @@ public final class SiegeManager {
                 .map(ClanMember::playerId)
                 .map(Bukkit::getPlayer)
                 .filter(Objects::nonNull);
+    }
+
+    public long getCooldownRemaining(UUID clan1, UUID clan2) {
+        AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = pairKey(clan1, clan2);
+        Long last = siegeCooldowns.get(cooldownKey);
+        if (last == null) return 0;
+        long elapsed = System.currentTimeMillis() - last;
+        long duration = cooldownDuration().toMillis();
+        return elapsed < duration ? (duration - elapsed) : 0;
+    }
+
+    public int activeSiegesCount() {
+        return activeSieges.size();
     }
 }

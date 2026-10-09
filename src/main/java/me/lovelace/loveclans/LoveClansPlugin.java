@@ -104,6 +104,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private me.lovelace.loveclans.integration.VesuvioAntiCheatHook vesuvioHook;
     private BukkitTask heartbeatTask;
     private BukkitTask warTickTask;
+    private me.lovelace.loveclans.command.ClanCommand clanCommand;
     private final Map<UUID, BiConsumer<String, Boolean>> chatInputListeners = new ConcurrentHashMap<>();
 
     @Override
@@ -548,6 +549,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         return citizensIntegration;
     }
 
+    public me.lovelace.loveclans.command.ClanCommand getClanCommand() {
+        return clanCommand;
+    }
+
     public CompletableFuture<Void> runSync(Runnable runnable) {
         return supplySync(() -> {
             runnable.run();
@@ -601,7 +606,8 @@ public final class LoveClansPlugin extends JavaPlugin {
     }
 
     private void registerCommands() {
-        ClanCommand executor = new ClanCommand(this);
+        clanCommand = new ClanCommand(this);
+        ClanCommand executor = clanCommand;
         PluginCommand command = Objects.requireNonNull(getCommand("loveclan"), "Command /loveclan is missing from plugin.yml");
         command.setExecutor(executor);
         command.setTabCompleter(executor);

@@ -63,6 +63,15 @@ public final class ModifierManager {
                 .anyMatch(m -> ClanModifier.TYPE_POST_RAID_SHIELD.equals(m.type()) && !m.isExpired(now));
     }
 
+    public long getPostRaidShieldRemaining(UUID clanId) {
+        long now = System.currentTimeMillis();
+        return getModifiers(clanId).stream()
+                .filter(m -> ClanModifier.TYPE_POST_RAID_SHIELD.equals(m.type()) && !m.isExpired(now))
+                .mapToLong(m -> m.endsAt() - now)
+                .max()
+                .orElse(0L);
+    }
+
     public void grantPostRaidShield(UUID clanId, long hours) {
         long now = System.currentTimeMillis();
         long endsAt = now + hours * 3600_000L;

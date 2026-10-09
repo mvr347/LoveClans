@@ -1,14 +1,22 @@
 package me.lovelace.loveclans.listener;
 
 import me.lovelace.loveclans.LoveClansPlugin;
-import me.lovelace.loveclans.model.war.ClanWar;
+import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.model.ClanInvite;
+import me.lovelace.loveclans.model.ClanPermission;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 public final class PlayerConnectionListener implements Listener {
@@ -20,8 +28,100 @@ public final class PlayerConnectionListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        plugin.getClanManager().updateLastSeen(event.getPlayer().getUniqueId(), System.currentTimeMillis());
-        plugin.getClanManager().deliverPendingItems(event.getPlayer());
+        Player player = event.getPlayer();
+        plugin.getClanManager().updateLastSeen(player.getUniqueId(), System.currentTimeMillis());
+        plugin.getClanManager().deliverPendingItems(player);
+
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
+            sendLoginSummary(player);
+        }, 20L);
+    }
+
+    private void sendLoginSummary(Player player) {
+        UUID playerId = player.getUniqueId();
+        Optional<Clan> clanOpt = plugin.getClanManager().getPlayerClan(playerId);
+
+        List<String> events = new ArrayList<>();
+        Component actionButton = null;
+
+        if (clanOpt.isPresent()) {
+            Clan clan = clanOpt.get();
+            boolean canManageApps = clan.member(playerId)
+                    .map(m -> m.rank() == me.lovelace.loveclans.model.ClanRank.LEADER || m.rank() == me.lovelace.loveclans.model.ClanRank.GUARDIAN)
+                    .orElse(false);
+            if (canManageApps) {
+                int apps = plugin.getClanManager().getClanApplications(clan.id()).size();
+                if (apps > 0) {
+                    events.add(apps + " " + formatPlural(apps, "заявка", "заявки", "заявок"));
+                }
+            }
+
+            plugin.getWarManager().getActiveWar(clan.id()).ifPresent(war -> {
+                UUID enemyClanId = war.attackerClanId().equals(clan.id()) ? war.defenderClanId() : war.attackerClanId();
+                String enemyTag = plugin.getClanManager().getClanById(enemyClanId).map(Clan::tag).orElse("???");
+                events.add("война с [" + enemyTag + "]");
+            });
+
+            plugin.getSiegeManager().getActiveSiege(clan.id()).ifPresent(siege -> {
+                UUID enemyClanId = siege.attackerClanId().equals(clan.id()) ? siege.defenderClanId() : siege.attackerClanId();
+                String enemyTag = plugin.getClanManager().getClanById(enemyClanId).map(Clan::tag).orElse("???");
+                events.add("осада с [" + enemyTag + "]");
+            });
+
+            plugin.getRaidManager().getActiveRaid(clan.id()).ifPresent(raid -> {
+                UUID enemyClanId = raid.attackerClanId().equals(clan.id()) ? raid.defenderClanId() : raid.attackerClanId();
+                String enemyTag = plugin.getClanManager().getClanById(enemyClanId).map(Clan::tag).orElse("???");
+                events.add("набег от [" + enemyTag + "]");
+            });
+
+            if (clan.isChestTaxLocked()) {
+                events.add("сундук заблокирован из-за недоимки");
+            }
+
+            if (!events.isEmpty()) {
+                actionButton = Component.text(" ")
+                        .append(plugin.getMessages().component("login-summary.menu-button", player)
+                                .clickEvent(ClickEvent.runCommand("/clan"))
+                                .hoverEvent(HoverEvent.showText(Component.text("Открыть меню клана"))));
+            }
+        } else {
+            List<ClanInvite> invites = plugin.getClanManager().getPlayerInvites(playerId);
+            if (!invites.isEmpty()) {
+                int count = invites.size();
+                events.add(count + " " + formatPlural(count, "приглашение в клан", "приглашения в клан", "приглашений в клан"));
+                actionButton = Component.text(" ")
+                        .append(plugin.getMessages().component("login-summary.open-button", player)
+                                .clickEvent(ClickEvent.runCommand("/clan applications"))
+                                .hoverEvent(HoverEvent.showText(Component.text("Открыть приглашения"))));
+            }
+        }
+
+        if (events.isEmpty()) {
+            return;
+        }
+
+        String eventsStr = String.join("<gray> · </gray><white>", events);
+        Component titleComp = plugin.getMessages().component(
+                "login-summary.title",
+                Map.of("events", eventsStr),
+                player
+        );
+
+        if (actionButton != null) {
+            player.sendMessage(titleComp.append(actionButton));
+        } else {
+            player.sendMessage(titleComp);
+        }
+    }
+
+    private static String formatPlural(int number, String one, String two, String five) {
+        int n = Math.abs(number) % 100;
+        int n1 = n % 10;
+        if (n > 10 && n < 20) return five;
+        if (n1 > 1 && n1 < 5) return two;
+        if (n1 == 1) return one;
+        return five;
     }
 
     @EventHandler
@@ -35,6 +135,10 @@ public final class PlayerConnectionListener implements Listener {
 
         plugin.getGuiManager().clearPlayerCache(playerId);
         plugin.getClanTradeSessionManager().handlePlayerQuit(player);
+
+        if (plugin.getClanCommand() != null) {
+            plugin.getClanCommand().clearDebounce(playerId);
+        }
 
         // Otherwise the "/clan home" warmup's repeating BukkitTask keeps ticking against a
         // disconnected (stale) Player object indefinitely - it's only ever cancelled today by

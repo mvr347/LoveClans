@@ -41,12 +41,23 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             "war", "siege", "raid", "peace", "ally", "enemy", "neutral", "diplo", "modifiers", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
-            "help", "accept", "invites", "list", "info"
+            "help", "accept", "invites", "applications", "list", "info"
     );
     private final LoveClansPlugin plugin;
+    private final Map<UUID, Long> acceptDebounce = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ClanCommand(LoveClansPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    private boolean isDebounced(UUID playerId) {
+        long now = System.currentTimeMillis();
+        Long last = acceptDebounce.put(playerId, now);
+        return last != null && (now - last) < 1500L;
+    }
+
+    public void clearDebounce(UUID playerId) {
+        acceptDebounce.remove(playerId);
     }
 
     @Override
@@ -349,6 +360,9 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     }
 
     private void applicationAccept(Player player, String applicantName) {
+        if (isDebounced(player.getUniqueId())) {
+            return;
+        }
         requirePermission(player, Permissions.APPLICATIONS);
         Optional<Clan> clanOpt = requireClan(player);
         if (clanOpt.isEmpty()) { plugin.getMessages().send(player, "clan.not-in-clan"); return; }
@@ -437,6 +451,9 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         if (args.length < 2) {
             plugin.getMessages().send(player, "clan.help.accept");
+            return;
+        }
+        if (isDebounced(player.getUniqueId())) {
             return;
         }
         plugin.getClanManager().acceptInviteAsync(player.getUniqueId(), args[1])
@@ -804,12 +821,12 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     }
 
     private void openApplications(Player player) {
-        requirePermission(player, Permissions.APPLICATIONS);
         Optional<Clan> optionalClan = requireClan(player);
         if (optionalClan.isEmpty()) {
-            plugin.getMessages().send(player, "clan.not-in-clan");
+            new PlayerApplicationsMenu(plugin, player).open();
             return;
         }
+        requirePermission(player, Permissions.APPLICATIONS);
         plugin.getGuiManager().openApplications(player, optionalClan.get());
     }
 

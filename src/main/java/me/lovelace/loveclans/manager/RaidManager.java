@@ -97,7 +97,7 @@ public final class RaidManager {
                 : new AbstractMap.SimpleImmutableEntry<>(clan2, clan1);
     }
 
-    private int countOnlineNonAfk(Clan clan, long afkIgnoreMinutes) {
+    public int countOnlineNonAfk(Clan clan, long afkIgnoreMinutes) {
         int online = 0;
         for (UUID memberId : clan.members().keySet()) {
             Player p = Bukkit.getPlayer(memberId);
@@ -494,6 +494,10 @@ public final class RaidManager {
 
     public boolean isInRaid(UUID clanId) {
         return activeRaids.values().stream().anyMatch(r -> r.involves(clanId));
+    }
+
+    public Optional<ClanRaid> getActiveRaid(UUID clanId) {
+        return activeRaids.values().stream().filter(r -> r.involves(clanId)).findFirst();
     }
 
     public boolean areInRaid(UUID first, UUID second) {
@@ -925,5 +929,18 @@ public final class RaidManager {
                 .map(ClanMember::playerId)
                 .map(Bukkit::getPlayer)
                 .filter(Objects::nonNull);
+    }
+
+    public long getCooldownRemaining(UUID clan1, UUID clan2) {
+        AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = pairKey(clan1, clan2);
+        Long last = raidCooldowns.get(cooldownKey);
+        if (last == null) return 0;
+        long elapsed = System.currentTimeMillis() - last;
+        long duration = cooldownDuration().toMillis();
+        return elapsed < duration ? (duration - elapsed) : 0;
+    }
+
+    public int activeRaidsCount() {
+        return activeRaids.size();
     }
 }

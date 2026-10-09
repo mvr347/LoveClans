@@ -29,6 +29,75 @@ general:
   # нелокализированных строк.
   anticheat-blocked: "<prefix><red>Действие заблокировано: у вас зафиксирован высокий риск античита!</red>"
 
+deny:
+  no-permission: "<prefix><red>Недостаточно прав <gray>· <yellow>обратитесь к лидеру или офицеру клана"
+
+  war:
+    already-at-war: "<prefix><red>Уже идёт война с этим кланом <gray>· <yellow>дождитесь её окончания"
+    already-in-conflict: "<prefix><red>Один из кланов уже в конфликте <gray>· <yellow>дождитесь завершения других войн или осад"
+    cannot-declare-ally: "<prefix><red>Нельзя объявить войну союзнику <gray>· <yellow>разорвите союз в дипломатии"
+    max-wars: "<prefix><red>Достигнут лимит одновременных войн <gray>· <yellow>дождитесь окончания текущих войн на сервере"
+    attacker-no-capital: "<prefix><red>У вашего клана нет столицы <gray>· <yellow>установите знамя спавна"
+    defender-no-capital: "<prefix><red>У клана <color><tag></color> нет столицы <gray>· <yellow>войну объявить нельзя"
+    not-in-territory: "<prefix><red>Вы не на территории цели <gray>· <yellow>войдите на оспариваемую территорию"
+    no-casus: "<prefix><red>Нужен повод (казус белли) <gray>· <yellow>оформите у Гильдмастера"
+    not-enough-online: "<prefix><red>Нужно минимум <min> участника онлайн <gray>· <yellow>сейчас <current>"
+    defender-no-leader: "<prefix><red>У защитников нет онлайн лидера или хранителя <gray>· <yellow>подождите их появления"
+    cooldown: "<prefix><red>С <color><tag></color> уже воевали <gray>· <yellow>доступно через <time>"
+
+  siege:
+    already-in-siege: "<prefix><red>Один из кланов уже участвует в осаде <gray>· <yellow>дождитесь её окончания"
+    war-in-progress: "<prefix><red>Один из кланов уже воюет <gray>· <yellow>дождитесь окончания войны"
+    attacker-no-capital: "<prefix><red>У вашего клана нет столицы <gray>· <yellow>установите знамя спавна"
+    defender-no-capital: "<prefix><red>У клана <color><tag></color> нет столицы <gray>· <yellow>осаду объявить нельзя"
+    not-in-territory: "<prefix><red>Вы не на территории цели <gray>· <yellow>войдите на территорию осаждаемого клана"
+    attacker-level-too-low: "<prefix><red>Осада с уровня клана <min> <gray>· <yellow>у вас <level>"
+    defender-level-too-low: "<prefix><red>Клан цели ещё не готов к осаде (требуется ур. <min>) <gray>· <yellow>у цели <level>"
+    level-gap-too-large: "<prefix><red>Нельзя осаждать слабейших ради лёгкой дани <gray>· <yellow>разница более <max> уровней"
+    no-casus: "<prefix><red>Нужен повод (казус белли: Осада) <gray>· <yellow>оформите у Гильдмастера"
+    not-enough-attackers: "<prefix><red>Нужно минимум <min> атакующих онлайн <gray>· <yellow>сейчас <current>"
+    not-enough-defenders: "<prefix><red>Нужно минимум <min> защитников онлайн <gray>· <yellow>сейчас <current>"
+    weekly-attacker-limit: "<prefix><red>Лимит осад вашего клана исчерпан <gray>· <yellow>максимум 2 осады в неделю"
+    weekly-defender-limit: "<prefix><red>Цель уже осаждали максимум раз на этой неделе <gray>· <yellow>максимум 2 осады в неделю"
+    not-enough-treasury: "<prefix><red>Недостаточно средств в казне клана <gray>· <yellow>нужно <cost>"
+
+  raid:
+    already-in-raid: "<prefix><red>Один из кланов уже участвует в набеге <gray>· <yellow>дождитесь его окончания"
+    conflict-in-progress: "<prefix><red>Один из кланов уже в конфликте <gray>· <yellow>дождитесь окончания войны или осады"
+    attacker-no-capital: "<prefix><red>У вашего клана нет столицы <gray>· <yellow>установите знамя спавна"
+    defender-no-capital: "<prefix><red>У клана <color><tag></color> нет столицы <gray>· <yellow>набег провести нельзя"
+    shield-active: "<prefix><red>У клана <color><tag></color> действует щит от набегов <gray>· <yellow>осталось <time>"
+    daily-attacker-limit: "<prefix><red>Ваш дневной лимит набегов исчерпан <gray>· <yellow>максимум 5 в день"
+    daily-defender-limit: "<prefix><red>Цель уже грабили сегодня <gray>· <yellow>максимум 1 набег в день на клан"
+    not-enough-attackers: "<prefix><red>Нужно минимум <min> атакующих онлайн <gray>· <yellow>сейчас <current>"
+    too-many-defenders: "<prefix><red>У защитников слишком много игроков онлайн (<current>) <gray>· <yellow>для рейдов максимум <max>"
+    cooldown: "<prefix><red>Набег на <color><tag></color> на кулдауне <gray>· <yellow>доступно через <time>"
+
+  casus:
+    not-enough-money: "<prefix><red>Недостаточно средств <gray>· <yellow>нужно <cost>⛃"
+    condition-not-met: "<prefix><red>Условие повода не выполнено <gray>· <yellow><detail>"
+
+login-summary:
+  title: "<prefix><yellow>Пока вас не было: <white><events></white>"
+  open-button: "<green><bold>[Открыть]</bold></green>"
+  menu-button: "<gold><bold>[Меню клана]</bold></gold>"
+
+notification:
+  application-received: "<prefix><yellow>Новая заявка в клан от <white><player></white>!"
+  application-accept-btn: "<green><bold>[Принять]</bold></green>"
+  application-reject-btn: "<red><bold>[Отклонить]</bold></red>"
+  invite-received: "<prefix><color><tag></color> <yellow>приглашает вас в клан!"
+  invite-accept-btn: "<green><bold>[Принять]</bold></green>"
+  invite-reject-btn: "<red><bold>[Отклонить]</bold></red>"
+  reparations-paid: "<prefix><yellow>Списана ежедневная дань: <gold><amount>⛃</gold> в пользу клана <color><tag></color>."
+  reparations-received: "<prefix><green>Получена ежедневная дань: <gold><amount>⛃</gold> от клана <color><tag></color>."
+  reparations-arrears: "<prefix><red>Недоимка по дани: не удалось списать <gold><amount>⛃</gold> для клана <color><tag></color>."
+  casus-expired: "<prefix><yellow>Срок действия казус белли (<type>) против клана <color><tag></color> истёк."
+  kicked-title: "<red><bold>Вы исключены!"
+  kicked-subtitle: "<gray>Вас исключили из клана <color><tag></color>"
+  disbanded-title: "<red><bold>Клан распущен"
+  disbanded-subtitle: "<gray>Клан <color><tag></color> был распущен"
+
 admin:
   diplo-updated: "<prefix><green>Отношения между <color1><clan1></color1> и <color2><clan2></color2> изменены на <yellow><relation></yellow>."
   disbanded: "<prefix><green>Клан <color><tag></color> был распущен администратором."
@@ -748,21 +817,25 @@ gui:
     open-clan:
       title: "<gold>Подтвердите открытие клана"
     disband:
-      title: "<red>Подтвердите распуск клана"
+      title: "<red>Распустить клан <color><tag></color>?"
     disband-capital:
-      title: "<red>Подтвердите сворачивание клановой территории"
+      title: "<red>Свернуть столицу клана <color><tag></color>?"
     leave:
-      title: "<gold>Подтвердите выход из клана"
+      title: "<gold>Покинуть клан <color><tag></color>?"
     rename:
-      title: "<gold>Подтвердите смену названия"
+      title: "<gold>Сменить название на <white><name></white>?"
     transfer:
-      title: "<gold>Подтвердите передачу лидерства"
+      title: "<red>Передать лидерство <white><player></white>?"
+    kick:
+      title: "<red>Исключить <white><player></white>?"
+    withdraw:
+      title: "<gold>Снять <white><amount></white>⛃ из казны?"
     war:
       title: "<red>Объявить войну клану <color><tag></color>?"
     siege:
-      title: "<red>Устроить осаду клана <color><tag></color>?"
+      title: "<red>Объявить осаду клана <color><tag></color>?"
     raid:
-      title: "<red>Устроить набег на клан <color><tag></color>?"
+      title: "<red>Начать набег на клан <color><tag></color>?"
     peace:
       title: "<gold>Предложить мир клану <color><tag></color>?"
   create:

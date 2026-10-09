@@ -2,6 +2,7 @@ package me.lovelace.loveclans.gui;
 
 import dev.lovelace.lovecore.api.LoveCore;
 import dev.lovelace.lovecore.api.economy.LoveEconomy;
+import net.kyori.adventure.text.Component;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPermission;
@@ -276,6 +277,27 @@ public final class ClanChestMoneyMenu implements Listener {
     }
 
     private void withdraw(Player player, Clan clan, TreasuryCoins.Pile pile, boolean toInventory) {
+        LoveEconomy economy = economy().orElse(null);
+        if (economy == null) {
+            plugin.getMessages().send(player, "clan.creation-economy-unavailable");
+            return;
+        }
+        Optional<ItemStack> stack = CoinStacks.of(economy, pile.denomination(), pile.count());
+        long amount = stack.map(s -> pile.denomination().value() * s.getAmount()).orElse(pile.value());
+        long threshold = plugin.getConfig().getLong("economy.large-withdraw-confirm-threshold", 500L);
+        if (threshold > 0 && amount >= threshold) {
+            plugin.getGuiManager().openConfirm(player, clan,
+                    plugin.getMessages().component("gui.confirm.withdraw.title", Map.of("amount", CoinFormat.format(amount)), player),
+                    Component.empty(),
+                    () -> performWithdraw(player, clan, pile, true),
+                    () -> plugin.runSync(() -> open(player, clan))
+            );
+            return;
+        }
+        performWithdraw(player, clan, pile, toInventory);
+    }
+
+    private void performWithdraw(Player player, Clan clan, TreasuryCoins.Pile pile, boolean toInventory) {
         LoveEconomy economy = economy().orElse(null);
         if (economy == null) {
             plugin.getMessages().send(player, "clan.creation-economy-unavailable");

@@ -52,12 +52,24 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
         combined.addAll(applications);
         combined.addAll(invites);
 
-        this.inventory = Bukkit.createInventory(this, 54,
-                plugin.getMessages().component("gui.player-applications.title", player));
+        boolean inPlace = this.inventory != null
+                && player.getOpenInventory().getTopInventory().getHolder() == this;
 
-        GuiFrames.fillFrame54(inventory);
-        // Slot 0 is the theme head - the header never has an empty slot.
-        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_MAIN_APPLICATIONS).name(plugin.getMessages().component("gui.player-applications.title", player)).build());
+        if (inPlace) {
+            for (int slot : CONTENT_SLOTS) {
+                inventory.setItem(slot, null);
+            }
+            inventory.setItem(22, null);
+        } else {
+            this.inventory = Bukkit.createInventory(this, 54,
+                    plugin.getMessages().component("gui.player-applications.title", player));
+            GuiFrames.fillFrame54(inventory);
+            // Slot 0 is the theme head - the header never has an empty slot.
+            inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_MAIN_APPLICATIONS).name(plugin.getMessages().component("gui.player-applications.title", player)).build());
+            inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                    .name(plugin.getMessages().component("gui.close", player))
+                    .build());
+        }
 
         int end = Math.min(combined.size(), CONTENT_SLOTS.length);
         for (int index = 0; index < end; index++) {
@@ -98,11 +110,9 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
                     .build());
         }
 
-        inventory.setItem(53, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
-                .name(plugin.getMessages().component("gui.close", player))
-                .build());
-
-        player.openInventory(inventory);
+        if (!inPlace) {
+            player.openInventory(inventory);
+        }
     }
 
     public void handleInventoryClick(InventoryClickEvent event) {

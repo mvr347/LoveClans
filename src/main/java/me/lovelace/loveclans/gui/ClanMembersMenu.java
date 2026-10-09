@@ -54,11 +54,20 @@ public final class ClanMembersMenu {
     private record State(Filter filter, Sort sort, int page) {}
 
     public static final class Holder extends ClanMenuHolder {
-        private final Map<Integer, Entry> entries;
+        private final Map<Integer, Entry> entries = new HashMap<>();
 
         Holder(UUID clanId, Map<Integer, Entry> entries) {
             super(ClanMenuType.MEMBERS, clanId);
-            this.entries = entries;
+            if (entries != null) {
+                this.entries.putAll(entries);
+            }
+        }
+
+        void updateEntries(Map<Integer, Entry> newEntries) {
+            this.entries.clear();
+            if (newEntries != null) {
+                this.entries.putAll(newEntries);
+            }
         }
 
         Entry entryAt(int slot) {
@@ -131,14 +140,35 @@ public final class ClanMembersMenu {
         List<Entry> pageEntries = MembersView.page(shown, page);
         Map<Integer, Entry> slotMap = new HashMap<>();
 
-        Holder holder = new Holder(clan.id(), slotMap);
-        Inventory inventory = Bukkit.createInventory(holder, SIZE,
-                plugin.getMessages().component("gui.members-hub.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
-        holder.setInventory(inventory);
+        Inventory openInv = player.getOpenInventory().getTopInventory();
+        boolean inPlace = openInv != null
+                && openInv.getHolder() instanceof Holder existingHolder
+                && clan.id().equals(existingHolder.clanId());
 
-        // Header and Row1 are glass; the footer is glass up to the buttons. Work zone and its side walls stay free.
-        for (int slot = 1; slot <= 17; slot++) inventory.setItem(slot, GuiFrames.glassPane());
-        for (int slot = 45; slot <= 52; slot++) inventory.setItem(slot, GuiFrames.glassPane());
+        Inventory inventory;
+        Holder holder;
+        if (inPlace) {
+            inventory = openInv;
+            holder = (Holder) openInv.getHolder();
+            for (int slot : CONTENT_SLOTS) {
+                inventory.setItem(slot, null);
+            }
+            inventory.setItem(SLOT_PREV, null);
+            inventory.setItem(SLOT_NEXT, null);
+        } else {
+            holder = new Holder(clan.id(), null);
+            inventory = Bukkit.createInventory(holder, SIZE,
+                    plugin.getMessages().component("gui.members-hub.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
+            holder.setInventory(inventory);
+
+            // Header and Row1 are glass; the footer is glass up to the buttons. Work zone and its side walls stay free.
+            for (int slot = 1; slot <= 17; slot++) inventory.setItem(slot, GuiFrames.glassPane());
+            for (int slot = 45; slot <= 52; slot++) inventory.setItem(slot, GuiFrames.glassPane());
+            inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
+                    .name(plugin.getMessages().component("gui.back", player)).build());
+            inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
+                    .name(plugin.getMessages().component("gui.close", player)).build());
+        }
 
         String leaderName = clan.leaderId().map(id -> nameOf(Bukkit.getOfflinePlayer(id), id)).orElse("—");
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_MEMBERS)
@@ -165,6 +195,7 @@ public final class ClanMembersMenu {
             slotMap.put(CONTENT_SLOTS[i], entry);
             inventory.setItem(CONTENT_SLOTS[i], buildEntry(entry, clan, player));
         }
+        holder.updateEntries(slotMap);
 
         if (page > 0) {
             inventory.setItem(SLOT_PREV, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
@@ -181,13 +212,13 @@ public final class ClanMembersMenu {
                     .name(plugin.getMessages().component("gui.members.invite.name", player))
                     .lore(plugin.getMessages().component(full ? "gui.members.invite.lore-full" : "gui.members.invite.lore", player))
                     .build());
+        } else {
+            inventory.setItem(SLOT_INVITE, GuiFrames.glassPane());
         }
-        inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
-                .name(plugin.getMessages().component("gui.back", player)).build());
-        inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
-                .name(plugin.getMessages().component("gui.close", player)).build());
 
-        player.openInventory(inventory);
+        if (!inPlace) {
+            player.openInventory(inventory);
+        }
     }
 
     /** A control button listing every option with the current one marked; LMB steps forward, RMB back. */

@@ -156,29 +156,38 @@ public final class ClanMemberDetailMenu {
             }
             case 14 -> {
                 String targetName = nameOf(targetId);
-                plugin.getClanManager().removeMemberAsync(clan, player.getUniqueId(), targetId, true)
-                        .thenRun(() -> plugin.runSync(() -> {
-                            plugin.getMessages().send(player, "clan.kicked", Map.of("player", targetName));
-                            plugin.getGuiManager().openMembers(player, clan);
-                        }))
-                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                plugin.getGuiManager().openConfirm(player, clan,
+                        plugin.getMessages().component("gui.confirm.kick.title", Map.of("player", targetName), player),
+                        Component.empty(),
+                        () -> plugin.getClanManager().removeMemberAsync(clan, player.getUniqueId(), targetId, true)
+                                .thenRun(() -> plugin.runSync(() -> {
+                                    plugin.getMessages().send(player, "clan.kicked", Map.of("player", targetName));
+                                    plugin.getGuiManager().openMembers(player, clan);
+                                }))
+                                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
+                        () -> plugin.runSync(() -> open(player, clan, targetId))
+                );
             }
-            case 11 -> plugin.getGuiManager().openConfirm(player, clan,
-                    plugin.getMessages().component("gui.confirm.transfer.title", player), Component.empty(),
-                    () -> plugin.getClanManager().transferLeadershipAsync(clan, player.getUniqueId(), targetId)
-                            .thenRun(() -> plugin.runSync(() -> {
-                                plugin.getGuiManager().openMembers(player, clan);
-                                // Если новый лидер сейчас смотрит на главное меню клана (например, с другого
-                                // устройства/окна), его меню нужно перерисовать — иначе кнопка «Покинуть клан»
-                                // останется видна, хотя теперь он лидер и не должен её видеть.
-                                Player newLeader = Bukkit.getPlayer(targetId);
-                                if (newLeader != null) {
-                                    plugin.getGuiManager().refreshMainMenuIfOpen(newLeader, clan);
-                                }
-                            }))
-                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
-                    () -> plugin.runSync(() -> open(player, clan, targetId))
-            );
+            case 11 -> {
+                String targetName = nameOf(targetId);
+                plugin.getGuiManager().openConfirm(player, clan,
+                        plugin.getMessages().component("gui.confirm.transfer.title", Map.of("player", targetName), player),
+                        Component.empty(),
+                        () -> plugin.getClanManager().transferLeadershipAsync(clan, player.getUniqueId(), targetId)
+                                .thenRun(() -> plugin.runSync(() -> {
+                                    plugin.getGuiManager().openMembers(player, clan);
+                                    // Если новый лидер сейчас смотрит на главное меню клана (например, с другого
+                                    // устройства/окна), его меню нужно перерисовать — иначе кнопка «Покинуть клан»
+                                    // останется видна, хотя теперь он лидер и не должен её видеть.
+                                    Player newLeader = Bukkit.getPlayer(targetId);
+                                    if (newLeader != null) {
+                                        plugin.getGuiManager().refreshMainMenuIfOpen(newLeader, clan);
+                                    }
+                                }))
+                                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
+                        () -> plugin.runSync(() -> open(player, clan, targetId))
+                );
+            }
             default -> {}
         }
     }
