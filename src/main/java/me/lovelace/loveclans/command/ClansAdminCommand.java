@@ -202,7 +202,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     private void casus(CommandSender sender, String[] args) {
         if (args.length < 6 || !args[1].equalsIgnoreCase("give")) {
-            sender.sendMessage(net.kyori.adventure.text.Component.text("§cИспользование: /loveclansadmin casus give <player> <targetTag> <war|siege> <reasonId>"));
+            sender.sendMessage(net.kyori.adventure.text.Component.text("§cИспользование: /loveclansadmin casus give <player> <targetTag> <war|siege> <reasonId> [itemsadder_id]"));
             return;
         }
         Player targetPlayer = org.bukkit.Bukkit.getPlayer(args[2]);
@@ -511,6 +511,16 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                     "insult", "dislike", "looked_wrong", "bad_fashion", "land_envy", "drunk_dare"
             );
             return StringUtil.copyPartialMatches(args[5], reasons, new ArrayList<>());
+        }
+        if (args.length == 7 && action.equals("casus")) {
+            List<String> ids = new ArrayList<>();
+            String defaultId = plugin.getConfig().getString("casus-belli.itemsadder-id", "loveclans:casus_belli_scroll");
+            String warId = plugin.getConfig().getString("casus-belli.war-itemsadder-id", "loveclans:war_scroll");
+            String siegeId = plugin.getConfig().getString("casus-belli.siege-itemsadder-id", "loveclans:siege_scroll");
+            if (defaultId != null && !defaultId.isBlank()) ids.add(defaultId);
+            if (warId != null && !warId.isBlank()) ids.add(warId);
+            if (siegeId != null && !siegeId.isBlank()) ids.add(siegeId);
+            return StringUtil.copyPartialMatches(args[6], ids, new ArrayList<>());
         }
 
         return Collections.emptyList();

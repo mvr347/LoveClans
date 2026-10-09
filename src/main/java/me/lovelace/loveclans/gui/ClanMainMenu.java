@@ -292,7 +292,7 @@ public final class ClanMainMenu implements InventoryHolder {
                 if (isLeader) return;
 
                 plugin.getGuiManager().openConfirm(clicker, clan, 
-                        plugin.getMessages().component("gui.confirm.leave.title", clicker), 
+                        plugin.getMessages().component("gui.confirm.leave.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), clicker), 
                         Component.empty(),
                         () -> plugin.getClanManager().removeMemberAsync(clan, clicker.getUniqueId(), clicker.getUniqueId(), false)
                                 .thenRun(() -> plugin.runSync(() -> {

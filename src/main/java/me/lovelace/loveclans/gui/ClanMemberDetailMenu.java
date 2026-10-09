@@ -138,37 +138,7 @@ public final class ClanMemberDetailMenu {
         ClanRank targetRank = targetMemberOpt.get().rank();
 
         switch (slot) {
-            case 12 -> {
-                ClanRank newRank = targetRank.nextRank();
-                if (newRank != null && newRank != ClanRank.LEADER) {
-                    plugin.getClanManager().setRankAsync(clan, player.getUniqueId(), targetId, newRank)
-                            .thenAccept(updated -> plugin.runSync(() -> open(player, updated, targetId)))
-                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
-                }
-            }
-            case 13 -> {
-                ClanRank newRank = targetRank.previousRank();
-                if (newRank != null) {
-                    plugin.getClanManager().setRankAsync(clan, player.getUniqueId(), targetId, newRank)
-                            .thenAccept(updated -> plugin.runSync(() -> open(player, updated, targetId)))
-                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
-                }
-            }
-            case 14 -> {
-                String targetName = nameOf(targetId);
-                plugin.getGuiManager().openConfirm(player, clan,
-                        plugin.getMessages().component("gui.confirm.kick.title", Map.of("player", targetName), player),
-                        Component.empty(),
-                        () -> plugin.getClanManager().removeMemberAsync(clan, player.getUniqueId(), targetId, true)
-                                .thenRun(() -> plugin.runSync(() -> {
-                                    plugin.getMessages().send(player, "clan.kicked", Map.of("player", targetName));
-                                    plugin.getGuiManager().openMembers(player, clan);
-                                }))
-                                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
-                        () -> plugin.runSync(() -> open(player, clan, targetId))
-                );
-            }
-            case 11 -> {
+            case 10 -> {
                 String targetName = nameOf(targetId);
                 plugin.getGuiManager().openConfirm(player, clan,
                         plugin.getMessages().component("gui.confirm.transfer.title", Map.of("player", targetName), player),
@@ -183,6 +153,36 @@ public final class ClanMemberDetailMenu {
                                     if (newLeader != null) {
                                         plugin.getGuiManager().refreshMainMenuIfOpen(newLeader, clan);
                                     }
+                                }))
+                                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
+                        () -> plugin.runSync(() -> open(player, clan, targetId))
+                );
+            }
+            case 12 -> {
+                ClanRank newRank = targetRank.nextRank();
+                if (newRank != null && newRank != ClanRank.LEADER) {
+                    plugin.getClanManager().setRankAsync(clan, player.getUniqueId(), targetId, newRank)
+                            .thenAccept(updated -> plugin.runSync(() -> open(player, updated, targetId)))
+                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                }
+            }
+            case 14 -> {
+                ClanRank newRank = targetRank.previousRank();
+                if (newRank != null) {
+                    plugin.getClanManager().setRankAsync(clan, player.getUniqueId(), targetId, newRank)
+                            .thenAccept(updated -> plugin.runSync(() -> open(player, updated, targetId)))
+                            .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                }
+            }
+            case 16 -> {
+                String targetName = nameOf(targetId);
+                plugin.getGuiManager().openConfirm(player, clan,
+                        plugin.getMessages().component("gui.confirm.kick.title", Map.of("player", targetName), player),
+                        Component.empty(),
+                        () -> plugin.getClanManager().removeMemberAsync(clan, player.getUniqueId(), targetId, true)
+                                .thenRun(() -> plugin.runSync(() -> {
+                                    plugin.getMessages().send(player, "clan.kicked", Map.of("player", targetName));
+                                    plugin.getGuiManager().openMembers(player, clan);
                                 }))
                                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
                         () -> plugin.runSync(() -> open(player, clan, targetId))

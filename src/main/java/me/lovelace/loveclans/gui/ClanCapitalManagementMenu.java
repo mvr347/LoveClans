@@ -101,7 +101,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
             case SLOT_DISBAND -> {
                 if (!allowed(clicker)) return;
                 plugin.getGuiManager().openConfirm(clicker, clan,
-                        plugin.getMessages().component("gui.confirm.disband-capital.title", clicker), Component.empty(),
+                        plugin.getMessages().component("gui.confirm.disband-capital.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), clicker), Component.empty(),
                         () -> plugin.getClanManager().relocateCapitalTerritoryAsync(clan, clicker.getUniqueId())
                                 .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(clicker, "gui.capital.disband.action")))
                                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(clicker, t)); return null; }),

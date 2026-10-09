@@ -117,7 +117,7 @@ public final class ClanSettingsMenu {
                         return;
                     }
                     plugin.getGuiManager().openConfirm(player, clan,
-                            plugin.getMessages().component("gui.confirm.rename.title", player), Component.empty(),
+                            plugin.getMessages().component("gui.confirm.rename.title", Map.of("name", newName.trim()), player), Component.empty(),
                             () -> plugin.getClanManager().renameClanAsync(clan, player.getUniqueId(), newName.trim())
                                     .thenAccept(updated -> plugin.runSync(() -> {
                                         plugin.getMessages().send(player, "gui.settings.rename.success", Map.of("name", updated.name()));
@@ -146,7 +146,7 @@ public final class ClanSettingsMenu {
                         return;
                     }
                     plugin.getGuiManager().openConfirm(player, clan,
-                            plugin.getMessages().component("gui.confirm.change-tag.title", player), Component.empty(),
+                            plugin.getMessages().component("gui.confirm.change-tag.title", Map.of("tag", newTag.trim()), player), Component.empty(),
                             () -> plugin.getClanManager().changeClanTagAsync(clan, player.getUniqueId(), newTag.trim())
                                     .thenAccept(updated -> plugin.runSync(() -> {
                                         plugin.getMessages().send(player, "gui.settings.change-tag.success", Map.of("tag", updated.tag()));
@@ -196,7 +196,7 @@ public final class ClanSettingsMenu {
                     return;
                 }
                 plugin.getGuiManager().openConfirm(player, clan,
-                        plugin.getMessages().component("gui.confirm.disband.title", player), Component.empty(),
+                        plugin.getMessages().component("gui.confirm.disband.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player), Component.empty(),
                         () -> {
                             player.closeInventory();
                             plugin.getClanManager().disbandClanAsync(clan, player.getUniqueId())
