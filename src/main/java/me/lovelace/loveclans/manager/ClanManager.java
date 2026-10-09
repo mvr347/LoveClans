@@ -498,6 +498,11 @@ public final class ClanManager {
                 Player player = Bukkit.getPlayer(memberId);
                 if (player != null) {
                     player.closeInventory();
+                    player.showTitle(net.kyori.adventure.title.Title.title(
+                            plugin.getMessages().component("notification.disbanded-title", player),
+                            plugin.getMessages().component("notification.disbanded-subtitle", Map.of("tag", clan.tag(), "color", clan.tagColor()), player)
+                    ));
+                    plugin.getMessages().send(player, "notification.disbanded-subtitle", Map.of("tag", clan.tag(), "color", clan.tagColor()));
                 }
             }
             // Must run before unindexClan: it still needs to resolve this clan (and messages
@@ -549,6 +554,13 @@ public final class ClanManager {
             invitesByPlayer.computeIfAbsent(invitedPlayerId, ignored -> new ArrayList<>()).add(invite);
             return invite;
         });
+    }
+
+    public List<ClanInvite> getPendingInvitesForPlayer(UUID playerId) {
+        if (playerId == null) return List.of();
+        long now = System.currentTimeMillis();
+        List<ClanInvite> invites = invitesByPlayer.getOrDefault(playerId, List.of());
+        return invites.stream().filter(i -> !i.expired(now)).toList();
     }
 
     public CompletableFuture<Clan> acceptInviteAsync(UUID playerId, String tag) {
@@ -731,6 +743,16 @@ public final class ClanManager {
             }
 
             Bukkit.getPluginManager().callEvent(new ClanMemberLeaveEvent(clan, playerId, kicked));
+            if (kicked) {
+                Player targetPlayer = Bukkit.getPlayer(playerId);
+                if (targetPlayer != null) {
+                    targetPlayer.showTitle(net.kyori.adventure.title.Title.title(
+                            plugin.getMessages().component("notification.kicked-title", targetPlayer),
+                            plugin.getMessages().component("notification.kicked-subtitle", Map.of("tag", clan.tag(), "color", clan.tagColor()), targetPlayer)
+                    ));
+                    plugin.getMessages().send(targetPlayer, "notification.kicked-subtitle", Map.of("tag", clan.tag(), "color", clan.tagColor()));
+                }
+            }
             if (clan.members().isEmpty()) {
                 for (ClanTerritory territory : clan.territories()) {
                     plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());

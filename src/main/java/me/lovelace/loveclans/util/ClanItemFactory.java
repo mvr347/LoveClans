@@ -225,7 +225,21 @@ public final class ClanItemFactory {
     }
 
     public ItemStack createCasusBelliItem(UUID targetClanId, String targetClanName, String conflictType, String reasonId, String reasonTitle, long expiresAt, boolean isJust) {
-        ItemStack item = new ItemStack(Material.PAPER);
+        return createCasusBelliItem(targetClanId, targetClanName, conflictType, reasonId, reasonTitle, expiresAt, isJust, null);
+    }
+
+    public ItemStack createCasusBelliItem(UUID targetClanId, String targetClanName, String conflictType, String reasonId, String reasonTitle, long expiresAt, boolean isJust, String customItemsAdderId) {
+        String iaId = (customItemsAdderId != null && !customItemsAdderId.isBlank())
+                ? customItemsAdderId
+                : getCasusBelliItemsAdderId(conflictType);
+
+        ItemStack item = null;
+        if (iaId != null && !iaId.isBlank()) {
+            item = ItemsAdderHook.createCustomStack(iaId);
+        }
+        if (item == null) {
+            item = new ItemStack(Material.PAPER);
+        }
         ItemMeta meta = item.getItemMeta();
         if (meta != null) {
             PersistentDataContainer pdc = meta.getPersistentDataContainer();
@@ -264,6 +278,17 @@ public final class ClanItemFactory {
             item.setItemMeta(meta);
         }
         return item;
+    }
+
+    public String getCasusBelliItemsAdderId(String conflictType) {
+        if (conflictType != null) {
+            String key = conflictType.equalsIgnoreCase("WAR") ? "casus-belli.war-itemsadder-id" : "casus-belli.siege-itemsadder-id";
+            String specific = plugin.getConfig().getString(key, "");
+            if (specific != null && !specific.isBlank()) {
+                return specific;
+            }
+        }
+        return plugin.getConfig().getString("casus-belli.itemsadder-id", "");
     }
 
     public Optional<CasusBelliData> getCasusBelliData(ItemStack item) {

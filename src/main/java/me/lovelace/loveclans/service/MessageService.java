@@ -200,29 +200,60 @@ public final class MessageService {
         }
     }
 
+    public void sendDeny(Player player, String key, Map<String, String> placeholders) {
+        if (player == null) return;
+        send(player, key, placeholders);
+        player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 0.7f, 0.8f);
+    }
+
+    public List<Component> denyLore(String key, Map<String, String> placeholders, Player player) {
+        String rawText = raw(key);
+        if (rawText == null || rawText.isBlank()) return List.of();
+        String withoutPrefix = rawText.replace("<prefix>", "").trim();
+        String[] parts = withoutPrefix.split("<gray>·</gray>|<gray>·");
+        List<Component> components = new ArrayList<>();
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (!trimmed.isEmpty()) {
+                components.add(parse(trimmed, placeholders, player));
+            }
+        }
+        return components;
+    }
+
     public void sendClickableApplication(Player leader, String applicantName, String clanTag, String clanColor) {
-        Component msg = component("clan.application-received",
+        Component acceptBtn = component("notification.application-accept-btn", leader)
+                .hoverEvent(Component.text("§aНажмите, чтобы принять заявку"))
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                        "/clan applications accept " + applicantName));
+        Component rejectBtn = component("notification.application-reject-btn", leader)
+                .hoverEvent(Component.text("§cНажмите, чтобы отклонить заявку"))
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
+                        "/clan applications reject " + applicantName));
+
+        Component msg = component("notification.application-received",
                 Map.of("player", applicantName, "tag", clanTag, "color", clanColor), leader)
-                .append(Component.text(" "))
-                .append(component("gui.accept", leader)
-                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
-                                "/clan applications accept " + applicantName)))
-                .append(Component.text(" "))
-                .append(component("gui.reject", leader)
-                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(
-                                "/clan applications reject " + applicantName)));
+                .append(Component.newline())
+                .append(acceptBtn)
+                .append(Component.text("   "))
+                .append(rejectBtn);
         leader.sendMessage(msg);
     }
 
     public void sendClickableInvite(Player target, String clanTag, String clanColor) {
-        Component msg = component("clan.invite-received",
+        Component acceptBtn = component("notification.invite-accept-btn", target)
+                .hoverEvent(Component.text("§aНажмите, чтобы вступить в клан"))
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan accept " + clanTag));
+        Component rejectBtn = component("notification.invite-reject-btn", target)
+                .hoverEvent(Component.text("§cНажмите, чтобы отклонить приглашение"))
+                .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan decline " + clanTag));
+
+        Component msg = component("notification.invite-received",
                 Map.of("tag", clanTag, "color", clanColor), target)
-                .append(Component.text(" "))
-                .append(component("gui.accept", target)
-                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan accept " + clanTag)))
-                .append(Component.text(" "))
-                .append(component("gui.reject", target)
-                        .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand("/clan decline " + clanTag)));
+                .append(Component.newline())
+                .append(acceptBtn)
+                .append(Component.text("   "))
+                .append(rejectBtn);
         target.sendMessage(msg);
     }
 

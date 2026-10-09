@@ -224,9 +224,10 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         String reasonId = args[5].toLowerCase(Locale.ROOT);
         boolean isJust = reasonId.startsWith("revenge_") || reasonId.equals("unpaid_tribute") || reasonId.equals("broken_peace");
         long expiresAt = System.currentTimeMillis() + 14L * 24 * 3600_000L;
+        String customItemsAdderId = args.length >= 7 ? args[6] : null;
 
         org.bukkit.inventory.ItemStack item = plugin.getClanManager().getClanItemFactory().createCasusBelliItem(
-                targetClan.id(), targetClan.name(), conflictType, reasonId, reasonId, expiresAt, isJust
+                targetClan.id(), targetClan.name(), conflictType, reasonId, reasonId, expiresAt, isJust, customItemsAdderId
         );
         var overflow = targetPlayer.getInventory().addItem(item);
         overflow.values().forEach(drop -> targetPlayer.getWorld().dropItemNaturally(targetPlayer.getLocation(), drop));

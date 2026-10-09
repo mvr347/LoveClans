@@ -539,6 +539,12 @@ public final class WarManager {
                 .findFirst();
     }
 
+    public Optional<ClanWar> getActiveWar(UUID clanId) {
+        return activeWars.values().stream()
+                .filter(war -> war.involves(clanId))
+                .findFirst();
+    }
+
     public Collection<ClanWar> activeWars() {
         return List.copyOf(activeWars.values());
     }
@@ -1273,5 +1279,18 @@ public final class WarManager {
         } catch (Throwable t) {
             plugin.getLogger().warning("Не удалось отчитаться перед LoveCore о выигранной войне: " + t.getMessage());
         }
+    }
+
+    public long getCooldownRemaining(UUID clan1, UUID clan2) {
+        AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = getWarPairKey(clan1, clan2);
+        Long last = warCooldowns.get(cooldownKey);
+        if (last == null) return 0;
+        long elapsed = System.currentTimeMillis() - last;
+        long duration = warCooldownDuration().toMillis();
+        return elapsed < duration ? (duration - elapsed) : 0;
+    }
+
+    public int activeWarsCount() {
+        return activeWars.size();
     }
 }
