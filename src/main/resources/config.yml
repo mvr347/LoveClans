@@ -512,7 +512,6 @@ influence:
 
 war:
   # Цели войны помимо убийств: слабому в PvP клану нужен другой путь к победе
-  objectives:
   # Очки за задачи во время войны
   objectives:
     control-score: 2
