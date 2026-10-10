@@ -272,7 +272,7 @@ public final class AdvancedClaimsHook {
         }
         try {
             for (Claim claim : api.getAllClaims()) {
-                if (claim.getWorld() == null || !claim.getWorld().equals(world)) {
+                if (claim.getWorld() == null || (!claim.getWorld().equals(world) && !claim.getWorld().getName().equalsIgnoreCase(world.getName()))) {
                     continue;
                 }
                 if (claim.getBoundingBox() != null && claim.getBoundingBox().overlaps(box)) {

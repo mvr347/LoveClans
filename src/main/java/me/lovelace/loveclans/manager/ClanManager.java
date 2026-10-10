@@ -462,13 +462,15 @@ public final class ClanManager {
             if (giveCapitalBanner && founder != null) {
                 founder.getInventory().addItem(clanItemFactory.createCapitalBanner(clan.id(), clan.name()));
                 plugin.getMessages().send(founder, "territory.banner-given");
-                markClanCreated(founderId);
             }
 
             return clan;
         }).thenCompose(clan -> storage.saveClanAsync(clan).thenApply(ignored -> {
             plugin.getHistoryManager().add(clan.id(), me.lovelace.loveclans.history.HistoryType.CLAN_CREATED,
                     clan.leaderId().orElse(null), Map.of("name", clan.name()));
+            if (giveCapitalBanner) {
+                markClanCreated(founderId);
+            }
             return clan;
         }));
     }
@@ -1125,6 +1127,26 @@ public final class ClanManager {
 
     public boolean takeCreationBanner(Player player) {
         if (player == null) return false;
+        ItemStack mainHand = player.getInventory().getItemInMainHand();
+        if (clanItemFactory.isClanCreationBanner(mainHand)) {
+            int amount = mainHand.getAmount();
+            if (amount > 1) {
+                mainHand.setAmount(amount - 1);
+            } else {
+                player.getInventory().setItemInMainHand(null);
+            }
+            return true;
+        }
+        ItemStack offHand = player.getInventory().getItemInOffHand();
+        if (clanItemFactory.isClanCreationBanner(offHand)) {
+            int amount = offHand.getAmount();
+            if (amount > 1) {
+                offHand.setAmount(amount - 1);
+            } else {
+                player.getInventory().setItemInOffHand(null);
+            }
+            return true;
+        }
         ItemStack[] contents = player.getInventory().getContents();
         for (int i = 0; i < contents.length; i++) {
             ItemStack stack = contents[i];

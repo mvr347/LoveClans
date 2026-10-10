@@ -90,22 +90,18 @@ public final class ClanBannerListener implements Listener {
         // ШАГ A: Данные ещё не введены (или сессия истекла) -> pre-check коробки территории + открытие GUI
         if (session == null || session.phase() == FoundationPhase.NONE) {
             event.setCancelled(true);
-            World world = location.getWorld();
-            BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), world);
-            Optional<Claim> conflict = plugin.getAdvancedClaimsHook().findOverlappingClaim(world, box);
-            if (conflict.isPresent() || plugin.getAdvancedClaimsHook().isClaimed(location)) {
+            TerritoryOverlapCheck check = checkOverlap(location);
+            if (check.hasConflict()) {
                 long ticks = plugin.getConfig().getLong("integration.advanced-claims.preview-display-ticks", 300L);
-                plugin.getAdvancedClaimsHook().showClaimBorder(player, box, ticks);
-                conflict.ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), ticks, c.getId()));
-                String owner = conflict.map(plugin.getAdvancedClaimsHook()::formatClaimOwner).orElse("неизвестно");
+                showConflictBorders(player, check, ticks);
                 int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
-                int conflictX = conflict.map(c -> c.getBoundingBox() != null ? (int) c.getBoundingBox().getCenterX() : location.getBlockX()).orElse(location.getBlockX());
-                int conflictZ = conflict.map(c -> c.getBoundingBox() != null ? (int) c.getBoundingBox().getCenterZ() : location.getBlockZ()).orElse(location.getBlockZ());
+                int conflictX = check.conflict().map(c -> c.getBoundingBox() != null ? (int) c.getBoundingBox().getCenterX() : location.getBlockX()).orElse(location.getBlockX());
+                int conflictZ = check.conflict().map(c -> c.getBoundingBox() != null ? (int) c.getBoundingBox().getCenterZ() : location.getBlockZ()).orElse(location.getBlockZ());
                 plugin.getMessages().send(player, "clan.banner.overlap-denied", Map.of(
                         "radius", String.valueOf(radius),
                         "x", String.valueOf(conflictX),
                         "z", String.valueOf(conflictZ),
-                        "owner", owner
+                        "owner", check.ownerName(plugin.getAdvancedClaimsHook())
                 ));
                 return;
             }
@@ -118,16 +114,13 @@ public final class ClanBannerListener implements Listener {
         // ШАГ B: Имя и тег введены (DATA_READY) -> показ превью границ территории
         if (session.phase() == FoundationPhase.DATA_READY) {
             event.setCancelled(true);
-            World world = location.getWorld();
-            BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), world);
             long previewTicks = plugin.getConfig().getLong("integration.advanced-claims.preview-display-ticks", 300L);
-            plugin.getAdvancedClaimsHook().showClaimBorder(player, box, previewTicks);
+            TerritoryOverlapCheck check = checkOverlap(location);
+            plugin.getAdvancedClaimsHook().showClaimBorder(player, check.box(), previewTicks);
 
-            Optional<Claim> conflict = plugin.getAdvancedClaimsHook().findOverlappingClaim(world, box);
-            if (conflict.isPresent() || plugin.getAdvancedClaimsHook().isClaimed(location)) {
-                conflict.ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), previewTicks, c.getId()));
-                String owner = conflict.map(plugin.getAdvancedClaimsHook()::formatClaimOwner).orElse("неизвестно");
-                plugin.getMessages().send(player, "clan.banner.preview-overlap", Map.of("owner", owner));
+            if (check.hasConflict()) {
+                check.conflict().ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), previewTicks, c.getId()));
+                plugin.getMessages().send(player, "clan.banner.preview-overlap", Map.of("owner", check.ownerName(plugin.getAdvancedClaimsHook())));
                 return;
             }
 
@@ -145,16 +138,13 @@ public final class ClanBannerListener implements Listener {
             if (session.previewLocation() == null
                     || !session.previewLocation().getWorld().equals(location.getWorld())
                     || session.previewLocation().distanceSquared(location) > 4.0) {
-                World world = location.getWorld();
-                BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), world);
                 long previewTicks = plugin.getConfig().getLong("integration.advanced-claims.preview-display-ticks", 300L);
-                plugin.getAdvancedClaimsHook().showClaimBorder(player, box, previewTicks);
+                TerritoryOverlapCheck check = checkOverlap(location);
+                plugin.getAdvancedClaimsHook().showClaimBorder(player, check.box(), previewTicks);
 
-                Optional<Claim> conflict = plugin.getAdvancedClaimsHook().findOverlappingClaim(world, box);
-                if (conflict.isPresent() || plugin.getAdvancedClaimsHook().isClaimed(location)) {
-                    conflict.ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), previewTicks, c.getId()));
-                    String owner = conflict.map(plugin.getAdvancedClaimsHook()::formatClaimOwner).orElse("неизвестно");
-                    plugin.getMessages().send(player, "clan.banner.preview-overlap", Map.of("owner", owner));
+                if (check.hasConflict()) {
+                    check.conflict().ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), previewTicks, c.getId()));
+                    plugin.getMessages().send(player, "clan.banner.preview-overlap", Map.of("owner", check.ownerName(plugin.getAdvancedClaimsHook())));
                     plugin.getClanManager().updateFoundationSession(session.withPhase(FoundationPhase.DATA_READY));
                     return;
                 }
@@ -189,16 +179,12 @@ public final class ClanBannerListener implements Listener {
                 return;
             }
 
-            World world = location.getWorld();
-            BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), world);
-            Optional<Claim> conflict = plugin.getAdvancedClaimsHook().findOverlappingClaim(world, box);
-            if (conflict.isPresent()) {
+            TerritoryOverlapCheck check = checkOverlap(location);
+            if (check.conflict().isPresent()) {
                 plugin.getClanManager().endCreation(player.getUniqueId());
                 long previewTicks = plugin.getConfig().getLong("integration.advanced-claims.preview-display-ticks", 300L);
-                plugin.getAdvancedClaimsHook().showClaimBorder(player, box, previewTicks);
-                conflict.ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), previewTicks, c.getId()));
-                String owner = conflict.map(plugin.getAdvancedClaimsHook()::formatClaimOwner).orElse("неизвестно");
-                plugin.getMessages().send(player, "clan.banner.preview-overlap", Map.of("owner", owner));
+                showConflictBorders(player, check, previewTicks);
+                plugin.getMessages().send(player, "clan.banner.preview-overlap", Map.of("owner", check.ownerName(plugin.getAdvancedClaimsHook())));
                 return;
             }
 
@@ -345,5 +331,24 @@ public final class ClanBannerListener implements Listener {
                 }
             }
         }
+    }
+
+    private record TerritoryOverlapCheck(BoundingBox box, Optional<Claim> conflict, boolean hasConflict) {
+        String ownerName(AdvancedClaimsHook hook) {
+            return conflict.map(hook::formatClaimOwner).orElse("неизвестно");
+        }
+    }
+
+    private TerritoryOverlapCheck checkOverlap(Location location) {
+        World world = location.getWorld();
+        BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), world);
+        Optional<Claim> conflict = plugin.getAdvancedClaimsHook().findOverlappingClaim(world, box);
+        boolean hasConflict = conflict.isPresent() || plugin.getAdvancedClaimsHook().isClaimed(location);
+        return new TerritoryOverlapCheck(box, conflict, hasConflict);
+    }
+
+    private void showConflictBorders(Player player, TerritoryOverlapCheck check, long ticks) {
+        plugin.getAdvancedClaimsHook().showClaimBorder(player, check.box(), ticks);
+        check.conflict().ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), ticks, c.getId()));
     }
 }
