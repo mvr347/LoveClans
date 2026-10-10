@@ -196,6 +196,9 @@ public class ClanProtectionListener implements Listener {
             clanManager.cancelPendingClaim(player.getUniqueId());
             plugin.getLogger().info("Cancelled pending claim for " + player.getName() + " due to logout.");
         }
+        if (clanManager.hasFoundationSession(player.getUniqueId())) {
+            clanManager.clearFoundationSession(player.getUniqueId());
+        }
         // Прогрев "/clan home" не переживает логаут — тихо отменяем, чтобы не осталась
         // висящая задача/боссбар (сообщение об отмене всё равно некому показывать).
         if (clanManager.hasPendingHomeTeleport(player.getUniqueId())) {

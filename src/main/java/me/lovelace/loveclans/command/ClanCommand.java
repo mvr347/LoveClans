@@ -264,7 +264,13 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     }
 
     private void cancelPendingChatInput(Player player) {
+        boolean hadChat = plugin.getChatInputListener(player.getUniqueId()).isPresent();
         plugin.getChatInputListener(player.getUniqueId()).ifPresent(callback -> callback.accept(null, true));
+        if (plugin.getClanManager().hasFoundationSession(player.getUniqueId())) {
+            plugin.getClanManager().clearFoundationSession(player.getUniqueId());
+            plugin.getAdvancedClaimsHook().hideClaimBorder(player);
+            plugin.getMessages().send(player, "clan.banner.cancelled");
+        }
     }
 
     private void openCreateGui(Player player) {

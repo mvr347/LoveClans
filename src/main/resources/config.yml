@@ -703,13 +703,16 @@ integration:
     # "не заводить приват, но территорию всё равно взять": выключить его означает выключить
     # захват территорий вообще (см. territory.advancedclaims-disabled).
     enabled: true
-    claim-radius: 35 # Radius for LoveClaims (71x71x71 area)
+    # Радиус территории клана от знамени в блоках (35 = квадрат 71x71 блок)
+    claim-radius: 35 # Radius for LoveClaims (71x71 area)
     # Вертикальная полоса привата вокруг Y знамени, а не вся высота мира (было: min..max мира,
     # то есть приват защищал весь столбец от бедрока до предела постройки над базой любой высоты).
     # Обрезается границами мира (world.getMinHeight()/getMaxHeight()).
     claim-height-below: 64  # блоков вниз от знамени
     claim-height-above: 128 # блоков вверх от знамени
-    border-display-ticks: 100 # Duration in ticks for showing claim border (5 seconds)
+    border-display-ticks: 100 # Длительность показа границ (5 сек = 100 тиков)
+    # Длительность отображения границ территории при превью основания клана (15 сек = 300 тиков)
+    preview-display-ticks: 300
     trust-mapping:
       LEADER: OWNER
       GUARDIAN: BUILD

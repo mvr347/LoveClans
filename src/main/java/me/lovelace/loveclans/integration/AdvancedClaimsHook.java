@@ -264,6 +264,58 @@ public final class AdvancedClaimsHook {
     }
 
     /**
+     * Первый приват, пересекающий указанный BoundingBox в указанном мире (для визуализации и сообщений).
+     */
+    public Optional<Claim> findOverlappingClaim(World world, BoundingBox box) {
+        if (!enabled() || world == null || box == null) {
+            return Optional.empty();
+        }
+        try {
+            for (Claim claim : api.getAllClaims()) {
+                if (claim.getWorld() == null || !claim.getWorld().equals(world)) {
+                    continue;
+                }
+                if (claim.getBoundingBox() != null && claim.getBoundingBox().overlaps(box)) {
+                    return Optional.of(claim);
+                }
+            }
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(Level.WARNING, "findOverlappingClaim failed: " + ex.getMessage(), ex);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Есть ли пересечение box с любым существующим приватом в мире.
+     */
+    public boolean overlapsAnyClaim(World world, BoundingBox box) {
+        if (!enabled() || world == null || box == null) {
+            return false;
+        }
+        try {
+            return api.checkOverlap(world, box);
+        } catch (RuntimeException ex) {
+            return findOverlappingClaim(world, box).isPresent();
+        }
+    }
+
+    /**
+     * Человекочитаемое имя владельца привата для сообщений об ошибке пересечения.
+     */
+    public String formatClaimOwner(Claim claim) {
+        if (claim == null) return "неизвестно";
+        String name = claim.getOwnerDisplayName();
+        if (name != null && !name.isBlank()) return name;
+        if (claim.getName() != null && !claim.getName().isBlank()) return claim.getName();
+        if (claim.getOwnerUuid() != null) {
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(claim.getOwnerUuid());
+            if (offline.getName() != null) return offline.getName();
+            return claim.getOwnerUuid().toString();
+        }
+        return "неизвестно";
+    }
+
+    /**
      * Синхронизирует права всех членов клана для указанной территории AdvancedClaims.
      * Вызывается при создании территории или при загрузке клана.
      *

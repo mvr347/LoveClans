@@ -73,6 +73,8 @@ public final class ClanManager {
     private final Map<UUID, Map<UUID, Long>> rejoinCooldowns = new ConcurrentHashMap<>();
     // Отметки времени последнего создания клана каждым игроком, для clans.creation-cooldown-seconds.
     private final Map<UUID, Long> creationCooldowns = new ConcurrentHashMap<>();
+    // Активные сессии основания клана (Шаг A -> Шаг B -> Шаг C)
+    private final Map<UUID, FoundationSession> foundationSessions = new ConcurrentHashMap<>();
     private final Map<UUID, ItemStack[]> chestCache = new ConcurrentHashMap<>();
     private final Map<UUID, Long> chestCacheVersion = new ConcurrentHashMap<>();
     // Клан, чей физический сундук сейчас открыт в ClanChestMenu или RaidLootMenu (общий ключ -
@@ -407,7 +409,7 @@ public final class ClanManager {
                 if (lastCreatedAt != null) {
                     long remaining = (lastCreatedAt + cooldownSeconds * 1000L) - System.currentTimeMillis();
                     if (remaining > 0) {
-                        throw new IllegalStateException("clan.creation-cooldown");
+                        throw new CreationCooldownException(remaining);
                     }
                 }
             }
@@ -457,17 +459,10 @@ public final class ClanManager {
             }
             indexClan(clan);
 
-            if (cooldownSeconds > 0) {
-                long now = System.currentTimeMillis();
-                long windowMs = cooldownSeconds * 1000L;
-                // Drop expired entries so the map does not grow with every founder that ever created a clan.
-                creationCooldowns.values().removeIf(createdAt -> now - createdAt >= windowMs);
-                creationCooldowns.put(founderId, now);
-            }
-
             if (giveCapitalBanner && founder != null) {
                 founder.getInventory().addItem(clanItemFactory.createCapitalBanner(clan.id(), clan.name()));
                 plugin.getMessages().send(founder, "territory.banner-given");
+                markClanCreated(founderId);
             }
 
             return clan;
@@ -1071,6 +1066,142 @@ public final class ClanManager {
         return pendingClaims.get(playerId);
     }
 
+    public void clearCreationCooldown(UUID playerId) {
+        if (playerId != null) {
+            creationCooldowns.remove(playerId);
+        }
+    }
+
+    public void markClanCreated(UUID founderId) {
+        long cooldownSeconds = plugin.getConfig().getLong("clans.creation-cooldown-seconds", 0L);
+        if (cooldownSeconds <= 0L || founderId == null) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        long windowMs = cooldownSeconds * 1000L;
+        creationCooldowns.values().removeIf(createdAt -> now - createdAt >= windowMs);
+        creationCooldowns.put(founderId, now);
+    }
+
+    public Optional<Long> getCreationCooldownRemaining(UUID founderId) {
+        if (founderId == null) return Optional.empty();
+        long cooldownSeconds = plugin.getConfig().getLong("clans.creation-cooldown-seconds", 0L);
+        if (cooldownSeconds <= 0) return Optional.empty();
+        Long lastCreatedAt = creationCooldowns.get(founderId);
+        if (lastCreatedAt == null) return Optional.empty();
+        long remaining = (lastCreatedAt + cooldownSeconds * 1000L) - System.currentTimeMillis();
+        return remaining > 0 ? Optional.of(remaining) : Optional.empty();
+    }
+
+    public Optional<FoundationSession> getFoundationSession(UUID playerId) {
+        if (playerId == null) return Optional.empty();
+        FoundationSession session = foundationSessions.get(playerId);
+        if (session != null && session.isExpired(10 * 60 * 1000L)) {
+            foundationSessions.remove(playerId);
+            return Optional.empty();
+        }
+        return Optional.ofNullable(session);
+    }
+
+    public void startFoundationData(UUID playerId, String name, String tag, boolean open) {
+        foundationSessions.put(playerId, new FoundationSession(playerId, name, tag, open, null, FoundationPhase.DATA_READY, System.currentTimeMillis()));
+    }
+
+    public void updateFoundationSession(FoundationSession session) {
+        if (session != null) {
+            foundationSessions.put(session.playerId(), session);
+        }
+    }
+
+    public void clearFoundationSession(UUID playerId) {
+        if (playerId != null) {
+            foundationSessions.remove(playerId);
+        }
+    }
+
+    public boolean hasFoundationSession(UUID playerId) {
+        return getFoundationSession(playerId).isPresent();
+    }
+
+    public boolean takeCreationBanner(Player player) {
+        if (player == null) return false;
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack stack = contents[i];
+            if (stack != null && clanItemFactory.isClanCreationBanner(stack)) {
+                int amount = stack.getAmount();
+                if (amount > 1) {
+                    stack.setAmount(amount - 1);
+                } else {
+                    player.getInventory().setItem(i, null);
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Выполняет финальное основание клана: создание клана, регистрация привата столицы в LoveClaims,
+     * установка спавна и баннера, начисление опыта. При любой ошибке выполняется бесшумный откат,
+     * снятие cooldown, возврат знамени и отображение границ чужого привата.
+     */
+    public CompletableFuture<Void> commitFoundation(Player player, FoundationSession session, Location bannerLocation) {
+        java.util.concurrent.atomic.AtomicReference<Clan> createdRef = new java.util.concurrent.atomic.AtomicReference<>();
+        return createClanAsync(session.name(), session.tag(), player.getUniqueId(), session.open(), false)
+                .thenCompose(created -> {
+                    createdRef.set(created);
+                    return plugin.supplySync(() -> created)
+                            .thenCompose(clan -> claimCapitalNow(clan, bannerLocation, player));
+                })
+                .whenComplete((territory, error) -> plugin.runSync(() -> {
+                    try {
+                        Clan created = createdRef.get();
+                        if (error == null && territory != null && created != null) {
+                            placeClanBannerBlock(bannerLocation, Material.RED_BANNER, "CAPITAL", created.id());
+                            addExperienceAsync(created,
+                                    plugin.getConfig().getLong("leveling.territory-claim-exp", 150L));
+                            markClanCreated(player.getUniqueId());
+                            clearFoundationSession(player.getUniqueId());
+                            plugin.getAdvancedClaimsHook().hideClaimBorder(player);
+                            plugin.getMessages().send(player, "gui.banner-create.success",
+                                    Map.of("tag", created.tag(), "name", created.name(), "color", created.tagColor()));
+                            plugin.getGuiManager().openMain(player, created);
+                            return;
+                        }
+                        if (created != null) {
+                            deleteClanSilentlyAsync(created).exceptionally(t -> {
+                                plugin.getLogger().warning("Failed to roll back clan " + created.id() + ": " + t.getMessage());
+                                return null;
+                            });
+                            clearCreationCooldown(player.getUniqueId());
+                            refundCreationCost(player);
+                        }
+                        for (ItemStack extra : player.getInventory()
+                                .addItem(clanItemFactory.createClanCreationBanner()).values()) {
+                            player.getWorld().dropItemNaturally(player.getLocation(), extra);
+                        }
+                        World world = bannerLocation.getWorld();
+                        BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, bannerLocation.getBlockX(), bannerLocation.getBlockY(), bannerLocation.getBlockZ(), world);
+                        long previewTicks = plugin.getConfig().getLong("integration.advanced-claims.preview-display-ticks", 300L);
+                        plugin.getAdvancedClaimsHook().showClaimBorder(player, box, previewTicks);
+                        plugin.getAdvancedClaimsHook().findOverlappingClaim(world, box).ifPresent(c -> {
+                            plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), previewTicks, c.getId());
+                        });
+                        Throwable root = error != null ? (error.getCause() != null ? error.getCause() : error) : null;
+                        plugin.sendOperationError(player, root != null ? root : new IllegalStateException("territory.overlaps-claim"));
+                    } finally {
+                        endCreation(player.getUniqueId());
+                    }
+                })).thenApply(territory -> null);
+    }
+
+    private void refundCreationCost(Player player) {
+        long cost = MoneyConfig.getScaled(plugin.getConfig(), "clans.creation-cost", 0L);
+        if (cost <= 0 || player == null || !player.isOnline()) return;
+        LoveCore.service(LoveEconomy.class).ifPresent(economy -> economy.give(player, cost));
+    }
+
     public void consumeBannerFromInventory(Player player, String bannerType, UUID clanId, ItemStack bannerItem) {
         var leftover = player.getInventory().removeItem(bannerItem);
         if (!leftover.isEmpty()) {
@@ -1123,6 +1254,10 @@ public final class ClanManager {
         }
         if (plugin.getAdvancedClaimsHook().isClaimed(location)) {
             return "territory.already-claimed-by-advancedclaims";
+        }
+        BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), location.getWorld());
+        if (plugin.getAdvancedClaimsHook().overlapsAnyClaim(location.getWorld(), box)) {
+            return "territory.overlaps-claim";
         }
         return null;
     }

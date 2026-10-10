@@ -23,6 +23,15 @@ import org.bukkit.inventory.ItemStack;
 import java.util.Map;
 import java.util.Optional;
 
+import me.lovelace.loveclaims.model.Claim;
+import me.lovelace.loveclans.integration.AdvancedClaimsHook;
+import me.lovelace.loveclans.manager.FoundationPhase;
+import me.lovelace.loveclans.manager.FoundationSession;
+import me.lovelace.loveclans.util.DurationFormat;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.util.BoundingBox;
+
 public final class ClanBannerListener implements Listener {
 
     private final LoveClansPlugin plugin;
@@ -42,13 +51,23 @@ public final class ClanBannerListener implements Listener {
 
         Player player = event.getPlayer();
 
-        // Если игрок уже состоит в клане или владеет им — установка знамени заблокирована
+        // 1. Проверка на членство в клане
         if (plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent()) {
             event.setCancelled(true);
             plugin.getMessages().send(player, "clan.banner.already-in-clan");
             return;
         }
 
+        // 2. Проверка cooldown создания клана (с человекочитаемым временем)
+        Optional<Long> cdOpt = plugin.getClanManager().getCreationCooldownRemaining(player.getUniqueId());
+        if (cdOpt.isPresent()) {
+            event.setCancelled(true);
+            plugin.getMessages().send(player, "clan.creation-cooldown",
+                    Map.of("time", DurationFormat.format(cdOpt.get())));
+            return;
+        }
+
+        // 3. Защита от параллельного создания
         if (plugin.getClanManager().isCreating(player.getUniqueId())) {
             event.setCancelled(true);
             plugin.getMessages().send(player, "clan.banner.creation-in-progress");
@@ -57,16 +76,140 @@ public final class ClanBannerListener implements Listener {
 
         Location location = event.getBlockPlaced().getLocation();
 
-        // Проверяем возможность заприватить территорию
-        if (plugin.getAdvancedClaimsHook().isClaimed(location)) {
+        // Если игрок приседает (Shift) — сбрасываем сессию, чтобы можно было заново ввести имя и тег в GUI
+        if (player.isSneaking() && plugin.getClanManager().hasFoundationSession(player.getUniqueId())) {
+            plugin.getClanManager().clearFoundationSession(player.getUniqueId());
+            plugin.getAdvancedClaimsHook().hideClaimBorder(player);
             event.setCancelled(true);
-            plugin.getMessages().send(player, "territory.already-claimed");
+            new ClanBannerCreationMenu(plugin, player, location).open();
             return;
         }
 
-        // Отменяем ванильную установку блока, открываем меню создания
-        event.setCancelled(true);
-        new ClanBannerCreationMenu(plugin, player, location).open();
+        FoundationSession session = plugin.getClanManager().getFoundationSession(player.getUniqueId()).orElse(null);
+
+        // ШАГ A: Данные ещё не введены (или сессия истекла) -> pre-check коробки территории + открытие GUI
+        if (session == null || session.phase() == FoundationPhase.NONE) {
+            event.setCancelled(true);
+            World world = location.getWorld();
+            BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), world);
+            Optional<Claim> conflict = plugin.getAdvancedClaimsHook().findOverlappingClaim(world, box);
+            if (conflict.isPresent() || plugin.getAdvancedClaimsHook().isClaimed(location)) {
+                long ticks = plugin.getConfig().getLong("integration.advanced-claims.preview-display-ticks", 300L);
+                plugin.getAdvancedClaimsHook().showClaimBorder(player, box, ticks);
+                conflict.ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), ticks, c.getId()));
+                String owner = conflict.map(plugin.getAdvancedClaimsHook()::formatClaimOwner).orElse("неизвестно");
+                int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
+                int conflictX = conflict.map(c -> c.getBoundingBox() != null ? (int) c.getBoundingBox().getCenterX() : location.getBlockX()).orElse(location.getBlockX());
+                int conflictZ = conflict.map(c -> c.getBoundingBox() != null ? (int) c.getBoundingBox().getCenterZ() : location.getBlockZ()).orElse(location.getBlockZ());
+                plugin.getMessages().send(player, "clan.banner.overlap-denied", Map.of(
+                        "radius", String.valueOf(radius),
+                        "x", String.valueOf(conflictX),
+                        "z", String.valueOf(conflictZ),
+                        "owner", owner
+                ));
+                return;
+            }
+
+            // Точка свободна — открываем окно ввода имени и тега
+            new ClanBannerCreationMenu(plugin, player, location).open();
+            return;
+        }
+
+        // ШАГ B: Имя и тег введены (DATA_READY) -> показ превью границ территории
+        if (session.phase() == FoundationPhase.DATA_READY) {
+            event.setCancelled(true);
+            World world = location.getWorld();
+            BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), world);
+            long previewTicks = plugin.getConfig().getLong("integration.advanced-claims.preview-display-ticks", 300L);
+            plugin.getAdvancedClaimsHook().showClaimBorder(player, box, previewTicks);
+
+            Optional<Claim> conflict = plugin.getAdvancedClaimsHook().findOverlappingClaim(world, box);
+            if (conflict.isPresent() || plugin.getAdvancedClaimsHook().isClaimed(location)) {
+                conflict.ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), previewTicks, c.getId()));
+                String owner = conflict.map(plugin.getAdvancedClaimsHook()::formatClaimOwner).orElse("неизвестно");
+                plugin.getMessages().send(player, "clan.banner.preview-overlap", Map.of("owner", owner));
+                return;
+            }
+
+            int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
+            plugin.getClanManager().updateFoundationSession(session.withPreview(location).withPhase(FoundationPhase.PREVIEWED));
+            plugin.getMessages().send(player, "clan.banner.preview-ok", Map.of("radius", String.valueOf(radius)));
+            return;
+        }
+
+        // ШАГ C: Превью согласовано (PREVIEWED) -> финальная установка столицы
+        if (session.phase() == FoundationPhase.PREVIEWED) {
+            event.setCancelled(true);
+
+            // Если игрок кликнул существенно дальше от точки превью (> 2 блоков или в другом мире)
+            if (session.previewLocation() == null
+                    || !session.previewLocation().getWorld().equals(location.getWorld())
+                    || session.previewLocation().distanceSquared(location) > 4.0) {
+                World world = location.getWorld();
+                BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), world);
+                long previewTicks = plugin.getConfig().getLong("integration.advanced-claims.preview-display-ticks", 300L);
+                plugin.getAdvancedClaimsHook().showClaimBorder(player, box, previewTicks);
+
+                Optional<Claim> conflict = plugin.getAdvancedClaimsHook().findOverlappingClaim(world, box);
+                if (conflict.isPresent() || plugin.getAdvancedClaimsHook().isClaimed(location)) {
+                    conflict.ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), previewTicks, c.getId()));
+                    String owner = conflict.map(plugin.getAdvancedClaimsHook()::formatClaimOwner).orElse("неизвестно");
+                    plugin.getMessages().send(player, "clan.banner.preview-overlap", Map.of("owner", owner));
+                    plugin.getClanManager().updateFoundationSession(session.withPhase(FoundationPhase.DATA_READY));
+                    return;
+                }
+
+                int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
+                plugin.getClanManager().updateFoundationSession(session.withPreview(location).withPhase(FoundationPhase.PREVIEWED));
+                plugin.getMessages().send(player, "clan.banner.preview-mismatch", Map.of("radius", String.valueOf(radius)));
+                return;
+            }
+
+            Block target = location.getBlock();
+            if (!target.isEmpty() && !target.isReplaceable()) {
+                plugin.getMessages().send(player, "clan.banner.spot-occupied");
+                return;
+            }
+
+            long cost = MoneyConfig.getScaled(plugin.getConfig(), "clans.creation-cost", 0L);
+            if (cost > 0) {
+                Optional<LoveEconomy> eco = LoveCore.service(LoveEconomy.class);
+                if (eco.isEmpty()) {
+                    plugin.getMessages().send(player, "clan.creation-economy-unavailable");
+                    return;
+                }
+                if (!eco.get().has(player, cost)) {
+                    plugin.getMessages().send(player, "clan.creation-insufficient-funds");
+                    return;
+                }
+            }
+
+            if (!plugin.getClanManager().tryBeginCreation(player.getUniqueId())) {
+                plugin.getMessages().send(player, "clan.banner.creation-in-progress");
+                return;
+            }
+
+            World world = location.getWorld();
+            BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, location.getBlockX(), location.getBlockY(), location.getBlockZ(), world);
+            Optional<Claim> conflict = plugin.getAdvancedClaimsHook().findOverlappingClaim(world, box);
+            if (conflict.isPresent()) {
+                plugin.getClanManager().endCreation(player.getUniqueId());
+                long previewTicks = plugin.getConfig().getLong("integration.advanced-claims.preview-display-ticks", 300L);
+                plugin.getAdvancedClaimsHook().showClaimBorder(player, box, previewTicks);
+                conflict.ifPresent(c -> plugin.getAdvancedClaimsHook().showClaimBorder(player, c.getBoundingBox(), previewTicks, c.getId()));
+                String owner = conflict.map(plugin.getAdvancedClaimsHook()::formatClaimOwner).orElse("неизвестно");
+                plugin.getMessages().send(player, "clan.banner.preview-overlap", Map.of("owner", owner));
+                return;
+            }
+
+            if (!plugin.getClanManager().takeCreationBanner(player)) {
+                plugin.getClanManager().endCreation(player.getUniqueId());
+                plugin.getMessages().send(player, "clan.banner.no-banner-in-hand");
+                return;
+            }
+
+            plugin.getClanManager().commitFoundation(player, session, location);
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH)

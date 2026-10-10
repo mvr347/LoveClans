@@ -112,6 +112,9 @@ public final class SpiritManager implements Listener {
 
     private void logHistory(UUID clanId, String action, long amount) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            if (plugin.getClanManager().getClanById(clanId).isEmpty()) {
+                return; // rollback / race — не писать history для удалённого или несохранённого клана
+            }
             try (Connection connection = plugin.getDatabaseManager().dataSource().getConnection();
                  PreparedStatement ps = connection.prepareStatement("INSERT INTO clan_spirit_history (clan_id, action, amount, timestamp) VALUES (?, ?, ?, ?)")) {
                 ps.setString(1, clanId.toString());
@@ -120,6 +123,11 @@ public final class SpiritManager implements Listener {
                 ps.setLong(4, System.currentTimeMillis());
                 ps.executeUpdate();
             } catch (SQLException e) {
+                String msg = e.getMessage();
+                if (msg != null && msg.toUpperCase().contains("FOREIGN KEY")) {
+                    plugin.getLogger().fine("Skip spirit history for missing clan " + clanId);
+                    return;
+                }
                 plugin.getLogger().log(Level.WARNING, "Failed to log spirit history", e);
             }
         });
