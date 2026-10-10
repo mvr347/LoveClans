@@ -511,8 +511,10 @@ public final class ClanManager {
             plugin.getSiegeManager().endActiveSiegesInvolvingClan(clan.id());
             plugin.getRaidManager().endActiveRaidsInvolvingClan(clan.id());
             for (ClanTerritory territory : clan.territories()) {
-                plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
                 unindexTerritory(territory);
+                if (territory.advancedClaimId() != null) {
+                    plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
+                }
             }
             unindexClan(clan);
             applicationsByClan.remove(clan.id());
@@ -1050,7 +1052,7 @@ public final class ClanManager {
         return claimTerritoryNow(clan, location, player, bannerType).thenApply(savedTerritory -> {
             plugin.runSync(() -> {
                 placeClanBannerBlock(location, bannerItem.getType(), bannerType, clan.id());
-                player.getInventory().removeItem(bannerItem);
+                consumeBannerFromInventory(player, bannerType, clan.id(), bannerItem);
                 plugin.getAdvancedClaimsHook().hideClaimBorder(player);
                 plugin.getMessages().send(player, "territory.claimed-success", Map.of("clan", clan.name(), "tag", clan.tag(), "color", clan.tagColor()));
                 addExperienceAsync(clan, plugin.getConfig().getLong("leveling.territory-claim-exp", 150L));
@@ -1060,10 +1062,34 @@ public final class ClanManager {
             plugin.runSync(() -> {
                 plugin.sendOperationError(player, ex);
                 plugin.getAdvancedClaimsHook().hideClaimBorder(player);
-                player.getInventory().addItem(bannerItem);
             });
             return null;
         });
+    }
+
+    public PendingClaim getPendingClaim(UUID playerId) {
+        return pendingClaims.get(playerId);
+    }
+
+    public void consumeBannerFromInventory(Player player, String bannerType, UUID clanId, ItemStack bannerItem) {
+        var leftover = player.getInventory().removeItem(bannerItem);
+        if (!leftover.isEmpty()) {
+            ItemStack[] contents = player.getInventory().getContents();
+            for (int i = 0; i < contents.length; i++) {
+                ItemStack stack = contents[i];
+                if (stack == null || !stack.getType().name().endsWith("_BANNER") || !stack.hasItemMeta()) continue;
+                var pdc = stack.getItemMeta().getPersistentDataContainer();
+                String type = pdc.get(ClanItemFactory.BANNER_TYPE_KEY, org.bukkit.persistence.PersistentDataType.STRING);
+                String id = pdc.get(ClanItemFactory.CLAN_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING);
+                if (bannerType.equals(type) && clanId.toString().equals(id)) {
+                    stack.setAmount(stack.getAmount() - 1);
+                    if (stack.getAmount() <= 0) {
+                        player.getInventory().setItem(i, null);
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     /**
@@ -1331,8 +1357,10 @@ public final class ClanManager {
         if (clan == null) return CompletableFuture.completedFuture(null);
         return plugin.supplySync(() -> {
             for (ClanTerritory territory : List.copyOf(clan.territories())) {
-                plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
                 unindexTerritory(territory);
+                if (territory.advancedClaimId() != null) {
+                    plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
+                }
                 clan.removeTerritory(territory.id());
             }
             unindexClan(clan);
@@ -1515,9 +1543,11 @@ public final class ClanManager {
             ClanTerritory territory = clan.getCapitalTerritory()
                     .orElseThrow(() -> new IllegalStateException("territory.capital.not-found"));
 
-            plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
-            clan.removeTerritory(territory.id());
             unindexTerritory(territory);
+            if (territory.advancedClaimId() != null) {
+                plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
+            }
+            clan.removeTerritory(territory.id());
             clan.setHomeLocation(null);
 
             if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
@@ -1565,6 +1595,7 @@ public final class ClanManager {
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("territory.not-claimed"));
 
+            unindexTerritory(territory);
             if (territory.advancedClaimId() != null) {
                 plugin.getAdvancedClaimsHook().deleteClaim(territory.advancedClaimId());
             } else if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
@@ -1579,7 +1610,6 @@ public final class ClanManager {
                 }
             }
             clan.removeTerritory(territory.id());
-            unindexTerritory(territory);
 
             if (territory.bannerX() != null && territory.bannerY() != null && territory.bannerZ() != null) {
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
@@ -2369,7 +2399,32 @@ public final class ClanManager {
      */
     private void unindexTerritory(ClanTerritory territory) {
         if (territory == null) return;
-        for (TerritoryKey key : territoryChunks(territory)) {
+        List<TerritoryKey> chunks = territoryChunks(territory);
+        if (chunks.isEmpty()) {
+            if (territory.bannerX() != null && territory.bannerZ() != null && territory.world() != null) {
+                World world = Bukkit.getWorld(territory.world());
+                if (world != null) {
+                    int bannerY = territory.bannerY() != null ? territory.bannerY() : 64;
+                    BoundingBox box = AdvancedClaimsHook.computeTerritoryBounds(plugin, territory.bannerX(), bannerY, territory.bannerZ(), world);
+                    int minCX = (int) box.getMinX() >> 4;
+                    int maxCX = (int) box.getMaxX() >> 4;
+                    int minCZ = (int) box.getMinZ() >> 4;
+                    int maxCZ = (int) box.getMaxZ() >> 4;
+                    for (int cx = minCX; cx <= maxCX; cx++) {
+                        for (int cz = minCZ; cz <= maxCZ; cz++) {
+                            clanByTerritory.remove(new TerritoryKey(territory.world(), cx, cz));
+                        }
+                    }
+                }
+            }
+            clanByTerritory.remove(territory.key());
+            if (territory.clanId() != null && territory.world() != null) {
+                clanByTerritory.entrySet().removeIf(entry ->
+                        entry.getValue().equals(territory.clanId()) && entry.getKey().world().equals(territory.world()));
+            }
+            return;
+        }
+        for (TerritoryKey key : chunks) {
             clanByTerritory.remove(key);
         }
     }

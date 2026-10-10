@@ -2,8 +2,10 @@ package me.lovelace.loveclans.listener;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.manager.ClanManager;
+import me.lovelace.loveclans.manager.PendingClaim;
 import me.lovelace.loveclans.manager.WarManager;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.TerritoryKey;
@@ -82,6 +84,8 @@ public class ClanProtectionListener implements Listener {
             event.setCancelled(true);
             return;
         }
+
+        handleBannerPlacement(event, player, itemInHand, placedBlock);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -102,7 +106,6 @@ public class ClanProtectionListener implements Listener {
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
 
         String bannerType = pdc.get(ClanItemFactory.BANNER_TYPE_KEY, PersistentDataType.STRING);
-
         String clanIdString = pdc.get(ClanItemFactory.CLAN_ID_KEY, PersistentDataType.STRING);
 
         if (bannerType == null || clanIdString == null) {
@@ -114,9 +117,14 @@ public class ClanProtectionListener implements Listener {
             return;
         }
 
-        UUID clanId = UUID.fromString(clanIdString);
-        Optional<Clan> clanOpt = clanManager.getClanById(clanId);
+        UUID clanId;
+        try {
+            clanId = UUID.fromString(clanIdString);
+        } catch (IllegalArgumentException e) {
+            return;
+        }
 
+        Optional<Clan> clanOpt = clanManager.getClanById(clanId);
         if (clanOpt.isEmpty()) {
             plugin.getMessages().send(player, "territory.banner.invalid-clan");
             event.setCancelled(true);
@@ -125,33 +133,51 @@ public class ClanProtectionListener implements Listener {
 
         Clan clan = clanOpt.get();
 
-        // **ЗАЩИТА ОТ ДУРАЧКОВ**: Проверяем, что игрок является членом клана, которому принадлежит баннер
+        // Проверяем, что игрок состоит в клане, которому принадлежит баннер
         if (!clan.hasMember(player.getUniqueId())) {
             plugin.getMessages().send(player, "territory.banner.not-your-clan");
             event.setCancelled(true);
             return;
         }
 
+        // Проверяем право на захват территории
+        boolean canClaim = clan.hasPermission(player.getUniqueId(), ClanPermission.CLAIM)
+                || clan.member(player.getUniqueId()).map(m -> m.rank() == ClanRank.LEADER || m.rank() == ClanRank.GUARDIAN).orElse(false);
+        if (!canClaim) {
+            plugin.getMessages().send(player, "general.no-permission");
+            event.setCancelled(true);
+            return;
+        }
+
+        // Если это знамя столицы, но у клана уже есть столица
+        if ("CAPITAL".equals(bannerType) && clan.hasCapital()) {
+            plugin.getMessages().send(player, "territory.capital.already-exists");
+            event.setCancelled(true);
+            return;
+        }
+
         // Check if player is confirming an existing pending claim
         if (clanManager.hasPendingClaim(player.getUniqueId())) {
-            event.setCancelled(true); // Always cancel the event, confirmation logic will handle actual placement
+            event.setCancelled(true);
+            PendingClaim pending = clanManager.getPendingClaim(player.getUniqueId());
+            if (pending != null && !pending.location().getBlock().equals(placedBlock.getLocation().getBlock())) {
+                // Если игрок кликнул другое место — перезапускаем превью на новом месте
+                clanManager.cancelPendingClaim(player.getUniqueId());
+                clanManager.initiateClaimConfirmation(player, clan, placedBlock.getLocation(), bannerType);
+                return;
+            }
             clanManager.confirmPendingClaim(player, placedBlock.getLocation())
                     .thenAccept(territory -> plugin.runSync(() -> {
-                        // Success message is sent by ClanManager
-                        // The block is actually placed by the player, so we don't need to do anything here
+                        // Success message and block placement are handled in ClanManager
                     }))
                     .exceptionally(throwable -> {
                         plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                         return null;
                     });
         } else {
-            // This is an initiation of a new claim
-            event.setCancelled(true); // Cancel the event, we'll handle placement after confirmation
-
-            boolean initiated = clanManager.initiateClaimConfirmation(player, clan, placedBlock.getLocation(), bannerType);
-            if (!initiated) {
-                // If initiation failed, we don't need to do anything since the event is already cancelled
-            }
+            // Инициация нового захвата (превью границ)
+            event.setCancelled(true);
+            clanManager.initiateClaimConfirmation(player, clan, placedBlock.getLocation(), bannerType);
         }
     }
 
@@ -159,15 +185,7 @@ public class ClanProtectionListener implements Listener {
     public void onPlayerItemHeld(PlayerItemHeldEvent event) {
         Player player = event.getPlayer();
         if (clanManager.hasPendingClaim(player.getUniqueId())) {
-            clanManager.cancelPendingClaim(player.getUniqueId()).ifPresent(pendingClaim -> {
-                // Give the banner back to the player
-                ItemStack banner = plugin.getClanManager().getClanItemFactory().createBannerByType(
-                        pendingClaim.bannerType(),
-                        pendingClaim.clan().id(),
-                        pendingClaim.clan().name()
-                );
-                giveItemBack(player, banner);
-            });
+            clanManager.cancelPendingClaim(player.getUniqueId());
         }
     }
 
@@ -175,16 +193,8 @@ public class ClanProtectionListener implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         if (clanManager.hasPendingClaim(player.getUniqueId())) {
-            clanManager.cancelPendingClaim(player.getUniqueId()).ifPresent(pendingClaim -> {
-                // Give the banner back to the player
-                ItemStack banner = plugin.getClanManager().getClanItemFactory().createBannerByType(
-                        pendingClaim.bannerType(),
-                        pendingClaim.clan().id(),
-                        pendingClaim.clan().name()
-                );
-                giveItemBack(player, banner);
-                plugin.getLogger().info("Cancelled pending claim for " + player.getName() + " due to logout.");
-            });
+            clanManager.cancelPendingClaim(player.getUniqueId());
+            plugin.getLogger().info("Cancelled pending claim for " + player.getName() + " due to logout.");
         }
         // Прогрев "/clan home" не переживает логаут — тихо отменяем, чтобы не осталась
         // висящая задача/боссбар (сообщение об отмене всё равно некому показывать).

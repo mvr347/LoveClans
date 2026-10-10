@@ -10,6 +10,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -39,7 +40,7 @@ import java.util.stream.Collectors;
 public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "reload", "createnpc", "removenpc", "disband", "war", "siege", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "casus", "help"
+            "reload", "createnpc", "removenpc", "disband", "war", "siege", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "givecapitalbanner", "casus", "help"
     );
     private static final List<String> AMOUNT_ACTIONS = List.of("add", "remove", "set");
     private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "skip", "end");
@@ -79,6 +80,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "recognize" -> setRecognized(sender, args, true);
                 case "unrecognize" -> setRecognized(sender, args, false);
                 case "givebanner" -> giveBanner(sender, args);
+                case "givecapitalbanner" -> giveCapitalBanner(sender, args);
                 case "casus" -> casus(sender, args);
                 default -> sendHelp(sender);
             }
@@ -198,6 +200,34 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         bannerOverflow.values().forEach(drop -> target.getWorld().dropItemNaturally(target.getLocation(), drop));
         plugin.getMessages().send(sender, "admin.givebanner.success", Map.of("player", target.getName()));
         plugin.getMessages().send(target, "clan.banner.received");
+    }
+
+    private void giveCapitalBanner(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(net.kyori.adventure.text.Component.text("§cИспользование: /loveclansadmin givecapitalbanner <player> [tag]"));
+            return;
+        }
+        Player target = org.bukkit.Bukkit.getPlayer(args[1]);
+        if (target == null) {
+            plugin.getMessages().send(sender, "general.player-not-found");
+            return;
+        }
+        Optional<Clan> clanOpt;
+        if (args.length >= 3) {
+            clanOpt = plugin.getClanManager().getClanByTag(args[2]);
+        } else {
+            clanOpt = plugin.getClanManager().getPlayerClan(target.getUniqueId());
+        }
+        if (clanOpt.isEmpty()) {
+            plugin.getMessages().send(sender, "clan.not-found");
+            return;
+        }
+        Clan clan = clanOpt.get();
+        ItemStack banner = plugin.getClanManager().getClanItemFactory().createCapitalBanner(clan.id(), clan.name());
+        var overflow = target.getInventory().addItem(banner);
+        overflow.values().forEach(drop -> target.getWorld().dropItemNaturally(target.getLocation(), drop));
+        sender.sendMessage(net.kyori.adventure.text.Component.text("§aЗнамя столицы клана " + clan.name() + " выдано игроку " + target.getName()));
+        target.sendMessage(net.kyori.adventure.text.Component.text("§aВам выдано знамя столицы клана " + clan.name()));
     }
 
     private void casus(CommandSender sender, String[] args) {
@@ -473,7 +503,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
             List<String> completions = switch (action) {
                 case "removenpc", "createnpc" -> List.of("guildmaster", "banner");
                 case "disband", "diplo", "recognize", "unrecognize" -> clanTags;
-                case "givebanner" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+                case "givebanner", "givecapitalbanner" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
                 case "war" -> WAR_ACTIONS;
                 case "siege" -> SIEGE_ACTIONS;
                 case "exp", "points" -> AMOUNT_ACTIONS;
@@ -488,7 +518,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 3) {
             List<String> completions = switch (action) {
-                case "diplo", "war", "siege" -> clanTags;
+                case "diplo", "war", "siege", "givecapitalbanner" -> clanTags;
                 case "exp", "points" -> clanTags;
                 case "casus" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
                 default -> List.of();
