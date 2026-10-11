@@ -22,7 +22,7 @@ import java.util.UUID;
  * attacking clan member. Taking an item is allowed until the raid's item-slot cap
  * (ClanRaid#itemSlotsRemaining) is used up, tracked in real time - once a full slot is emptied it
  * counts against the cap immediately, further full slots beyond the cap can't be touched.
- * Persists the defender's chest with whatever was taken removed when closed.
+ * Persists after each take and again on close; the item-chest lock is held until the final save completes.
  */
 public final class RaidLootMenu implements Listener {
     private final LoveClansPlugin plugin;
@@ -41,7 +41,6 @@ public final class RaidLootMenu implements Listener {
         this.inventory = Bukkit.createInventory(null, ClanManager.CHEST_MAX_SIZE,
                 plugin.getMessages().component("raid.loot.title", Map.of("tag", defender.tag(), "color", defender.tagColor()), looter));
         inventory.setContents(contents);
-        // The sixth row is the footer: never show stored items there.
         for (int slot = ChestLayout.STORAGE_SLOTS; slot < inventory.getSize(); slot++) {
             inventory.setItem(slot, null);
         }
@@ -50,23 +49,16 @@ public final class RaidLootMenu implements Listener {
     }
 
     public static void open(LoveClansPlugin plugin, ClanRaid raid, Clan defender, Player looter) {
-        // Phase, clan and capture-zone are checked here so the command path and the chest click behave the same
         if (!plugin.getRaidManager().canLoot(raid, looter)) {
             plugin.getMessages().send(looter, "raid.loot.not-in-zone");
             return;
         }
-        // Same lock as ClanChestMenu, keyed by the defender's clan id - it's the identical
-        // physical chest storage. Without it, two attackers looting concurrently (or an attacker
-        // and the defender's own officer opening chest storage) each snapshot the same contents
-        // and both walk away with whatever they took, duplicating it.
         if (!plugin.getClanManager().tryLockItemChest(defender.id())) {
             plugin.getMessages().send(looter, "chest.busy");
             return;
         }
         plugin.getClanManager().loadChestContentsAsync(defender).thenAccept(contents ->
                 plugin.runSync(() -> {
-                    // The looter may have logged out while the chest was loading: no close event would ever
-                    // fire, so the lock would stay and the defender's chest would read "busy" until a restart.
                     if (!looter.isOnline()) {
                         plugin.getClanManager().unlockItemChest(defender.id());
                         return;
@@ -87,8 +79,6 @@ public final class RaidLootMenu implements Listener {
             return;
         }
         int rawSlot = event.getRawSlot();
-        // The chest is take-only and whole stacks only: anything that could put an item in, swap, split a stack or
-        // sweep items to the cursor would dodge the per-raid slot cap that is counted below.
         switch (event.getAction()) {
             case COLLECT_TO_CURSOR, PLACE_ALL, PLACE_ONE, PLACE_SOME, SWAP_WITH_CURSOR, HOTBAR_SWAP,
                  HOTBAR_MOVE_AND_READD, CLONE_STACK, UNKNOWN -> {
@@ -104,7 +94,7 @@ public final class RaidLootMenu implements Listener {
                 }
             }
             case MOVE_TO_OTHER_INVENTORY -> {
-                if (rawSlot >= inventory.getSize()) { // shift-click from the looter's inventory would fill the chest
+                if (rawSlot >= inventory.getSize()) {
                     event.setCancelled(true);
                     return;
                 }
@@ -112,18 +102,16 @@ public final class RaidLootMenu implements Listener {
             default -> { }
         }
         if (rawSlot >= inventory.getSize()) {
-            return; // player's own inventory — normal behaviour
+            return;
         }
         if (rawSlot >= unlockedSlots) {
-            event.setCancelled(true); // beyond the defender's unlocked rows — nothing there to loot
+            event.setCancelled(true);
             if (rawSlot == ChestLayout.CLOSE_SLOT) {
                 Bukkit.getScheduler().runTask(plugin, () -> looter.closeInventory());
             }
             return;
         }
 
-        // Every take is handled here, in the same tick: the stack is moved to the looter and counted at once,
-        // so shift-clicks, double clicks and several clicks in one tick cannot get past the slot cap.
         event.setCancelled(true);
         ItemStack stack = inventory.getItem(rawSlot);
         if (stack == null || stack.getType().isAir()) {
@@ -146,6 +134,18 @@ public final class RaidLootMenu implements Listener {
         } else {
             inventory.setItem(rawSlot, leftover.values().iterator().next());
         }
+        persistChestSnapshot();
+    }
+
+    private void persistChestSnapshot() {
+        ItemStack[] full = inventory.getContents();
+        ItemStack[] toPersist = new ItemStack[full.length];
+        System.arraycopy(full, 0, toPersist, 0, unlockedSlots);
+        plugin.getClanManager().saveChestContentsAsync(defender.id(), toPersist)
+                .exceptionally(t -> {
+                    plugin.getLogger().warning("Raid loot chest save failed for clan " + defender.id() + ": " + t.getMessage());
+                    return null;
+                });
     }
 
     @EventHandler
@@ -155,7 +155,7 @@ public final class RaidLootMenu implements Listener {
         }
         for (int slot : event.getRawSlots()) {
             if (slot < inventory.getSize()) {
-                event.setCancelled(true); // dragging items into the chest would be deleted on close
+                event.setCancelled(true);
                 return;
             }
         }
@@ -170,7 +170,13 @@ public final class RaidLootMenu implements Listener {
         ItemStack[] full = inventory.getContents();
         ItemStack[] toPersist = new ItemStack[full.length];
         System.arraycopy(full, 0, toPersist, 0, unlockedSlots);
-        plugin.getClanManager().saveChestContentsAsync(defender.id(), toPersist);
-        plugin.getClanManager().unlockItemChest(defender.id());
+        UUID clanId = defender.id();
+        plugin.getClanManager().saveChestContentsAsync(clanId, toPersist)
+                .whenComplete((v, err) -> {
+                    if (err != null) {
+                        plugin.getLogger().warning("Raid loot final chest save failed for clan " + clanId + ": " + err.getMessage());
+                    }
+                    plugin.getClanManager().unlockItemChest(clanId);
+                });
     }
 }
