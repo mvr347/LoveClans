@@ -332,16 +332,32 @@ public final class ServerTradeManager {
         for (ItemStack rest : leftover.values()) amount -= rest.getAmount();
         if (amount <= 0) return false;
 
-        long reward = unit.getAsLong() * amount;
-        clan.addChestMoney(reward);
-        plugin.getStorage().updateClanChestMoney(clan.id(), clan.chestMoney());
+        final long reward;
+        try {
+            reward = Math.multiplyExact(unit.getAsLong(), amount);
+        } catch (ArithmeticException overflow) {
+            plugin.getLogger().warning("State trade reward overflow for " + material + " x" + amount
+                    + " unit=" + unit.getAsLong() + " clan=" + clan.id());
+            player.getInventory().addItem(new ItemStack(material, amount)).values()
+                    .forEach(extra -> player.getWorld().dropItemNaturally(player.getLocation(), extra));
+            plugin.getMessages().send(player, "trade.state.price-unavailable");
+            return false;
+        }
 
         order.filled += amount;
         int clanTotal = order.contributions.merge(clan.id(), amount, Integer::sum);
         String orderId = order.id();
         int filled = order.filled;
         UUID clanId = clan.id();
-        enqueue(() -> plugin.getStorage().updateStateOrderProgressAsync(orderId, filled, clanId, clanTotal));
+        long newBalance = clan.addChestMoney(reward);
+
+        plugin.getStorage().updateClanChestMoney(clanId, newBalance)
+                .thenCompose(v -> plugin.getStorage().updateStateOrderProgressAsync(orderId, filled, clanId, clanTotal))
+                .exceptionally(t -> {
+                    plugin.getLogger().severe("State trade persist failed after taking items from "
+                            + player.getName() + " clan=" + clanId + " reward=" + reward + ": " + t.getMessage());
+                    return null;
+                });
 
         plugin.getMessages().send(player, "trade.state.delivered", Map.of(
                 "amount", String.valueOf(amount),

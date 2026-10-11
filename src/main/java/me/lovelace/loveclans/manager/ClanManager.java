@@ -152,7 +152,15 @@ public final class ClanManager {
                 if (rawAmount <= 0) {
                     return CompletableFuture.completedFuture(null);
                 }
-                long convertedAmount = rawAmount * coinValue;
+                long temp;
+                try {
+                    temp = Math.multiplyExact(rawAmount, coinValue);
+                } catch (ArithmeticException overflow) {
+                    plugin.getLogger().warning("Legacy bank migration overflow for clan " + clan.id()
+                            + " (" + rawAmount + "x " + currencyItem + " at " + coinValue + "/coin). Capped to Long.MAX_VALUE.");
+                    temp = Long.MAX_VALUE;
+                }
+                long convertedAmount = temp;
                 return plugin.supplySync(() -> {
                     clan.addChestMoney(convertedAmount);
                     plugin.getLogger().info("Migrated " + rawAmount + "x " + currencyItem + " (" + convertedAmount
