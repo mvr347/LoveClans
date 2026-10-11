@@ -29,7 +29,8 @@ import me.lovelace.loveclans.manager.FoundationPhase;
 import me.lovelace.loveclans.manager.FoundationSession;
 import me.lovelace.loveclans.util.DurationFormat;
 import org.bukkit.World;
-import org.bukkit.block.Block;
+import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.util.BoundingBox;
 
 public final class ClanBannerListener implements Listener {
@@ -155,8 +156,11 @@ public final class ClanBannerListener implements Listener {
                 return;
             }
 
-            Block target = location.getBlock();
-            if (!target.isEmpty() && !target.isReplaceable()) {
+            // BlockPlaceEvent already has the banner in the world at location.
+            // Checking getBlock() treats that banner as "occupied". Use what was
+            // under the cursor before the place (replaced state).
+            Material replaced = event.getBlockReplacedState().getType();
+            if (!replaced.isAir() && !Tag.REPLACEABLE.isTagged(replaced)) {
                 plugin.getMessages().send(player, "clan.banner.spot-occupied");
                 return;
             }
