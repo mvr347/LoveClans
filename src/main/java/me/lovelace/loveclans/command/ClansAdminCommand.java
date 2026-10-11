@@ -40,11 +40,12 @@ import java.util.stream.Collectors;
 public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "reload", "createnpc", "removenpc", "disband", "war", "siege", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "givecapitalbanner", "casus", "help"
+            "reload", "createnpc", "removenpc", "disband", "war", "siege", "raid", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "givecapitalbanner", "casus", "help"
     );
     private static final List<String> AMOUNT_ACTIONS = List.of("add", "remove", "set");
     private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "skip", "end");
     private static final List<String> SIEGE_ACTIONS = List.of("forcestart");
+    private static final List<String> RAID_ACTIONS = List.of("forcestart");
     private static final List<String> RELATIONS = List.of("ally", "enemy", "neutral");
 
     private final LoveClansPlugin plugin;
@@ -73,6 +74,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "disband" -> disband(sender, args);
                 case "war" -> war(sender, args);
                 case "siege" -> siege(sender, args);
+                case "raid" -> raid(sender, args);
                 case "diplo" -> diplo(sender, args);
                 case "exp" -> expOrPoints(sender, args, true);
                 case "points" -> expOrPoints(sender, args, false);
@@ -366,6 +368,33 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         plugin.getSiegeManager().startSiegeAsync(clan1, clan2, siegeTarget.get(), true)
                 .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.siege-force-started",
                         Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()))))
+                .exceptionally(ex -> {
+                    plugin.runSync(() -> plugin.sendOperationError(sender, ex));
+                    return null;
+                });
+    }
+
+
+    /**
+     * {@code /loveclansadmin raid forcestart <attackerTag> <defenderTag>} — обходит онлайн/лимиты/щит/кулдаун.
+     */
+    private void raid(CommandSender sender, String[] args) {
+        if (args.length < 4 || !args[1].equalsIgnoreCase("forcestart")) {
+            sender.sendMessage(net.kyori.adventure.text.Component.text(
+                    "§cИспользование: /loveclansadmin raid forcestart <attackerTag> <defenderTag>"));
+            return;
+        }
+        var clan1Opt = plugin.getClanManager().getClanByTag(args[2]);
+        var clan2Opt = plugin.getClanManager().getClanByTag(args[3]);
+        if (clan1Opt.isEmpty() || clan2Opt.isEmpty()) {
+            plugin.getMessages().send(sender, "clan.not-found");
+            return;
+        }
+        Clan clan1 = clan1Opt.get();
+        Clan clan2 = clan2Opt.get();
+        plugin.getRaidManager().startRaidAsync(clan1, clan2, true)
+                .thenRun(() -> plugin.runSync(() -> sender.sendMessage(net.kyori.adventure.text.Component.text(
+                        "§aРейд принудительно запущен: " + clan1.tag() + " → " + clan2.tag()))))
                 .exceptionally(ex -> {
                     plugin.runSync(() -> plugin.sendOperationError(sender, ex));
                     return null;

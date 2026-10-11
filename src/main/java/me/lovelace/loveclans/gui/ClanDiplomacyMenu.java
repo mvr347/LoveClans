@@ -216,8 +216,9 @@ public final class ClanDiplomacyMenu {
         if (!targetClan.hasCapital()) {
             return Optional.of(DenyResult.of("deny.war.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())));
         }
+        // Territory always resolves to capital when the player is not standing on defender land.
         if (resolveContestedTerritory(player, targetClan).isEmpty()) {
-            return Optional.of(DenyResult.of("deny.war.not-in-territory"));
+            return Optional.of(DenyResult.of("deny.war.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())));
         }
         boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.war", true);
         if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "WAR")) {
@@ -273,7 +274,7 @@ public final class ClanDiplomacyMenu {
             return Optional.of(DenyResult.of("deny.siege.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())));
         }
         if (resolveContestedTerritory(player, targetClan).isEmpty()) {
-            return Optional.of(DenyResult.of("deny.siege.not-in-territory"));
+            return Optional.of(DenyResult.of("deny.siege.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())));
         }
         int minAtkLevel = plugin.getConfig().getInt("siege.min-attacker-clan-level", 5);
         int minDefLevel = plugin.getConfig().getInt("siege.min-defender-clan-level", 4);
@@ -420,18 +421,20 @@ public final class ClanDiplomacyMenu {
                 .lore(plugin.getMessages().component("gui.diplomacy.raid.lore", player));
     }
 
-    /** Same "standing inside the defender's territory" resolution as /clan war and /clan siege. */
+    /**
+     * Contested territory for war/siege. Prefer the chunk the player stands in if it belongs to
+     * the defender; otherwise fall back to the defender's capital. Standing on enemy land is
+     * no longer required to declare — capital is always a valid target when they have one.
+     */
     private Optional<TerritoryKey> resolveContestedTerritory(Player player, Clan defender) {
-        boolean withinDefenderTerritory = plugin.getClanManager().getClanAt(player.getLocation())
-                .map(owner -> owner.id().equals(defender.id()))
-                .orElse(false);
-        if (!withinDefenderTerritory) {
-            return Optional.empty();
-        }
-        return defender.territories().stream()
+        Optional<TerritoryKey> standing = defender.territories().stream()
                 .filter(t -> plugin.getAdvancedClaimsHook().contains(t, player.getLocation()))
                 .findFirst()
                 .map(ClanTerritory::key);
+        if (standing.isPresent()) {
+            return standing;
+        }
+        return defender.getCapitalTerritory().map(ClanTerritory::key);
     }
 
     public void handleInventoryClick(Player player, Clan targetClan, int slot) {
@@ -520,7 +523,7 @@ public final class ClanDiplomacyMenu {
         }
         Optional<TerritoryKey> territory = resolveContestedTerritory(player, targetClan);
         if (territory.isEmpty()) {
-            plugin.getMessages().sendDeny(player, "deny.war.not-in-territory", Map.of());
+            plugin.getMessages().sendDeny(player, "deny.war.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()));
             return;
         }
 
@@ -547,7 +550,7 @@ public final class ClanDiplomacyMenu {
         }
         Optional<TerritoryKey> territory = resolveContestedTerritory(player, targetClan);
         if (territory.isEmpty()) {
-            plugin.getMessages().sendDeny(player, "deny.siege.not-in-territory", Map.of());
+            plugin.getMessages().sendDeny(player, "deny.siege.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()));
             return;
         }
 

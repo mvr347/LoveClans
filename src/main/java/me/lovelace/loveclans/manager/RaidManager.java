@@ -138,6 +138,14 @@ public final class RaidManager {
     }
 
     public CompletableFuture<ClanRaid> startRaidAsync(Clan attacker, Clan defender) {
+        return startRaidAsync(attacker, defender, false);
+    }
+
+    /**
+     * @param force skips readiness checks (online caps, cooldown, daily limits, shield, ally, conflict)
+     *              for admin testing — {@code /loveclansadmin raid forcestart}.
+     */
+    public CompletableFuture<ClanRaid> startRaidAsync(Clan attacker, Clan defender, boolean force) {
         return plugin.supplySync(() -> {
             if (attacker.id().equals(defender.id())) {
                 throw new IllegalStateException("war.cannot-target-self");
@@ -148,6 +156,7 @@ public final class RaidManager {
             if (!defender.hasCapital()) {
                 throw new IllegalStateException("raid.defender-no-capital");
             }
+            if (!force) {
             if (isInRaid(attacker.id()) || isInRaid(defender.id())) {
                 throw new IllegalStateException("raid.already-in-raid");
             }
@@ -185,14 +194,17 @@ public final class RaidManager {
             }
 
             // Кулдаун пары кланов
-            AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = pairKey(attacker.id(), defender.id());
-            long now = System.currentTimeMillis();
-            Long lastRaidTime = raidCooldowns.get(cooldownKey);
-            if (lastRaidTime != null && (now - lastRaidTime < cooldownDuration().toMillis())) {
-                long remainingSeconds = (cooldownDuration().toMillis() - (now - lastRaidTime)) / 1000;
+            AbstractMap.SimpleImmutableEntry<UUID, UUID> pair = pairKey(attacker.id(), defender.id());
+            long checkNow = System.currentTimeMillis();
+            Long lastRaidTime = raidCooldowns.get(pair);
+            if (lastRaidTime != null && (checkNow - lastRaidTime < cooldownDuration().toMillis())) {
+                long remainingSeconds = (cooldownDuration().toMillis() - (checkNow - lastRaidTime)) / 1000;
                 throw new WarCooldownException(remainingSeconds);
             }
+            } // end !force readiness checks
 
+            AbstractMap.SimpleImmutableEntry<UUID, UUID> cooldownKey = pairKey(attacker.id(), defender.id());
+            long now = System.currentTimeMillis();
             ClanRaid raid = new ClanRaid(UUID.randomUUID(), attacker.id(), defender.id(), now,
                     now + preStartDuration().toMillis(), RaidState.PREPARING);
             activeRaids.put(raid.id(), raid);

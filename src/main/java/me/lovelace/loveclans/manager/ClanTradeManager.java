@@ -105,18 +105,21 @@ public final class ClanTradeManager {
         }).thenCompose(ignored -> {
             ClanTrade trade = new ClanTrade(UUID.randomUUID(), from.id(), to.id(), 0L,
                     null, TradeStatus.PENDING, System.currentTimeMillis(), 0L);
-            return storage.saveTradeAsync(trade).thenApply(v -> trade);
-        }).thenApply(trade -> {
+            // Register in memory and notify immediately — do not wait for DB (was causing multi-second lag
+            // and "trade.not-found" if the recipient clicked accept before save completed).
             pendingTrades.put(trade.id(), trade);
             lastTradeAt.put(pairKey(from.id(), to.id()), trade.createdAt());
-            // Keyed by clan pair and never removed: N clans can produce N^2 entries over an uptime.
-            // Entries past the cooldown no longer block anything, so they can go.
             if (lastTradeAt.size() > 128) {
                 long expiredBefore = System.currentTimeMillis() - cooldown().toMillis();
-                lastTradeAt.values().removeIf(t -> t < expiredBefore);
+                lastTradeAt.values().removeIf(ts -> ts < expiredBefore);
             }
             plugin.runSync(() -> notifyProposal(from, to, trade));
-            return trade;
+            return storage.saveTradeAsync(trade)
+                    .exceptionally(ex -> {
+                        plugin.getLogger().warning("Failed to persist trade invite " + trade.id() + ": " + ex.getMessage());
+                        return null;
+                    })
+                    .thenApply(v -> trade);
         });
     }
 

@@ -112,8 +112,8 @@ public final class AdvancedClaimsHook {
      */
     public static BoundingBox computeTerritoryBounds(LoveClansPlugin plugin, int bannerX, int bannerY, int bannerZ, World world) {
         int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
-        int heightBelow = plugin.getConfig().getInt("integration.advanced-claims.claim-height-below", 64);
-        int heightAbove = plugin.getConfig().getInt("integration.advanced-claims.claim-height-above", 128);
+        int heightBelow = plugin.getConfig().getInt("integration.advanced-claims.claim-height-below", 24);
+        int heightAbove = plugin.getConfig().getInt("integration.advanced-claims.claim-height-above", 48);
         int minY = Math.max(world.getMinHeight(), bannerY - heightBelow);
         int maxY = Math.min(world.getMaxHeight(), bannerY + heightAbove);
         return new BoundingBox(
