@@ -18,7 +18,9 @@ public final class LangMigrator {
     private static final List<List<String>> OVERWRITE_BY_VERSION = List.of(
             List.of("gui", "war", "territory.banner", "trade", "item.war-compass", "admin", "clan.help"),
             // v3: conflicts revamp - boss bars, raid/siege/casus/diplomacy texts were reworded or added
-            List.of("gui", "war", "raid", "siege", "casus", "diplomacy", "item", "admin", "clan.help", "modifier")
+            List.of("gui", "war", "raid", "siege", "casus", "diplomacy", "item", "admin", "clan.help", "modifier"),
+            // v4: unified GUI patch - white-first color policy, diplomacy v2, gifts, compact spirit, conflict submenus
+            List.of("gui", "deny", "clan", "diplomacy", "gift", "war", "siege", "raid")
     );
 
     private LangMigrator() {

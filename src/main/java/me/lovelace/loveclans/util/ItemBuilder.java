@@ -1,6 +1,7 @@
 package me.lovelace.loveclans.util;
 
 import com.google.gson.JsonParser;
+import me.lovelace.loveclans.model.diplomacy.DiplomacyTier;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -76,8 +77,23 @@ public final class ItemBuilder {
 
     // Diplomacy relation icons
     public static final String HEAD_RELATION_HOSTILE = HeadsConfig.get("relation-hostile", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYzY2NmI3OGFmMmNkMDQ4NDNmZDBiNWZmYmNmM2Q0ZWJiYThhNjg1NjhiMmViNjA4ZDQ1OTlkNTg5NjBkZjc3MyJ9fX0=");
+    public static final String HEAD_RELATION_COOL = HeadsConfig.get("relation-cool", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZWUzMDQ4MGVkMjgzNGY1YjdjYzgxZGNiMWRjN2U0NzY2NzkyNDMwYzQ5ZGFkNGRiY2QxMGE5M2M1ZTE0NTdiYyJ9fX0=");
     public static final String HEAD_RELATION_NEUTRAL = HeadsConfig.get("relation-neutral", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvY2Q4NzhiOGYwNTJhNWU0OWExYmY5MDk4MTc3NWIxYWM2ZGVlYmFhMzhjMThjODc3YjVhOTUxNTc1NjQxOWY3OSJ9fX0=");
+    public static final String HEAD_RELATION_CORDIAL = HeadsConfig.get("relation-cordial", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNzc0NzJkNjA4ODIxZjQ1YTg4MDUzNzZlYzBjNmZmY2I3ODExNzgyOWVhNWY5NjAwNDFjMmEwOWQxMGUwNGNiNCJ9fX0=");
     public static final String HEAD_RELATION_FRIENDLY = HeadsConfig.get("relation-friendly", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZWI3NmI0ZWU5ODg1NzIyOTdjYmQ4NzQ2ODNiZWU5NmFlM2M1NWNlOTRjMDA0ZTUxYWRjODJjZWUxNmNkMGIwYyJ9fX0=");
+    public static final String HEAD_RELATION_ALLIED = HeadsConfig.get("relation-allied", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMTYzZTY2NDZmMWMwZDQxZmQzYmY1NTg0YTFjZTA0NGY1YzQ2ZDU5ODI1OGRiNDYyMTYxMTc4NTlmNTdhZjE5NyJ9fX0=");
+
+    public static String headForTier(DiplomacyTier tier) {
+        if (tier == null) return HEAD_RELATION_NEUTRAL;
+        return switch (tier) {
+            case HOSTILE -> HEAD_RELATION_HOSTILE;
+            case UNFRIENDLY -> HEAD_RELATION_COOL;
+            case NEUTRAL -> HEAD_RELATION_NEUTRAL;
+            case CORDIAL -> HEAD_RELATION_CORDIAL;
+            case FRIENDLY -> HEAD_RELATION_FRIENDLY;
+            case ALLIED -> HEAD_RELATION_ALLIED;
+        };
+    }
 
     // Diplomacy select menu utility icons (sort / filter / empty-state) and menu action icons
     // (trade / letters / embargo / blockade) - replaced plain vanilla materials so the whole
@@ -100,6 +116,7 @@ public final class ItemBuilder {
     public static final String HEAD_PERK_HARVESTER = HeadsConfig.get("perk-harvester", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMjkxODBjMDVjY2I1YTVlNjQzNWFhNWMxOTg3NDIxNjZhYjk4MTkwNGM1NmJlODY5NDNmOGZhYzE1MzQ2OTBmNiJ9fX0=");
     public static final String HEAD_PERK_MINER = HeadsConfig.get("perk-miner", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOTE1ZmNlYmJiZTAyZmRiNzJhY2QyMDk1ZDllZGZjZWEwOTVlNjA0YjM2ODJkYjg4OTYzYjViODNiMjkzOWI2NyJ9fX0=");
     public static final String HEAD_PERK_WARRIOR = HeadsConfig.get("perk-warrior", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYzIyNjg1ODY3OGM3NGNlYzAxYWJiNmUwMjFjN2ZjODliZTBmODI5ZmNhYzk0N2RjOTQyMWVhZDMzODg2N2VjZCJ9fX0=");
+    public static final String HEAD_ACTIVE_WAR = HEAD_PERK_WARRIOR;
 
     public static final String HEAD_SORT = HeadsConfig.get("sort", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZjU3YzdlOTZhODAyYzI3MDgwYzdmODA1MzgxNDM2OGVhOTRkZjg2NDQ1OTEyMGU1MTU1NzE4YjUwM2MzZWQ3In19fQ==");
     public static final String HEAD_FILTER = HeadsConfig.get("filter", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOGViODFlZjg5MDIzNzk2NTBiYTc5ZjQ1NzIzZDZiOWM4ODgzODhhMDBmYzRlMTkyZjM0NTRmZTE5Mzg4MmVlMSJ9fX0=");

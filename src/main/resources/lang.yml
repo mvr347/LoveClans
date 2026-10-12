@@ -7,9 +7,9 @@
 # (see MessageService#parse). The special <prefix> tag is replaced with the value of
 # the top-level "prefix" key below.
 
-# Версия lang.yml (2026-10-08): при росте версии админский файл получает из jar переписанные разделы
+# Версия lang.yml (2026-10-12): при росте версии админский файл получает из jar переписанные разделы
 # (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
-lang-version: 3
+lang-version: 4
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -35,14 +35,20 @@ general:
 deny:
   no-permission: "<prefix><red>Недостаточно прав <gray>· <yellow>обратитесь к лидеру или офицеру клана"
 
+  diplomacy:
+    need-recognized: "<prefix><white>Договор доступен только между признанными кланами"
+
+  gift:
+    sender-not-recognized: "<prefix><white>Дары может отправлять только признанный клан"
+
   war:
     already-at-war: "<prefix><red>Уже идёт война с этим кланом <gray>· <yellow>дождитесь её окончания"
     already-in-conflict: "<prefix><red>Один из кланов уже в конфликте <gray>· <yellow>дождитесь завершения других войн или осад"
     cannot-declare-ally: "<prefix><red>Нельзя объявить войну союзнику <gray>· <yellow>разорвите союз в дипломатии"
     max-wars: "<prefix><red>Достигнут лимит одновременных войн <gray>· <yellow>дождитесь окончания текущих войн на сервере"
-    attacker-no-capital: "<prefix><red>У вашего клана нет столицы <gray>· <yellow>установите знамя спавна"
-    defender-no-capital: "<prefix><red>У клана <color><tag></color> нет столицы <gray>· <yellow>войну объявить нельзя"
-    not-in-territory: "<prefix><red>Вы не на территории цели <gray>· <yellow>войдите на оспариваемую территорию"
+    attacker-no-capital: "<prefix><red>У вашего клана нет территории <gray>· <yellow>установите знамя территории"
+    defender-no-capital: "<prefix><red>У клана <color><tag></color> нет территории <gray>· <yellow>войну объявить нельзя"
+    not-in-territory: "<prefix><red>Оспариваемая территория не найдена <gray>· <yellow>у цели должна быть территория"
     no-casus: "<prefix><red>Нужен повод (казус белли) <gray>· <yellow>оформите у Гильдмастера"
     not-enough-online: "<prefix><red>Нужно минимум <min> участника онлайн <gray>· <yellow>сейчас <current>"
     defender-no-leader: "<prefix><red>У защитников нет онлайн лидера или хранителя <gray>· <yellow>подождите их появления"
@@ -51,9 +57,9 @@ deny:
   siege:
     already-in-siege: "<prefix><red>Один из кланов уже участвует в осаде <gray>· <yellow>дождитесь её окончания"
     war-in-progress: "<prefix><red>Один из кланов уже воюет <gray>· <yellow>дождитесь окончания войны"
-    attacker-no-capital: "<prefix><red>У вашего клана нет столицы <gray>· <yellow>установите знамя спавна"
-    defender-no-capital: "<prefix><red>У клана <color><tag></color> нет столицы <gray>· <yellow>осаду объявить нельзя"
-    not-in-territory: "<prefix><red>Вы не на территории цели <gray>· <yellow>войдите на территорию осаждаемого клана"
+    attacker-no-capital: "<prefix><red>У вашего клана нет территории <gray>· <yellow>установите знамя территории"
+    defender-no-capital: "<prefix><red>У клана <color><tag></color> нет территории <gray>· <yellow>осаду объявить нельзя"
+    not-in-territory: "<prefix><red>Оспариваемая территория не найдена <gray>· <yellow>у цели должна быть территория"
     attacker-level-too-low: "<prefix><red>Осада с уровня клана <min> <gray>· <yellow>у вас <level>"
     defender-level-too-low: "<prefix><red>Клан цели ещё не готов к осаде (требуется ур. <min>) <gray>· <yellow>у цели <level>"
     level-gap-too-large: "<prefix><red>Нельзя осаждать слабейших ради лёгкой дани <gray>· <yellow>разница более <max> уровней"
@@ -67,8 +73,8 @@ deny:
   raid:
     already-in-raid: "<prefix><red>Один из кланов уже участвует в набеге <gray>· <yellow>дождитесь его окончания"
     conflict-in-progress: "<prefix><red>Один из кланов уже в конфликте <gray>· <yellow>дождитесь окончания войны или осады"
-    attacker-no-capital: "<prefix><red>У вашего клана нет столицы <gray>· <yellow>установите знамя спавна"
-    defender-no-capital: "<prefix><red>У клана <color><tag></color> нет столицы <gray>· <yellow>набег провести нельзя"
+    attacker-no-capital: "<prefix><red>У вашего клана нет территории <gray>· <yellow>установите знамя территории"
+    defender-no-capital: "<prefix><red>У клана <color><tag></color> нет территории <gray>· <yellow>набег провести нельзя"
     shield-active: "<prefix><red>У клана <color><tag></color> действует щит от набегов <gray>· <yellow>осталось <time>"
     daily-attacker-limit: "<prefix><red>Ваш дневной лимит набегов исчерпан <gray>· <yellow>максимум 5 в день"
     daily-defender-limit: "<prefix><red>Цель уже грабили сегодня <gray>· <yellow>максимум 1 набег в день на клан"
@@ -79,6 +85,19 @@ deny:
   casus:
     not-enough-money: "<prefix><red>Недостаточно средств <gray>· <yellow>нужно <cost>⛃"
     condition-not-met: "<prefix><red>Условие повода не выполнено <gray>· <yellow><detail>"
+
+  nap:
+    active: "<prefix><red>Между кланами действует Пакт о ненападении (NAP) <gray>· <yellow>разорвите пакт в дипломатии"
+
+  guild-shield:
+    active: "<prefix><red>Клан цели защищён Гильдейским щитом <gray>· <yellow>нападения и блокады временно запрещены"
+    in-conflict: "<prefix><red>Нельзя активировать щит во время войны, осады или рейда <gray>· <yellow>дождитесь окончания конфликта"
+    is-blockaded: "<prefix><red>Нельзя активировать щит под блокадой <gray>· <yellow>снимите блокаду"
+    already-active: "<prefix><red>Гильдейский щит уже действует на ваш клан"
+    cooldown: "<prefix><red>Кулдаун Гильдейского щита <gray>· <yellow>доступно через <time>"
+
+  blockade:
+    already-blockaded-by-other: "<prefix><red>Этот клан уже блокирован другим кланом-гегемоном <gray>· <yellow>эксклюзивная блокада"
 
 login-summary:
   title: "<prefix><yellow>Пока вас не было: <white><events></white>"
@@ -125,7 +144,7 @@ admin:
     unbound: "<prefix><green>NPC (ID <white><id></white>) отвязан."
 
 chest:
-  no-capital: "<prefix><red>У вашего клана нет установленной территории — сначала установите знамя кланового спавна."
+  no-capital: "<prefix><red>У вашего клана нет установленной территории — сначала установите знамя территории."
   invalid-amount: "<prefix><red>Укажите корректное положительное количество."
   insufficient-items: "<prefix><red>Недостаточно монет для этой операции."
   tax-locked: "<prefix><red>Сундук заблокирован за неуплату налога. Внесите деньги, чтобы погасить долг."
@@ -217,6 +236,10 @@ trade:
     completed-broadcast: "<prefix><gold>Государственная закупка выполнена полностью! Следующая - по расписанию."
 
 clan:
+  gift:
+    sent: "<prefix><white>Дар <yellow><amount></yellow> отправлен клану <color><tag>"
+    received: "<prefix><white>Клан <color><tag></color> прислал дар <yellow><amount>"
+    failed: "<prefix><white>Не удалось отправить дар <gray>· <reason>"
   disband-in-conflict: "<prefix><red>Нельзя распустить клан, пока идёт война, осада или набег."
   create-removed: "<prefix><red>Команда /clan create отключена. Приобретите Знамя основания клана у торговца и установите его на свободной земле!"
   unrecognized-cannot-claim: "<prefix><red>Непризнанный клан не может захватывать дополнительные территории. Только признанные кланы могут расширять свои земли."
@@ -224,7 +247,7 @@ clan:
   target-no-territory: "<prefix><red>У клана-цели нет территории: действие недоступно."
   banner:
     replacement-confirm-title: "<gold>Новое знамя клана"
-    replacement-item-name: "<white>Знамя кланового спавна"
+    replacement-item-name: "<white>Знамя территории"
     replacement-lore:
       - ""
       - "<gray>Клан потерял знамя и остался без территории."
@@ -233,7 +256,7 @@ clan:
       - "<red>  Опыт текущего уровня: -<exp>%"
       - ""
       - "<gray>Цена: <cost>"
-    replacement-bought: "<prefix><green>Вы купили новое знамя кланового спавна за <cost>. Установите его, чтобы вернуть территорию."
+    replacement-bought: "<prefix><green>Вы купили новое знамя территории за <cost>. Установите его, чтобы вернуть территорию."
     replacement-penalty: "<prefix><yellow>Клан потерял знамя: дух -<spirit> ур., опыт -<exp>."
     replacement-has-banner: "<prefix><red>Знамя вашего клана уже у вас в инвентаре или эндер-сундуке."
     replacement-leader-only: "<prefix><red>Новое знамя клана может купить только глава."
@@ -287,7 +310,7 @@ clan:
   disbanded: "<prefix><yellow>Ваш клан был распущен."
   founder-has-capital-banner: "<prefix><red>У вас уже есть знамя клановой территории. Сначала установите его или избавьтесь от него."
   home:
-    not-set: "<prefix><red>Клановый спавн не установлен."
+    not-set: "<prefix><red>Территория клана не установлена."
   info:
     header: "<prefix><gold>Информация о клане <white><tag></white>:"
     line: "<gray><key>: <white><value>"
@@ -325,6 +348,8 @@ clan:
   not-found: "<prefix><red>Клан не найден."
   not-in-clan: "<prefix><red>Вы не состоите в клане."
   not-leader: "<prefix><red>Это действие может выполнить только глава клана."
+  usage:
+    peace: "<prefix><yellow>Использование: <white>/мир <тег></white> или <white>/clan peace <тег></white>"
   rank-changed: "<prefix><green>Ранг игрока <yellow><player></yellow> изменён на <gold><rank></gold>."
   rank-changed-broadcast: "<prefix><yellow><player></yellow> теперь имеет ранг <gold><rank></gold>."
   rank-too-low: "<prefix><red>Ваш ранг в клане слишком низок для этого действия."
@@ -360,6 +385,7 @@ clan:
     activity: "<aqua>/clan activity</aqua> <gray>- очки активности клана и участников</gray>"
     history: "<aqua>/clan history</aqua> <gray>- летопись клана; архив конфликтов - /clan conflicts [тег]</gray>"
     trade: "<aqua>/clan trade <tag></aqua> <gray>- отправить запрос на обмен клану (или /clan trade <accept|decline|cancel> <id>)</gray>"
+    peace: "<aqua>/мир <tag></aqua> <gray>- предложить или принять мир с кланом</gray>"
     # Подкоманды /loveclansadmin (алиасы /clansadmin, /ca) - тот же заголовок/подвал,
     # что и у /clan help, чтобы весь список команд плагина выглядел единообразно.
     admin-header: "<dark_gray>========== <aqua>LoveClans Admin</aqua> ==========</dark_gray>"
@@ -375,18 +401,25 @@ clan:
     admin-points: "<aqua>/loveclansadmin points <add|remove|set> <tag> <amount></aqua> <gray>- изменить очки улучшений клана</gray>"
     admin-recognize: "<aqua>/loveclansadmin recognize/unrecognize <tag></aqua> <gray>- присвоить или отозвать признание клана</gray>"
     admin-givebanner: "<aqua>/loveclansadmin givebanner <player></aqua> <gray>- выдать знамя основания клана</gray>"
+    admin-shield: "<aqua>/loveclansadmin shield <give|clear> ...</aqua> <gray>- выдать или снять Гильдейский щит клана</gray>"
+
+gift:
+  invalid-amount: "некорректная сумма"
+  sender-not-recognized: "отправитель не признан"
+  insufficient-funds: "недостаточно средств в казне"
+  too-large: "сумма слишком большая"
+  blocked-by-war: "нельзя во время войны"
+  cooldown: "дар уже отправлялся недавно"
 
 diplomacy:
-  alliance-accepted: "<prefix><green>Вы заключили союз с кланом <color><tag></color>."
-  alliance-accepted-by: "<prefix><green>Клан <color><tag></color> принял ваше предложение о союзе."
-  alliance-declined: "<prefix><yellow>Вы отклонили предложение о союзе от клана <color><tag></color>."
-  alliance-declined-by: "<prefix><yellow>Клан <color><tag></color> отклонил ваше предложение о союзе."
+  gift:
+    sent: "<prefix><white>Дипломатический подарок <yellow><amount></yellow> отправлен клану <color><tag>"
+    received: "<prefix><white>Клан <color><tag></color> прислал дипломатический подарок <yellow><amount>"
+    cooldown: "<prefix><red>Дипломатический подарок уже отправлялся недавно"
+    not-enough-money: "<prefix><red>Недостаточно средств в казне клана"
   alliance-request: "<prefix><color><tag></color> предлагает заключить союз!"
-  alliance-sent: "<prefix><green>Предложение о союзе отправлено клану <color><tag></color>."
   no-other-clans: "<prefix><gray>Других кланов пока не существует."
-  no-pending-request: "<prefix><red>Нет ожидающих запросов от клана <color><tag></color>."
-  requires-home: "<prefix><red>Для этого действия у вашего клана должен быть установлен клановый спавн."
-  updated: "<prefix><green>Отношения с кланом <color><tag></color> изменены на <yellow><relation></yellow>."
+  requires-home: "<prefix><white>Для этого действия у вашего клана должна быть установлена территория."
   relation:
     NEUTRAL: "<yellow>Нейтралитет"
     ALLY: "<green>Союз"
@@ -407,6 +440,48 @@ diplomacy:
     cancelled: "<prefix><green>Блокада клана <color><tag></color> отменена."
     lifted: "<prefix><green>Клан <color><tag></color> снял с вас блокаду."
     overthrown: "<prefix><gold>Вы восстали против угнетателя и сняли блокаду, победив его в войне!"
+  tier:
+    hostile: "<red>Враждебные</red>"
+    unfriendly: "<gold>Натянутые</gold>"
+    neutral: "<gray>Нейтральные</gray>"
+    cordial: "<green>Дружелюбные</green>"
+    friendly: "<dark_green>Друзья</dark_green>"
+    allied: "<aqua>Союзники</aqua>"
+  tier-improved: "<prefix><green>Отношения с кланом <color><tag></color> улучшились: <old-tier> <gray>→</gray> <tier>"
+  tier-worsened: "<prefix><red>Отношения с кланом <color><tag></color> ухудшились: <old-tier> <gray>→</gray> <tier>"
+  improve:
+    sent: "<prefix><green>Дипломатическая миссия отправлена клану <color><tag></color>: отношения улучшились."
+    received: "<prefix><green>Клан <color><tag></color> направил к вам дипломатическую миссию: отношения улучшились."
+    cooldown: "<prefix><red>Дипломатическая миссия этому клану уже отправлялась недавно."
+    not-enough-money: "<prefix><red>Недостаточно средств в казне клана для дипломатической миссии."
+  insult:
+    sent: "<prefix><red>Вы публично оскорбили клан <color><tag></color>: отношения ухудшились."
+    received: "<prefix><red>Клан <color><tag></color> публично оскорбил ваш клан: отношения ухудшились."
+    cooldown: "<prefix><red>Вы уже оскорбляли этот клан недавно."
+  deny:
+    cooldown: "<prefix><red>Действие на перезарядке <gray>· <yellow>осталось <time>"
+    gift-hostile: "<prefix><red>Дары врагам запрещены <gray>· <yellow>нужны отношения выше «Враждебные»"
+    trade-hostile: "<prefix><red>Торговля с врагами запрещена <gray>· <yellow>нужны отношения выше «Враждебные»"
+    improve-allied: "<prefix><red>Союзникам миссии не нужны <gray>· <yellow>отношения и так максимальные"
+    insult-pact: "<prefix><red>Нельзя оскорбить клана, с которым есть соглашение <gray>· <yellow>сначала расторгните его"
+    insult-friends: "<prefix><red>Друзей не оскорбляют <gray>· <yellow>нужны отношения ниже «Друзья»"
+    sanction-pact: "<prefix><red>Санкции недоступны <gray>· <yellow>действует соглашение с этим кланом"
+    embargo-tier: "<prefix><red>Эмбарго возможно при отношениях «Натянутые» или хуже"
+    blockade-tier: "<prefix><red>Блокада возможна только при «Враждебных» отношениях"
+    conflict-pact: "<prefix><red>Нельзя напасть на клан, с которым есть пакт ненападения или союз"
+    conflict-tier: "<prefix><red>Конфликт возможен при «Нейтральных» отношениях или хуже <gray>· <yellow>испорченные отношения откроют эту возможность"
+  pact:
+    offered: "<prefix><green>Предложение «<type>» отправлено клану <color><tag></color>."
+    received: "<prefix><gold>Клан <color><tag></color> предложил вашему клану «<type>». Примите в меню дипломатии!"
+    accepted: "<prefix><green>Заключено соглашение «<type>» с кланом <color><tag></color>!"
+    broken: "<prefix><red>Расторгнуто соглашение «<type>» с кланом <color><tag></color>."
+    auto-broken: "<prefix><red>Соглашение «<type>» с кланом <color><tag></color> распалось: отношения упали слишком низко."
+    cancelled: "<prefix><gray>Предложение пакта отменено."
+    already-active: "<prefix><red>Это соглашение уже действует."
+    score-too-low: "<prefix><red>Отношения слишком плохи для этого соглашения <gray>· <yellow>улучшите их подарками, торговлей или миссиями"
+    not-active: "<prefix><red>Указанный пакт не активен."
+  guild-shield:
+    activated: "<prefix><aqua>{player}</aqua> <green>активировал <aqua>Гильдейский щит</aqua>! Клан защищён от нападений на 24 часа."
 
 gui:
   activity:
@@ -583,6 +658,29 @@ gui:
     title: "<color><tag> <white>- Участники и заявки"
     filter-title: "<gold>Фильтр"
     sort-title: "<gold>Сортировка"
+    contribution-mode:
+      name: "<white>Вклад участников"
+      lore-on:
+        - "<gray>Режим просмотра детального вклада"
+        - "<gray>каждого участника по категориям."
+        - ""
+        - "<gray>Статус: <green>Включен"
+        - ""
+        - "<yellow>▸ Нажмите, чтобы вернуться к общему списку"
+      lore-off:
+        - "<gray>Режим просмотра детального вклада"
+        - "<gray>каждого участника по категориям."
+        - ""
+        - "<gray>Статус: <white>Выключен"
+        - ""
+        - "<yellow>▸ Нажмите, чтобы включить режим вклада"
+    filter-disabled:
+      name: "<dark_gray>Фильтрация"
+      lore:
+        - "<gray>В режиме просмотра вклада отображаются"
+        - "<gray>все участники клана."
+        - ""
+        - "<dark_gray>▸ Фильтрация отключена"
     filter:
       all: "Все"
       members: "Участники"
@@ -778,7 +876,7 @@ gui:
     accepted: "<prefix><green>Заявка игрока <yellow><player></yellow> принята."
     rejected: "<prefix><yellow>Заявка игрока <yellow><player></yellow> отклонена."
   capital:
-    title: "<gray>Клановый спавн <color><tag>"
+    title: "<white>Территория <gray>· <color><tag>"
     info:
       name: "<color><tag> <white>- Клановая территория"
       lore-set:
@@ -786,29 +884,29 @@ gui:
         - "<gray>Координаты: <white><x>, <y>, <z>"
       lore-unset:
         - "<gray>Территория ещё не создана."
-    no-permission: "<prefix><red>У вас нет прав для управления клановым спавном."
-    no-permission-lore: "<red>У вас нет прав для управления клановым спавном."
-    no-house-lore: "<red>Сначала создайте клановый спавн."
-    no-house: "<prefix><red>У клана ещё нет кланового спавна."
+    no-permission: "<prefix><white>У вас нет прав для управления территорией."
+    no-permission-lore: "<dark_gray>У вас нет прав для управления территорией."
+    no-house-lore: "<dark_gray>Сначала создайте территорию."
+    no-house: "<prefix><white>У клана ещё нет территории."
     war-blocked: "<prefix><red>Это действие недоступно во время войны."
     show-border:
-      name: "<gold>Показать границы территории"
+      name: "<white>Показать границы территории"
       lore: "<gray>Подсветить границы клановой территории на несколько секунд."
       action: "<prefix><green>Границы территории показаны."
     disband:
-      name: "<red>Свернуть клановый спавн"
-      lore: "<gray>Свернуть клановый спавн и вернуть знамя."
-      action: "<prefix><yellow>Клановый спавн свёрнут."
+      name: "<white>Свернуть территорию"
+      lore: "<gray>Свернуть территорию и вернуть знамя."
+      action: "<prefix><white>Территория клана свёрнута."
     move-home:
-      name: "<gold>Перенести клановый спавн"
+      name: "<white>Перенести территорию"
       lore: "<gray>Перенести точку возрождения клана сюда."
-      confirm-prompt: "<prefix><yellow>Вы уверены, что хотите перенести клановый спавн в текущее место?"
-      action: "<prefix><green>Клановый спавн перенесён."
+      confirm-prompt: "<prefix><white>Вы уверены, что хотите перенести территорию в текущее место?"
+      action: "<prefix><white>Территория клана перенесена."
     relocate-territory:
-      name: "<gold>Перенести клановую территорию"
-      lore: "<gray>Снести приват кланового спавна и получить знамя обратно для переноса."
-      confirm-prompt: "<prefix><yellow>Вы уверены? Приват кланового спавна будет снесён, а знамя возвращено вам для переноса."
-      action: "<prefix><green>Клановая территория перенесена. Разместите знамя в новом месте."
+      name: "<white>Перенести клановую территорию"
+      lore: "<gray>Снести приват территории и получить знамя обратно для переноса."
+      confirm-prompt: "<prefix><white>Вы уверены? Приват территории будет снесён, а знамя возвращено вам для переноса."
+      action: "<prefix><white>Клановая территория перенесена. Разместите знамя в новом месте."
   clan-list:
     title: "<gold>Список кланов <white>- Страница <page>/<max>"
     empty:
@@ -877,6 +975,9 @@ gui:
       title: "<gold>Подтвердите открытие клана"
     disband:
       title: "<red>Распустить клан <color><tag></color>?"
+    break-pact:
+      title: "<red>Расторгнуть «<type>» с кланом <color><tag></color>?"
+      lore: "<gray>Отношения упадут на <red><penalty>"
     disband-capital:
       title: "<red>Свернуть столицу клана <color><tag></color>?"
     leave:
@@ -889,14 +990,16 @@ gui:
       title: "<red>Исключить <white><player></white>?"
     withdraw:
       title: "<gold>Снять <white><amount></white>⛃ из казны?"
+    gift:
+      title: "<white>Отправить дар <yellow><amount></yellow> клану <color><tag>?"
     war:
-      title: "<red>Объявить войну клану <color><tag></color>?"
+      title: "<white>Объявить войну клану <color><tag></color>?"
     siege:
-      title: "<red>Объявить осаду клана <color><tag></color>?"
+      title: "<white>Объявить осаду клана <color><tag></color>?"
     raid:
-      title: "<red>Начать набег на клан <color><tag></color>?"
+      title: "<white>Начать набег на клан <color><tag></color>?"
     peace:
-      title: "<gold>Предложить мир клану <color><tag></color>?"
+      title: "<white>Предложить мир клану <color><tag></color>?"
   create:
     title: "<gold>Создание клана"
     start:
@@ -927,64 +1030,285 @@ gui:
       ready: "<green>✔ Купить Знамя Основания"
       not-ready: "<red>✗ Сначала введите название и тег"
   diplomacy:
-    title: "<gray>Дипломатия с кланом <color><tag>"
-    relations:
-      name: "<gold>Отношения"
+    title: "<white>Дипломатия <gray>· <color><tag>"
+    unavailable: "<red>✘ Недоступно:"
+    state:
+      name: "<white>Отношения: <tier>"
       lore:
-        - "<gray>Текущие: <white><relation>"
-        - "<gray>ЛКМ - выбрать союз, нейтралитет или вражду"
-      title: "<gray>Отношения с кланом <color><tag>"
-    ally:
-      name: "<green>Союз"
-      lore: "<gray>Нажмите, чтобы предложить союз."
-    neutral:
-      name: "<yellow>Нейтралитет"
-      lore: "<gray>Нажмите, чтобы установить нейтральные отношения."
-    enemy:
-      name: "<red>Вражда"
-      lore: "<gray>Нажмите, чтобы объявить кланы враждующими."
-    embargo:
-      declare-name: "<gold>Эмбарго"
-      declare-lore: "<gray>ЛКМ - запретить торговлю с этим кланом"
-      cancel-name: "<red>Эмбарго активно"
-      cancel-lore: "<gray>ЛКМ - отменить эмбарго"
-    blockade:
-      declare-name: "<gold>Блокада"
-      declare-lore: "<gray>ЛКМ - заблокировать торговлю этого клана с внешним миром"
-      cancel-name: "<red>Блокада активна"
-      cancel-lore: "<gray>ЛКМ - отменить блокаду"
-      blocked-name: "<dark_gray>Вы заблокированы"
-      blocked-lore: "<gray>Этот клан уже блокирует вас."
-    trade:
-      name: "<green>Торговля"
-      lore: "<gray>ЛКМ - отправить запрос на обмен этому клану"
-      no-permission-lore: "<red>У вас нет прав на торговлю с другими кланами"
-      unavailable-name: "<dark_gray>Торговля недоступна"
+        - "<gray>Счёт: <white><score><gray> из <max> <trend> <gray>(<diff> за сутки)"
+        - "<bar>"
+        - "<gray>Соглашения и санкции: <white><agreements>"
+        - ""
+      next: "<gray>До уровня <next><gray>: <white>+<need>"
+      next-allied: "<gray>До уровня <next><gray>: <white>+<need><gray> и союзный договор"
+      prev: "<gray>До падения на уровень <prev><gray>: <white>−<left>"
+      embargo: "эмбарго"
+      blockade: "блокада"
+      none: "нет"
+      tier-hostile:
+        - "<gray>Торговля и дары <red>запрещены<gray>."
+        - "<gray>Доступны эмбарго, блокада и конфликты."
+        - "<gray>Соглашения недоступны."
+        - "<yellow>Отношения не сбрасываются: их улучшают"
+        - "<yellow>дипломатические миссии, мир и время."
+      tier-unfriendly:
+        - "<gray>Доступны эмбарго и конфликты."
+        - "<gray>Соглашения пока недоступны."
+        - "<yellow>Подарки, торговля и миссии повышают отношения."
+      tier-neutral:
+        - "<gray>Доступны торговля, дары и пакт ненападения."
+        - "<gray>Эмбарго и блокада недоступны, конфликты возможны."
+      tier-cordial:
+        - "<gray>Доступны торговый пакт и пакт ненападения."
+        - "<gray>Конфликты недоступны: сначала отношения"
+        - "<gray>должны ухудшиться до нейтральных."
+      tier-friendly:
+        - "<gray>Доступны все соглашения."
+        - "<gray>Союз заключается при счёте от 90."
+        - "<gray>Конфликты недоступны."
+      tier-allied:
+        - "<gray>Действует союзный договор."
+        - "<gray>Конфликты между кланами запрещены."
+        - "<gray>Отношения держатся не ниже порога союза."
+    act:
+      gift:
+        name: "<white>Дипломатический дар"
+        lore:
+          - "<gray>Перевести монеты из казны вашего клана"
+          - "<gray>в казну этого клана."
+          - ""
+          - "<gray>Чем больше дар, тем сильнее растут отношения"
+          - "<gray>(от +5 до +25). Между дарами есть перерыв."
+          - "<red>Врагам и во время войны дары запрещены."
+          - ""
+          - "<yellow>▸ ЛКМ — Выбрать сумму"
+      trade:
+        name: "<white>Торговый обмен"
+        lore:
+          - "<gray>Прямой обмен предметами и монетами."
+          - "<gray>Каждая завершённая сделка улучшает отношения"
+          - "<gray>на <green>+<score><gray> (не более +<cap> в сутки)."
+          - "<red>Врагам и при эмбарго торговля запрещена."
+          - ""
+          - "<yellow>▸ ЛКМ — Предложить сделку"
+      trade-with-pact:
+        name: "<white>Торговый обмен <green>(торговый пакт)"
+        lore:
+          - "<gray>Прямой обмен предметами и монетами."
+          - "<gray>Торговый пакт сокращает перерыв между"
+          - "<gray>сделками (×<multiplier>)."
+          - "<gray>Каждая сделка: <green>+<score><gray> к отношениям (не более +<cap> в сутки)."
+          - ""
+          - "<yellow>▸ ЛКМ — Предложить сделку"
+      improve:
+        name: "<white>Дипломатическая миссия"
+        lore:
+          - "<gray>Отправить посланников с подарками."
+          - "<gray>Отношения: <green>+<score>"
+          - "<gray>Стоимость: <yellow><cost><gray> из казны"
+          - "<gray>Перерыв: <white><hours> ч."
+          - ""
+          - "<yellow>▸ ЛКМ — Отправить миссию"
+      nap:
+        name: "<white>Пакт о ненападении"
+        lore:
+          - "<gray>Пока пакт действует, ни один из кланов не может"
+          - "<gray>объявить другому войну, осаду или рейд."
+          - ""
+          - "<gray>Нужен счёт от <white><min><gray>. Подпись: <green>+<bonus>"
+          - "<gray>Разрыв: <red>−<penalty><gray>. Распадается при счёте ниже <white><margin>"
+          - ""
+          - "<yellow>▸ ЛКМ — Предложить пакт"
+      nap-pending:
+        name: "<white>Пакт о ненападении: <yellow>предложен"
+        lore:
+          - "<gray>Предложение отправлено и ждёт ответа до 24 часов."
+          - ""
+          - "<yellow>▸ ЛКМ — Отозвать предложение"
+      nap-incoming:
+        name: "<white>Пакт о ненападении: <gold>вам предложили"
+        lore:
+          - "<gray>Другой клан предлагает пакт ненападения."
+          - "<gray>Подпись: <green>+<bonus><gray> к отношениям."
+          - ""
+          - "<yellow>▸ ЛКМ — Принять пакт"
+      nap-active:
+        name: "<white>Пакт о ненападении: <green>действует"
+        lore:
+          - "<gray>Война, осада и рейд между вами невозможны."
+          - "<gray>Распадётся сам, если счёт упадёт ниже <white><margin>"
+          - ""
+          - "<yellow>▸ ЛКМ — Расторгнуть (<red>−<penalty><yellow> к отношениям)"
+      trade-pact:
+        name: "<white>Торговый пакт"
+        lore:
+          - "<gray>Сокращает перерыв между сделками (×<multiplier>)."
+          - "<gray>Пока счёт до +30, отношения не затухают сами,"
+          - "<gray>а нейтральные медленно растут до +20."
+          - ""
+          - "<gray>Нужен счёт от <white><min><gray>. Подпись: <green>+<bonus>"
+          - "<gray>Разрыв: <red>−<penalty>"
+          - ""
+          - "<yellow>▸ ЛКМ — Предложить пакт"
+      trade-pact-pending:
+        name: "<white>Торговый пакт: <yellow>предложен"
+        lore:
+          - "<gray>Предложение отправлено и ждёт ответа до 24 часов."
+          - ""
+          - "<yellow>▸ ЛКМ — Отозвать предложение"
+      trade-pact-incoming:
+        name: "<white>Торговый пакт: <gold>вам предложили"
+        lore:
+          - "<gray>Другой клан предлагает торговый пакт."
+          - "<gray>Подпись: <green>+<bonus><gray> к отношениям."
+          - ""
+          - "<yellow>▸ ЛКМ — Принять пакт"
+      trade-pact-active:
+        name: "<white>Торговый пакт: <green>действует"
+        lore:
+          - "<gray>Перерыв между сделками сокращён (×<multiplier>)."
+          - ""
+          - "<yellow>▸ ЛКМ — Расторгнуть (<red>−<penalty><yellow> к отношениям)"
+      alliance:
+        name: "<white>Союзный договор"
+        lore:
+          - "<gray>Союзники не могут объявлять друг другу"
+          - "<gray>войну, осаду и рейд. Затухание не опускает"
+          - "<gray>отношения ниже порога союза."
+          - ""
+          - "<gray>Нужен счёт от <white><min><gray>. Подпись: <green>+<bonus>"
+          - "<gray>Разрыв: <red>−<penalty>"
+          - ""
+          - "<yellow>▸ ЛКМ — Предложить союз"
+      alliance-pending:
+        name: "<white>Союз: <yellow>предложен"
+        lore:
+          - "<gray>Предложение отправлено и ждёт ответа до 24 часов."
+          - ""
+          - "<yellow>▸ ЛКМ — Отозвать предложение"
+      alliance-incoming:
+        name: "<white>Союз: <gold>вам предложили"
+        lore:
+          - "<gray>Другой клан предлагает союз."
+          - "<gray>Подпись: <green>+<bonus><gray> к отношениям."
+          - ""
+          - "<yellow>▸ ЛКМ — Принять союз"
+      alliance-active:
+        name: "<white>Союз: <aqua>заключён"
+        lore:
+          - "<gray>Нападения друг на друга запрещены."
+          - ""
+          - "<yellow>▸ ЛКМ — Расторгнуть (<red>−<penalty><yellow> к отношениям)"
+      insult:
+        name: "<white>Оскорбление"
+        lore:
+          - "<gray>Публично унизить клан."
+          - "<gray>Отношения: <red>−<score><gray>. Перерыв: <white><hours> ч."
+          - "<gray>Недоступно друзьям и при любом соглашении."
+          - ""
+          - "<yellow>▸ ЛКМ — Оскорбить"
+      embargo:
+        name: "<white>Эмбарго"
+        lore:
+          - "<gray>Запрещает торговлю между вашими кланами."
+          - "<gray>Отношения: <red>−<score><gray>. Пока оно действует,"
+          - "<gray>враждебность не рассасывается сама."
+          - "<gray>Возможно при «Натянутых» отношениях или хуже."
+          - ""
+          - "<yellow>▸ ЛКМ — Ввести эмбарго"
+      embargo-active:
+        name: "<white>Эмбарго: <red>введено"
+        lore:
+          - "<gray>Торговля между кланами запрещена."
+          - "<gray>Снятие: <green>+<back><gray> к отношениям."
+          - ""
+          - "<yellow>▸ ЛКМ — Снять эмбарго"
+      blockade:
+        name: "<white>Блокада"
+        lore:
+          - "<gray>Запрещает торговлю между вами и этим кланом"
+          - "<gray>и усиливает вражду. Отношения: <red>−<score>"
+          - "<gray>Только глава клана; нужно влияния в <white>×<multiplier><gray> больше."
+          - "<gray>Возможна только при «Враждебных» отношениях."
+          - ""
+          - "<yellow>▸ ЛКМ — Объявить блокаду"
+      blockade-active:
+        name: "<white>Блокада: <red>установлена"
+        lore:
+          - "<gray>Торговля с этим кланом заблокирована."
+          - "<gray>Снятие: <green>+<back><gray> к отношениям."
+          - ""
+          - "<yellow>▸ ЛКМ — Снять блокаду"
+      blockade-blocked:
+        name: "<white>Блокада: <dark_gray>нас блокируют"
+        lore:
+          - "<gray>Этот клан блокирует вас."
+          - "<gray>Снять блокаду может только он."
+      conflict:
+        name: "<white>Военные действия"
+        lore:
+          - "<gray>Начать открытое противостояние."
+          - "<gray>Доступно: <red>Война <gray>· <yellow>Осада <gray>· <white>Рейд"
+          - "<gray>Возможно при «Нейтральных» отношениях или хуже."
+          - "<gray>Пакт ненападения и союз запрещают конфликт."
+          - ""
+          - "<yellow>▸ ЛКМ — Выбрать тип конфликта"
+      conflict-active:
+        name: "<white>Военный конфликт: <red><type>"
+        lore:
+          - "<gray>Между кланами идут боевые действия."
+          - "<gray>Мирное завершение улучшает отношения."
+          - ""
+          - "<yellow>▸ ЛКМ — Предложить мир"
+    conflict:
+      open-name: "<white>Военные действия"
+      open-lore:
+        - "<gray>Начать открытое противостояние против"
+        - "<gray>данного клана."
+        - ""
+        - "<gray>Доступно: <red>Война <gray>· <yellow>Осада <gray>· <white>Рейд"
+        - ""
+        - "<yellow>▸ ЛКМ — Выбрать тип конфликта"
+    gift:
+      title: "<white>Дар <gray>· <color><tag>"
+      name: "<white>Дар"
+      lore: "<gray>Перевести деньги из казны в казну"
+      preset-name: "<white>Дар <yellow><amount>"
+      preset-lore: "<gray>Сумма: <white><amount>"
+      custom-name: "<white>Другая сумма"
+      custom-lore: "<gray>Нажмите, чтобы ввести сумму в чат"
+      prompt-custom: "<prefix><white>Введите сумму дара в чат <gray>(или cancel для отмены):"
+      no-permission: "<dark_gray>Недостаточно прав"
+      need-recognized: "<dark_gray>Нужно признание клана"
+    unrecognized:
+      recognized-badge: "<white>Признанный клан <gray>· договоры и союзы доступны"
+      other: "<white>Лагерь <gray>· не признан Гильдией; договоры недоступны"
+      self: "<white>Ваш клан не признан <gray>· обратитесь к Гильдмастеру"
     war:
-      name: "<red>Объявить войну"
-      lore: "<gray>ЛКМ - начать войну (нужно стоять на территории клана)"
+      name: "<white>Объявить войну"
+      lore: "<gray>ЛКМ - начать войну за территорию"
       unavailable-conflict: "<dark_gray>Конфликт уже идёт"
       unavailable-location: "<dark_gray>Нужно стоять на территории этого клана"
-      unavailable-no-capital: "<dark_gray>Требуется установленная территория клана (у обеих сторон)"
+      unavailable-no-capital: "<dark_gray>Требуется территория клана"
     siege:
-      name: "<red>Устроить осаду"
-      lore: "<gray>ЛКМ - начать осаду (нужно стоять на территории клана)"
+      name: "<white>Устроить осаду"
+      lore: "<gray>ЛКМ - начать осаду столицы клана"
       unavailable-conflict: "<dark_gray>Конфликт уже идёт"
       unavailable-location: "<dark_gray>Нужно стоять на территории этого клана"
-      unavailable-no-capital: "<dark_gray>Требуется установленная территория клана (у обеих сторон)"
+      unavailable-no-capital: "<dark_gray>Требуется территория клана"
     raid:
-      name: "<red>Устроить набег"
+      name: "<white>Устроить набег"
       lore: "<gray>ЛКМ - начать набег на сундук этого клана"
       unavailable-conflict: "<dark_gray>Конфликт уже идёт"
-      unavailable-no-capital: "<dark_gray>Требуется установленная территория клана (у обеих сторон)"
-    peace:
-      name: "<white>Мир"
-      lore: "<gray>ЛКМ - предложить прекратить конфликт"
-      unavailable-name: "<dark_gray>Мир"
+      unavailable-no-capital: "<dark_gray>Требуется территория клана"
+    unavailable-name: "<dark_gray>Мир"
     info:
-      name: "<color><tag> <white>- Информация"
+      name: "<white>Клан <color><tag> <gray>· <white>Информация"
       lore:
-        - "<gray>Уровень: <white><level>"
+        - "<gray>Статистика и дипломатические данные"
+        - "<gray>выбранного клана."
+        - ""
+        - "<gray>Уровень клана: <white><level>"
         - "<gray>Влияние: <white><influence>"
         - "<gray>Участников: <white><members>"
         - "<gray>Отношения: <white><relation>"
@@ -1079,7 +1403,7 @@ gui:
       applications-lore: "<yellow>Новых заявок: <white><count>"
     territories:
       name: "<gold>Территория"
-      lore: "<gray>Клановый спавн и территории клана."
+      lore: "<gray>Территории и владения клана."
       no-permission-lore: "<red>Нет прав на управление — откроется в режиме просмотра/телепортации."
     upgrades:
       name: "<gold>Улучшения"
@@ -1126,6 +1450,16 @@ gui:
       disabled-self: "<red>Нельзя исключить самого себя."
       disabled-leader: "<red>Нельзя исключить главу клана."
   members:
+    contribution: "<gray>Вклад в дух: <white><value>"
+    contribution-item:
+      finance: "<gray>Взнос в казну: <yellow><amount>⛃"
+      activity-total: "<gray>Всего очков активности: <white><points>"
+      category-war: "<gray>• Войны: <white><val>"
+      category-raid: "<gray>• Рейды: <white><val>"
+      category-siege: "<gray>• Осады: <white><val>"
+      category-economy: "<gray>• Экономика: <white><val>"
+      category-diplomacy: "<gray>• Дипломатия: <white><val>"
+      category-territory: "<gray>• Дух / Территории: <white><val>"
     info:
       name: "<color><name> <white>[<tag>]"
       lore:
@@ -1220,30 +1554,47 @@ gui:
       name: "<red>Распустить клан"
       lore: "<gray>Безвозвратно распустить клан."
   spirit:
-    title: "<gray>Дух клана <color><tag>"
+    title: "<white>Дух клана <gray>· <color><tag>"
+    header:
+      name: "<white>Дух Клана"
+      lore:
+        - "<gray>Древняя сущность, оберегающая ваш клан."
+        - "<gray>Развивается от общей активности участников:"
+        - "<gray>сражений, торговли, осад и взносов."
+        - ""
+        - "<gray>С каждым уровнем клан получает пассивные"
+        - "<gray>благословения, действующие на всех соклановцев,"
+        - "<gray>а на 10 уровне открывается мощная способность."
     info:
-      name: "<gold><name> <gray>(уровень <level>)"
-      exp: "<gray>Опыт: <white><current></white>/<next>"
-      progress: "<gray><bar>"
-      maximum: "<gold>МАКСИМУМ"
+      name: "<white>Дух <yellow><level></yellow> <gray>· <white><name>"
+      exp: "<gray>Энергия: <white><current><gray>/<white><next>"
+      progress: "<white><bar>"
+      maximum: "<gray>Максимальный уровень"
+      how: "<gray>Энергия растёт от активности членов клана"
+      active-buff: "<yellow>Активный бонус: <white><name> <gray>(<description>)"
+      toggle-show: "<yellow>▸ Нажмите, чтобы посмотреть все бонусы"
+      toggle-hide: "<yellow>▸ Нажмите, чтобы скрыть список бонусов"
     buffs:
-      name: "<gold>Постоянные бонусы"
+      name: "<white>Постоянные бонусы"
       lore_active: "<gray>Постоянные бонусы духа активны для участников клана."
+      all-title: "<yellow>Доступные бонусы духа (<count>):"
+      simple-entry: "<gray>• <white><name> <gray>— <white><description>"
       entry:
-        unlocked: "<green><level></green> <white><name> <gray>- <description>"
-        locked: "<red><level></red> <gray><name> - <description>"
+        current: "<green>▶ <white>Ур.<level> <name> <gray>· <description>"
+        unlocked: "<white>Ур.<level> <name> <gray>· <description>"
+        locked: "<dark_gray>Ур.<level> <name> <dark_gray>· <description>"
     ability:
-      name: "<gold>Способность духа"
-      locked: "<red>Заблокировано до 10 уровня."
+      name: "<white>Уникальная способность"
+      locked: "<gray>Откроется на 10 уровне духа"
       locked-message: "<prefix><red>Уникальная способность духа разблокируется на 10 уровне."
-      unlocked: "<green>Способность не выбрана. Нажмите, чтобы выбрать."
-      chosen: "<green>Выбрана: <white><name></white>. <gray><description>"
-      chosen-name: "<green>Выбрана: <white><name></white>"
-      cooldown: "<red>Смену способности можно сделать через <white><time></white>."
+      unlocked: "<white>Выберите способность"
+      chosen: "<white>Выбрано: <yellow><name>"
+      chosen-name: "<white>Выбрано: <yellow><name>"
+      cooldown: "<prefix><white>Смену способности можно сделать через <yellow><time></yellow>."
     ability-menu:
-      title: "<gray>Способность духа <color><tag>"
+      title: "<white>Способность духа <gray>· <color><tag>"
       item:
-        name: "<gold><name>"
+        name: "<white><name>"
         description: "<gray><description>"
         selected: "<green>✔ Выбрана"
         click-to-select: "<gray>ЛКМ - выбрать"
@@ -1266,14 +1617,14 @@ gui:
       name: "<gold>Знамя захвата"
       lore: "<gray>Используйте знамя, чтобы захватить территорию."
     capital:
-      name: "<gold>Клановый спавн"
-      no-permission: "<prefix><red>У вас нет прав для управления клановым спавном."
-      no-permission-management: "<prefix><red>У вас нет прав для управления клановым спавном."
-      not-created: "<gray>Клановый спавн ещё не создан."
-      get-banner: "<gold>Получить знамя кланового спавна"
-      get-banner-lore: "<gray>Нажмите, чтобы получить знамя для установки кланового спавна."
-      place-it: "<gray>Установите знамя, чтобы создать клановый спавн."
-      already-have-banner: "<prefix><red>У вас уже есть знамя кланового спавна в инвентаре."
+      name: "<white>Территория"
+      no-permission: "<prefix><white>У вас нет прав для управления территорией."
+      no-permission-management: "<prefix><white>У вас нет прав для управления территорией."
+      not-created: "<gray>Территория ещё не создана."
+      get-banner: "<white>Получить знамя территории"
+      get-banner-lore: "<gray>Нажмите, чтобы получить знамя для установки территории."
+      place-it: "<gray>Установите знамя, чтобы создать территорию."
+      already-have-banner: "<prefix><white>У вас уже есть знамя территории в инвентаре."
       already-have-banner-item: "<red>Знамя уже получено"
       banner-missing-name: "<gold>Баннер территории утерян"
       banner-missing-lore: "<gray>Физический баннер вашей территории уничтожен. Нажмите, чтобы получить новый."
@@ -1503,7 +1854,7 @@ territory:
     no-permission: "<prefix><red>У вас нет прав для снятия захвата этой территории."
   unclaimed: "<prefix><yellow>Захват территории снят."
   unclaimed-success: "<prefix><yellow>Захват территории <white><x>, <z></white> снят."
-  world-not-found: "<prefix><red>Мир кланового спавна больше не существует."
+  world-not-found: "<prefix><red>Мир территории больше не существует."
 
 history:
   header: "<prefix><gold>История конфликтов клана <tag>:"
@@ -1537,7 +1888,7 @@ war:
   max-wars-reached: "<prefix><red>Достигнут лимит одновременных войн."
   must-be-in-enemy-territory: "<prefix><red>Чтобы объявить войну за территорию, нужно находиться на ней."
   territory-already-contested: "<prefix><red>Эта территория уже оспаривается в другой войне."
-  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя кланового спавна."
+  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя территории."
   defender-no-capital: "<prefix><red>У клана-защитника нет установленной клановой территории."
   ended-by-disband: "<prefix><yellow>Война окончена - клан противника был расформирован."
   not-at-war: "<prefix><red>Кланы не находятся в состоянии войны."
@@ -1587,7 +1938,7 @@ war:
     cancelled-subtitle: "<gray>Клан <color><tag></color> был расформирован"
 
 siege:
-  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя кланового спавна."
+  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя территории."
   defender-no-capital: "<prefix><red>У клана-защитника нет установленной клановой территории."
   fortify:
     usage: "<prefix><yellow>Использование: /clan siege fortify <номер лагеря>"
@@ -1645,7 +1996,7 @@ raid:
   treasury-frozen: "<prefix><red>Казна заморожена, пока на клан идёт набег."
   too-many-defenders: "<prefix><red>У защитников слишком много игроков онлайн для набега."
   not-enough-attackers: "<prefix><red>Недостаточно атакующих онлайн для начала набега."
-  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя кланового спавна."
+  attacker-no-capital: "<prefix><red>Ваш клан ещё не установил клановую территорию — сначала установите знамя территории."
   defender-no-capital: "<prefix><red>У клана-защитника нет установленной клановой территории."
   not-active: "<prefix><red>Набег сейчас не активен."
   nothing-left: "<prefix><red>Больше нечего вынести - лимит набега исчерпан или сундук пуст."

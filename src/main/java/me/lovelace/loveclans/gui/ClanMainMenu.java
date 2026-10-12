@@ -4,7 +4,6 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
-import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -24,16 +23,18 @@ public final class ClanMainMenu implements InventoryHolder {
     private final Player player;
     private Inventory inventory;
 
-    // Header row: the two utility buttons, centred in slots 2-7 (same spot rule as the other menus)
-    private static final int SLOT_MODIFIERS = 3;
-    private static final int SLOT_SETTINGS = 5;
+    // Header row: modifiers, chronicle, settings (GuiFrames.controlSlots(3))
+    private static final int SLOT_MODIFIERS = 2;
+    private static final int SLOT_HISTORY = 4;
+    private static final int SLOT_MEMBERS = 20;
+    private static final int SLOT_DIPLOMACY = 22;
+    private static final int SLOT_UPGRADES = 24;
+    private static final int SLOT_SETTINGS = 6;
     private static final int SLOT_CHEST = 29;
     private static final int SLOT_TREASURY = 31;
     private static final int SLOT_SPIRIT = 33;
-    // Row 4: three centred buttons (Activity 38, Trade 40, Chronicle 42)
-    private static final int SLOT_ACTIVITY = 38;
+    // Row 4: the centred trade button
     private static final int SLOT_TRADE = 40;
-    private static final int SLOT_HISTORY = 42;
     private static final int SLOT_LEAVE = 52;
     private static final int SLOT_CLOSE = 53;
 
@@ -85,15 +86,12 @@ public final class ClanMainMenu implements InventoryHolder {
             membersItem.lore(plugin.getMessages().component("gui.main.members.applications-lore",
                     Map.of("count", String.valueOf(applicationsCount)), player));
         }
-        inventory.setItem(19, withOpenHint(membersItem).build());
+        inventory.setItem(SLOT_MEMBERS, withOpenHint(membersItem).build());
 
-        // Кнопки управления территориями/улучшениями/настройками/дипломатией становятся
+        // Кнопки улучшений/настроек/дипломатии становятся
         // неактивными (серый череп), если у игрока нет соответствующего права клана.
-        // Кнопка территорий — особый случай: при отсутствии права на управление
-        // она всё равно открывается, но в режиме просмотра/телепортации (см. handleInventoryClick).
         boolean atWar = plugin.getClanManager().inAnyConflict(clan.id());
         UUID clickerId = player.getUniqueId();
-        boolean canManageTerritories = clan.hasPermission(clickerId, ClanPermission.CLAIM);
         boolean canUpgrade = clan.hasPermission(clickerId, ClanPermission.UPGRADE);
         boolean canManageSettings = clan.hasPermission(clickerId, ClanPermission.SETTINGS);
         boolean canManageDiplomacy = clan.hasPermission(clickerId, ClanPermission.DIPLOMACY);
@@ -106,25 +104,7 @@ public final class ClanMainMenu implements InventoryHolder {
         diplomacyItem.name(plugin.getMessages().component("gui.main.diplomacy.name", player))
                 .lore(plugin.getMessages().component(!canManageDiplomacy ? "gui.main.diplomacy.no-permission-lore"
                         : !hasTerritory ? "gui.main.no-territory-lore" : "gui.main.diplomacy.lore", player));
-        inventory.setItem(21, withOpenHint(diplomacyItem).build());
-
-        boolean clanHouseInactive = atWar || !canManageTerritories;
-        ItemBuilder clanHouseItem;
-        if (clanHouseInactive) {
-            clanHouseItem = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.main.territories.name", player))
-                    .lore(plugin.getMessages().component("gui.main.territories.lore", player));
-            if (atWar) {
-                clanHouseItem.lore(plugin.getMessages().component("gui.capital.war-blocked", player));
-            } else {
-                clanHouseItem.lore(plugin.getMessages().component("gui.main.territories.no-permission-lore", player));
-            }
-        } else {
-            clanHouseItem = ItemBuilder.head(ItemBuilder.HEAD_CAPITAL)
-                    .name(plugin.getMessages().component("gui.main.territories.name", player))
-                    .lore(plugin.getMessages().component("gui.main.territories.lore", player));
-        }
-        inventory.setItem(23, withOpenHint(clanHouseItem).build());
+        inventory.setItem(SLOT_DIPLOMACY, withOpenHint(diplomacyItem).build());
 
         boolean upgradesInactive = atWar || !canUpgrade;
         ItemBuilder upgradesItem = upgradesInactive
@@ -137,7 +117,7 @@ public final class ClanMainMenu implements InventoryHolder {
         } else if (!canUpgrade) {
             upgradesItem.lore(plugin.getMessages().component("gui.main.upgrades.no-permission-lore", player));
         }
-        inventory.setItem(25, withOpenHint(upgradesItem).build());
+        inventory.setItem(SLOT_UPGRADES, withOpenHint(upgradesItem).build());
 
         // Row 3 — clan storage and the spirit
         boolean hasCapital = clan.hasCapital();
@@ -160,9 +140,6 @@ public final class ClanMainMenu implements InventoryHolder {
                         .lore(plugin.getMessages().component("gui.main.no-territory-lore", player))
                         .build());
 
-        inventory.setItem(SLOT_ACTIVITY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
-                .name(plugin.getMessages().component("gui.main.activity.name", player))
-                .lore(plugin.getMessages().component("gui.main.activity.description", player))).build());
         inventory.setItem(SLOT_HISTORY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_MAP)
                 .name(plugin.getMessages().component("gui.main.history.name", player))
                 .lore(plugin.getMessages().component("gui.main.history.description", player))).build());
@@ -236,8 +213,8 @@ public final class ClanMainMenu implements InventoryHolder {
 
     public void handleInventoryClick(Player clicker, int slot) {
         switch (slot) {
-            case 19 -> plugin.getGuiManager().openMembers(clicker, clan);
-            case 21 -> {
+            case SLOT_MEMBERS -> plugin.getGuiManager().openMembers(clicker, clan);
+            case SLOT_DIPLOMACY -> {
                 if (!clan.hasCapital()) {
                     plugin.getMessages().send(clicker, "clan.no-territory");
                 } else if (clan.hasPermission(clicker.getUniqueId(), ClanPermission.DIPLOMACY)) {
@@ -246,16 +223,7 @@ public final class ClanMainMenu implements InventoryHolder {
                     plugin.getMessages().send(clicker, "general.no-permission");
                 }
             }
-            case 23 -> {
-                // Клановый спавн — особый случай: даже без права CLAIM меню всё равно открывается,
-                // но в режиме просмотра/телепортации (см. ClanCapitalManagementMenu.isManagement).
-                if (plugin.getClanManager().inAnyConflict(clan.id())) {
-                    plugin.getMessages().send(clicker, "gui.capital.war-blocked");
-                    return;
-                }
-                plugin.getGuiManager().openClanCapitalManagementMenu(clicker, clan);
-            }
-            case 25 -> {
+            case SLOT_UPGRADES -> {
                 if (!clan.hasPermission(clicker.getUniqueId(), ClanPermission.UPGRADE)) {
                     plugin.getMessages().send(clicker, "general.no-permission");
                 } else if (plugin.getClanManager().inAnyConflict(clan.id())) {
@@ -275,7 +243,6 @@ public final class ClanMainMenu implements InventoryHolder {
                 plugin.getGuiManager().openTrade(clicker, clan, null);
             }
             case SLOT_MODIFIERS -> plugin.getGuiManager().openModifiers(clicker, clan);
-            case SLOT_ACTIVITY -> plugin.getGuiManager().openActivity(clicker, clan);
             case SLOT_HISTORY -> plugin.getGuiManager().openHistory(clicker, clan);
             case SLOT_SETTINGS -> {
                 if (clan.hasPermission(clicker.getUniqueId(), ClanPermission.SETTINGS)) {

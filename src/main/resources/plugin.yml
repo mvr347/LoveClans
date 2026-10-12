@@ -29,6 +29,10 @@ commands:
     description: Open clan list.
     usage: /loveclans
     aliases: [ clans, кланы ]
+  мир:
+    description: Propose or accept peace with a clan.
+    usage: /мир <tag>
+    aliases: [ peace ]
   loveclansadmin:
     description: Unified admin command for LoveClans plugin.
     usage: /loveclansadmin <reload|createnpc|removenpc|disband|war|diplo|exp|points|artifact|help>

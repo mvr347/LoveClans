@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "reload", "createnpc", "removenpc", "disband", "war", "siege", "raid", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "givecapitalbanner", "casus", "help"
+            "reload", "createnpc", "removenpc", "disband", "war", "siege", "raid", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "givecapitalbanner", "casus", "shield", "help"
     );
     private static final List<String> AMOUNT_ACTIONS = List.of("add", "remove", "set");
     private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "skip", "end");
@@ -84,6 +84,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "givebanner" -> giveBanner(sender, args);
                 case "givecapitalbanner" -> giveCapitalBanner(sender, args);
                 case "casus" -> casus(sender, args);
+                case "shield" -> shield(sender, args);
                 default -> sendHelp(sender);
             }
         } catch (IllegalStateException exception) {
@@ -415,6 +416,20 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         Clan clan1 = clan1Opt.get();
         Clan clan2 = clan2Opt.get();
 
+        // A number sets the shared relation score of the pair directly (-100..100)
+        Integer explicitScore = null;
+        try {
+            explicitScore = Integer.parseInt(args[3]);
+        } catch (NumberFormatException ignored) {
+            // not a number: ally / enemy / neutral below
+        }
+        if (explicitScore != null) {
+            plugin.getDiplomacyManager().setPairScore(clan1.id(), clan2.id(), explicitScore);
+            plugin.getMessages().send(sender, "admin.diplo-updated", Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(),
+                    "clan2", clan2.tag(), "color2", clan2.tagColor(), "relation", String.valueOf(explicitScore)));
+            return;
+        }
+
         DiplomacyRelation relation;
         try {
             relation = DiplomacyRelation.valueOf(args[3].toUpperCase(Locale.ROOT));
@@ -499,6 +514,43 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         player.getInventory().addItem(plugin.getArtifactManager().createArtifact(type));
     }
 
+    private void shield(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("§eИспользование: §f/loveclansadmin shield <give|clear> ...");
+            return;
+        }
+        String action = args[1].toLowerCase(Locale.ROOT);
+        if (action.equals("give")) {
+            if (args.length < 3) {
+                sender.sendMessage("§eИспользование: §f/loveclansadmin shield give <player>");
+                return;
+            }
+            Player target = org.bukkit.Bukkit.getPlayer(args[2]);
+            if (target == null) {
+                plugin.getMessages().send(sender, "general.player-not-found");
+                return;
+            }
+            ItemStack shieldItem = plugin.getItemFactory().createGuildShieldItem();
+            target.getInventory().addItem(shieldItem);
+            sender.sendMessage("§aВыдан Гильдейский щит игроку §e" + target.getName());
+            target.sendMessage("§aВам выдан §bГильдейский щит§a!");
+        } else if (action.equals("clear")) {
+            if (args.length < 3) {
+                sender.sendMessage("§eИспользование: §f/loveclansadmin shield clear <clan_tag>");
+                return;
+            }
+            Clan clan = plugin.getClanManager().getClanByTag(args[2]).orElse(null);
+            if (clan == null) {
+                plugin.getMessages().send(sender, "clan.not-found");
+                return;
+            }
+            plugin.getModifierManager().clearGuildShield(clan.id());
+            sender.sendMessage("§aГильдейский щит и кулдаун сняты с клана §e" + clan.tag());
+        } else {
+            sender.sendMessage("§eИспользование: §f/loveclansadmin shield <give|clear> ...");
+        }
+    }
+
     private void sendHelp(CommandSender sender) {
         plugin.getMessages().send(sender, "clan.help.admin-header");
         plugin.getMessages().send(sender, "clan.help.admin-reload");
@@ -537,6 +589,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "siege" -> SIEGE_ACTIONS;
                 case "exp", "points" -> AMOUNT_ACTIONS;
                 case "casus" -> List.of("give");
+                case "shield" -> List.of("give", "clear");
                 case "artifact" -> Arrays.stream(ArtifactType.values())
                         .map(type -> type.name().toLowerCase(Locale.ROOT))
                         .collect(Collectors.toList());
@@ -550,6 +603,9 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "diplo", "war", "siege", "givecapitalbanner" -> clanTags;
                 case "exp", "points" -> clanTags;
                 case "casus" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+                case "shield" -> args[1].equalsIgnoreCase("give")
+                        ? org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList())
+                        : clanTags;
                 default -> List.of();
             };
             return StringUtil.copyPartialMatches(args[2], completions, new ArrayList<>());

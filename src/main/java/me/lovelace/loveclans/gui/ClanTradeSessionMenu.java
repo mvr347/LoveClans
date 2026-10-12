@@ -574,6 +574,10 @@ public final class ClanTradeSessionMenu implements Listener {
     }
 
     private void finishExecution() {
+        // A completed deal warms the relations of the pair a little (capped per day in DiplomacyManager)
+        plugin.getClanManager().getClanById(clanAId).ifPresent(a ->
+                plugin.getClanManager().getClanById(clanBId).ifPresent(b ->
+                        plugin.getDiplomacyManager().onTradeCompleted(a, b)));
         for (int slot : ITEMS_A) inventory.setItem(slot, null);
         for (int slot : ITEMS_B) inventory.setItem(slot, null);
         Player playerA = Bukkit.getPlayer(playerAId);

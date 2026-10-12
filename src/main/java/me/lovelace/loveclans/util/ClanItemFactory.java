@@ -34,6 +34,7 @@ public final class ClanItemFactory {
     public static final NamespacedKey CASUS_CONFLICT_TYPE_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "casus_conflict_type");
     public static final NamespacedKey CASUS_REASON_ID_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "casus_reason_id");
     public static final NamespacedKey CASUS_EXPIRES_AT_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "casus_expires_at");
+    public static final NamespacedKey GUILD_SHIELD_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "guild_shield");
 
     public ClanItemFactory(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -358,5 +359,44 @@ public final class ClanItemFactory {
 
     public boolean consumeCasusBelli(Player player, UUID targetClanId, String conflictType) {
         return takeCasusBelli(player, targetClanId, conflictType).isPresent();
+    }
+
+    public ItemStack createGuildShieldItem() {
+        ItemStack item = null;
+        String iaId = plugin.getConfig().getString("diplomacy.guild-shield.itemsadder-id", "");
+        if (iaId != null && !iaId.isBlank()) {
+            item = ItemsAdderHook.createCustomStack(iaId);
+        }
+        if (item == null) {
+            item = new ItemStack(Material.SHIELD);
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            PersistentDataContainer pdc = meta.getPersistentDataContainer();
+            pdc.set(GUILD_SHIELD_KEY, PersistentDataType.INTEGER, 1);
+
+            meta.displayName(Component.text("§bГильдейский щит"));
+            List<Component> lore = new java.util.ArrayList<>();
+            lore.add(Component.text("§8────────────────────────"));
+            lore.add(Component.text("§7Защитный эдикт гильдий."));
+            lore.add(Component.text("§7При активации дарует клану"));
+            lore.add(Component.text("§bполную защиту на 24 часа§7:"));
+            lore.add(Component.text("§f• Запрет объявления войн"));
+            lore.add(Component.text("§f• Запрет осад и набегов"));
+            lore.add(Component.text("§f• Запрет блокад на ваш клан"));
+            lore.add(Component.text("§8────────────────────────"));
+            lore.add(Component.text("§eПКМ §7для активации на свой клан"));
+            lore.add(Component.text("§8Кулдаун на клан: 7 дней."));
+            meta.lore(lore);
+            meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 1, true);
+            meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    public boolean isGuildShieldItem(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
+        return item.getItemMeta().getPersistentDataContainer().has(GUILD_SHIELD_KEY, PersistentDataType.INTEGER);
     }
 }

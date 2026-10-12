@@ -125,7 +125,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
                     .name(plugin.getMessages().component("gui.diplomacy-select.clan-item.name",
                             Map.of("tag", target.tag(), "color", target.tagColor(), "name", target.name()), player))
                     .lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.relation",
-                            Map.of("relation", plugin.getMessages().relationName(sourceClan.relationTo(target.id()))), player));
+                            Map.of("relation", relationText(sourceClan, target)), player));
 
             if (plugin.getWarManager().areAtWar(sourceClan.id(), target.id())) {
                 builder.lore(Component.text("§c⚔ Идёт война"));
@@ -221,6 +221,14 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
                 }
             });
         } catch (IllegalArgumentException ignored) {}
+    }
+
+    /** Tier, shared score and the 24h trend of the pair, e.g. "Друзья (72) ▲". */
+    private String relationText(Clan source, Clan target) {
+        me.lovelace.loveclans.model.diplomacy.DiplomacyTier tier = source.tierTo(target.id());
+        me.lovelace.loveclans.model.diplomacy.ClanRelationRecord record = source.getRelation(target.id());
+        return plugin.getMessages().raw("diplomacy.tier." + tier.name().toLowerCase(java.util.Locale.ROOT))
+                + " <gray>(" + record.score() + ") " + record.trendUnicode() + "</gray>";
     }
 
     @Override

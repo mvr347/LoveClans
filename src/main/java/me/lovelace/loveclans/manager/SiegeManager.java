@@ -219,6 +219,15 @@ public final class SiegeManager {
             if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
                 throw new IllegalStateException("war.cannot-declare-on-ally");
             }
+            if (plugin.getDiplomacyManager() != null && plugin.getDiplomacyManager().hasPact(attacker.id(), defender.id(), me.lovelace.loveclans.model.diplomacy.PactType.NAP)) {
+                throw new IllegalStateException("deny.nap.active");
+            }
+            if (plugin.getDiplomacyManager() != null) {
+                plugin.getDiplomacyManager().requireAllowed(me.lovelace.loveclans.manager.diplomacy.DiplomacyActions.Action.CONFLICT, attacker, defender);
+            }
+            if (plugin.getModifierManager() != null && plugin.getModifierManager().hasGuildShield(defender.id())) {
+                throw new IllegalStateException("deny.guild-shield.active");
+            }
 
             // Уровни кланов (siege-justify-rewards.md §1.2)
             int minAttackerLevel = plugin.getConfig().getInt("siege.min-attacker-clan-level", 5);
@@ -587,6 +596,7 @@ public final class SiegeManager {
                 throw new IllegalStateException("war.not-at-war");
             }
             endSiege(siegeOpt.get(), SiegeResult.CANCELLED);
+            plugin.getDiplomacyManager().onConflictPeace(source, target);
             for (UUID memberId : source.members().keySet()) {
                 Player p = Bukkit.getPlayer(memberId);
                 if (p != null) plugin.getMessages().send(p, "war.peace", Map.of("tag", target.tag(), "color", target.tagColor()));
@@ -639,6 +649,10 @@ public final class SiegeManager {
 
         Clan winner = result == SiegeResult.ATTACKER_WIN ? attacker : defender;
         Clan loser = result == SiegeResult.ATTACKER_WIN ? defender : attacker;
+
+        if (plugin.getDiplomacyManager() != null) {
+            plugin.getDiplomacyManager().onSiegeVictory(winner, loser);
+        }
 
         if (result == SiegeResult.ATTACKER_WIN) {
             onlineMembers(attacker).forEach(p -> {

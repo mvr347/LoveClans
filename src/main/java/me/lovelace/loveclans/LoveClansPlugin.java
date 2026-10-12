@@ -97,7 +97,9 @@ public final class LoveClansPlugin extends JavaPlugin {
     private AdvancedClaimsHook advancedClaimsHook;
     private ContractManager contractManager;
     private DiplomacyManager diplomacyManager;
+    private me.lovelace.loveclans.manager.diplomacy.DiplomacyDriftService diplomacyDriftService;
     private me.lovelace.loveclans.manager.ModifierManager modifierManager;
+    private me.lovelace.loveclans.manager.ClanGiftManager clanGiftManager;
     private ClanTradeManager clanTradeManager;
     private ClanTradeSessionManager clanTradeSessionManager;
     private ClanTradeDeliveryManager clanTradeDeliveryManager;
@@ -145,7 +147,9 @@ public final class LoveClansPlugin extends JavaPlugin {
         bannerReplacementService = new ClanBannerReplacementService(this);
         peaceService = new me.lovelace.loveclans.manager.PeaceService(this);
         diplomacyManager = new DiplomacyManager(this, storage);
+        diplomacyDriftService = new me.lovelace.loveclans.manager.diplomacy.DiplomacyDriftService(this);
         modifierManager = new me.lovelace.loveclans.manager.ModifierManager(this, storage);
+        clanGiftManager = new me.lovelace.loveclans.manager.ClanGiftManager(this);
         clanTradeManager = new ClanTradeManager(this, storage);
         clanTradeSessionManager = new ClanTradeSessionManager(this);
         clanTradeDeliveryManager = new ClanTradeDeliveryManager(this, storage);
@@ -234,6 +238,7 @@ public final class LoveClansPlugin extends JavaPlugin {
                 spiritManager.start();
                 successionManager.start();
                 perkManager.start();
+                diplomacyDriftService.start();
 
                 // Еженедельный налог сундука (§2.2) — не привязан к календарному понедельнику
                 // (см. ClanManager#tickChestTaxes), поэтому достаточно проверять раз в час.
@@ -404,6 +409,9 @@ public final class LoveClansPlugin extends JavaPlugin {
         if (successionManager != null) {
             successionManager.stop();
         }
+        if (diplomacyDriftService != null) {
+            diplomacyDriftService.stop();
+        }
         // Конфликты живут только в памяти и нигде не сохраняются, поэтому их состояние в мире
         // нужно свернуть здесь: иначе осадные костры остаются стоять навсегда, а выставленный
         // войной флаг is_under_siege (он персистится уже на стороне LoveClaims) снять будет некому.
@@ -558,8 +566,20 @@ public final class LoveClansPlugin extends JavaPlugin {
         return diplomacyManager;
     }
 
+    public me.lovelace.loveclans.manager.diplomacy.DiplomacyDriftService getDiplomacyDriftService() {
+        return diplomacyDriftService;
+    }
+
+    public me.lovelace.loveclans.util.ClanItemFactory getItemFactory() {
+        return clanManager.getClanItemFactory();
+    }
+
     public me.lovelace.loveclans.manager.ModifierManager getModifierManager() {
         return modifierManager;
+    }
+
+    public me.lovelace.loveclans.manager.ClanGiftManager getClanGiftManager() {
+        return clanGiftManager;
     }
 
     public ServerTradeManager getServerTradeManager() {
@@ -658,6 +678,11 @@ public final class LoveClansPlugin extends JavaPlugin {
             clansCommand.setExecutor(executor);
             clansCommand.setTabCompleter(executor);
         }
+        PluginCommand peaceCommand = getCommand("мир");
+        if (peaceCommand != null) {
+            peaceCommand.setExecutor(executor);
+            peaceCommand.setTabCompleter(executor);
+        }
 
         // Единая административная команда - раньше /loveclansadmin (и алиасы /clansadmin, /ca)
         // делили исполнитель с игровой /loveclan и лишь переупаковывали свои аргументы под
@@ -692,6 +717,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new ClanBannerListener(this, citizensIntegration), this);
         pluginManager.registerEvents(new PerkEffectListener(this), this);
         pluginManager.registerEvents(new SiegeCampListener(this), this);
+        pluginManager.registerEvents(new me.lovelace.loveclans.listener.GuildShieldListener(this), this);
     }
 
     private void registerIntegrations() {

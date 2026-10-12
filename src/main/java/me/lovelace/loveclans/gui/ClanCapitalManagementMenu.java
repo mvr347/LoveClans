@@ -19,8 +19,7 @@ import java.util.Map;
  * клан получает при основании, а утерянный баннер восстанавливается кликом по кнопке в главном меню.
  */
 public class ClanCapitalManagementMenu implements InventoryHolder {
-    static final int SLOT_RELOCATE = 12;
-    static final int SLOT_DISBAND = 14;
+    static final int SLOT_DISBAND = 13;
     private static final int SLOT_BACK = 25;
     private static final int SLOT_CLOSE = 26;
 
@@ -42,11 +41,11 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         GuiFrames.fillFrame27(inventory);
         inventory.setItem(0, GuiFrames.glassPane());
 
-        inventory.setItem(SLOT_RELOCATE, actionItem(ItemBuilder.HEAD_RELOCATE_TERRITORY,
-                "gui.capital.relocate-territory.name", "gui.capital.relocate-territory.lore"));
+        // Единственная кнопка в рабочей зоне — Свернуть территорию (по центру, слот 13)
         inventory.setItem(SLOT_DISBAND, actionItem(ItemBuilder.HEAD_COLLAPSE,
                 "gui.capital.disband.name", "gui.capital.disband.lore"));
 
+        // Футер: «Назад» в главное меню и закрытие (слот 25 рамка не заполняет)
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
@@ -89,15 +88,6 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         switch (slot) {
             case SLOT_BACK -> plugin.getGuiManager().openMain(clicker, clan);
             case SLOT_CLOSE -> clicker.closeInventory();
-            case SLOT_RELOCATE -> {
-                if (!allowed(clicker)) return;
-                clicker.closeInventory();
-                plugin.getMessages().sendChatConfirmPrompt(clicker, "gui.capital.relocate-territory.confirm-prompt", Map.of(),
-                        () -> plugin.getClanManager().relocateCapitalTerritoryAsync(clan, clicker.getUniqueId())
-                                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(clicker, "gui.capital.relocate-territory.action")))
-                                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(clicker, t)); return null; }),
-                        () -> plugin.getMessages().send(clicker, "general.chat-input-cancelled"));
-            }
             case SLOT_DISBAND -> {
                 if (!allowed(clicker)) return;
                 plugin.getGuiManager().openConfirm(clicker, clan,
