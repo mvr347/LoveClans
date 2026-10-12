@@ -1646,6 +1646,11 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Void> relocateCapitalTerritoryAsync(Clan clan, UUID actorId) {
+        return relocateCapitalTerritoryAsync(clan, actorId, false);
+    }
+
+    /** {@code bannerToHand}: put the returned capital banner into the actor's main hand when it is free. */
+    public CompletableFuture<Void> relocateCapitalTerritoryAsync(Clan clan, UUID actorId, boolean bannerToHand) {
         if (clan == null || actorId == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Clan and actor cannot be null."));
         return plugin.supplySync(() -> {
@@ -1683,7 +1688,10 @@ public final class ClanManager {
             Player actor = Bukkit.getPlayer(actorId);
             if (actor != null) {
                 ItemStack bannerItem = clanItemFactory.createCapitalBanner(clan.id(), clan.name());
-                if (actor.getInventory().addItem(bannerItem).size() > 0) {
+                ItemStack inHand = actor.getInventory().getItemInMainHand();
+                if (bannerToHand && (inHand == null || inHand.getType().isAir())) {
+                    actor.getInventory().setItemInMainHand(bannerItem);
+                } else if (actor.getInventory().addItem(bannerItem).size() > 0) {
                     actor.getWorld().dropItemNaturally(actor.getLocation(), bannerItem);
                 }
             }

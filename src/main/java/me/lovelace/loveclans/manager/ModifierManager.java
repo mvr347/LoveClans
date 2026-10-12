@@ -170,6 +170,29 @@ public final class ModifierManager {
         addModifier(modifier);
     }
 
+    public boolean hasRelocateCooldown(UUID clanId) {
+        return getRelocateCooldownRemaining(clanId) > 0;
+    }
+
+    /** Milliseconds until the clan may move its capital again; 0 when it may. */
+    public long getRelocateCooldownRemaining(UUID clanId) {
+        long now = System.currentTimeMillis();
+        return getModifiers(clanId).stream()
+                .filter(m -> ClanModifier.TYPE_CAPITAL_RELOCATE_COOLDOWN.equals(m.type()) && !m.isExpired(now))
+                .mapToLong(m -> m.endsAt() - now)
+                .max()
+                .orElse(0L);
+    }
+
+    public void grantRelocateCooldown(UUID clanId, long hours) {
+        long now = System.currentTimeMillis();
+        getModifiers(clanId).stream()
+                .filter(m -> ClanModifier.TYPE_CAPITAL_RELOCATE_COOLDOWN.equals(m.type()))
+                .forEach(m -> removeModifier(m.id()));
+        addModifier(new ClanModifier(UUID.randomUUID(), clanId, ClanModifier.TYPE_CAPITAL_RELOCATE_COOLDOWN,
+                Map.of(), now, now + hours * 3600_000L, 1));
+    }
+
     public void clearGuildShield(UUID clanId) {
         getModifiers(clanId).stream()
                 .filter(m -> ClanModifier.TYPE_GUILD_SHIELD.equals(m.type()) || ClanModifier.TYPE_GUILD_SHIELD_COOLDOWN.equals(m.type()))

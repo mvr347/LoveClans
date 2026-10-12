@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     private static final List<String> SUBCOMMANDS = List.of(
-            "reload", "createnpc", "removenpc", "disband", "war", "siege", "raid", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "givecapitalbanner", "casus", "shield", "help"
+            "reload", "createnpc", "removenpc", "disband", "war", "siege", "raid", "diplo", "exp", "points", "artifact", "recognize", "unrecognize", "givebanner", "givecapitalbanner", "casus", "shield", "seal", "help"
     );
     private static final List<String> AMOUNT_ACTIONS = List.of("add", "remove", "set");
     private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "skip", "end");
@@ -85,6 +85,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "givecapitalbanner" -> giveCapitalBanner(sender, args);
                 case "casus" -> casus(sender, args);
                 case "shield" -> shield(sender, args);
+                case "seal" -> seal(sender, args);
                 default -> sendHelp(sender);
             }
         } catch (IllegalStateException exception) {
@@ -550,6 +551,24 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    /** {@code /loveclansadmin seal give <player>} - hands out a Relocation Seal for the capital menu. */
+    private void seal(CommandSender sender, String[] args) {
+        if (args.length < 3 || !args[1].equalsIgnoreCase("give")) {
+            plugin.getMessages().send(sender, "clan.help.admin-seal");
+            return;
+        }
+        Player target = org.bukkit.Bukkit.getPlayer(args[2]);
+        if (target == null) {
+            plugin.getMessages().send(sender, "general.player-not-found");
+            return;
+        }
+        ItemStack seal = plugin.getItemFactory().createRelocationSeal();
+        if (!target.getInventory().addItem(seal).isEmpty()) {
+            target.getWorld().dropItemNaturally(target.getLocation(), seal);
+        }
+        plugin.getMessages().send(sender, "admin.seal-given", Map.of("player", target.getName()));
+    }
+
     private void sendHelp(CommandSender sender) {
         plugin.getMessages().send(sender, "clan.help.admin-header");
         plugin.getMessages().send(sender, "clan.help.admin-reload");
@@ -565,6 +584,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         plugin.getMessages().send(sender, "clan.help.admin-recognize");
         plugin.getMessages().send(sender, "clan.help.admin-givebanner");
         plugin.getMessages().send(sender, "clan.help.admin-shield");
+        plugin.getMessages().send(sender, "clan.help.admin-seal");
         plugin.getMessages().send(sender, "clan.help.admin-footer");
     }
 
@@ -592,6 +612,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "exp", "points" -> AMOUNT_ACTIONS;
                 case "casus" -> List.of("give");
                 case "shield" -> List.of("give", "clear");
+                case "seal" -> List.of("give");
                 case "artifact" -> Arrays.stream(ArtifactType.values())
                         .map(type -> type.name().toLowerCase(Locale.ROOT))
                         .collect(Collectors.toList());
@@ -604,7 +625,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
             List<String> completions = switch (action) {
                 case "diplo", "war", "siege", "raid", "givecapitalbanner" -> clanTags;
                 case "exp", "points" -> clanTags;
-                case "casus" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+                case "casus", "seal" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
                 case "shield" -> args[1].equalsIgnoreCase("give")
                         ? org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList())
                         : clanTags;

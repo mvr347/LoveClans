@@ -89,6 +89,8 @@ public final class LoveClansPlugin extends JavaPlugin {
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
     private me.lovelace.loveclans.service.SoundService soundService;
+    private me.lovelace.loveclans.service.GuildShieldService guildShieldService;
+    private me.lovelace.loveclans.service.CapitalRelocationService capitalRelocationService;
     private PerkManager perkManager;
     private AfkManager afkManager;
     private PlayerPreferencesManager playerPreferencesManager;
@@ -135,6 +137,8 @@ public final class LoveClansPlugin extends JavaPlugin {
         ritualManager = new RitualManager(this);
         successionManager = new SuccessionManager(this);
         soundService = new me.lovelace.loveclans.service.SoundService(this);
+        guildShieldService = new me.lovelace.loveclans.service.GuildShieldService(this);
+        capitalRelocationService = new me.lovelace.loveclans.service.CapitalRelocationService(this);
         spiritManager = new SpiritManager(this);
         perkManager = new PerkManager(this);
         afkManager = new AfkManager(this);
@@ -510,6 +514,14 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public SuccessionManager getSuccessionManager() {
         return successionManager;
+    }
+
+    public me.lovelace.loveclans.service.GuildShieldService getGuildShieldService() {
+        return guildShieldService;
+    }
+
+    public me.lovelace.loveclans.service.CapitalRelocationService getCapitalRelocationService() {
+        return capitalRelocationService;
     }
 
     public me.lovelace.loveclans.service.SoundService getSoundService() {
