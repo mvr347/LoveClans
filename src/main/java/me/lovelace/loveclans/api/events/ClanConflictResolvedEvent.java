@@ -20,10 +20,17 @@ public final class ClanConflictResolvedEvent extends Event {
     private final UUID defenderClanId;
     private final ConflictOutcome outcome;
     private final Map<UUID, UUID> participants;
+    private final double margin;
 
     public ClanConflictResolvedEvent(ConflictKind kind, UUID conflictId, UUID attackerClanId, UUID defenderClanId,
                                      ConflictOutcome outcome, Map<UUID, UUID> participants) {
+        this(kind, conflictId, attackerClanId, defenderClanId, outcome, participants, -1.0);
+    }
+
+    public ClanConflictResolvedEvent(ConflictKind kind, UUID conflictId, UUID attackerClanId, UUID defenderClanId,
+                                     ConflictOutcome outcome, Map<UUID, UUID> participants, double margin) {
         this.kind = kind;
+        this.margin = margin;
         this.conflictId = conflictId;
         this.attackerClanId = attackerClanId;
         this.defenderClanId = defenderClanId;
@@ -37,6 +44,9 @@ public final class ClanConflictResolvedEvent extends Event {
     public UUID defenderClanId() { return defenderClanId; }
     public ConflictOutcome outcome() { return outcome; }
     public Map<UUID, UUID> participants() { return participants; }
+
+    /** How decisive the result was: 0 (neck and neck) .. 1 (crushing); negative when unknown. */
+    public double margin() { return margin; }
 
     /** The winning clan, or null for a draw. */
     public UUID winnerClanId() {

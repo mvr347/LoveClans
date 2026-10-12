@@ -21,8 +21,14 @@ public final class ConflictEvents {
 
     public static void resolved(LoveClansPlugin plugin, ConflictKind kind, UUID conflictId, UUID attackerClanId,
                                 UUID defenderClanId, ConflictOutcome outcome) {
+        resolved(plugin, kind, conflictId, attackerClanId, defenderClanId, outcome, -1.0);
+    }
+
+    /** {@code margin}: 0 (neck and neck) .. 1 (crushing), or negative when the conflict has no such measure. */
+    public static void resolved(LoveClansPlugin plugin, ConflictKind kind, UUID conflictId, UUID attackerClanId,
+                                UUID defenderClanId, ConflictOutcome outcome, double margin) {
         Bukkit.getPluginManager().callEvent(new ClanConflictResolvedEvent(kind, conflictId, attackerClanId, defenderClanId,
-                outcome, plugin.getConflictParticipants().drain(conflictId)));
+                outcome, plugin.getConflictParticipants().drain(conflictId), margin));
     }
 
     /** Marks an online clan member as a participant, unless he is AFK (standing in a zone AFK must not earn anything). */

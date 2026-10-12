@@ -1,40 +1,41 @@
 package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.manager.SpiritManager;
+import me.lovelace.loveclans.manager.SpiritSettings;
 import me.lovelace.loveclans.model.Clan;
-import me.lovelace.loveclans.model.spirit.SpiritAbility;
-import me.lovelace.loveclans.model.spirit.SpiritBuffLevel;
-import me.lovelace.loveclans.util.AbilityLoreFormatter;
+import me.lovelace.loveclans.model.ClanSpirit;
+import me.lovelace.loveclans.model.spirit.SpiritBonus;
+import me.lovelace.loveclans.model.spirit.SpiritBonusFormula;
+import me.lovelace.loveclans.model.spirit.SpiritBonusFormula.Side;
+import me.lovelace.loveclans.model.spirit.SpiritDecayPolicy;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.List;
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
- * Clan Spirit Menu (gui-gen-5 compliant, 27 slots):
- * - Slot 0: Описание Духа клана (что это и зачем нужен).
- * - Slot 12: Активное состояние духа (уровень, энергия, текущий бонус).
- *   Клик переключает отображение всех бафов духа в описании (без уровней, простой список).
- * - Slot 14: Уникальная способность (заблокирована до 10 уровня).
- * - Slots 25/26: Назад в главное меню / Закрыть.
+ * Clan Spirit (gui_gen v2.1, 27 slots): header with the idea, then one work row with the three things that matter -
+ * Power (level, progress, how fast an idle spirit fades), Mastery (the offence/defence axis) and the bonuses the two
+ * produce together. No buttons live in the work zone besides these info items; Back and Close are in the footer.
  */
 public final class ClanSpiritMenu implements InventoryHolder {
-    private static final int SLOT_INFO = 12;
-    private static final int SLOT_ABILITY = 14;
     private static final int SLOT_BACK = 25;
     private static final int SLOT_CLOSE = 26;
+    private static final int MAX_POWER = 10;
+    private static final int BAR_CELLS = 10;
+    private static final int AXIS_CELLS = 21;
 
     private final LoveClansPlugin plugin;
     private final Clan clan;
     private Inventory inventory;
-    private boolean showAllBuffs = false;
 
     public ClanSpiritMenu(LoveClansPlugin plugin, Clan clan) {
         this.plugin = plugin;
@@ -44,111 +45,144 @@ public final class ClanSpiritMenu implements InventoryHolder {
     public void open(Player player) {
         this.inventory = Bukkit.createInventory(this, 27, plugin.getMessages().component("gui.spirit.title",
                 Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
-
         GuiFrames.fillFrame27(inventory);
 
-        // Header слот 0 — голова темы с подробным описанием что такое Дух клана
-        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_SPIRIT_STAR)
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_SPIRIT)
                 .name(plugin.getMessages().component("gui.spirit.header.name",
                         Map.of("tag", clan.tag(), "color", clan.tagColor()), player))
                 .lore(plugin.getMessages().components("gui.spirit.header.lore", Map.of(), player))
                 .build());
 
-        // Слот 12: Информационный предмет (активное состояние / переключение на все бафы)
-        inventory.setItem(SLOT_INFO, buildInfoItem(player));
+        int[] slots = GuiFrames.workRowSlots(3);
+        inventory.setItem(slots[0], buildPowerItem(player));
+        inventory.setItem(slots[1], buildMasteryItem(player));
+        inventory.setItem(slots[2], buildBonusItem(player));
 
-        // Слот 14: Уникальная способность
-        int level = clan.spirit().level();
-        SpiritAbility ability = clan.spirit().ability();
-        ItemBuilder abilityItem = ItemBuilder.head(level < 10 ? ItemBuilder.HEAD_INACTIVE : ItemBuilder.HEAD_SPIRIT_ABILITIES)
-                .name(plugin.getMessages().component("gui.spirit.ability.name", player));
-        if (level < 10) {
-            abilityItem.lore(plugin.getMessages().component("gui.spirit.ability.locked", player));
-        } else if (ability == null) {
-            abilityItem.lore(plugin.getMessages().component("gui.spirit.ability.unlocked", player))
-                    .glow(true);
-        } else {
-            abilityItem.lore(plugin.getMessages().component("gui.spirit.ability.chosen",
-                            Map.of("name", ability.displayName()), player))
-                    .lore(AbilityLoreFormatter.format(ability.description()))
-                    .glow(true);
-        }
-        inventory.setItem(SLOT_ABILITY, abilityItem.build());
-
-        // Footer
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
-                .name(plugin.getMessages().component("gui.back", player))
-                .build());
+                .name(plugin.getMessages().component("gui.back", player)).build());
         inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
-                .name(plugin.getMessages().component("gui.close", player))
-                .build());
-
+                .name(plugin.getMessages().component("gui.close", player)).build());
         player.openInventory(inventory);
     }
 
-    private ItemStack buildInfoItem(Player player) {
-        int level = clan.spirit().level();
-        SpiritBuffLevel buffLevel = SpiritBuffLevel.getByLevel(level);
-        String levelName = buffLevel != null ? buffLevel.getName() : SpiritBuffLevel.LEVEL_1.getName();
-        long energy = clan.spirit().energy();
-        boolean maxed = level >= 10;
+    private SpiritManager manager() {
+        return plugin.getSpiritManager();
+    }
 
-        ItemBuilder info = ItemBuilder.head(ItemBuilder.HEAD_SPIRIT_STAR)
-                .name(plugin.getMessages().component("gui.spirit.info.name",
-                        Map.of("level", String.valueOf(level), "name", levelName), player))
-                .glow(true);
+    private ItemStack buildPowerItem(Player player) {
+        var messages = plugin.getMessages();
+        ClanSpirit spirit = clan.spirit();
+        int level = spirit.level();
+        Map<String, String> ph = new HashMap<>();
+        ph.put("level", String.valueOf(level));
+        ph.put("max", String.valueOf(MAX_POWER));
 
-        if (!showAllBuffs) {
-            // Режим только активного состояния
-            if (maxed) {
-                info.lore(plugin.getMessages().component("gui.spirit.info.maximum", player));
-            } else {
-                long next = plugin.getSpiritManager().getExpForNextLevel(level);
-                String bar = createProgressBar(energy, next, 20);
-                info.lore(plugin.getMessages().component("gui.spirit.info.exp",
-                                Map.of("current", String.valueOf(energy), "next", String.valueOf(next)), player))
-                        .lore(plugin.getMessages().component("gui.spirit.info.progress", Map.of("bar", bar), player));
-            }
-            info.lore(plugin.getMessages().component("gui.spirit.info.how", player));
-
-            // The spirit applies every blessing up to the clan level (SpiritManager checks "level >= N"),
-            // so list all of them, then hint at the next unlock.
-            List<SpiritBuffLevel> active = SpiritBuffLevel.activeUpTo(level);
-            info.lore(Component.empty());
-            info.lore(plugin.getMessages().component("gui.spirit.info.active-title",
-                    Map.of("count", String.valueOf(active.size())), player));
-            for (SpiritBuffLevel bl : active) {
-                info.lore(plugin.getMessages().component("gui.spirit.info.active-entry",
-                        Map.of("name", bl.getName(), "description", bl.getDescription(tickSeconds())), player));
-            }
-            SpiritBuffLevel next = SpiritBuffLevel.nextAfter(level);
-            if (next != null) {
-                info.lore(plugin.getMessages().component("gui.spirit.info.next",
-                        Map.of("level", String.valueOf(next.getLevel()), "name", next.getName(),
-                                "description", next.getDescription(tickSeconds())), player));
-            }
-
-            info.lore(Component.empty());
-            info.lore(plugin.getMessages().component("gui.spirit.info.toggle-show", player));
+        ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_SPIRIT_STAR)
+                .name(messages.component("gui.spirit.power.name", ph, player));
+        if (level >= MAX_POWER) {
+            builder.lore(messages.component("gui.spirit.power.maximum", player));
         } else {
-            // Full ladder: unlocked levels are ticked, the current one is highlighted, the rest are dimmed.
-            info.lore(plugin.getMessages().component("gui.spirit.buffs.all-title",
-                    Map.of("count", String.valueOf(SpiritBuffLevel.values().length)), player));
-
-            for (SpiritBuffLevel bl : SpiritBuffLevel.values()) {
-                String key = bl.getLevel() == level ? "gui.spirit.buffs.entry.current"
-                        : bl.getLevel() < level ? "gui.spirit.buffs.entry.unlocked"
-                        : "gui.spirit.buffs.entry.locked";
-                info.lore(plugin.getMessages().component(key,
-                        Map.of("level", String.valueOf(bl.getLevel()), "name", bl.getName(),
-                                "description", bl.getDescription(tickSeconds())), player));
-            }
-
-            info.lore(Component.empty());
-            info.lore(plugin.getMessages().component("gui.spirit.info.toggle-hide", player));
+            long next = manager().getExpForNextLevel(level);
+            ph.put("energy", String.valueOf(spirit.energy()));
+            ph.put("next", String.valueOf(next));
+            ph.put("bar", progressBar(spirit.energy(), next));
+            builder.lore(messages.component("gui.spirit.power.progress", ph, player));
         }
+        builder.lore(Component.empty());
 
-        return info.build();
+        SpiritDecayPolicy.Tier tier = manager().activityTier(clan);
+        SpiritSettings settings = manager().settings();
+        SpiritDecayPolicy.TierConfig tierCfg = settings.decay().of(tier);
+        Map<String, String> decay = Map.of(
+                "tier", messages.raw("gui.spirit.power.tier." + tier.name().toLowerCase(Locale.ROOT)),
+                "energy", trim(tierCfg.energyPercentPerDay()),
+                "loss", trim(tierCfg.powerLossPerDay()));
+        builder.lore(messages.component("gui.spirit.power.activity", decay, player));
+        builder.lore(messages.component("gui.spirit.power.decay." + tier.name().toLowerCase(Locale.ROOT), decay, player));
+        builder.lore(Component.empty());
+        builder.lore(messages.components("gui.spirit.power.sources", Map.of(), player));
+        return builder.build();
+    }
+
+    private ItemStack buildMasteryItem(Player player) {
+        var messages = plugin.getMessages();
+        ClanSpirit spirit = clan.spirit();
+        SpiritSettings settings = manager().settings();
+        Side side = manager().side(clan);
+        Map<String, String> ph = new HashMap<>();
+        ph.put("side", messages.raw("gui.spirit.side." + side.name().toLowerCase(Locale.ROOT)));
+        ph.put("value", signed(spirit.mastery()));
+        ph.put("axis", axis(spirit.mastery()));
+        long today = java.time.LocalDate.now(java.time.ZoneOffset.UTC).toEpochDay();
+        boolean sameDay = spirit.masteryDay() == today;
+        ph.put("off", String.valueOf(sameDay ? spirit.masteryOffenseToday() : 0));
+        ph.put("def", String.valueOf(sameDay ? spirit.masteryDefenseToday() : 0));
+        ph.put("off_cap", String.valueOf(settings.masteryCaps().offense()));
+        ph.put("def_cap", String.valueOf(settings.masteryCaps().defense()));
+
+        ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_RELATION_HOSTILE)
+                .name(messages.component("gui.spirit.mastery.name", ph, player))
+                .lore(messages.components("gui.spirit.mastery.lore", ph, player));
+        if (manager().overloaded(clan)) {
+            Map<String, String> over = Map.of(
+                    "incoming", trim(settings.overloadIncomingPercent()),
+                    "outgoing", trim(settings.overloadOutgoingPercent()));
+            builder.lore(Component.empty());
+            builder.lore(messages.component(side == Side.OFFENSE ? "gui.spirit.mastery.overload-offense"
+                    : "gui.spirit.mastery.overload-defense", over, player));
+        }
+        builder.lore(Component.empty());
+        builder.lore(messages.components("gui.spirit.mastery.sources", Map.of(), player));
+        return builder.glow(manager().overloaded(clan)).build();
+    }
+
+    private ItemStack buildBonusItem(Player player) {
+        var messages = plugin.getMessages();
+        SpiritSettings settings = manager().settings();
+        Side side = manager().side(clan);
+        int step = manager().bonusStep(clan);
+        int powerCap = (clan.spirit().level() + 1) / 2;
+        int masteryCap = Math.abs(clan.spirit().mastery()) / 20;
+        Map<String, String> ph = Map.of(
+                "step", String.valueOf(step), "max", String.valueOf(SpiritBonusFormula.MAX_STEP),
+                "power_cap", String.valueOf(Math.min(SpiritBonusFormula.MAX_STEP, powerCap)),
+                "mastery_cap", String.valueOf(Math.min(SpiritBonusFormula.MAX_STEP, masteryCap)));
+
+        ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
+                .name(messages.component("gui.spirit.bonuses.name", ph, player))
+                .lore(messages.components("gui.spirit.bonuses.lore", ph, player));
+        if (side == Side.NONE) {
+            builder.lore(Component.empty());
+            builder.lore(messages.component("gui.spirit.bonuses.neutral", player));
+        }
+        for (Side shown : side == Side.NONE ? new Side[]{Side.OFFENSE, Side.DEFENSE} : new Side[]{side}) {
+            builder.lore(Component.empty());
+            builder.lore(messages.component("gui.spirit.side-title." + shown.name().toLowerCase(Locale.ROOT), player));
+            for (SpiritBonus bonus : SpiritBonus.of(shown)) {
+                int useStep = shown == side ? step : 0;
+                double now = settings.value(bonus, useStep);
+                double next = settings.value(bonus, Math.min(SpiritBonusFormula.MAX_STEP, useStep + 1));
+                String label = messages.raw("gui.spirit.bonus." + bonus.id() + ".label");
+                String effect = messages.raw("gui.spirit.bonus." + bonus.id() + ".effect");
+                if (now > 0) {
+                    Map<String, String> line = new HashMap<>();
+                    line.put("label", label);
+                    line.put("effect", effect.replace("<value>", trim(now)));
+                    line.put("next", next > now ? trim(next) : "");
+                    builder.lore(messages.component(next > now ? "gui.spirit.bonuses.active-next" : "gui.spirit.bonuses.active", line, player));
+                } else {
+                    builder.lore(messages.component("gui.spirit.bonuses.locked",
+                            Map.of("label", label, "step", String.valueOf(settings.unlockStep(bonus))), player));
+                }
+            }
+        }
+        if (manager().overloaded(clan)) {
+            builder.lore(Component.empty());
+            builder.lore(messages.component("gui.spirit.bonuses.overload", player));
+        }
+        builder.lore(Component.empty());
+        builder.lore(messages.component("gui.spirit.bonuses.scope", player));
+        return builder.build();
     }
 
     public void handleInventoryClick(Player player, int slot) {
@@ -158,31 +192,33 @@ public final class ClanSpiritMenu implements InventoryHolder {
         }
         if (slot == SLOT_BACK) {
             plugin.getGuiManager().openMain(player, clan);
-            return;
-        }
-        if (slot == SLOT_INFO) {
-            showAllBuffs = !showAllBuffs;
-            inventory.setItem(SLOT_INFO, buildInfoItem(player));
-            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.2f);
-            return;
-        }
-        if (slot == SLOT_ABILITY) {
-            if (clan.spirit().level() < 10) {
-                return;
-            }
-            new ClanSpiritAbilityMenu(plugin, player, clan).open();
         }
     }
 
-    private int tickSeconds() {
-        return plugin.getConfig().getInt("mechanics.spirit.tick-seconds", 15);
+    private static String trim(double value) {
+        return value == Math.rint(value) ? String.valueOf((long) value) : String.format(Locale.ROOT, "%.1f", value);
     }
 
-    private String createProgressBar(long current, long max, int length) {
-        if (max == 0) return "<green>" + "█".repeat(length) + "</green>";
-        int filled = (int) (((double) current / max) * length);
-        int empty = length - filled;
-        return "<green>" + "█".repeat(Math.max(0, filled)) + "</green><gray>" + "█".repeat(Math.max(0, empty)) + "</gray>";
+    private static String signed(int value) {
+        return value > 0 ? "+" + value : String.valueOf(value);
+    }
+
+    private static String progressBar(long current, long max) {
+        int filled = max <= 0 ? BAR_CELLS : (int) Math.min(BAR_CELLS, Math.round((double) current / max * BAR_CELLS));
+        return "<green>" + "█".repeat(filled) + "</green><dark_gray>" + "█".repeat(BAR_CELLS - filled) + "</dark_gray>";
+    }
+
+    /** -100 (defence, aqua) on the left, +100 (offence, red) on the right, a white cell where the clan stands. */
+    static String axis(int mastery) {
+        int marker = (int) Math.round((mastery + 100) / 200.0 * (AXIS_CELLS - 1));
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < AXIS_CELLS; i++) {
+            String color = i == marker ? "white" : i < AXIS_CELLS / 2 ? "aqua" : i > AXIS_CELLS / 2 ? "red" : "gray";
+            boolean lit = i == marker || (mastery < 0 ? i >= marker && i <= AXIS_CELLS / 2 : mastery > 0 && i <= marker && i >= AXIS_CELLS / 2);
+            sb.append('<').append(lit ? color : "dark_gray").append('>').append(i == marker ? "█" : "▌")
+                    .append("</").append(lit ? color : "dark_gray").append('>');
+        }
+        return sb.toString();
     }
 
     @Override

@@ -9,7 +9,7 @@
 
 # Версия lang.yml (2026-10-12): при росте версии админский файл получает из jar переписанные разделы
 # (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
-lang-version: 7
+lang-version: 8
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -1673,57 +1673,95 @@ gui:
   spirit:
     title: "<white>Дух клана <gray>· <color><tag>"
     header:
-      name: "<white>Дух Клана"
+      name: "<white>Дух клана <color><tag>"
       lore:
-        - "<gray>Древняя сущность, оберегающая ваш клан."
-        - "<gray>Развивается от общей активности участников:"
-        - "<gray>сражений, торговли, осад и взносов."
+        - "<gray>Дух растёт от жизни клана и усиливает его"
+        - "<gray>в боях с другими кланами."
         - ""
-        - "<gray>С каждым уровнем клан получает пассивные"
-        - "<gray>благословения; они складываются и действуют"
-        - "<gray>на соклановцев на территории клана,"
-        - "<gray>а на 10 уровне открывается мощная способность."
-    info:
-      name: "<white>Дух <yellow><level></yellow> <gray>· <white><name>"
-      exp: "<gray>Энергия: <white><current><gray>/<white><next>"
-      progress: "<white><bar>"
-      maximum: "<gray>Максимальный уровень"
-      how: "<gray>Энергия растёт от активности членов клана"
-      active-title: "<yellow>Активные бонусы (<count>):"
-      active-entry: "<green>✔ <white><name> <gray>— <white><description>"
-      next: "<gray>Следующий — ур. <level>: <white><name> <gray>(<description>)"
-      toggle-show: "<yellow>▸ Нажмите, чтобы посмотреть все бонусы"
-      toggle-hide: "<yellow>▸ Нажмите, чтобы скрыть список бонусов"
-    buffs:
-      name: "<white>Постоянные бонусы"
-      lore_active: "<gray>Постоянные бонусы духа активны для участников клана."
-      all-title: "<yellow>Все бонусы духа (<count>):"
-      entry:
-        current: "<green>▶ <white>Ур.<level> <name> <gray>· <description>"
-        unlocked: "<green>✔ <white>Ур.<level> <name> <gray>· <description>"
-        locked: "<dark_gray>Ур.<level> <name> <dark_gray>· <description>"
-    ability:
-      name: "<white>Уникальная способность"
-      locked: "<gray>Откроется на 10 уровне духа"
-      locked-message: "<prefix><red>Уникальная способность духа разблокируется на 10 уровне."
-      unlocked: "<white>Выберите способность"
-      chosen: "<white>Выбрано: <yellow><name>"
-      chosen-name: "<white>Выбрано: <yellow><name>"
-      cooldown: "<prefix><white>Смену способности можно сделать через <yellow><time></yellow>."
-    ability-menu:
-      title: "<white>Способность духа <gray>· <color><tag>"
-      item:
-        name: "<white><name>"
-        description: "<gray><description>"
-        selected: "<green>✔ Выбрана"
-        click-to-select: "<gray>ЛКМ - выбрать"
-        on-cooldown: "<red>Недоступно: смена через <white><time></white>"
-      success: "<prefix><green>Выбрана уникальная способность духа: <white><name>."
-    top:
-      name: "<gold>Топ участников"
-      lore: "<gray>Рейтинг участников клана по вкладу."
-      empty: "<gray>Пока нет данных о вкладе участников."
-      entry: "<gray>#<rank> <yellow><player> <gray>- <white><amount>"
+        - "<white>Сила <gray>— уровень духа (0–10). Копится от игры,"
+        - "<gray>битв и земли, а без активности тает."
+        - ""
+        - "<white>Владение <gray>— куда направлен дух. Нападение"
+        - "<gray>ведёт к <red>Натиску<gray>, оборона — к <aqua>Стойкости<gray>."
+        - ""
+        - "<gray>Бонусы нужны оба: чем выше Сила и чем"
+        - "<gray>дальше Владение от нуля, тем они сильнее."
+    side:
+      offense: "<red>Натиск"
+      defense: "<aqua>Стойкость"
+      none: "<gray>Нейтрально"
+    side-title:
+      offense: "<red>Натиск <gray>(нападение)"
+      defense: "<aqua>Стойкость <gray>(оборона)"
+    power:
+      name: "<white>Сила <gray>· <gold><level><gray>/<max>"
+      progress: "<gray>До следующего уровня: <bar> <white><energy><gray>/<white><next>"
+      maximum: "<gold>■ <gray>Максимальная Сила"
+      activity: "<gray>Активность клана: <tier>"
+      tier:
+        high: "<green>высокая"
+        medium: "<yellow>средняя"
+        low: "<gold>низкая"
+        none: "<red>нет"
+      decay:
+        high: "<green>▲ <gray>Дух почти не угасает"
+        medium: "<yellow>■ <gray>Энергия тает на <white><energy>%<gray> в сутки"
+        low: "<gold>▼ <gray>Энергия тает на <white><energy>%<gray> в сутки, Сила может упасть"
+        none: "<red>▼ <gray>Энергия тает на <white><energy>%<gray> в сутки, Сила падает"
+      sources:
+        - "<white>Растёт от:"
+        - "<gray>• времени онлайн, захвата и защиты земли"
+        - "<gray>• участия в войнах, осадах и набегах"
+        - "<red>▼ <gray>Поражение в войне или осаде отнимает Силу."
+    mastery:
+      name: "<white>Владение <gray>· <side> <white><value>"
+      lore:
+        - "<aqua>Стойкость <dark_gray>[<axis><dark_gray>] <red>Натиск"
+        - ""
+        - "<gray>Сегодня: <red>▲ <white><off><gray>/<off_cap> <gray>· <aqua>▼ <white><def><gray>/<def_cap>"
+      overload-offense: "<gold>⚠ Перегиб: <gray>вы получаете на <red>+<incoming>%<gray> больше урона от других кланов."
+      overload-defense: "<gold>⚠ Перегиб: <gray>ваш урон по другим кланам <red>−<outgoing>%<gray>."
+      sources:
+        - "<white>Меняется только действиями:"
+        - "<red>▲ <gray>убийства врагов, победа в нападении"
+        - "<aqua>▼ <gray>урон на своей земле, отражённое нападение"
+        - "<dark_gray>Без действий дух медленно возвращается к нулю."
+    bonuses:
+      name: "<white>Бонусы <gray>· ступень <gold><step><gray>/<max>"
+      lore:
+        - "<gray>Ступень — меньшее из двух:"
+        - "<gray>Сила даёт до <white><power_cap><gray>, Владение — до <white><mastery_cap><gray>."
+      neutral: "<gray>Владение на нуле: выберите сторону действиями."
+      active: "<green>✔ <white><label><gray>: <effect>"
+      active-next: "<green>✔ <white><label><gray>: <effect> <green>▲ <gray>дальше <white><next>"
+      locked: "<dark_gray>✘ <label> <gray>— со ступени <white><step>"
+      overload: "<gold>⚠ Перегиб: <gray>противоположная сторона платит штраф."
+      scope: "<gray>Бонусы работают в PvP против других кланов."
+    bonus:
+      pressure:
+        label: "Натиск"
+        effect: "+<value>% урона по игрокам других кланов"
+      bloodlust:
+        label: "Жажда крови"
+        effect: "<value>% нанесённого урона лечит вас"
+      pursuit:
+        label: "Преследование"
+        effect: "Скорость I на <value> с после удара"
+      intimidate:
+        label: "Устрашение"
+        effect: "<value>% шанс наложить Слабость"
+      fortitude:
+        label: "Стойкость"
+        effect: "−<value>% получаемого урона"
+      roots:
+        label: "Корни"
+        effect: "+<value> сердца за цикл на своей земле"
+      retribution:
+        label: "Отпор"
+        effect: "<value>% урона возвращается врагу на своей земле"
+      unyielding:
+        label: "Несгибаемость"
+        effect: "+<value>% сопротивления отбрасыванию на своей земле"
   territories:
     empty:
       name: "<gray>Нет территорий"
@@ -1938,8 +1976,6 @@ spirit:
   level-down: "<prefix><red>Дух клана упал до <white><level> уровня."
   level-change:
     open: "<gray>[<yellow>Открыть меню духа</yellow>]"
-  ability:
-    phoenix-save: "<prefix><gold>Дух Феникса спас <white><player></white> от гибели!"
     cooldown-active: "<prefix><red>Смену способности духа можно сделать только через <white><time></white>."
 
 succession:

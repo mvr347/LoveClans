@@ -15,7 +15,6 @@ import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.model.trade.ClanTrade;
 import me.lovelace.loveclans.model.trade.ClanTradeDelivery;
-import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Location;
 import org.bukkit.Material;
 
@@ -77,7 +76,6 @@ public interface ClanStorage {
 
     CompletableFuture<Void> updateClanHomeLocation(UUID clanId, Location homeLocation);
 
-    CompletableFuture<Void> updateClanSpiritAbility(UUID clanId, SpiritAbility ability, long chosenAt);
 
     CompletableFuture<Void> updateClanProgression(UUID clanId, int level, long experience, int upgradePoints, int spiritLevel);
 

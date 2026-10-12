@@ -2366,30 +2366,6 @@ public final class ClanManager {
                 .thenCompose(ignored -> recalculateInfluenceAsync(updatedClan)));
     }
 
-    public CompletableFuture<Clan> chooseSpiritAbilityAsync(Clan clan, UUID actorId, me.lovelace.loveclans.model.spirit.SpiritAbility ability) {
-        if (clan == null || actorId == null || ability == null)
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor ID and ability cannot be null."));
-        return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.SETTINGS)) {
-                throw new IllegalStateException("general.no-permission");
-            }
-            if (clan.spirit().level() < 10) {
-                throw new IllegalStateException("gui.spirit.ability.locked");
-            }
-            if (ability == clan.spirit().ability()) {
-                return clan;
-            }
-            long now = System.currentTimeMillis();
-            long remaining = clan.spirit().abilityCooldownRemaining(now);
-            if (clan.spirit().ability() != null && remaining > 0) {
-                throw new SpiritAbilityCooldownException(remaining);
-            }
-            clan.setSpirit(clan.spirit().withAbility(ability, now));
-            return clan;
-        }).thenCompose(updatedClan -> storage.updateClanSpiritAbility(updatedClan.id(), updatedClan.spirit().ability(), updatedClan.spirit().abilityChosenAt())
-                .thenApply(ignored -> updatedClan));
-    }
-
     // --- Клановые перки (§7) ---
 
     public int perkUnlockLevel() {

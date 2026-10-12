@@ -88,6 +88,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private me.lovelace.loveclans.storage.ConflictCooldownStore conflictCooldownStore;
     private SuccessionManager successionManager;
     private SpiritManager spiritManager;
+    private me.lovelace.loveclans.service.SoundService soundService;
     private PerkManager perkManager;
     private AfkManager afkManager;
     private PlayerPreferencesManager playerPreferencesManager;
@@ -133,6 +134,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         historyManager = new me.lovelace.loveclans.history.HistoryManager(this, databaseManager);
         ritualManager = new RitualManager(this);
         successionManager = new SuccessionManager(this);
+        soundService = new me.lovelace.loveclans.service.SoundService(this);
         spiritManager = new SpiritManager(this);
         perkManager = new PerkManager(this);
         afkManager = new AfkManager(this);
@@ -510,6 +512,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         return successionManager;
     }
 
+    public me.lovelace.loveclans.service.SoundService getSoundService() {
+        return soundService;
+    }
+
     public SpiritManager getSpiritManager() {
         return spiritManager;
     }
@@ -636,10 +642,6 @@ public final class LoveClansPlugin extends JavaPlugin {
         Throwable root = unwrap(throwable);
         if (root instanceof me.lovelace.loveclans.manager.WarCooldownException cooldown) {
             messages.send(sender, "war.cooldown-active", Map.of("seconds", String.valueOf(cooldown.remainingSeconds())));
-            return;
-        }
-        if (root instanceof me.lovelace.loveclans.manager.SpiritAbilityCooldownException cooldown) {
-            messages.send(sender, "gui.spirit.ability.cooldown", Map.of("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(cooldown.remainingMillis())));
             return;
         }
         if (root instanceof me.lovelace.loveclans.manager.TradeCooldownException cooldown) {

@@ -387,7 +387,6 @@ public final class Clan {
     public void levelUp() {
         level++;
         upgradePoints++; // Give one upgrade point per level
-        spirit = spirit.withLevel(Math.max(spirit.level(), level));
     }
 
     public void setExperience(long experience) {

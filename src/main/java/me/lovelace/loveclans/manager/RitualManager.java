@@ -11,6 +11,7 @@ import me.lovelace.loveclans.model.ritual.HarvestRitual;
 import me.lovelace.loveclans.model.ritual.RitualType;
 import me.lovelace.loveclans.model.ritual.WarDrumRitual;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
@@ -112,16 +113,20 @@ public final class RitualManager {
 
     private void applyRitualEffects(Clan clan, ClanRitual ritual) {
         int durationTicks = (int) ((ritual.endsAt() - ritual.startedAt()) / 50L);
+        int affected = 0;
         for (UUID playerId : clan.members().keySet()) {
-            Optional.ofNullable(Bukkit.getPlayer(playerId)).ifPresent(player -> {
-                switch (ritual.type()) {
-                    case HARVEST -> player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, durationTicks, 1, true, false, true));
-                    case WAR_DRUM -> player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, durationTicks, 0, true, false, true));
-                    case GUARDIAN -> player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, durationTicks, 0, true, false, true));
-                }
-                ClanSpirit spirit = clan.spirit();
-                clan.setSpirit(spirit.addEnergy(25));
-            });
+            Player player = Bukkit.getPlayer(playerId);
+            if (player == null) continue;
+            switch (ritual.type()) {
+                case HARVEST -> player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, durationTicks, 1, true, false, true));
+                case WAR_DRUM -> player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, durationTicks, 0, true, false, true));
+                case GUARDIAN -> player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, durationTicks, 0, true, false, true));
+            }
+            affected++;
+        }
+        // Through the manager so the energy can actually level the spirit up (it used to bypass the level check).
+        if (affected > 0) {
+            plugin.getSpiritManager().addSpiritExperience(clan, 25L * affected, "Ритуал");
         }
     }
 }

@@ -620,6 +620,9 @@ public final class SiegeManager {
     }
 
     private void endSiege(ClanSiege siege, SiegeResult result) {
+        // Read before the maps are cleared: how far the attackers got decides if a lost siege was a near thing.
+        long requiredHoldMs = Math.max(1L, campHoldDuration().toMillis());
+        double holdFraction = Math.min(1.0, holdProgress.getOrDefault(siege.id(), 0L) / (double) requiredHoldMs);
         activeSieges.remove(siege.id());
         campFortification.remove(siege.id());
         campHits.remove(siege.id());
@@ -655,7 +658,9 @@ public final class SiegeManager {
         me.lovelace.loveclans.activity.ConflictEvents.resolved(plugin, me.lovelace.loveclans.model.history.ConflictKind.SIEGE,
                 siege.id(), siege.attackerClanId(), siege.defenderClanId(),
                 result == SiegeResult.ATTACKER_WIN ? me.lovelace.loveclans.api.events.ConflictOutcome.ATTACKER_WIN
-                        : me.lovelace.loveclans.api.events.ConflictOutcome.DEFENDER_WIN);
+                        : me.lovelace.loveclans.api.events.ConflictOutcome.DEFENDER_WIN,
+                // A lost siege is close when the attackers had nearly held the camps long enough; a won one is decisive.
+                result == SiegeResult.ATTACKER_WIN ? 1.0 : 1.0 - holdFraction);
 
         Clan winner = result == SiegeResult.ATTACKER_WIN ? attacker : defender;
         Clan loser = result == SiegeResult.ATTACKER_WIN ? defender : attacker;
