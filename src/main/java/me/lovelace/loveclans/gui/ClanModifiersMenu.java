@@ -53,9 +53,8 @@ public final class ClanModifiersMenu {
 
         // Слот 0 — эмблема/инфо клана
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
-                .name(Component.text("§6Модификаторы клана §f" + clan.name()))
-                .lore(Component.text("§7Список активных эффектов, репараций,"))
-                .lore(Component.text("§7щитов и доступных казус белли."))
+                .name(plugin.getMessages().component("gui.modifiers.info.name", Map.of("clan", clan.name()), player))
+                .lore(plugin.getMessages().components("gui.modifiers.info.lore", Map.of(), player))
                 .build());
 
         List<ItemStack> items = new java.util.ArrayList<>();
@@ -63,41 +62,23 @@ public final class ClanModifiersMenu {
 
         List<ClanModifier> modifiers = plugin.getModifierManager().getModifiers(clan.id());
         for (ClanModifier mod : modifiers) {
-            items.add(renderModifier(mod, now));
+            items.add(renderModifier(player, mod, now));
         }
 
         if (plugin.getDiplomacyManager() != null) {
             for (UUID targetId : plugin.getDiplomacyManager().getEmbargoesForClan(clan.id())) {
                 String targetTag = resolveClanTag(targetId);
-                items.add(ItemBuilder.of(Material.BARRIER)
-                        .name(Component.text("§cИсходящее эмбарго: §f" + targetTag))
-                        .lore(Component.text("§7Статус: §cАктивно"))
-                        .lore(Component.text("§7Блокирует прямую торговлю между кланами."))
-                        .lore(Component.empty())
-                        .lore(Component.text("§8Снять можно в меню дипломатии."))
-                        .build());
+                items.add(entry(player, Material.BARRIER, "embargo", Map.of("tag", targetTag)));
             }
 
             for (UUID targetId : plugin.getDiplomacyManager().getOutgoingBlockades(clan.id())) {
                 String targetTag = resolveClanTag(targetId);
-                items.add(ItemBuilder.of(Material.ANVIL)
-                        .name(Component.text("§4Блокада цели: §f" + targetTag))
-                        .lore(Component.text("§7Статус: §cГегемон"))
-                        .lore(Component.text("§7Вы блокируете торговлю и экспансию цели."))
-                        .lore(Component.empty())
-                        .lore(Component.text("§8Снять можно в меню дипломатии."))
-                        .build());
+                items.add(entry(player, Material.ANVIL, "blockade-out", Map.of("tag", targetTag)));
             }
 
             for (UUID blockerId : plugin.getDiplomacyManager().getIncomingBlockades(clan.id())) {
                 String blockerTag = resolveClanTag(blockerId);
-                items.add(ItemBuilder.of(Material.IRON_BARS)
-                        .name(Component.text("§cПод блокадой клана: §f" + blockerTag))
-                        .lore(Component.text("§7Статус: §4Блокирован"))
-                        .lore(Component.text("§cКараваны и торговля остановлены!"))
-                        .lore(Component.empty())
-                        .lore(Component.text("§8Победите агрессора в войне или снимите блокаду."))
-                        .build());
+                items.add(entry(player, Material.IRON_BARS, "blockade-in", Map.of("tag", blockerTag)));
             }
 
             for (me.lovelace.loveclans.model.diplomacy.ClanPact pact : plugin.getDiplomacyManager().getPactsForClan(clan.id())) {
@@ -105,33 +86,17 @@ public final class ClanModifiersMenu {
                 String otherTag = resolveClanTag(otherId);
                 String timeLeft = TimeUtil.formatDuration(pact.remainingMillis(now));
                 switch (pact.type()) {
-                    case NAP -> items.add(ItemBuilder.of(Material.WHITE_BANNER)
-                            .name(Component.text("§fПакт о ненападении: §e" + otherTag))
-                            .lore(Component.text("§7Осталось времени: §f" + timeLeft))
-                            .lore(Component.empty())
-                            .lore(Component.text("§8Запрещает взаимные объявления войны, осад и набегов."))
-                            .build());
-                    case TRADE -> items.add(ItemBuilder.of(Material.EMERALD)
-                            .name(Component.text("§6Торговое соглашение: §e" + otherTag))
-                            .lore(Component.text("§7Осталось времени: §f" + timeLeft))
-                            .lore(Component.empty())
-                            .lore(Component.text("§8Снижает КД торговли и ускоряет сближение."))
-                            .build());
-                    case ALLIANCE -> items.add(ItemBuilder.of(Material.DIAMOND)
-                            .name(Component.text("§bВоенный союз: §e" + otherTag))
-                            .lore(Component.text("§7Осталось времени: §f" + timeLeft))
-                            .lore(Component.empty())
-                            .lore(Component.text("§8Полный пакт о взаимопомощи и ненападении."))
-                            .build());
+                    case NAP -> items.add(entry(player, Material.WHITE_BANNER, "pact-nap", Map.of("tag", otherTag, "time", timeLeft)));
+                    case TRADE -> items.add(entry(player, Material.EMERALD, "pact-trade", Map.of("tag", otherTag, "time", timeLeft)));
+                    case ALLIANCE -> items.add(entry(player, Material.DIAMOND, "pact-alliance", Map.of("tag", otherTag, "time", timeLeft)));
                 }
             }
         }
 
         if (items.isEmpty()) {
             inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
-                    .name(Component.text("§cНет активных эффектов и пактов"))
-                    .lore(Component.text("§7У вашего клана в данный момент нет"))
-                    .lore(Component.text("§7выплат дани, щитов, пактов или блокад."))
+                    .name(plugin.getMessages().component("gui.modifiers.empty.name", player))
+                    .lore(plugin.getMessages().components("gui.modifiers.empty.lore", Map.of(), player))
                     .build());
         } else {
             int slotIdx = 0;
@@ -163,84 +128,41 @@ public final class ClanModifiersMenu {
         }
     }
 
-    private ItemStack renderModifier(ClanModifier mod, long now) {
+    private ItemStack renderModifier(Player player, ClanModifier mod, long now) {
+        String timeLeft = TimeUtil.formatDuration(mod.remainingMillis(now));
         return switch (mod.type()) {
-            case ClanModifier.TYPE_REPARATIONS_DEBT -> {
-                String targetTag = resolveClanTag(mod.targetClanId());
-                yield ItemBuilder.of(Material.RED_BANNER)
-                        .name(Component.text("§cВыплата дани: §f" + targetTag))
-                        .lore(Component.text("§7Ежедневная выплата: §e" + mod.dailyAmount() + "⛃"))
-                        .lore(Component.text("§7Осталось дней: §f" + mod.daysLeft()))
-                        .lore(Component.text("§7Неуплат подряд: " + (mod.arrears() > 0 ? "§c" + mod.arrears() : "§a0")))
-                        .lore(Component.empty())
-                        .lore(Component.text("§8Списывается автоматически раз в сутки."))
-                        .build();
-            }
-            case ClanModifier.TYPE_REPARATIONS_INCOME -> {
-                String targetTag = resolveClanTag(mod.targetClanId());
-                yield ItemBuilder.of(Material.LIME_BANNER)
-                        .name(Component.text("§aПолучение дани: §f" + targetTag))
-                        .lore(Component.text("§7Ежедневное поступление: §e" + mod.dailyAmount() + "⛃"))
-                        .lore(Component.text("§7Осталось дней: §f" + mod.daysLeft()))
-                        .lore(Component.empty())
-                        .lore(Component.text("§8Поступает в казну сундука раз в сутки."))
-                        .build();
-            }
-            case ClanModifier.TYPE_POST_RAID_SHIELD -> {
-                String timeLeft = TimeUtil.formatDuration(mod.remainingMillis(now));
-                yield ItemBuilder.of(Material.SHIELD)
-                        .name(Component.text("§bЩит после набега"))
-                        .lore(Component.text("§7Осталось времени: §f" + timeLeft))
-                        .lore(Component.empty())
-                        .lore(Component.text("§8Защищает клан от новых набегов."))
-                        .build();
-            }
-            case ClanModifier.TYPE_SIEGE_PRESSURE -> {
-                String timeLeft = TimeUtil.formatDuration(mod.remainingMillis(now));
-                yield ItemBuilder.of(Material.CRACKED_STONE_BRICKS)
-                        .name(Component.text("§4Осадное давление"))
-                        .lore(Component.text("§7Осталось времени: §f" + timeLeft))
-                        .lore(Component.text("§cШтраф после поражения в осаде."))
-                        .build();
-            }
-            case ClanModifier.TYPE_SIEGE_REPELLED -> {
-                String timeLeft = TimeUtil.formatDuration(mod.remainingMillis(now));
-                yield ItemBuilder.of(Material.BEACON)
-                        .name(Component.text("§6Отражение осады"))
-                        .lore(Component.text("§7Осталось времени: §f" + timeLeft))
-                        .lore(Component.text("§aБоевой дух клана укреплен!"))
-                        .build();
-            }
-            case ClanModifier.TYPE_JUST_CASUS -> {
-                String targetTag = resolveClanTag(mod.targetClanId());
-                String timeLeft = mod.endsAt() > 0 ? TimeUtil.formatDuration(mod.remainingMillis(now)) : "бессрочно";
-                yield ItemBuilder.of(Material.WRITTEN_BOOK)
-                        .name(Component.text("§eПовод к войне: §f" + mod.conflictType()))
-                        .lore(Component.text("§7Цель: §f" + targetTag))
-                        .lore(Component.text("§7Причина: §a" + mod.reasonId()))
-                        .lore(Component.text("§7Срок действия: §f" + timeLeft))
-                        .lore(Component.empty())
-                        .lore(Component.text("§8Справедливый повод для конфликта."))
-                        .build();
-            }
-            case ClanModifier.TYPE_GUILD_SHIELD -> {
-                String timeLeft = TimeUtil.formatDuration(mod.remainingMillis(now));
-                yield ItemBuilder.of(Material.GOLDEN_APPLE)
-                        .name(Component.text("§bГильдейский щит"))
-                        .lore(Component.text("§7Осталось времени: §f" + timeLeft))
-                        .lore(Component.empty())
-                        .lore(Component.text("§8Защищает клан от объявления войн,"))
-                        .lore(Component.text("§8осад, рейдов и блокад на 24 часа."))
-                        .build();
-            }
-            default -> ItemBuilder.of(Material.PAPER)
-                    .name(Component.text("§7Модификатор: " + mod.type()))
-                    .build();
+            case ClanModifier.TYPE_REPARATIONS_DEBT -> entry(player, Material.RED_BANNER, "reparations-debt", Map.of(
+                    "tag", resolveClanTag(mod.targetClanId()), "amount", String.valueOf(mod.dailyAmount()),
+                    "days", String.valueOf(mod.daysLeft()),
+                    "arrears", mod.arrears() > 0 ? "<red>" + mod.arrears() + "</red>" : "<green>0</green>"));
+            case ClanModifier.TYPE_REPARATIONS_INCOME -> entry(player, Material.LIME_BANNER, "reparations-income", Map.of(
+                    "tag", resolveClanTag(mod.targetClanId()), "amount", String.valueOf(mod.dailyAmount()),
+                    "days", String.valueOf(mod.daysLeft())));
+            case ClanModifier.TYPE_POST_RAID_SHIELD -> entry(player, Material.SHIELD, "post-raid-shield", Map.of("time", timeLeft));
+            case ClanModifier.TYPE_SIEGE_PRESSURE -> entry(player, Material.CRACKED_STONE_BRICKS, "siege-pressure", Map.of("time", timeLeft));
+            case ClanModifier.TYPE_SIEGE_REPELLED -> entry(player, Material.BEACON, "siege-repelled", Map.of("time", timeLeft));
+            case ClanModifier.TYPE_JUST_CASUS -> entry(player, Material.WRITTEN_BOOK, "just-casus", Map.of(
+                    "type", String.valueOf(mod.conflictType()), "tag", resolveClanTag(mod.targetClanId()),
+                    "reason", String.valueOf(mod.reasonId()),
+                    "time", mod.endsAt() > 0 ? timeLeft : plugin.getMessages().raw("gui.modifiers.forever")));
+            case ClanModifier.TYPE_GUILD_SHIELD -> entry(player, Material.GOLDEN_APPLE, "guild-shield", Map.of("time", timeLeft));
+            case ClanModifier.TYPE_GUILD_SHIELD_COOLDOWN -> entry(player, Material.CLOCK, "guild-shield-cooldown", Map.of("time", timeLeft));
+            case ClanModifier.TYPE_CAPITAL_RELOCATE_COOLDOWN -> entry(player, Material.CLOCK, "relocate-cooldown", Map.of("time", timeLeft));
+            default -> entry(player, Material.PAPER, "unknown", Map.of("type", mod.type()));
         };
     }
 
+    /** One list entry: {@code gui.modifiers.entry.<id>.name} and {@code .lore}, all text lives in lang. */
+    private ItemStack entry(Player player, Material icon, String id, Map<String, String> placeholders) {
+        String base = "gui.modifiers.entry." + id;
+        return ItemBuilder.of(icon)
+                .name(plugin.getMessages().component(base + ".name", placeholders, player))
+                .lore(plugin.getMessages().components(base + ".lore", placeholders, player))
+                .build();
+    }
+
     private String resolveClanTag(UUID clanId) {
-        if (clanId == null) return "Неизвестно";
+        if (clanId == null) return plugin.getMessages().raw("gui.modifiers.unknown-clan");
         return plugin.getClanManager().getClanById(clanId)
                 .map(Clan::name)
                 .orElse(clanId.toString().substring(0, 8));

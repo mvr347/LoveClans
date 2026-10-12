@@ -9,7 +9,7 @@
 
 # Версия lang.yml (2026-10-12): при росте версии админский файл получает из jar переписанные разделы
 # (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
-lang-version: 9
+lang-version: 10
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -494,6 +494,7 @@ diplomacy:
     score-too-low: "<prefix><red>Отношения слишком плохи для этого соглашения <gray>· <yellow>поднимите счёт подарками, торговлей или миссиями"
     not-active: "<prefix><red>Указанный пакт не активен."
   guild-shield:
+    expired: "<prefix><gray>Гильдейский щит вашего клана спал. Нападения и блокады снова возможны."
     activated: "<prefix><aqua><player></aqua> <green>активировал <aqua>Гильдейский щит</aqua>! Клан защищён от нападений на <hours> ч."
 
 gui:
@@ -563,6 +564,115 @@ gui:
       DIPLOMACY_ENDED: "<gray>Союз с кланом <color><tag></color> разорван"
   modifiers:
     title: "<gray>Модификаторы: <gold><clan>"
+    forever: "бессрочно"
+    unknown-clan: "неизвестно"
+    info:
+      name: "<gold>Модификаторы клана <white><clan>"
+      lore:
+        - "<gray>Список активных эффектов, репараций,"
+        - "<gray>щитов, пактов и доступных поводов к войне."
+    empty:
+      name: "<gray>Нет активных эффектов и пактов"
+      lore:
+        - "<gray>У клана сейчас нет выплат дани, щитов,"
+        - "<gray>пактов или блокад."
+    entry:
+      embargo:
+        name: "<red>Исходящее эмбарго: <white><tag>"
+        lore:
+          - "<gray>Статус: <red>активно"
+          - "<gray>Блокирует прямую торговлю между кланами."
+          - ""
+          - "<dark_gray>Снять можно в меню дипломатии."
+      blockade-out:
+        name: "<dark_red>Блокада цели: <white><tag>"
+        lore:
+          - "<gray>Статус: <red>вы держите блокаду"
+          - "<gray>Вы блокируете торговлю и экспансию цели."
+          - ""
+          - "<dark_gray>Снять можно в меню дипломатии."
+      blockade-in:
+        name: "<red>Под блокадой клана: <white><tag>"
+        lore:
+          - "<gray>Статус: <dark_red>блокирован"
+          - "<red>Караваны и торговля остановлены."
+          - ""
+          - "<dark_gray>Победите агрессора в войне или снимите блокаду."
+      pact-nap:
+        name: "<white>Пакт о ненападении: <yellow><tag>"
+        lore:
+          - "<gray>Осталось времени: <white><time>"
+          - ""
+          - "<dark_gray>Запрещает взаимные войны, осады и набеги."
+      pact-trade:
+        name: "<gold>Торговое соглашение: <yellow><tag>"
+        lore:
+          - "<gray>Осталось времени: <white><time>"
+          - ""
+          - "<dark_gray>Снижает кулдаун торговли и ускоряет сближение."
+      pact-alliance:
+        name: "<aqua>Военный союз: <yellow><tag>"
+        lore:
+          - "<gray>Осталось времени: <white><time>"
+          - ""
+          - "<dark_gray>Полный пакт о взаимопомощи и ненападении."
+      reparations-debt:
+        name: "<red>Выплата дани: <white><tag>"
+        lore:
+          - "<gray>Ежедневная выплата: <yellow><amount>"
+          - "<gray>Осталось дней: <white><days>"
+          - "<gray>Неуплат подряд: <arrears>"
+          - ""
+          - "<dark_gray>Списывается автоматически раз в сутки."
+      reparations-income:
+        name: "<green>Получение дани: <white><tag>"
+        lore:
+          - "<gray>Ежедневное поступление: <yellow><amount>"
+          - "<gray>Осталось дней: <white><days>"
+          - ""
+          - "<dark_gray>Поступает в казну раз в сутки."
+      post-raid-shield:
+        name: "<aqua>Щит после набега"
+        lore:
+          - "<gray>Осталось времени: <white><time>"
+          - ""
+          - "<dark_gray>Защищает клан от новых набегов."
+      siege-pressure:
+        name: "<dark_red>Осадное давление"
+        lore:
+          - "<gray>Осталось времени: <white><time>"
+          - "<red>Штраф после поражения в осаде."
+      siege-repelled:
+        name: "<gold>Отражение осады"
+        lore:
+          - "<gray>Осталось времени: <white><time>"
+          - "<green>Боевой дух клана укреплён."
+      just-casus:
+        name: "<yellow>Повод к войне: <white><type>"
+        lore:
+          - "<gray>Цель: <white><tag>"
+          - "<gray>Причина: <green><reason>"
+          - "<gray>Срок действия: <white><time>"
+          - ""
+          - "<dark_gray>Справедливый повод для конфликта."
+      guild-shield:
+        name: "<aqua>Гильдейский щит"
+        lore:
+          - "<gray>Осталось времени: <white><time>"
+          - ""
+          - "<dark_gray>Защищает клан от новых войн, осад, набегов"
+          - "<dark_gray>и блокад. Идущие конфликты не отменяет."
+      guild-shield-cooldown:
+        name: "<gray>Пауза Гильдейского щита"
+        lore:
+          - "<yellow>⌛ <gray>Снова можно через <white><time>"
+      relocate-cooldown:
+        name: "<gray>Пауза переноса столицы"
+        lore:
+          - "<yellow>⌛ <gray>Снова можно через <white><time>"
+      unknown:
+        name: "<gray>Модификатор: <type>"
+        lore: []
   # Меню «Торговля» (2026-10-07): вкладки Кланы / Запросы / Скупки.
   trade:
     title: "<gray>Торговля"

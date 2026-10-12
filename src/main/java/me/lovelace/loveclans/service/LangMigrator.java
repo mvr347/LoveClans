@@ -30,7 +30,9 @@ public final class LangMigrator {
             // v8: spirit rework - Power + Mastery, abilities and the level ladder removed
             List.of("gui", "spirit"),
             // v9: capital menu (shield and relocation buttons), relocation seal item, admin seal command
-            List.of("gui", "deny", "item", "admin", "clan.help", "diplomacy")
+            List.of("gui", "deny", "item", "admin", "clan.help", "diplomacy"),
+            // v10: item chest refuses coins, shield expiry message
+            List.of("deny", "chest", "diplomacy")
     );
 
     private LangMigrator() {

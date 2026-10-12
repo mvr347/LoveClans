@@ -29,13 +29,22 @@ public final class SoundService {
         }
     }
 
+    /** Accepts a Bukkit enum-style name (ENTITY_PLAYER_LEVELUP) or a namespaced key (minecraft:item.goat_horn.sound.0). */
+    static Sound resolve(String name) {
+        if (name.contains(":") || name.contains(".")) {
+            org.bukkit.NamespacedKey key = org.bukkit.NamespacedKey.fromString(name.contains(":") ? name : "minecraft:" + name);
+            return key == null ? null : Registry.SOUNDS.get(key);
+        }
+        return Registry.SOUNDS.match(name);
+    }
+
     public void play(Player player, String key) {
         if (!plugin.getConfig().getBoolean("sounds.enabled", true)) return;
         ConfigurationSection section = plugin.getConfig().getConfigurationSection("sounds." + key);
         if (section == null) return;
         String name = section.getString("sound", "");
         if (name.isBlank()) return;
-        Sound sound = Registry.SOUNDS.match(name);
+        Sound sound = resolve(name);
         if (sound == null) {
             plugin.getLogger().warning("sounds." + key + ".sound: unknown sound '" + name + "'");
             return;

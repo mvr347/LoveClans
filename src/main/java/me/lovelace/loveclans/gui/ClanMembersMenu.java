@@ -254,7 +254,8 @@ public final class ClanMembersMenu {
             boolean full = plugin.getClanManager().isClanFull(clan);
             inventory.setItem(SLOT_INVITE, (full ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE) : ItemBuilder.head(ItemBuilder.HEAD_INVITE))
                     .name(plugin.getMessages().component("gui.members.invite.name", player))
-                    .lore(plugin.getMessages().component(full ? "gui.members.invite.lore-full" : "gui.members.invite.lore", player))
+                    .lore(full ? plugin.getMessages().reason("gui.members.invite.lore-full", player)
+                            : plugin.getMessages().component("gui.members.invite.lore", player))
                     .build());
         } else {
             inventory.setItem(SLOT_INVITE, GuiFrames.glassPane());

@@ -102,8 +102,9 @@ public final class ClanMainMenu implements InventoryHolder {
                 ? ItemBuilder.head(ItemBuilder.HEAD_DIPLOMACY)
                 : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE);
         diplomacyItem.name(plugin.getMessages().component("gui.main.diplomacy.name", player))
-                .lore(plugin.getMessages().component(!canManageDiplomacy ? "gui.main.diplomacy.no-permission-lore"
-                        : !hasTerritory ? "gui.main.no-territory-lore" : "gui.main.diplomacy.lore", player));
+                .lore(!canManageDiplomacy ? plugin.getMessages().reason("gui.main.diplomacy.no-permission-lore", player)
+                        : !hasTerritory ? plugin.getMessages().reason("gui.main.no-territory-lore", player)
+                        : plugin.getMessages().component("gui.main.diplomacy.lore", player));
         inventory.setItem(SLOT_DIPLOMACY, withOpenHint(diplomacyItem).build());
 
         boolean upgradesInactive = atWar || !canUpgrade;
@@ -115,7 +116,7 @@ public final class ClanMainMenu implements InventoryHolder {
         if (atWar) {
             upgradesItem.lore(plugin.getMessages().denyLore("gui.capital.war-blocked", Map.of(), player));
         } else if (!canUpgrade) {
-            upgradesItem.lore(plugin.getMessages().component("gui.main.upgrades.no-permission-lore", player));
+            upgradesItem.lore(plugin.getMessages().reason("gui.main.upgrades.no-permission-lore", player));
         }
         inventory.setItem(SLOT_UPGRADES, withOpenHint(upgradesItem).build());
 
@@ -137,7 +138,7 @@ public final class ClanMainMenu implements InventoryHolder {
                         .build()
                 : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                         .name(plugin.getMessages().component("gui.main.trade.name", player))
-                        .lore(plugin.getMessages().component("gui.main.no-territory-lore", player))
+                        .lore(plugin.getMessages().reason("gui.main.no-territory-lore", player))
                         .build());
 
         inventory.setItem(SLOT_HISTORY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_MAP)
@@ -153,7 +154,8 @@ public final class ClanMainMenu implements InventoryHolder {
                 ? ItemBuilder.head(ItemBuilder.HEAD_MAIN_SETTINGS)
                 : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE);
         settingsItem.name(plugin.getMessages().component("gui.main.settings.name", player))
-                .lore(plugin.getMessages().component(canManageSettings ? "gui.main.settings.lore" : "gui.main.settings.no-permission-lore", player));
+                .lore(canManageSettings ? plugin.getMessages().component("gui.main.settings.lore", player)
+                        : plugin.getMessages().reason("gui.main.settings.no-permission-lore", player));
         inventory.setItem(SLOT_SETTINGS, withOpenHint(settingsItem).build());
 
         // Footer — standalone menu: no Back button, so Leave Clan (with confirmation) takes slot 52 right before Close
@@ -183,7 +185,7 @@ public final class ClanMainMenu implements InventoryHolder {
         if (!hasCapital) {
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.chest.items-button.name", player))
-                    .lore(plugin.getMessages().component("gui.capital.no-house-lore", player))
+                    .lore(plugin.getMessages().reason("gui.capital.no-house-lore", player))
                     .build();
         }
         if (taxLocked) {
@@ -202,7 +204,7 @@ public final class ClanMainMenu implements InventoryHolder {
         if (!hasCapital) {
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.chest.money-button.name", player))
-                    .lore(plugin.getMessages().component("gui.capital.no-house-lore", player))
+                    .lore(plugin.getMessages().reason("gui.capital.no-house-lore", player))
                     .build();
         }
         // Name plus one description line like every other main menu button: balance and tax live in the treasury itself

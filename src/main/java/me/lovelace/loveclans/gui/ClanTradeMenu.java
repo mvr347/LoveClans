@@ -341,7 +341,7 @@ public final class ClanTradeMenu {
         if (!clan.isRecognized()) {
             inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.trade.state.unrecognized.name", player))
-                    .lore(plugin.getMessages().component("gui.trade.state.unrecognized.lore", player))
+                    .lore(plugin.getMessages().reason("gui.trade.state.unrecognized.lore", player))
                     .build());
             return 0;
         }

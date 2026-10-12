@@ -468,6 +468,13 @@ sounds:
   enabled: true
   spirit-level-up: { sound: ENTITY_PLAYER_LEVELUP, volume: 1.0, pitch: 1.0 }
   guild-shield-on: { sound: BLOCK_BEACON_ACTIVATE, volume: 1.0, pitch: 1.0 }
+  guild-shield-off: { sound: BLOCK_BEACON_DEACTIVATE, volume: 1.0, pitch: 1.0 }
+  recognition: { sound: UI_TOAST_CHALLENGE_COMPLETE, volume: 1.0, pitch: 1.0 }
+  gift-sent: { sound: ENTITY_EXPERIENCE_ORB_PICKUP, volume: 0.8, pitch: 1.0 }
+  gift-received: { sound: ENTITY_EXPERIENCE_ORB_PICKUP, volume: 0.8, pitch: 1.3 }
+  # Рог и рёв — через ключ, потому что у Bukkit-имени рога нет стабильного enum-варианта.
+  war-declared-attacker: { sound: "minecraft:item.goat_horn.sound.0", volume: 1.0, pitch: 1.0 }
+  war-declared-defender: { sound: ENTITY_ENDER_DRAGON_GROWL, volume: 1.0, pitch: 1.4 }
   spirit-power-loss: { sound: BLOCK_BELL_USE, volume: 0.8, pitch: 0.7 }
 
 mechanics:
