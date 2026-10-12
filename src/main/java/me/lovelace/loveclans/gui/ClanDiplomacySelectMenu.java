@@ -1,6 +1,8 @@
 package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.manager.diplomacy.DiplomacySort;
+import me.lovelace.loveclans.manager.diplomacy.PublicModifiers;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
@@ -37,20 +39,6 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
     private static final int SLOT_BACK = 52;
     private static final int SLOT_CLOSE = 53;
 
-    private enum SortMode {
-        NEWEST(Comparator.comparingLong(Clan::createdAt).reversed()),
-        OLDEST(Comparator.comparingLong(Clan::createdAt)),
-        INFLUENCE(Comparator.comparingLong(Clan::influence).reversed()),
-        MEMBERS(Comparator.comparingInt((Clan c) -> c.members().size()).reversed());
-
-        final Comparator<Clan> comparator;
-
-        SortMode(Comparator<Clan> comparator) {
-            this.comparator = comparator;
-        }
-
-    }
-
     private enum FilterMode {
         ALL,
         AT_WAR,
@@ -64,7 +52,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
     private final Player player;
     private final Clan sourceClan;
     private int currentPage;
-    private SortMode sortMode = SortMode.NEWEST;
+    private DiplomacySort.Mode sortMode = DiplomacySort.Mode.RELATION;
     private FilterMode filterMode = FilterMode.ALL;
     private List<Clan> visibleClans = List.of();
     private Inventory inventory;
@@ -94,8 +82,30 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
         visibleClans = plugin.getClanManager().getAllClans().stream()
                 .filter(clan -> !clan.id().equals(sourceClan.id()))
                 .filter(this::matchesFilter)
-                .sorted(sortMode.comparator)
+                .sorted(java.util.Comparator.comparing(this::sortRow, DiplomacySort.comparator(sortMode)))
                 .toList();
+    }
+
+    private DiplomacySort.Row sortRow(Clan clan) {
+        return new DiplomacySort.Row(clan.tag(), sourceClan.getRelation(clan.id()).score(),
+                plugin.getRaidManager().countOnlineNonAfk(clan, 15L), clan.influence(),
+                plugin.getClanManager().inConflictWith(sourceClan.id(), clan.id()));
+    }
+
+    private PublicModifiers.Snapshot modifiersOf(Clan target) {
+        var mods = plugin.getModifierManager();
+        var diplomacy = plugin.getDiplomacyManager();
+        return new PublicModifiers.Snapshot(
+                plugin.getWarManager().areAtWar(sourceClan.id(), target.id()),
+                plugin.getSiegeManager().areInSiege(sourceClan.id(), target.id()),
+                plugin.getRaidManager().areInRaid(sourceClan.id(), target.id()),
+                mods.hasGuildShield(target.id()) ? mods.getGuildShieldRemaining(target.id()) / 1000L : 0L,
+                mods.hasPostRaidShield(target.id()) ? mods.getPostRaidShieldRemaining(target.id()) / 1000L : 0L,
+                diplomacy.isEmbargoed(sourceClan.id(), target.id()),
+                diplomacy.isEmbargoed(target.id(), sourceClan.id()),
+                diplomacy.isBlockading(sourceClan.id(), target.id()),
+                diplomacy.isBlockading(target.id(), sourceClan.id()),
+                target.isRecognized());
     }
 
     public void open() {
@@ -127,12 +137,9 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
                     .lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.relation",
                             Map.of("relation", relationText(sourceClan, target)), player));
 
-            if (plugin.getWarManager().areAtWar(sourceClan.id(), target.id())) {
-                builder.lore(Component.text("§c⚔ Идёт война"));
-            } else if (plugin.getSiegeManager().areInSiege(sourceClan.id(), target.id())) {
-                builder.lore(Component.text("§6🏕 Идёт осада"));
-            } else if (plugin.getRaidManager().areInRaid(sourceClan.id(), target.id())) {
-                builder.lore(Component.text("§e🏹 Идёт набег"));
+            for (PublicModifiers.Entry entry : PublicModifiers.of(modifiersOf(target))) {
+                builder.lore(plugin.getMessages().component(entry.kind().langKey(),
+                        Map.of("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(entry.seconds() * 1000L)), player));
             }
 
             builder.lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.hint", player));
@@ -157,7 +164,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
         }
 
         inventory.setItem(SLOT_SORT, CycleButton.build(plugin, player, ItemBuilder.HEAD_SORT,
-                "gui.diplomacy-select.sort.name", "gui.diplomacy-select.sort.", SortMode.values(), sortMode));
+                "gui.diplomacy-select.sort.name", "gui.diplomacy-select.sort.", DiplomacySort.Mode.values(), sortMode));
         inventory.setItem(SLOT_FILTER, CycleButton.build(plugin, player, ItemBuilder.HEAD_FILTER,
                 "gui.diplomacy-select.filter.name", "gui.diplomacy-select.filter.", FilterMode.values(), filterMode));
 
@@ -181,7 +188,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
             return;
         }
         if (slot == SLOT_SORT) {
-            sortMode = CycleButton.step(sortMode, SortMode.values(), !rightClick);
+            sortMode = CycleButton.step(sortMode, DiplomacySort.Mode.values(), !rightClick);
             currentPage = 0;
             open();
             return;
@@ -228,7 +235,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
         me.lovelace.loveclans.model.diplomacy.DiplomacyTier tier = source.tierTo(target.id());
         me.lovelace.loveclans.model.diplomacy.ClanRelationRecord record = source.getRelation(target.id());
         return plugin.getMessages().raw("diplomacy.tier." + tier.name().toLowerCase(java.util.Locale.ROOT))
-                + " <gray>(" + record.score() + ") " + record.trendUnicode() + "</gray>";
+                + " <gray>(" + record.score() + ")</gray> " + me.lovelace.loveclans.util.TrendFormat.delta(record.trend());
     }
 
     @Override

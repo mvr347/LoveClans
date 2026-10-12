@@ -38,6 +38,9 @@ public final class ClanGiftManager {
             if (amount <= 0) {
                 throw new IllegalStateException("gift.invalid-amount");
             }
+            if (!plugin.getConfig().getBoolean("clans.gifts.enabled", true)) {
+                throw new IllegalStateException("gift.disabled");
+            }
             if (!from.isRecognized()) {
                 throw new IllegalStateException("gift.sender-not-recognized");
             }
