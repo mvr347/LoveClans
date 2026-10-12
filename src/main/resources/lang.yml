@@ -91,6 +91,8 @@ deny:
   nap:
     active: "<prefix><red>Между кланами действует Пакт о ненападении (NAP) <gray>· <yellow>разорвите пакт в дипломатии"
 
+  chest:
+    currency-rejected: "<prefix><red>Монеты нельзя класть в склад предметов <gray>· <yellow>используйте казну клана"
   relocation:
     not-recognized: "<prefix><red>Переносить столицу может только признанный клан <gray>· <yellow>получите признание у Гильдмастера"
     cooldown: "<prefix><red>Столицу недавно переносили <gray>· <yellow>снова можно через <time>"
@@ -151,6 +153,7 @@ admin:
     unbound: "<prefix><green>NPC (ID <white><id></white>) отвязан."
 
 chest:
+  coins-returned: "<prefix><yellow>Монеты из склада предметов возвращены вам: деньги хранятся в казне клана."
   no-capital: "<prefix><red>У вашего клана нет установленной территории — сначала установите знамя территории."
   invalid-amount: "<prefix><red>Укажите корректное положительное количество."
   insufficient-items: "<prefix><red>Недостаточно монет для этой операции."

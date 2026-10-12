@@ -3,6 +3,7 @@ package me.lovelace.loveclans.gui;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.manager.ClanManager;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.util.CurrencyDetector;
 import me.lovelace.loveclans.util.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -80,10 +81,17 @@ public final class ClanChestMenu implements Listener {
         if (!event.getInventory().equals(inventory)) {
             return;
         }
-        if (event.getRawSlot() >= inventory.getSize()) {
+        boolean inPlayerInventory = event.getRawSlot() >= inventory.getSize();
+        boolean inStorage = event.getRawSlot() >= 0 && event.getRawSlot() < unlockedSlots;
+        if (inStorage || inPlayerInventory) {
+            if (refuseCoins(event, inStorage, inPlayerInventory)) {
+                return;
+            }
+        }
+        if (inPlayerInventory) {
             return; // clicks in the player's own inventory behave normally
         }
-        if (event.getRawSlot() < unlockedSlots) {
+        if (inStorage) {
             return; // real storage slot — allow normal item movement
         }
         event.setCancelled(true); // locked slot or footer — can't hold items
@@ -97,9 +105,32 @@ public final class ClanChestMenu implements Listener {
         }
     }
 
+    /**
+     * The item chest holds items, not money: coins belong in the treasury. Cancels any click that would put LoveEconomy
+     * coins into live storage (cursor placement, shift-click, hotbar or offhand swap). Returns true when it cancelled.
+     */
+    private boolean refuseCoins(InventoryClickEvent event, boolean inStorage, boolean inPlayerInventory) {
+        ItemStack hotbar = event.getHotbarButton() >= 0 ? player.getInventory().getItem(event.getHotbarButton()) : null;
+        ItemStack incoming = ChestInsertGuard.incoming(event.getAction(), inStorage, inPlayerInventory,
+                event.getClick() == org.bukkit.event.inventory.ClickType.SWAP_OFFHAND,
+                event.getCursor(), event.getCurrentItem(), hotbar, player.getInventory().getItemInOffHand());
+        if (incoming == null || !CurrencyDetector.isCurrency(incoming)) {
+            return false;
+        }
+        event.setCancelled(true);
+        plugin.getMessages().sendDeny(player, "deny.chest.currency-rejected", Map.of());
+        return true;
+    }
+
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!event.getInventory().equals(inventory)) {
+            return;
+        }
+        boolean touchesStorage = event.getRawSlots().stream().anyMatch(slot -> slot >= 0 && slot < unlockedSlots);
+        if (touchesStorage && CurrencyDetector.isCurrency(event.getOldCursor())) {
+            event.setCancelled(true);
+            plugin.getMessages().sendDeny(player, "deny.chest.currency-rejected", Map.of());
             return;
         }
         boolean touchesLocked = event.getRawSlots().stream()
@@ -118,7 +149,29 @@ public final class ClanChestMenu implements Listener {
         ItemStack[] full = inventory.getContents();
         ItemStack[] toPersist = new ItemStack[full.length];
         System.arraycopy(full, 0, toPersist, 0, unlockedSlots); // footer/locked heads are never persisted
+        returnStrayCoins(toPersist);
         plugin.getClanManager().saveChestContentsAsync(clan.id(), toPersist);
         plugin.getClanManager().unlockItemChest(clan.id());
+    }
+
+    /**
+     * Safety net for coins that got in anyway (stored before the ban, or through a path the click guard cannot see):
+     * they are taken out before saving and handed back to the player, so money never ends up inside the item blob.
+     */
+    private void returnStrayCoins(ItemStack[] contents) {
+        boolean returned = false;
+        for (int i = 0; i < contents.length; i++) {
+            ItemStack stack = contents[i];
+            if (stack != null && CurrencyDetector.isCurrency(stack)) {
+                contents[i] = null;
+                if (!player.getInventory().addItem(stack).isEmpty()) {
+                    player.getWorld().dropItemNaturally(player.getLocation(), stack);
+                }
+                returned = true;
+            }
+        }
+        if (returned) {
+            plugin.getMessages().send(player, "chest.coins-returned");
+        }
     }
 }
