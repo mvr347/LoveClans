@@ -109,7 +109,7 @@ public final class ClanMemberDetailMenu {
     private org.bukkit.inventory.ItemStack inactiveItem(String nameKey, String reasonKey, Player player) {
         return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                 .name(plugin.getMessages().component(nameKey, player))
-                .lore(plugin.getMessages().component(reasonKey, player))
+                .lore(plugin.getMessages().reason(reasonKey, player))
                 .build();
     }
 

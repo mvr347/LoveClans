@@ -149,7 +149,7 @@ public final class ClanUpgradesMenu {
                 ), player));
 
         if (locked) {
-            builder.lore(plugin.getMessages().component("gui.upgrades.perks.locked.lore",
+            builder.lore(plugin.getMessages().reason("gui.upgrades.perks.locked.lore",
                     Map.of("level", String.valueOf(unlockLevel)), player));
         } else {
             builder.lore(plugin.getMessages().component("gui.upgrades.perk-button.open", player));

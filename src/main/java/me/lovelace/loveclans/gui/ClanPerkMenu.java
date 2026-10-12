@@ -81,7 +81,7 @@ public final class ClanPerkMenu {
                             perkLorePlaceholders(perk), player));
 
             if (locked) {
-                builder.lore(plugin.getMessages().component("gui.upgrades.perks.locked.lore",
+                builder.lore(plugin.getMessages().reason("gui.upgrades.perks.locked.lore",
                         Map.of("level", String.valueOf(unlockLevel)), player));
             } else if (active) {
                 builder.lore(plugin.getMessages().component("gui.upgrades.perks.active", player)).glow(true);

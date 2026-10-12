@@ -101,6 +101,7 @@ public final class ClanRecognitionService {
                             plugin.getMessages().send(member, "recognition.success", Map.of("tag", clan.tag(), "color", clan.tagColor()));
                         }
                     }
+                    plugin.getSoundService().playClan(clan, "recognition");
                 } finally {
                     inProgress.remove(clan.id());
                 }

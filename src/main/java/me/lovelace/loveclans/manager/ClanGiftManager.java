@@ -98,6 +98,8 @@ public final class ClanGiftManager {
             plugin.getClanManager().getOnlineMembersWithPermission(to, ClanPermission.DIPLOMACY)
                     .forEach(p -> plugin.getMessages().send(p, "clan.gift.received",
                             Map.of("tag", from.tag(), "color", from.tagColor(), "amount", String.valueOf(amount))));
+            plugin.getSoundService().playClan(from, "gift-sent");
+            plugin.getSoundService().playClan(to, "gift-received");
         }));
     }
 }

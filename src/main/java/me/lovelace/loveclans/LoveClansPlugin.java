@@ -235,6 +235,15 @@ public final class LoveClansPlugin extends JavaPlugin {
                     }
                 }, 20L * 15L, 20L * 60L * 10L);
 
+                // Щиты гильдии истекают лениво; раз в 30 секунд сообщаем клану, что щит спал.
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        modifierManager.checkShieldExpiry();
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.WARNING, "Guild shield expiry check failed", t);
+                    }
+                }, 20L * 30L, 20L * 30L);
+
                 // Территории без advancedClaimId (заведены до того, как LoveClaims стал
                 // обязательным для клановых территорий) — довести до нормального состояния,
                 // если ядро сейчас доступно. Не влияет на территории с уже проставленным

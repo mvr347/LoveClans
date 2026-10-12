@@ -1178,12 +1178,12 @@ public final class WarManager {
         onlineMembers(attacker).forEach(player -> {
             plugin.getMessages().sendTitle(player, "war.start.attacker-title", "war.start.attacker-subtitle",
                     Map.of("tag", defender.tag(), "color", defender.tagColor()));
-            plugin.getMessages().playSound(player, Sound.ITEM_GOAT_HORN_SOUND_0, 1f, 1f);
+            plugin.getSoundService().play(player, "war-declared-attacker");
         });
         onlineMembers(defender).forEach(player -> {
             plugin.getMessages().sendTitle(player, "war.start.defender-title", "war.start.defender-subtitle",
                     Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
-            plugin.getMessages().playSound(player, Sound.ENTITY_ENDER_DRAGON_GROWL, 1f, 1.4f);
+            plugin.getSoundService().play(player, "war-declared-defender");
         });
     }
 

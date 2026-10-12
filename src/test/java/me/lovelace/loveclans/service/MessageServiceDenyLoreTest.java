@@ -11,4 +11,10 @@ class MessageServiceDenyLoreTest {
         assertEquals("<red>Недостаточно прав", MessageService.stripPrefixTag("<prefix><red>Недостаточно прав"));
         assertFalse(MessageService.stripPrefixTag(" <prefix>текст ").contains("prefix"));
     }
+
+    @Test
+    void reasonLineStartsWithARedCrossAndHasNoPrefix() {
+        String template = MessageService.reasonTemplate("<prefix><dark_gray>Нужны права");
+        assertEquals("<red>✘</red> <dark_gray>Нужны права", template);
+    }
 }

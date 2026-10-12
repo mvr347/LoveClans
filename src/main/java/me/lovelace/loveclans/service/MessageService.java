@@ -211,6 +211,20 @@ public final class MessageService {
         return template.replace("<prefix>", "").trim();
     }
 
+    /** "✘ reason" template for the first lore line of a greyed-out button: red cross, then the reason text. */
+    static String reasonTemplate(String template) {
+        return "<red>✘</red> " + stripPrefixTag(template);
+    }
+
+    /** Single reason line for a disabled button. Same look as {@link #denyLore}, for lang keys that hold one plain sentence. */
+    public Component reason(String key, Map<String, String> placeholders, Player player) {
+        return parse(reasonTemplate(lang.getString(key, key)), placeholders, player);
+    }
+
+    public Component reason(String key, Player player) {
+        return reason(key, Map.of(), player);
+    }
+
     public List<Component> denyLore(String key, Map<String, String> placeholders, Player player) {
         // Read the template untouched: raw() already substitutes <prefix>, which left "[LoveClans]" in item lore.
         String rawText = lang.getString(key, key);

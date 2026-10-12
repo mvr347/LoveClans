@@ -18,6 +18,8 @@ public final class ModifierManager {
 
     // clanId -> list of active modifiers
     private final Map<UUID, List<ClanModifier>> modifiers = new ConcurrentHashMap<>();
+    /** Clans whose Guild Shield is up, so the moment it runs out can be announced (expiry itself is lazy). */
+    private final java.util.Set<UUID> shieldWatch = ConcurrentHashMap.newKeySet();
 
     public ModifierManager(LoveClansPlugin plugin, ClanStorage storage) {
         this.plugin = plugin;
@@ -34,6 +36,9 @@ public final class ModifierManager {
                     continue;
                 }
                 modifiers.computeIfAbsent(mod.clanId(), k -> new CopyOnWriteArrayList<>()).add(mod);
+                if (ClanModifier.TYPE_GUILD_SHIELD.equals(mod.type())) {
+                    shieldWatch.add(mod.clanId());
+                }
             }
         });
     }
@@ -117,7 +122,23 @@ public final class ModifierManager {
                 .orElse(0L);
     }
 
+    /** Announces (sound + message) every clan whose Guild Shield has run out since the last call. */
+    public void checkShieldExpiry() {
+        for (UUID clanId : java.util.List.copyOf(shieldWatch)) {
+            if (hasGuildShield(clanId)) continue;
+            shieldWatch.remove(clanId);
+            plugin.getClanManager().getClanById(clanId).ifPresent(clan -> {
+                for (UUID memberId : clan.members().keySet()) {
+                    org.bukkit.entity.Player member = org.bukkit.Bukkit.getPlayer(memberId);
+                    if (member != null) plugin.getMessages().send(member, "diplomacy.guild-shield.expired");
+                }
+                plugin.getSoundService().playClan(clan, "guild-shield-off");
+            });
+        }
+    }
+
     public void grantGuildShield(UUID clanId, long hours) {
+        shieldWatch.add(clanId);
         long now = System.currentTimeMillis();
         long endsAt = now + hours * 3600_000L;
         getModifiers(clanId).stream()
