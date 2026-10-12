@@ -88,6 +88,7 @@ public final class ClanDiplomacyMenu {
                         "relation", tierTitle(tier)
                 ), player))
                 .lore(plugin.getMessages().component(recBadgeKey, player))
+                .lore(publicEffects(player, sourceClan, targetClan))
                 .build());
 
         inventory.setItem(SLOT_STATE, buildStateItem(player, sourceClan, targetClan, tier));
@@ -104,6 +105,34 @@ public final class ClanDiplomacyMenu {
                 .build());
 
         player.openInventory(inventory);
+    }
+
+    /** Shields, sanctions and running conflicts of the target that the viewer should know before acting. */
+    private List<Component> publicEffects(Player player, Clan sourceClan, Clan targetClan) {
+        var mods = plugin.getModifierManager();
+        var diplomacy = plugin.getDiplomacyManager();
+        var entries = me.lovelace.loveclans.manager.diplomacy.PublicModifiers.of(
+                new me.lovelace.loveclans.manager.diplomacy.PublicModifiers.Snapshot(
+                        plugin.getWarManager().areAtWar(sourceClan.id(), targetClan.id()),
+                        plugin.getSiegeManager().areInSiege(sourceClan.id(), targetClan.id()),
+                        plugin.getRaidManager().areInRaid(sourceClan.id(), targetClan.id()),
+                        mods.hasGuildShield(targetClan.id()) ? mods.getGuildShieldRemaining(targetClan.id()) / 1000L : 0L,
+                        mods.hasPostRaidShield(targetClan.id()) ? mods.getPostRaidShieldRemaining(targetClan.id()) / 1000L : 0L,
+                        diplomacy.isEmbargoed(sourceClan.id(), targetClan.id()),
+                        diplomacy.isEmbargoed(targetClan.id(), sourceClan.id()),
+                        diplomacy.isBlockading(sourceClan.id(), targetClan.id()),
+                        diplomacy.isBlockading(targetClan.id(), sourceClan.id()),
+                        true));
+        List<Component> lines = new ArrayList<>();
+        if (!entries.isEmpty()) {
+            lines.add(Component.empty());
+            lines.add(plugin.getMessages().component("gui.diplomacy.public.title", player));
+            for (var entry : entries) {
+                lines.add(plugin.getMessages().component(entry.kind().langKey(),
+                        Map.of("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(entry.seconds() * 1000L)), player));
+            }
+        }
+        return lines;
     }
 
     private String tierTitle(DiplomacyTier tier) {
@@ -758,7 +787,7 @@ public final class ClanDiplomacyMenu {
         boolean shielded = plugin.getModifierManager().hasPostRaidShield(targetClan.id());
         Map<String, String> shieldPh = new HashMap<>(tp);
         shieldPh.put("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(
-                shielded ? plugin.getModifierManager().getPostRaidShieldRemaining(targetClan.id()) * 1000L : 0L));
+                shielded ? plugin.getModifierManager().getPostRaidShieldRemaining(targetClan.id()) : 0L));
         b.require("shield", !shielded, shieldPh, "deny.raid.shield-active", shieldPh);
 
         long afk = plugin.getConfig().getLong("raid.afk-ignore-minutes", 15L);

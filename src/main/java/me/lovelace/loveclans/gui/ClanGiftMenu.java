@@ -31,6 +31,30 @@ public final class ClanGiftMenu implements InventoryHolder {
         this.targetClan = targetClan;
     }
 
+    private List<Long> presets() {
+        List<Long> presets = plugin.getConfig().getLongList("clans.gifts.presets");
+        return presets.isEmpty() ? List.of(1000L, 5000L, 10000L, 50000L) : presets;
+    }
+
+    private long maxAmount() {
+        return plugin.getConfig().getLong("clans.gifts.max-amount", 100_000L);
+    }
+
+    private long cooldownSeconds() {
+        return plugin.getClanGiftManager().getCooldownRemaining(sourceClan.id(), targetClan.id());
+    }
+
+    /** Same limits the server applies, as a menu-side check: a deny key from {@code deny.gift.*} or {@code null}. */
+    private String giftDeny(long amount) {
+        return me.lovelace.loveclans.manager.GiftRules.deny(plugin.getConfig().getBoolean("clans.gifts.enabled", true),
+                amount, maxAmount(), cooldownSeconds(), sourceClan.chestMoney());
+    }
+
+    private Map<String, String> denyPlaceholders() {
+        return Map.of("max", String.valueOf(maxAmount()),
+                "time", me.lovelace.loveclans.util.TimeUtil.formatDuration(cooldownSeconds() * 1000L));
+    }
+
     public void open() {
         this.inventory = Bukkit.createInventory(this, 27,
                 plugin.getMessages().component("gui.diplomacy.gift.title",
@@ -42,21 +66,23 @@ public final class ClanGiftMenu implements InventoryHolder {
                 .name(plugin.getMessages().component("gui.diplomacy.gift.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.gift.lore", player))
                 .lore(plugin.getMessages().component("gui.chest.money.balance.lore", Map.of("amount", String.valueOf(sourceClan.chestMoney())), player))
+                .lore(plugin.getMessages().components("gui.diplomacy.gift.limits", Map.of(
+                        "max", String.valueOf(maxAmount()),
+                        "cooldown", me.lovelace.loveclans.util.TimeUtil.formatDuration(
+                                plugin.getConfig().getLong("clans.gifts.cooldown-seconds", 3600L) * 1000L)), player))
                 .build());
 
-        List<Long> presets = plugin.getConfig().getLongList("clans.gifts.presets");
-        if (presets.isEmpty()) {
-            presets = List.of(1000L, 5000L, 10000L, 50000L);
-        }
+        List<Long> presets = presets();
 
         for (int i = 0; i < PRESET_SLOTS.length && i < presets.size(); i++) {
             long amt = presets.get(i);
-            boolean affordable = sourceClan.chestMoney() >= amt;
-            ItemBuilder b = ItemBuilder.head(affordable ? ItemBuilder.HEAD_CHEST_MONEY : ItemBuilder.HEAD_INACTIVE)
+            String deny = giftDeny(amt);
+            ItemBuilder b = ItemBuilder.head(deny == null ? ItemBuilder.HEAD_CHEST_MONEY : ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.diplomacy.gift.preset-name", Map.of("amount", String.valueOf(amt)), player))
                     .lore(plugin.getMessages().component("gui.diplomacy.gift.preset-lore", Map.of("amount", String.valueOf(amt)), player));
-            if (!affordable) {
-                b.lore(plugin.getMessages().component("gift.insufficient-funds", player));
+            if (deny != null) {
+                b.lore(Component.empty());
+                b.lore(plugin.getMessages().denyLore(deny, denyPlaceholders(), player));
             }
             inventory.setItem(PRESET_SLOTS[i], b.build());
         }
@@ -86,16 +112,14 @@ public final class ClanGiftMenu implements InventoryHolder {
             return;
         }
 
-        List<Long> presets = plugin.getConfig().getLongList("clans.gifts.presets");
-        if (presets.isEmpty()) {
-            presets = List.of(1000L, 5000L, 10000L, 50000L);
-        }
+        List<Long> presets = presets();
 
         for (int i = 0; i < PRESET_SLOTS.length && i < presets.size(); i++) {
             if (slot == PRESET_SLOTS[i]) {
                 long amount = presets.get(i);
-                if (sourceClan.chestMoney() < amount) {
-                    plugin.getMessages().send(clicker, "gift.insufficient-funds");
+                String deny = giftDeny(amount);
+                if (deny != null) {
+                    plugin.getMessages().sendDeny(clicker, deny, denyPlaceholders());
                     return;
                 }
                 promptConfirm(amount);
@@ -117,11 +141,14 @@ public final class ClanGiftMenu implements InventoryHolder {
                         plugin.getMessages().send(clicker, "general.invalid-number");
                         return;
                     }
-                    if (sourceClan.chestMoney() < amount) {
-                        plugin.getMessages().send(clicker, "gift.insufficient-funds");
-                        return;
-                    }
-                    plugin.runSync(() -> promptConfirm(amount));
+                    plugin.runSync(() -> {
+                        String deny = giftDeny(amount);
+                        if (deny != null) {
+                            plugin.getMessages().sendDeny(clicker, deny, denyPlaceholders());
+                            return;
+                        }
+                        promptConfirm(amount);
+                    });
                 } catch (NumberFormatException e) {
                     plugin.getMessages().send(clicker, "general.invalid-number");
                 }

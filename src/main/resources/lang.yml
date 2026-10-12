@@ -40,6 +40,10 @@ deny:
 
   gift:
     sender-not-recognized: "<prefix><white>Дары может отправлять только признанный клан"
+    disabled: "<prefix><red>Дары отключены на сервере"
+    cooldown: "<prefix><red>Дар этому клану уже отправлялся <gray>· <yellow>следующий через <time>"
+    too-large: "<prefix><red>Сумма больше лимита одного дара <gray>· <yellow>максимум <max>"
+    insufficient-funds: "<prefix><red>В казне не хватает средств <gray>· <yellow>пополните казну клана"
 
   war:
     already-at-war: "<prefix><red>Уже идёт война с этим кланом <gray>· <yellow>дождитесь её окончания"
@@ -410,6 +414,7 @@ gift:
   too-large: "сумма слишком большая"
   blocked-by-war: "<prefix><red>Подарки недоступны во время войны."
   cooldown: "дар уже отправлялся недавно"
+  disabled: "дары отключены на сервере"
 
 diplomacy:
   gift:
@@ -1388,11 +1393,26 @@ gui:
       lore: "<gray>Перевести деньги из казны в казну"
       preset-name: "<white>Дар <yellow><amount>"
       preset-lore: "<gray>Сумма: <white><amount>"
+      limits:
+        - "<gray>Лимит одного дара: <white><max>"
+        - "<gray>Пауза между дарами клану: <white><cooldown>"
       custom-name: "<white>Другая сумма"
       custom-lore: "<gray>Нажмите, чтобы ввести сумму в чат"
       prompt-custom: "<prefix><white>Введите сумму дара в чат <gray>(или cancel для отмены):"
       no-permission: "<dark_gray>Недостаточно прав"
       need-recognized: "<dark_gray>Нужно признание клана"
+    public:
+      title: "<white>Публичные эффекты"
+      war: "<red>▼ <gray>Идёт война с вашим кланом"
+      siege: "<red>▼ <gray>Идёт осада вашего клана"
+      raid: "<red>▼ <gray>Идёт набег"
+      guild-shield: "<aqua>■ <gray>Гильдейский щит: <white><time>"
+      post-raid-shield: "<aqua>■ <gray>Щит от набегов: <white><time>"
+      embargo-by-us: "<gold>■ <gray>Вы ввели эмбарго"
+      embargo-on-us: "<gold>■ <gray>Клан ввёл эмбарго против вас"
+      blockade-by-us: "<red>■ <gray>Вы держите блокаду"
+      blockade-on-us: "<red>■ <gray>Клан блокирует вас"
+      unrecognized: "<gray>■ Не признан Гильдией: договоры недоступны"
     unrecognized:
       recognized-badge: "<white>Признанный клан <gray>· договоры и союзы доступны"
       other: "<white>Лагерь <gray>· не признан Гильдией; договоры недоступны"
@@ -1419,10 +1439,10 @@ gui:
       hint: "<gray>ЛКМ - отношения, ПКМ - торговля"
     sort:
       name: "<gold>Сортировка"
-      newest: "Новые"
-      oldest: "Старые"
-      influence: "Мощь"
-      members: "Число игроков"
+      relation: "По отношениям"
+      tag: "По тегу"
+      online: "По онлайну"
+      influence: "По мощи"
     filter:
       name: "<gold>Фильтр"
       all: "Все"
