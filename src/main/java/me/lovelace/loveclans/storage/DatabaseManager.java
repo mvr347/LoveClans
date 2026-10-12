@@ -196,6 +196,15 @@ public final class DatabaseManager implements AutoCloseable {
             addColumnIfMissing(connection, statement, "clans", "home_location", "TEXT");
             addColumnIfMissing(connection, statement, "clans", "spirit_ability", "VARCHAR(32)");
             addColumnIfMissing(connection, statement, "clans", "spirit_ability_chosen_at", "BIGINT NOT NULL DEFAULT 0");
+            // Power + Mastery spirit (2026-10-12): old spirit_level/spirit_energy become Power, Mastery starts neutral.
+            addColumnIfMissing(connection, statement, "clans", "spirit_mastery", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "spirit_mastery_day", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "spirit_mastery_off", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "spirit_mastery_def", "INT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "spirit_activity", "DOUBLE NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "spirit_activity_at", "BIGINT NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "spirit_loss_progress", "DOUBLE NOT NULL DEFAULT 0");
+            addColumnIfMissing(connection, statement, "clans", "spirit_loss_notice", "BIGINT NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, statement, "clans", "wars_won", "INT NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, statement, "clans", "wars_lost", "INT NOT NULL DEFAULT 0");
             addColumnIfMissing(connection, statement, "clans", "sieges_won", "INT NOT NULL DEFAULT 0");

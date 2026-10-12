@@ -454,32 +454,91 @@ perks:
     banner-damage-bonus-percent: 10
     siege-duration-reduction-percent: 25
 
+# 2026-10-12: звуки событий. Играются только онлайн-участникам клана, не всему серверу.
+# sound — имя звука Bukkit (например ENTITY_PLAYER_LEVELUP); enabled: false отключает все.
+sounds:
+  enabled: true
+  spirit-level-up: { sound: ENTITY_PLAYER_LEVELUP, volume: 1.0, pitch: 1.0 }
+  spirit-power-loss: { sound: BLOCK_BELL_USE, volume: 0.8, pitch: 0.7 }
+
 mechanics:
   afk:
     threshold-seconds: 120
   spirit:
     enabled: true
     tick-seconds: 15
-    # Радиуса у ауры духа нет: баффы действуют на территории клана целиком
-    # (SpiritManager определяет зону через getClanAt, а не через расстояние).
-    buffs:
-      1:
-        - "SPEED:0"
-      5:
-        - "SPEED:1"
-        - "HASTE:0"
-      10:
-        - "SPEED:1"
-        - "HASTE:1"
-        - "RESISTANCE:0"
-      15:
-        - "SPEED:2"
-        - "HASTE:1"
-        - "RESISTANCE:0"
-      20:
-        - "SPEED:2"
-        - "HASTE:2"
-        - "RESISTANCE:1"
+    # 2026-10-12: Дух переделан. Вместо лестницы из 10 бонусов и способностей — две оси:
+    #   Сила (уровень 0-10, копится от активности клана, тает без неё) и
+    #   Владение (-100 оборона .. +100 нападение, меняется ТОЛЬКО действиями).
+    # Бонусы дают обе оси вместе и действуют только в PvP против других кланов.
+    power:
+      claim-exp: 120          # захват территории, раз в сутки на клан
+      kill-exp: 18            # убийство чужака на своей земле
+      kills-per-hour: 8       # потолок убийств в час, иначе это ферма
+      participation-exp: 40   # за каждого участника войны/осады/набега
+      participation-cap: 6    # считаются максимум 6 человек, чтобы массовая свалка не была фермой
+    # Активность — копящийся счёт с периодом полураспада window-hours/2. От него зависит, насколько быстро
+    # тает бездействующий дух. 0.05 за тик (15 с) = 12 очков в час онлайн: час в день даёт ~17 (средняя),
+    # три часа в день ~50 (высокая).
+    activity:
+      window-hours: 48
+      points:
+        online-tick: 0.05
+        kill: 3
+        claim: 10
+        conflict: 15
+    mastery:
+      # Потолок в сутки на каждую сторону: за один вечер ось не раскрутить одним действием.
+      daily-cap:
+        offense: 15
+        defense: 15
+      gains:
+        kill: 2                    # убийство игрока другого клана (не союзника)
+        war-win-attacker: 6
+        siege-win-attacker: 8
+        raid-win-attacker: 8
+        war-defended: 6
+        siege-defended: 8
+        raid-defended: 8
+        damage-taken: 1            # очков обороны...
+        damage-taken-per-point: 20 # ...за каждые 20 единиц урона от другого клана на своей земле
+    # Ступень = min(ceil(Сила/2), |Владение|/20), 0..5. Бонус открывается на unlock-step и растёт линейно
+    # на per-step с каждой следующей ступенью: 5 -> 10 -> 15 -> 20 -> 25.
+    bonuses:
+      pressure:    { unlock-step: 1, per-step: 5 }    # % урона по игрокам других кланов
+      bloodlust:   { unlock-step: 2, per-step: 3 }    # % нанесённого урона возвращается здоровьем
+      pursuit:     { unlock-step: 3, per-step: 1 }    # секунд Скорости I после удара (раз в 10 с)
+      intimidate:  { unlock-step: 4, per-step: 10 }   # % шанс Слабости на 3 с
+      fortitude:   { unlock-step: 1, per-step: 5 }    # % меньше получаемого урона
+      roots:       { unlock-step: 2, per-step: 0.5 }  # сердец лечения за цикл на своей земле
+      retribution: { unlock-step: 3, per-step: 5 }    # % урона возвращается врагу на своей земле
+      unyielding:  { unlock-step: 4, per-step: 25 }   # % сопротивления отбрасыванию на своей земле
+    # Перегиб: ось у предела полностью даёт бонус своей стороны, но противоположная сторона платит.
+    overload:
+      threshold: 90
+      extra-incoming-percent: 10   # перегиб нападения: столько % урона получает дополнительно
+      reduced-outgoing-percent: 10 # перегиб обороны: столько % урона теряет
+    # Проценты и шансы ниже — В СУТКИ; проверка идёт раз в check-interval-hours и берёт долю суток, поэтому
+    # частота таймера на итог не влияет. Сила падает не броском кубика, а накоплением: power-loss — это
+    # доля уровня в сутки, при достижении 1.0 (и нулевой энергии) дух теряет уровень.
+    decay:
+      check-interval-hours: 1
+      none-after-days: 3          # столько дней никто из клана не заходил — уровень «нет»
+      min-power-level: 0
+      notify-on-power-loss: true  # сообщение клану не чаще раза в сутки и только при реальной потере
+      mastery-drift-per-day: 5    # в простое ось возвращается к нулю на столько очков в сутки
+      tiers:
+        high:   { min-score: 50, energy-percent: 1,  power-loss: 0 }
+        medium: { min-score: 15, energy-percent: 6,  power-loss: 0 }
+        low:    { min-score: 1,  energy-percent: 12, power-loss: 0.15 }
+        none:   { min-score: 0,  energy-percent: 20, power-loss: 0.4 }
+    # Поражение в войне или осаде отнимает Силу; набег Силу не трогает. Сильный дух (от soft-min-power),
+    # проигравший почти вничью (отрыв до close-margin), теряет лишь close-loss.
+    defeat:
+      base-loss: 2
+      close-loss: 1
+      soft-min-power: 8
+      close-margin: 0.2
   rituals:
     # 2026-10-05: ритуалы отключены по решению владельца сервера («пока отключи ритуалы и голосования»).
     # false — /clan ritual отвечает «временно отключено», новые ритуалы не запускаются и фоновая

@@ -34,7 +34,6 @@ import me.lovelace.loveclans.gui.ClanMenuType;
 import me.lovelace.loveclans.gui.ClanRankPermissionsMenu;
 import me.lovelace.loveclans.gui.ClanRoleSettingsMenu;
 import me.lovelace.loveclans.gui.ClanSettingsMenu;
-import me.lovelace.loveclans.gui.ClanSpiritAbilityMenu;
 import me.lovelace.loveclans.gui.ClanSpiritMenu;
 import me.lovelace.loveclans.gui.ClanTerritoriesMenu;
 import me.lovelace.loveclans.gui.ClanTradeMenu;
@@ -395,13 +394,6 @@ public class GuiManager implements Listener {
             return;
         }
 
-        if (holder instanceof ClanSpiritAbilityMenu spiritAbilityMenu) {
-            if (isOwnInventoryClick(event)) return;
-            event.setCancelled(true);
-            spiritAbilityMenu.handleInventoryClick(player, event.getRawSlot());
-            return;
-        }
-
         if (holder instanceof ClanConflictMenu conflictMenu) {
             if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
@@ -551,7 +543,6 @@ public class GuiManager implements Listener {
                 || holder instanceof ClanMainMenu
                 || holder instanceof ClanCapitalManagementMenu
                 || holder instanceof ClanSpiritMenu
-                || holder instanceof ClanSpiritAbilityMenu
                 || holder instanceof ClanConflictMenu
                 || holder instanceof ClanGiftMenu) {
             int topSize = event.getView().getTopInventory().getSize();

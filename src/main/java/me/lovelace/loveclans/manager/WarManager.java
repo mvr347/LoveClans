@@ -382,6 +382,13 @@ public final class WarManager {
     }
 
     /** Server-wide result announcement; the prize of a war is the tribute (ModifierManager), not treasury loot. */
+    /** 0 when the scores are level, 1 when one side has everything: |a - d| / max(a, d). */
+    private static double scoreMargin(ClanWar war) {
+        int high = Math.max(war.attackerScore(), war.defenderScore());
+        if (high <= 0) return 0.0;
+        return Math.abs(war.attackerScore() - war.defenderScore()) / (double) high;
+    }
+
     private void announceResult(ClanWar war, WarResult result) {
         if (result != WarResult.ATTACKER_WIN && result != WarResult.DEFENDER_WIN) return;
         Optional<WarClans> clans = resolveWarClans(war);
@@ -435,7 +442,7 @@ public final class WarManager {
                 lastControlAward.remove(war.id());
                 archiveWar(war, result);
                 me.lovelace.loveclans.activity.ConflictEvents.resolved(plugin, me.lovelace.loveclans.model.history.ConflictKind.WAR,
-                        war.id(), war.attackerClanId(), war.defenderClanId(), outcomeOf(result));
+                        war.id(), war.attackerClanId(), war.defenderClanId(), outcomeOf(result), scoreMargin(war));
 
                 announceResult(war, result);
 

@@ -19,7 +19,6 @@ import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.model.trade.ClanTrade;
 import me.lovelace.loveclans.model.trade.ClanTradeDelivery;
 import me.lovelace.loveclans.model.trade.TradeStatus;
-import me.lovelace.loveclans.model.spirit.SpiritAbility;
 import org.bukkit.Bukkit; // Import Bukkit for World access
 import org.bukkit.Location; // Import Location
 import org.bukkit.Material;
@@ -72,38 +71,35 @@ public final class SqlClanStorage implements ClanStorage {
                         if (emblem == null) {
                             emblem = Material.WHITE_BANNER;
                         }
-                        long onlineTimeWeekly = 0L;
                         long lastDecayCheck = System.currentTimeMillis();
+                        int mastery = 0;
+                        long masteryDay = 0L;
+                        int masteryOffenseToday = 0;
+                        int masteryDefenseToday = 0;
+                        double activityScore = 0.0;
+                        long activityAt = System.currentTimeMillis();
+                        double lossProgress = 0.0;
+                        long lastLossNotice = 0L;
                         try {
-                            onlineTimeWeekly = result.getLong("spirit_online_time");
                             lastDecayCheck = result.getLong("spirit_last_decay");
-                        } catch (SQLException ignored) {}
-                        me.lovelace.loveclans.model.spirit.SpiritAbility spiritAbility = null;
-                        try {
-                            String rawAbility = result.getString("spirit_ability");
-                            if (rawAbility != null) {
-                                spiritAbility = me.lovelace.loveclans.model.spirit.SpiritAbility.valueOf(rawAbility);
-                            }
+                            mastery = result.getInt("spirit_mastery");
+                            masteryDay = result.getLong("spirit_mastery_day");
+                            masteryOffenseToday = result.getInt("spirit_mastery_off");
+                            masteryDefenseToday = result.getInt("spirit_mastery_def");
+                            activityScore = result.getDouble("spirit_activity");
+                            activityAt = result.getLong("spirit_activity_at");
+                            lossProgress = result.getDouble("spirit_loss_progress");
+                            lastLossNotice = result.getLong("spirit_loss_notice");
                         } catch (SQLException ignored) {
-                            // Колонки может не быть на старой схеме — способность просто не выбрана.
-                        } catch (IllegalArgumentException exception) {
-                            // А вот неизвестное значение в колонке — это уже испорченные данные:
-                            // способность клана тихо пропадала, и понять почему было нельзя.
-                            database.logger().log(Level.WARNING,
-                                "Неизвестная способность духа в базе — клан загружен без неё", exception);
+                            // Старая схема без колонок Владения — клан стартует с нейтральным духом.
                         }
-                        long abilityChosenAt = 0L;
-                        try {
-                            abilityChosenAt = result.getLong("spirit_ability_chosen_at");
-                        } catch (SQLException ignored) {}
                         ClanSpirit spirit = new ClanSpirit(
                                 result.getInt("spirit_level"),
                                 result.getLong("spirit_energy"),
                                 result.getLong("spirit_awakened_until"),
-                                onlineTimeWeekly,
                                 lastDecayCheck,
-                                spiritAbility,
-                                abilityChosenAt
+                                mastery, masteryDay, masteryOffenseToday, masteryDefenseToday,
+                                activityScore, activityAt, lossProgress, lastLossNotice
                         );
                         boolean isOpen = result.getInt("is_open") == 1;
                         int upgradePoints = 0;
@@ -475,26 +471,6 @@ public final class SqlClanStorage implements ClanStorage {
                 statement.executeUpdate();
             } catch (SQLException exception) {
                 throw new StorageException("Unable to update home location for clan " + clanId, exception);
-            }
-        }, database.executor());
-    }
-
-    @Override
-    public CompletableFuture<Void> updateClanSpiritAbility(UUID clanId, SpiritAbility ability, long chosenAt) {
-        return CompletableFuture.runAsync(() -> {
-            try (Connection connection = database.dataSource().getConnection();
-                 PreparedStatement statement = connection.prepareStatement(
-                         "UPDATE clans SET spirit_ability = ?, spirit_ability_chosen_at = ? WHERE id = ?")) {
-                if (ability == null) {
-                    statement.setNull(1, Types.VARCHAR);
-                } else {
-                    statement.setString(1, ability.name());
-                }
-                statement.setLong(2, chosenAt);
-                statement.setString(3, clanId.toString());
-                statement.executeUpdate();
-            } catch (SQLException exception) {
-                throw new StorageException("Unable to update spirit ability for clan " + clanId, exception);
             }
         }, database.executor());
     }
@@ -1412,8 +1388,9 @@ public final class SqlClanStorage implements ClanStorage {
         String[] columns = {
                 "name", "tag", "tag_color", "description", "emblem_material",
                 "level", "experience", "upgrade_points", "chest_rows", "spirit_level", "spirit_energy",
-                "spirit_awakened_until", "spirit_online_time", "spirit_last_decay", "spirit_ability",
-                "spirit_ability_chosen_at", "created_at", "is_open", "home_location",
+                "spirit_awakened_until", "spirit_last_decay", "spirit_mastery", "spirit_mastery_day", "spirit_mastery_off",
+                "spirit_mastery_def", "spirit_activity", "spirit_activity_at", "spirit_loss_progress", "spirit_loss_notice",
+                "created_at", "is_open", "home_location",
                 "is_recognized", "unpaid_tax_since", "server_trade_stacks", "server_trade_week", "id"
         };
         String sql = upsertSql("clans", new String[]{"id"}, columns);
@@ -1431,14 +1408,15 @@ public final class SqlClanStorage implements ClanStorage {
             statement.setInt(paramIndex++, clan.spirit().level());
             statement.setLong(paramIndex++, clan.spirit().energy());
             statement.setLong(paramIndex++, clan.spirit().awakenedUntil());
-            statement.setLong(paramIndex++, clan.spirit().onlineTimeWeekly());
             statement.setLong(paramIndex++, clan.spirit().lastDecayCheck());
-            if (clan.spirit().ability() == null) {
-                statement.setNull(paramIndex++, Types.VARCHAR);
-            } else {
-                statement.setString(paramIndex++, clan.spirit().ability().name());
-            }
-            statement.setLong(paramIndex++, clan.spirit().abilityChosenAt());
+            statement.setInt(paramIndex++, clan.spirit().mastery());
+            statement.setLong(paramIndex++, clan.spirit().masteryDay());
+            statement.setInt(paramIndex++, clan.spirit().masteryOffenseToday());
+            statement.setInt(paramIndex++, clan.spirit().masteryDefenseToday());
+            statement.setDouble(paramIndex++, clan.spirit().activityScore());
+            statement.setLong(paramIndex++, clan.spirit().activityAt());
+            statement.setDouble(paramIndex++, clan.spirit().lossProgress());
+            statement.setLong(paramIndex++, clan.spirit().lastLossNotice());
             statement.setLong(paramIndex++, clan.createdAt());
             statement.setInt(paramIndex++, clan.isOpen() ? 1 : 0);
             String serializedHomeLocation = serializeLocation(clan.getHomeLocation().orElse(null));

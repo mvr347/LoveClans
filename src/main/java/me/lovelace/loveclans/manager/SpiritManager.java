@@ -2,113 +2,491 @@ package me.lovelace.loveclans.manager;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.api.events.ClanClaimEvent;
+import me.lovelace.loveclans.api.events.ClanConflictResolvedEvent;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
-import me.lovelace.loveclans.model.ClanTerritory;
-import me.lovelace.loveclans.model.spirit.SpiritAbility;
+import me.lovelace.loveclans.model.ClanSpirit;
+import me.lovelace.loveclans.model.DiplomacyRelation;
+import me.lovelace.loveclans.model.history.ConflictKind;
+import me.lovelace.loveclans.model.spirit.DefeatPowerLoss;
+import me.lovelace.loveclans.model.spirit.MasteryLedger;
+import me.lovelace.loveclans.model.spirit.SpiritBonus;
+import me.lovelace.loveclans.model.spirit.SpiritBonusFormula;
+import me.lovelace.loveclans.model.spirit.SpiritBonusFormula.Side;
+import me.lovelace.loveclans.model.spirit.SpiritDecayPolicy;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.attribute.AttributeModifier;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerExpChangeEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitTask;
-import org.bukkit.util.BoundingBox;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
+/**
+ * The clan spirit: Power (levels 0-10, fed by activity, fading when the clan is idle) and Mastery (-100 defence ..
+ * +100 offence, moved only by actions). Bonuses need both and apply only in PvP against other clans. All maths lives in
+ * the pure classes of {@code model.spirit}; this class wires them to events, config and storage.
+ */
 public final class SpiritManager implements Listener {
+    private static final int MAX_POWER = 10;
+    private static final long DAY_MS = 24L * 60L * 60L * 1000L;
+    private static final String KNOCKBACK_KEY = "clans_spirit_kb";
+    private static final String LEGACY_PREFIX = "clans_spirit_";
+
     private final LoveClansPlugin plugin;
+    private final SpiritSettings settings;
     private BukkitTask task;
     private BukkitTask decayTask;
-    private static final String SPEED_MODIFIER_NAME = "clans_spirit_speed";
 
     private final Map<UUID, Long> lastClaimExp = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> hourlyKills = new ConcurrentHashMap<>();
     private final Map<UUID, Long> lastKillReset = new ConcurrentHashMap<>();
-    private final Map<UUID, Long> phoenixAttackerSlow = new ConcurrentHashMap<>();
-
-    private static final String BERSERKER_ATTACK_SPEED_KEY = "clans_spirit_berserker_atkspd";
-    private static final String SANCTUARY_ARMOR_BASE_KEY = "clans_spirit_sanctuary_armor_base";
-    private static final String SANCTUARY_ARMOR_BONUS_KEY = "clans_spirit_sanctuary_armor_bonus";
-    private static final String PHOENIX_HEARTS_KEY = "clans_spirit_phoenix_hearts";
-    private static final String PHOENIX_SPEED_KEY = "clans_spirit_phoenix_speed";
-    private static final String PHOENIX_ATTACKER_SLOW_KEY = "clans_spirit_phoenix_attacker_slow";
+    private final Map<UUID, Long> pursuitReadyAt = new ConcurrentHashMap<>();
+    private final Map<UUID, Double> damageTaken = new ConcurrentHashMap<>();
 
     public SpiritManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
+        this.settings = new SpiritSettings(plugin::getConfig);
+    }
+
+    public SpiritSettings settings() {
+        return settings;
     }
 
     public void start() {
         if (!plugin.getConfig().getBoolean("mechanics.spirit.enabled", true)) {
             return;
         }
-        long period = 20L * Math.max(1, plugin.getConfig().getInt("mechanics.spirit.tick-seconds", 6));
+        for (Player online : Bukkit.getOnlinePlayers()) {
+            removeLegacyModifiers(online);
+        }
+        long period = 20L * settings.tickSeconds();
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, period, period);
-        decayTask = Bukkit.getScheduler().runTaskTimer(plugin, this::decayCheck, 20L * 60L * 60L, 20L * 60L * 60L);
+        long decayPeriod = Math.max(20L * 60L, Math.round(settings.decayIntervalHours() * 72_000L));
+        decayTask = Bukkit.getScheduler().runTaskTimer(plugin, this::decayCheck, decayPeriod, decayPeriod);
+    }
+
+    public void stop() {
+        if (task != null) task.cancel();
+        if (decayTask != null) decayTask.cancel();
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            setKnockback(player, 0.0);
+        }
     }
 
     public void purgeClan(UUID clanId) {
         lastClaimExp.remove(clanId);
         hourlyKills.remove(clanId);
         lastKillReset.remove(clanId);
+        damageTaken.remove(clanId);
     }
 
-    public void stop() {
-        if (task != null) {
-            task.cancel();
-        }
-        if (decayTask != null) {
-            decayTask.cancel();
-        }
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            removeSpeedAttribute(player);
-            clearAbilityEffects(player);
-        }
+    // --- Power ---
+
+    /** Experience needed to leave {@code level}; level 0 costs the same as level 1 so a drained spirit can recover. */
+    public long getExpForNextLevel(int level) {
+        return Math.max(1, level) * 3000L;
     }
 
     public void addSpiritExperience(Clan clan, long amount, String reason) {
         int currentLevel = clan.spirit().level();
-
-        if (currentLevel >= 10) return;
+        if (currentLevel >= MAX_POWER || amount <= 0) return;
 
         long newExp = clan.spirit().energy() + amount;
         int newLevel = currentLevel;
-
-        while (newLevel < 10 && newExp >= getExpForNextLevel(newLevel)) {
+        while (newLevel < MAX_POWER && newExp >= getExpForNextLevel(newLevel)) {
             newExp -= getExpForNextLevel(newLevel);
             newLevel++;
-            plugin.getLogger().info("Clan " + clan.tag() + " spirit leveled up to " + newLevel + "!");
-            int finalLevel = newLevel;
+            plugin.getLogger().info("Clan " + clan.tag() + " spirit power rose to " + newLevel + "!");
+        }
+        if (newLevel >= MAX_POWER) newExp = 0L;
+        boolean leveled = newLevel > currentLevel;
+
+        clan.setSpirit(clan.spirit().withLevel(newLevel).withEnergy(newExp));
+        if (leveled) {
+            notifyLevelChange(clan, newLevel, true);
+            plugin.getSoundService().playClan(clan, "spirit-level-up");
+        }
+        plugin.getClanManager().updateClanAsync(clan).thenRun(() -> logHistory(clan.id(), reason, amount));
+    }
+
+    private void notifyLevelChange(Clan clan, int level, boolean increased) {
+        for (UUID memberId : clan.members().keySet()) {
+            Player p = Bukkit.getPlayer(memberId);
+            if (p != null) {
+                plugin.getMessages().sendClickableSpiritLevelChange(p, level, increased);
+            }
+        }
+    }
+
+    // --- Activity (drives how fast an idle spirit fades) ---
+
+    public void recordActivity(Clan clan, double points) {
+        if (points <= 0) return;
+        long now = System.currentTimeMillis();
+        ClanSpirit spirit = clan.spirit();
+        double decayed = SpiritDecayPolicy.decayedScore(spirit.activityScore(), spirit.activityAt(), now, settings.activityHalfLifeHours());
+        clan.setSpirit(spirit.withActivity(decayed + points, now));
+    }
+
+    /** Current activity score with the decay since the last event applied. */
+    public double activityScore(Clan clan) {
+        ClanSpirit spirit = clan.spirit();
+        return SpiritDecayPolicy.decayedScore(spirit.activityScore(), spirit.activityAt(), System.currentTimeMillis(), settings.activityHalfLifeHours());
+    }
+
+    public SpiritDecayPolicy.Tier activityTier(Clan clan) {
+        return SpiritDecayPolicy.tier(activityScore(clan), isIdle(clan, System.currentTimeMillis()), settings.decay());
+    }
+
+    private boolean isIdle(Clan clan, long now) {
+        long window = settings.noneAfterDays() * DAY_MS;
+        for (ClanMember member : clan.members().values()) {
+            if (Bukkit.getPlayer(member.playerId()) != null || now - member.lastSeen() <= window) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // --- Mastery ---
+
+    /** Positive = offence, negative = defence; capped per side per day. */
+    public void addMastery(Clan clan, int delta, String reason) {
+        if (delta == 0) return;
+        MasteryLedger.State before = clan.spirit().masteryState();
+        MasteryLedger.State after = MasteryLedger.apply(before, delta, today(), settings.masteryCaps());
+        if (after.equals(before)) return;
+        clan.setSpirit(clan.spirit().withMastery(after));
+        plugin.getClanManager().updateClanAsync(clan).thenRun(() -> logHistory(clan.id(), reason, after.mastery() - before.mastery()));
+    }
+
+    private static long today() {
+        return LocalDate.now(ZoneOffset.UTC).toEpochDay();
+    }
+
+    // --- Bonuses ---
+
+    public int bonusStep(Clan clan) {
+        return SpiritBonusFormula.step(clan.spirit().level(), clan.spirit().mastery());
+    }
+
+    public Side side(Clan clan) {
+        return SpiritBonusFormula.side(clan.spirit().mastery());
+    }
+
+    public boolean overloaded(Clan clan) {
+        return SpiritBonusFormula.overloaded(clan.spirit().mastery(), settings.overloadThreshold());
+    }
+
+    /** Value of a bonus for this clan right now: 0 when it belongs to the other side or is still locked. */
+    public double bonusValue(Clan clan, SpiritBonus bonus) {
+        if (bonus.side() != side(clan)) return 0.0;
+        return settings.value(bonus, bonusStep(clan));
+    }
+
+    private boolean onOwnLand(Player player, Clan clan) {
+        Optional<Clan> at = plugin.getClanManager().getClanAt(player.getLocation());
+        return at.isPresent() && at.get().id().equals(clan.id());
+    }
+
+    private void tick() {
+        double onlinePoints = settings.activityPoints("online-tick", 0.05);
+        for (Clan clan : plugin.getClanManager().getAllClans()) {
             for (UUID memberId : clan.members().keySet()) {
-                Player p = Bukkit.getPlayer(memberId);
-                if (p != null) {
-                    plugin.getMessages().sendClickableSpiritLevelChange(p, finalLevel, true);
+                if (Bukkit.getPlayer(memberId) != null && !plugin.getAfkManager().isAfk(memberId)) {
+                    recordActivity(clan, onlinePoints);
+                    break;
                 }
             }
         }
-
-        clan.setSpirit(clan.spirit().withLevel(newLevel).addEnergy(newExp - clan.spirit().energy()));
-        plugin.getClanManager().updateClanAsync(clan).thenRun(() -> {
-            logHistory(clan.id(), reason, amount);
-        });
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            Optional<Clan> clanOpt = plugin.getClanManager().getPlayerClan(player.getUniqueId());
+            if (clanOpt.isEmpty()) {
+                setKnockback(player, 0.0);
+                continue;
+            }
+            Clan clan = clanOpt.get();
+            boolean own = onOwnLand(player, clan);
+            double roots = own ? bonusValue(clan, SpiritBonus.ROOTS) : 0.0;
+            if (roots > 0 && player.getHealth() > 0) {
+                double max = player.getAttribute(Attribute.MAX_HEALTH) == null ? 20.0 : player.getAttribute(Attribute.MAX_HEALTH).getValue();
+                if (player.getHealth() < max) {
+                    player.setHealth(Math.min(max, player.getHealth() + roots * 2.0));
+                }
+            }
+            setKnockback(player, own ? bonusValue(clan, SpiritBonus.UNYIELDING) / 100.0 : 0.0);
+        }
     }
+
+    // --- PvP bonuses ---
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPvp(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Player victim)) return;
+        Player attacker = attackerOf(event.getDamager());
+        if (attacker == null || attacker.getUniqueId().equals(victim.getUniqueId())) return;
+
+        Optional<Clan> attackerClanOpt = plugin.getClanManager().getPlayerClan(attacker.getUniqueId());
+        Optional<Clan> victimClanOpt = plugin.getClanManager().getPlayerClan(victim.getUniqueId());
+        if (attackerClanOpt.isEmpty() || victimClanOpt.isEmpty()) return;
+        Clan attackerClan = attackerClanOpt.get();
+        Clan victimClan = victimClanOpt.get();
+        if (attackerClan.id().equals(victimClan.id())) return;
+
+        double damage = event.getDamage();
+        boolean victimOnOwnLand = onOwnLand(victim, victimClan);
+
+        // Attacking side
+        damage *= 1.0 + bonusValue(attackerClan, SpiritBonus.PRESSURE) / 100.0;
+        if (overloaded(attackerClan) && side(attackerClan) == Side.DEFENSE) {
+            damage *= 1.0 - settings.overloadOutgoingPercent() / 100.0;
+        }
+        // Defending side
+        damage *= 1.0 - bonusValue(victimClan, SpiritBonus.FORTITUDE) / 100.0;
+        if (overloaded(victimClan) && side(victimClan) == Side.OFFENSE) {
+            damage *= 1.0 + settings.overloadIncomingPercent() / 100.0;
+        }
+        damage = Math.max(0.0, damage);
+        event.setDamage(damage);
+
+        double bloodlust = bonusValue(attackerClan, SpiritBonus.BLOODLUST);
+        if (bloodlust > 0) {
+            double max = attacker.getAttribute(Attribute.MAX_HEALTH) == null ? 20.0 : attacker.getAttribute(Attribute.MAX_HEALTH).getValue();
+            attacker.setHealth(Math.min(max, attacker.getHealth() + damage * bloodlust / 100.0));
+        }
+        double pursuit = bonusValue(attackerClan, SpiritBonus.PURSUIT);
+        long now = System.currentTimeMillis();
+        if (pursuit > 0 && now >= pursuitReadyAt.getOrDefault(attacker.getUniqueId(), 0L)) {
+            attacker.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, (int) Math.round(pursuit * 20), 0, true, false, false));
+            pursuitReadyAt.put(attacker.getUniqueId(), now + 10_000L);
+        }
+        double intimidate = bonusValue(attackerClan, SpiritBonus.INTIMIDATE);
+        if (intimidate > 0 && Math.random() * 100.0 < intimidate) {
+            victim.addPotionEffect(new PotionEffect(PotionEffectType.WEAKNESS, 60, 0, true, false, false));
+        }
+
+        if (victimOnOwnLand) {
+            double reflect = bonusValue(victimClan, SpiritBonus.RETRIBUTION);
+            if (reflect > 0) {
+                attacker.damage(damage * reflect / 100.0);
+            }
+            double perPoint = settings.damageTakenPerMasteryPoint();
+            double total = damageTaken.merge(victimClan.id(), damage, Double::sum);
+            int points = (int) (total / perPoint);
+            if (points > 0) {
+                damageTaken.put(victimClan.id(), total - points * perPoint);
+                addMastery(victimClan, -points * settings.masteryGain("damage-taken", 1), "Владение: урон на своей земле");
+            }
+        }
+    }
+
+    private static Player attackerOf(Entity damager) {
+        if (damager instanceof Player player) return player;
+        if (damager instanceof Projectile projectile && projectile.getShooter() instanceof Player shooter) return shooter;
+        return null;
+    }
+
+    // --- Power / mastery sources ---
+
+    @EventHandler
+    public void onClanClaim(ClanClaimEvent event) {
+        long now = System.currentTimeMillis();
+        Clan clan = event.clan();
+        Long last = lastClaimExp.get(clan.id());
+        if (last == null || now - last > DAY_MS) {
+            lastClaimExp.put(clan.id(), now);
+            addSpiritExperience(clan, settings.claimExp(), "Захват территории");
+            recordActivity(clan, settings.activityPoints("claim", 10));
+        }
+    }
+
+    @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player victim = event.getEntity();
+        Player killer = victim.getKiller();
+        if (killer == null) return;
+
+        Optional<Clan> killerClanOpt = plugin.getClanManager().getPlayerClan(killer.getUniqueId());
+        Optional<Clan> victimClanOpt = plugin.getClanManager().getPlayerClan(victim.getUniqueId());
+        if (killerClanOpt.isEmpty() || victimClanOpt.isEmpty() || killerClanOpt.get().id().equals(victimClanOpt.get().id())) {
+            return;
+        }
+        Clan killerClan = killerClanOpt.get();
+        Clan victimClan = victimClanOpt.get();
+        if (killerClan.relationTo(victimClan.id()) == DiplomacyRelation.ALLY) return;
+
+        recordActivity(killerClan, settings.activityPoints("kill", 3));
+        addMastery(killerClan, settings.masteryGain("kill", 2), "Владение: убийство врага");
+
+        if (onOwnLand(killer, killerClan)) {
+            long now = System.currentTimeMillis();
+            long lastReset = lastKillReset.getOrDefault(killerClan.id(), 0L);
+            if (now - lastReset > 60L * 60L * 1000L) {
+                hourlyKills.put(killerClan.id(), 0);
+                lastKillReset.put(killerClan.id(), now);
+            }
+            int kills = hourlyKills.getOrDefault(killerClan.id(), 0);
+            if (kills < settings.killsPerHour()) {
+                hourlyKills.put(killerClan.id(), kills + 1);
+                addSpiritExperience(killerClan, settings.killExp(), "Защита территории (убийство)");
+            }
+        }
+    }
+
+    @EventHandler
+    public void onConflictResolved(ClanConflictResolvedEvent event) {
+        // Everyone who took part feeds their clan's spirit, up to a cap so a mass brawl is not a farm.
+        Map<UUID, Integer> perClan = new HashMap<>();
+        event.participants().values().forEach(clanId -> perClan.merge(clanId, 1, Integer::sum));
+        perClan.forEach((clanId, count) -> plugin.getClanManager().getClanById(clanId).ifPresent(clan -> {
+            int counted = Math.min(count, settings.participationCap());
+            addSpiritExperience(clan, settings.participationExp() * counted, "Участие в конфликте");
+            recordActivity(clan, settings.activityPoints("conflict", 15));
+        }));
+
+        UUID winnerId = event.winnerClanId();
+        UUID loserId = event.loserClanId();
+        if (winnerId == null || loserId == null) return;
+        String kind = event.kind().name().toLowerCase(java.util.Locale.ROOT);
+        boolean attackerWon = winnerId.equals(event.attackerClanId());
+        plugin.getClanManager().getClanById(winnerId).ifPresent(winner -> {
+            if (attackerWon) {
+                addMastery(winner, settings.masteryGain(kind + "-win-attacker", defaultOffenceGain(event.kind())), "Владение: победа в нападении");
+            } else {
+                addMastery(winner, -settings.masteryGain(kind + "-defended", defaultOffenceGain(event.kind())), "Владение: отражённое нападение");
+            }
+        });
+        if (event.kind() != ConflictKind.RAID) {
+            plugin.getClanManager().getClanById(loserId).ifPresent(loser -> applyDefeat(loser, event.margin()));
+        }
+    }
+
+    private static int defaultOffenceGain(ConflictKind kind) {
+        return kind == ConflictKind.WAR ? 6 : 8;
+    }
+
+    private void applyDefeat(Clan loser, double margin) {
+        int power = loser.spirit().level();
+        int loss = DefeatPowerLoss.compute(power, margin, settings.defeat());
+        if (loss <= 0) return;
+        int newLevel = Math.max(settings.decay().minPowerLevel(), power - loss);
+        if (newLevel == power) return;
+        long energyCap = Math.max(0L, getExpForNextLevel(newLevel) - 1L);
+        loser.setSpirit(loser.spirit().withLevel(newLevel).withEnergy(Math.min(loser.spirit().energy(), energyCap)));
+        notifyLevelChange(loser, newLevel, false);
+        plugin.getSoundService().playClan(loser, "spirit-power-loss");
+        plugin.getClanManager().updateClanAsync(loser).thenRun(() -> logHistory(loser.id(), "Поражение: потеря Силы", -loss));
+    }
+
+    // --- Decay ---
+
+    private void decayCheck() {
+        long now = System.currentTimeMillis();
+        SpiritDecayPolicy.Config cfg = settings.decay();
+        long today = today();
+        for (Clan clan : plugin.getClanManager().getAllClans()) {
+            ClanSpirit spirit = clan.spirit();
+            if (spirit.activityAt() == 0L) {
+                // First run after the upgrade: start at the "medium" line so nobody is punished for a missing history.
+                clan.setSpirit(spirit.withActivity(cfg.medium().minScore(), now).withLastDecayCheck(now));
+                plugin.getClanManager().updateClanAsync(clan);
+                continue;
+            }
+            // A long server downtime must not burn the spirit: at most one day of decay per check.
+            double hours = Math.min(24.0, Math.max(0.0, (now - spirit.lastDecayCheck()) / 3_600_000.0));
+            double score = SpiritDecayPolicy.decayedScore(spirit.activityScore(), spirit.activityAt(), now, settings.activityHalfLifeHours());
+            SpiritDecayPolicy.Tier tier = SpiritDecayPolicy.tier(score, isIdle(clan, now), cfg);
+            boolean newDay = spirit.masteryDay() != today;
+
+            SpiritDecayPolicy.Result result = SpiritDecayPolicy.apply(
+                    new SpiritDecayPolicy.State(spirit.level(), spirit.energy(), spirit.lossProgress(), spirit.mastery()),
+                    tier, hours, newDay, cfg, this::getExpForNextLevel);
+            ClanSpirit updated = spirit.withDecay(result.state()).withActivity(score, now).withLastDecayCheck(now);
+            if (newDay) {
+                updated = updated.withMastery(new MasteryLedger.State(updated.mastery(), today, 0, 0));
+            }
+            boolean notify = result.levelLost() && settings.notifyOnPowerLoss() && now - spirit.lastLossNotice() > DAY_MS;
+            if (notify) {
+                updated = updated.withLastLossNotice(now);
+            }
+            clan.setSpirit(updated);
+            if (result.levelLost()) {
+                int level = updated.level();
+                if (notify) notifyLevelChange(clan, level, false);
+                plugin.getSoundService().playClan(clan, "spirit-power-loss");
+                logHistory(clan.id(), "Упадок: потеря Силы", -1);
+            }
+            plugin.getClanManager().updateClanAsync(clan);
+        }
+    }
+
+    // --- Player modifiers ---
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event) {
+        removeLegacyModifiers(event.getPlayer());
+    }
+
+    private void setKnockback(Player player, double amount) {
+        AttributeInstance attribute = player.getAttribute(Attribute.KNOCKBACK_RESISTANCE);
+        if (attribute == null) return;
+        NamespacedKey key = new NamespacedKey(plugin, KNOCKBACK_KEY);
+        AttributeModifier current = null;
+        for (AttributeModifier modifier : attribute.getModifiers()) {
+            if (modifier.getKey().equals(key)) current = modifier;
+        }
+        if (current != null) {
+            if (amount > 0 && Math.abs(current.getAmount() - amount) < 1e-9) return;
+            attribute.removeModifier(current);
+        }
+        if (amount > 0) {
+            attribute.addModifier(new AttributeModifier(key, amount, AttributeModifier.Operation.ADD_NUMBER));
+        }
+    }
+
+    /**
+     * The old level ladder and abilities stored their attribute modifiers on the player; they outlive the plugin code
+     * that applied them, so strip every {@code clans_spirit_*} modifier except the knockback one still in use.
+     */
+    private void removeLegacyModifiers(Player player) {
+        for (Attribute attribute : new Attribute[]{Attribute.MOVEMENT_SPEED, Attribute.ATTACK_SPEED, Attribute.ARMOR, Attribute.MAX_HEALTH}) {
+            AttributeInstance instance = player.getAttribute(attribute);
+            if (instance == null) continue;
+            for (AttributeModifier modifier : java.util.List.copyOf(instance.getModifiers())) {
+                NamespacedKey key = modifier.getKey();
+                if (key.getNamespace().equals(plugin.getName().toLowerCase(java.util.Locale.ROOT))
+                        && key.getKey().startsWith(LEGACY_PREFIX) && !key.getKey().equals(KNOCKBACK_KEY)) {
+                    instance.removeModifier(modifier);
+                }
+            }
+        }
+    }
+
+    // --- History ---
 
     private void logHistory(UUID clanId, String action, long amount) {
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
@@ -133,418 +511,15 @@ public final class SpiritManager implements Listener {
         });
     }
 
-    // Tripled from `level * 1000L` at the owner's request (2026-09-23): spirit levels should be
-    // 3x harder to earn than before. Both the actual level-up check (addSpiritExperience above)
-    // and the GUI progress display (ClanSpiritMenu) read this same method, so they stay in sync.
-    public long getExpForNextLevel(int level) {
-        return level * 3000L;
-    }
-
-    private void tick() {
-        for (Clan clan : plugin.getClanManager().getAllClans()) {
-            int onlineCount = 0;
-            for (UUID memberId : clan.members().keySet()) {
-                if (Bukkit.getPlayer(memberId) != null && !plugin.getAfkManager().isAfk(memberId)) {
-                    onlineCount++;
-                }
-            }
-
-            if (onlineCount > 0) {
-                long newOnlineTime = clan.spirit().onlineTimeWeekly() + 6000L;
-                clan.setSpirit(clan.spirit().withOnlineTimeWeekly(newOnlineTime));
-
-                int effectivePlayers = Math.min(6, onlineCount);
-                double expPerTick = (12.0 / 600.0) * effectivePlayers;
-                if (Math.random() < expPerTick) {
-                    addSpiritExperience(clan, 1, "Онлайн: " + effectivePlayers + " игр.");
-                }
-            }
+    /** For the GUI: every bonus of the clan's current side with its value now and at the next step. */
+    public Map<SpiritBonus, double[]> bonusPreview(Clan clan) {
+        Map<SpiritBonus, double[]> result = new EnumMap<>(SpiritBonus.class);
+        Side side = side(clan);
+        int step = bonusStep(clan);
+        for (SpiritBonus bonus : SpiritBonus.of(side == Side.NONE ? Side.OFFENSE : side)) {
+            result.put(bonus, new double[]{settings.value(bonus, side == Side.NONE ? 0 : step),
+                    settings.value(bonus, Math.min(SpiritBonusFormula.MAX_STEP, (side == Side.NONE ? 0 : step) + 1))});
         }
-
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            Long slowExpiry = phoenixAttackerSlow.get(player.getUniqueId());
-            if (slowExpiry != null && System.currentTimeMillis() >= slowExpiry) {
-                setOrRemoveModifier(player, Attribute.ATTACK_SPEED, PHOENIX_ATTACKER_SLOW_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
-                phoenixAttackerSlow.remove(player.getUniqueId());
-            }
-
-            Optional<Clan> playerClan = plugin.getClanManager().getPlayerClan(player.getUniqueId());
-            if (playerClan.isEmpty()) {
-                removeSpeedAttribute(player);
-                continue;
-            }
-
-            Clan clan = playerClan.get();
-            int spiritLevel = clan.spirit().level();
-
-            if (spiritLevel >= 10 && clan.spirit().ability() != null) {
-                applyAbilityPassives(player, clan, clan.spirit().ability());
-            } else {
-                clearAbilityEffects(player);
-            }
-
-            if (spiritLevel < 1) {
-                removeSpeedAttribute(player);
-                continue;
-            }
-
-            Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(player.getLocation());
-            boolean onOwnTerritory = territoryClan.isPresent() && territoryClan.get().id().equals(clan.id());
-            boolean invalidWorld = player.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL;
-
-            if (!onOwnTerritory || invalidWorld) {
-                removeSpeedAttribute(player);
-                continue;
-            }
-
-            double multiplier = spiritLevel >= 9 ? 1.2 : 1.0;
-
-            applySpeedAttribute(player, 0.05 * multiplier);
-
-            if (spiritLevel >= 4) {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, 160, 0, true, false, false));
-            }
-
-            if (spiritLevel >= 6) {
-                AttributeInstance maxHealthAttribute = player.getAttribute(Attribute.MAX_HEALTH);
-                if (maxHealthAttribute != null) {
-                    double currentHealth = player.getHealth();
-                    double maxHealth = maxHealthAttribute.getValue();
-                    if (currentHealth < maxHealth) {
-                        player.setHealth(Math.min(maxHealth, currentHealth + 1.0));
-                    }
-                }
-            }
-        }
-    }
-
-    private void applyAbilityPassives(Player player, Clan clan, SpiritAbility ability) {
-        AttributeInstance maxHealthAttribute = player.getAttribute(Attribute.MAX_HEALTH);
-        double maxHealth = maxHealthAttribute != null ? maxHealthAttribute.getValue() : 20.0;
-        double healthPercent = (player.getHealth() / maxHealth) * 100.0;
-
-        switch (ability) {
-            case BERSERKER -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 140, 0, true, false, false));
-
-                if (healthPercent < 50.0) {
-                    double missingPercent = 50.0 - healthPercent;
-                    double bonus = Math.min(20.0, missingPercent * 0.1) / 100.0;
-                    setOrRemoveModifier(player, Attribute.ATTACK_SPEED, BERSERKER_ATTACK_SPEED_KEY, bonus, AttributeModifier.Operation.ADD_SCALAR);
-                } else {
-                    setOrRemoveModifier(player, Attribute.ATTACK_SPEED, BERSERKER_ATTACK_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
-                }
-
-                if (healthPercent < 20.0) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 140, 1, true, false, false));
-                }
-
-                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BASE_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
-                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BONUS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
-                setOrRemoveModifier(player, Attribute.MAX_HEALTH, PHOENIX_HEARTS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
-                setOrRemoveModifier(player, Attribute.MOVEMENT_SPEED, PHOENIX_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
-            }
-            case SANCTUARY -> {
-                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BASE_KEY, 3.0, AttributeModifier.Operation.ADD_NUMBER);
-
-                int resistanceTier = 0;
-                if (healthPercent < 50.0) resistanceTier = 1;
-                if (healthPercent < 35.0) resistanceTier = 2;
-                if (healthPercent < 30.0) resistanceTier = 3;
-                if (healthPercent < 20.0) resistanceTier = 4;
-                if (resistanceTier > 0) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, 140, resistanceTier - 1, true, false, false));
-                }
-
-                double armorBonus = 0.0;
-                if (healthPercent < 30.0) armorBonus = 5.0;
-                if (healthPercent < 20.0) armorBonus = 10.0;
-                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BONUS_KEY, armorBonus, AttributeModifier.Operation.ADD_NUMBER);
-
-                setOrRemoveModifier(player, Attribute.ATTACK_SPEED, BERSERKER_ATTACK_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
-                setOrRemoveModifier(player, Attribute.MAX_HEALTH, PHOENIX_HEARTS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
-                setOrRemoveModifier(player, Attribute.MOVEMENT_SPEED, PHOENIX_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
-            }
-            case PHOENIX -> {
-                player.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, 140, 0, true, false, false));
-
-                boolean atWar = plugin.getWarManager().isAtWar(clan.id());
-                setOrRemoveModifier(player, Attribute.MAX_HEALTH, PHOENIX_HEARTS_KEY, atWar ? 8.0 : 0.0, AttributeModifier.Operation.ADD_NUMBER);
-
-                int regenTier = 0;
-                if (healthPercent < 50.0) regenTier = 1;
-                if (healthPercent < 40.0) regenTier = 2;
-                if (healthPercent < 30.0) regenTier = 3;
-                if (healthPercent < 25.0) regenTier = 4;
-                if (regenTier > 0) {
-                    player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, 140, regenTier - 1, true, false, false));
-                }
-
-                setOrRemoveModifier(player, Attribute.MOVEMENT_SPEED, PHOENIX_SPEED_KEY, healthPercent < 30.0 ? 0.2 : 0.0, AttributeModifier.Operation.ADD_SCALAR);
-
-                setOrRemoveModifier(player, Attribute.ATTACK_SPEED, BERSERKER_ATTACK_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
-                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BASE_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
-                setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BONUS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
-            }
-        }
-    }
-
-    private void clearAbilityEffects(Player player) {
-        setOrRemoveModifier(player, Attribute.ATTACK_SPEED, BERSERKER_ATTACK_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
-        setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BASE_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
-        setOrRemoveModifier(player, Attribute.ARMOR, SANCTUARY_ARMOR_BONUS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
-        setOrRemoveModifier(player, Attribute.MAX_HEALTH, PHOENIX_HEARTS_KEY, 0.0, AttributeModifier.Operation.ADD_NUMBER);
-        setOrRemoveModifier(player, Attribute.MOVEMENT_SPEED, PHOENIX_SPEED_KEY, 0.0, AttributeModifier.Operation.ADD_SCALAR);
-    }
-
-    private void setOrRemoveModifier(Player player, Attribute attribute, String keyName, double amount, AttributeModifier.Operation operation) {
-        AttributeInstance attributeInstance = player.getAttribute(attribute);
-        if (attributeInstance == null) return;
-
-        NamespacedKey key = new NamespacedKey(plugin, keyName);
-        AttributeModifier existing = null;
-        for (AttributeModifier mod : attributeInstance.getModifiers()) {
-            if (mod.getKey().equals(key)) {
-                existing = mod;
-                break;
-            }
-        }
-
-        if (amount == 0.0) {
-            if (existing != null) {
-                attributeInstance.removeModifier(existing);
-            }
-            return;
-        }
-
-        if (existing != null) {
-            if (existing.getAmount() == amount) return;
-            attributeInstance.removeModifier(existing);
-        }
-        attributeInstance.addModifier(new AttributeModifier(key, amount, operation));
-    }
-
-    private void decayCheck() {
-        long now = System.currentTimeMillis();
-        long weekInMillis = 7L * 24L * 60L * 60L * 1000L;
-        long targetOnlineTime = 20L * 60L * 60L * 1000L;
-
-        for (Clan clan : plugin.getClanManager().getAllClans()) {
-            if (now - clan.spirit().lastDecayCheck() > weekInMillis) {
-                long decayAmount = 0;
-                if (clan.spirit().onlineTimeWeekly() < targetOnlineTime) {
-                    long energy = clan.spirit().energy();
-                    decayAmount = (long) (energy * 0.08);
-                }
-
-                if (decayAmount > 0) {
-                    clan.setSpirit(clan.spirit().addEnergy(-decayAmount).withLastDecayCheck(now).withOnlineTimeWeekly(0L));
-                } else {
-                    clan.setSpirit(clan.spirit().withLastDecayCheck(now).withOnlineTimeWeekly(0L));
-                }
-
-                long finalDecayAmount = decayAmount;
-                plugin.getClanManager().updateClanAsync(clan).thenRun(() -> {
-                    if (finalDecayAmount > 0) {
-                        logHistory(clan.id(), "Упадок Духа (-8%)", -finalDecayAmount);
-                    }
-                });
-            }
-        }
-    }
-
-    private void applySpeedAttribute(Player player, double amount) {
-        AttributeInstance attribute = player.getAttribute(Attribute.MOVEMENT_SPEED);
-        if (attribute == null) return;
-
-        NamespacedKey key = new NamespacedKey(plugin, SPEED_MODIFIER_NAME);
-
-        for (AttributeModifier mod : attribute.getModifiers()) {
-            if (mod.getKey().equals(key)) {
-                if (mod.getAmount() == amount) return;
-                attribute.removeModifier(mod);
-                break;
-            }
-        }
-
-        AttributeModifier modifier = new AttributeModifier(key, amount, AttributeModifier.Operation.ADD_SCALAR);
-        attribute.addModifier(modifier);
-    }
-
-    private void removeSpeedAttribute(Player player) {
-        AttributeInstance attribute = player.getAttribute(Attribute.MOVEMENT_SPEED);
-        if (attribute == null) return;
-
-        NamespacedKey key = new NamespacedKey(plugin, SPEED_MODIFIER_NAME);
-
-        for (AttributeModifier mod : attribute.getModifiers()) {
-            if (mod.getKey().equals(key)) {
-                attribute.removeModifier(mod);
-            }
-        }
-    }
-
-    @EventHandler
-    public void onClanClaim(ClanClaimEvent event) {
-        long now = System.currentTimeMillis();
-        long dayInMillis = 24L * 60L * 60L * 1000L;
-        Clan clan = event.clan();
-
-        Long last = lastClaimExp.get(clan.id());
-        if (last == null || now - last > dayInMillis) {
-            lastClaimExp.put(clan.id(), now);
-            addSpiritExperience(clan, 120, "Захват территории");
-        }
-    }
-
-    @EventHandler
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        Player victim = event.getEntity();
-        Player killer = victim.getKiller();
-        if (killer == null) return;
-
-        Optional<Clan> killerClanOpt = plugin.getClanManager().getPlayerClan(killer.getUniqueId());
-        Optional<Clan> victimClanOpt = plugin.getClanManager().getPlayerClan(victim.getUniqueId());
-
-        if (killerClanOpt.isPresent() && victimClanOpt.isPresent() && !killerClanOpt.get().id().equals(victimClanOpt.get().id())) {
-            Clan killerClan = killerClanOpt.get();
-            Optional<Clan> territoryClanOpt = plugin.getClanManager().getClanAt(killer.getLocation());
-
-            if (territoryClanOpt.isPresent() && territoryClanOpt.get().id().equals(killerClan.id())) {
-                long now = System.currentTimeMillis();
-                long hourInMillis = 60L * 60L * 1000L;
-
-                Long lastReset = lastKillReset.getOrDefault(killerClan.id(), 0L);
-                if (now - lastReset > hourInMillis) {
-                    hourlyKills.put(killerClan.id(), 0);
-                    lastKillReset.put(killerClan.id(), now);
-                }
-
-                int kills = hourlyKills.getOrDefault(killerClan.id(), 0);
-                if (kills < 8) {
-                    hourlyKills.put(killerClan.id(), kills + 1);
-                    addSpiritExperience(killerClan, 18, "Защита территории (убийство)");
-                }
-            }
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onExpGain(PlayerExpChangeEvent event) {
-        Player player = event.getPlayer();
-        if (player.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return;
-
-        plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> {
-            if (clan.spirit().level() >= 2) {
-                Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(player.getLocation());
-                if (territoryClan.isPresent() && territoryClan.get().id().equals(clan.id())) {
-                    double multiplier = clan.spirit().level() >= 9 ? 1.2 : 1.0;
-                    double bonus = 0.07 * multiplier;
-                    event.setAmount((int) (event.getAmount() * (1.0 + bonus)));
-                }
-            }
-        });
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player player)) return;
-        if (player.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return;
-
-        plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> {
-            int level = clan.spirit().level();
-            if (level < 8) return;
-
-            Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(player.getLocation());
-            if (territoryClan.isPresent() && territoryClan.get().id().equals(clan.id())) {
-                double multiplier = level >= 9 ? 1.2 : 1.0;
-
-                if (event.getCause() == EntityDamageEvent.DamageCause.BLOCK_EXPLOSION || event.getCause() == EntityDamageEvent.DamageCause.ENTITY_EXPLOSION) {
-                    double reduction = 0.15 * multiplier;
-                    event.setDamage(event.getDamage() * (1.0 - reduction));
-                } else if (event.getCause() == EntityDamageEvent.DamageCause.FALL) {
-                    double reduction = 0.10 * multiplier;
-                    event.setDamage(event.getDamage() * (1.0 - reduction));
-                }
-            }
-        });
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-        if (event.getEntity() instanceof Player victim && !(event.getDamager() instanceof Player)) {
-            if (victim.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return;
-            plugin.getClanManager().getPlayerClan(victim.getUniqueId()).ifPresent(clan -> {
-                int level = clan.spirit().level();
-                if (level >= 3) {
-                    Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(victim.getLocation());
-                    if (territoryClan.isPresent() && territoryClan.get().id().equals(clan.id())) {
-                        double multiplier = level >= 9 ? 1.2 : 1.0;
-                        double reduction = 0.08 * multiplier;
-                        event.setDamage(event.getDamage() * (1.0 - reduction));
-                    }
-                }
-            });
-        }
-
-        if (event.getDamager() instanceof Player attacker) {
-            if (attacker.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return;
-            plugin.getClanManager().getPlayerClan(attacker.getUniqueId()).ifPresent(clan -> {
-                int level = clan.spirit().level();
-
-                Optional<Clan> territoryClanOpt = plugin.getClanManager().getClanAt(attacker.getLocation());
-                if (territoryClanOpt.isEmpty() || !territoryClanOpt.get().id().equals(clan.id())) return;
-
-                double multiplier = level >= 9 ? 1.2 : 1.0;
-
-                if (!(event.getEntity() instanceof Player) && level >= 5) {
-                    double bonus = 0.12 * multiplier;
-                    event.setDamage(event.getDamage() * (1.0 + bonus));
-                }
-
-                if (event.getEntity() instanceof Player victim && level >= 7) {
-                    Optional<Clan> victimClan = plugin.getClanManager().getPlayerClan(victim.getUniqueId());
-                    if (victimClan.isEmpty() || !victimClan.get().id().equals(clan.id())) {
-                        boolean isHome = false;
-                        Optional<ClanTerritory> firstTerritory = clan.territories().stream().findFirst();
-                        if (firstTerritory.isPresent()) {
-                            ClanTerritory home = firstTerritory.get();
-                            if (home.bannerX() != null) {
-                                BoundingBox box = new BoundingBox(home.bannerX() - 12, attacker.getWorld().getMinHeight(), home.bannerZ() - 12, home.bannerX() + 12, attacker.getWorld().getMaxHeight(), home.bannerZ() + 12);
-                                isHome = box.contains(attacker.getLocation().toVector());
-                            } else {
-                                isHome = home.key().chunkX() == attacker.getLocation().getChunk().getX() && home.key().chunkZ() == attacker.getLocation().getChunk().getZ();
-                            }
-                        }
-
-                        if (isHome) {
-                            double bonus = 0.15 * multiplier;
-                            event.setDamage(event.getDamage() * (1.0 + bonus));
-                        }
-                    }
-                }
-            });
-        }
-
-        if (event.getEntity() instanceof Player victim && event.getDamager() instanceof org.bukkit.entity.LivingEntity damager
-                && damager != victim) {
-            if (victim.getWorld().getEnvironment() != org.bukkit.World.Environment.NORMAL) return;
-            plugin.getClanManager().getPlayerClan(victim.getUniqueId()).ifPresent(victimClan -> {
-                if (victimClan.spirit().level() < 10 || victimClan.spirit().ability() != SpiritAbility.PHOENIX) return;
-
-                AttributeInstance maxHealthAttribute = victim.getAttribute(Attribute.MAX_HEALTH);
-                double maxHealth = maxHealthAttribute != null ? maxHealthAttribute.getValue() : 20.0;
-                double healthPercent = (victim.getHealth() / maxHealth) * 100.0;
-
-                if (healthPercent < 50.0) {
-                    damager.setFireTicks(Math.max(damager.getFireTicks(), 100));
-                }
-
-                if (healthPercent < 30.0 && damager instanceof Player attackerPlayer) {
-                    phoenixAttackerSlow.put(attackerPlayer.getUniqueId(), System.currentTimeMillis() + 3000L);
-                    setOrRemoveModifier(attackerPlayer, Attribute.ATTACK_SPEED, PHOENIX_ATTACKER_SLOW_KEY, -0.3, AttributeModifier.Operation.ADD_SCALAR);
-                }
-            });
-        }
+        return result;
     }
 }

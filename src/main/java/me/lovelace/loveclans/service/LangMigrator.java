@@ -26,7 +26,9 @@ public final class LangMigrator {
             // v6: admin raid forcestart texts, dead deny.*.not-in-territory keys removed
             List.of("deny", "admin", "clan.help"),
             // v7: military actions screen rework (gui.conflict.*), deny texts take <max> placeholders
-            List.of("gui", "deny")
+            List.of("gui", "deny"),
+            // v8: spirit rework - Power + Mastery, abilities and the level ladder removed
+            List.of("gui", "spirit")
     );
 
     private LangMigrator() {
