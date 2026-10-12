@@ -338,6 +338,15 @@ public final class Clan {
         return clanPacts != null && clanPacts.contains(type);
     }
 
+    /** Number of clans this clan has an active alliance pact with. */
+    public int allianceCount() {
+        int count = 0;
+        for (Set<PactType> clanPacts : pacts.values()) {
+            if (clanPacts.contains(PactType.ALLIANCE)) count++;
+        }
+        return count;
+    }
+
     public void addPact(UUID targetClanId, PactType type) {
         pacts.computeIfAbsent(targetClanId, k -> ConcurrentHashMap.newKeySet()).add(type);
     }

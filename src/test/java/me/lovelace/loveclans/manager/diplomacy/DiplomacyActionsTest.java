@@ -71,4 +71,46 @@ class DiplomacyActionsTest {
         assertNotNull(DiplomacyActions.denyKey(Action.IMPROVE, ctx(95, true), 0));
         assertNull(DiplomacyActions.denyKey(Action.IMPROVE, ctx(95, false), 0));
     }
+
+    @Test
+    void friendlyClanSeesWarmingButNoPressure() {
+        Context friendly = ctx(70, false);
+        assertTrue(DiplomacyActions.relevant(Action.GIFT, friendly, 0, 10));
+        assertTrue(DiplomacyActions.relevant(Action.TRADE, friendly, 0, 10));
+        assertTrue(DiplomacyActions.relevant(Action.NAP, friendly, -10, 10));
+        assertTrue(DiplomacyActions.relevant(Action.TRADE_PACT, friendly, 20, 10));
+        assertFalse(DiplomacyActions.relevant(Action.EMBARGO, friendly, 0, 10));
+        assertFalse(DiplomacyActions.relevant(Action.BLOCKADE, friendly, 0, 10));
+        assertFalse(DiplomacyActions.relevant(Action.CONFLICT, friendly, 0, 10));
+        assertFalse(DiplomacyActions.relevant(Action.INSULT, friendly, 0, 10));
+    }
+
+    @Test
+    void hostileClanSeesPressureButNoPactsOrGifts() {
+        Context hostile = ctx(-80, false);
+        assertFalse(DiplomacyActions.relevant(Action.GIFT, hostile, 0, 10));
+        assertFalse(DiplomacyActions.relevant(Action.TRADE, hostile, 0, 10));
+        assertFalse(DiplomacyActions.relevant(Action.NAP, hostile, -10, 10));
+        assertFalse(DiplomacyActions.relevant(Action.ALLIANCE, hostile, 90, 10));
+        assertTrue(DiplomacyActions.relevant(Action.EMBARGO, hostile, 0, 10));
+        assertTrue(DiplomacyActions.relevant(Action.BLOCKADE, hostile, 0, 10));
+        assertTrue(DiplomacyActions.relevant(Action.CONFLICT, hostile, 0, 10));
+        assertTrue(DiplomacyActions.relevant(Action.INSULT, hostile, 0, 10));
+        assertTrue(DiplomacyActions.relevant(Action.IMPROVE, hostile, 0, 10));
+    }
+
+    @Test
+    void pactOfferStaysVisibleWithinHintMargin() {
+        assertTrue(DiplomacyActions.relevant(Action.TRADE_PACT, ctx(12, false), 20, 10), "8 points short is a visible goal");
+        assertFalse(DiplomacyActions.relevant(Action.TRADE_PACT, ctx(5, false), 20, 10));
+        assertFalse(DiplomacyActions.relevant(Action.ALLIANCE, ctx(60, false), 90, 10));
+    }
+
+    @Test
+    void allianceHidesImproveAndInsult() {
+        Context allied = withPacts(95, false, false, true);
+        assertFalse(DiplomacyActions.relevant(Action.IMPROVE, allied, 0, 10));
+        assertFalse(DiplomacyActions.relevant(Action.INSULT, allied, 0, 10));
+        assertFalse(DiplomacyActions.relevant(Action.CONFLICT, allied, 0, 10));
+    }
 }

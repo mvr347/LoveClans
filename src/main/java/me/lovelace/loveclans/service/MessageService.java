@@ -206,10 +206,16 @@ public final class MessageService {
         player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 0.7f, 0.8f);
     }
 
+    /** Item lore is not a chat line, so the leading {@code <prefix>} chat tag must never reach it. */
+    static String stripPrefixTag(String template) {
+        return template.replace("<prefix>", "").trim();
+    }
+
     public List<Component> denyLore(String key, Map<String, String> placeholders, Player player) {
-        String rawText = raw(key);
-        if (rawText == null || rawText.isBlank()) return List.of();
-        String withoutPrefix = rawText.replace("<prefix>", "").trim();
+        // Read the template untouched: raw() already substitutes <prefix>, which left "[LoveClans]" in item lore.
+        String rawText = lang.getString(key, key);
+        if (rawText.isBlank()) return List.of();
+        String withoutPrefix = stripPrefixTag(rawText);
         String[] parts = withoutPrefix.split("<gray>·</gray>|<gray>·");
         List<Component> components = new ArrayList<>();
         for (String part : parts) {

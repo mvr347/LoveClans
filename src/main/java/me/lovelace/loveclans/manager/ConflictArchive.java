@@ -28,6 +28,10 @@ public final class ConflictArchive {
     private final LoveClansPlugin plugin;
     /** Свежесть заслуг по кланам: влияние считается синхронно, ходить в базу оттуда нельзя. */
     private final Map<UUID, Double> freshness = new ConcurrentHashMap<>();
+    /** Same for losses: an old defeat must fade like an old victory, otherwise it hangs on a clan forever. */
+    private final Map<UUID, Double> lossFreshness = new ConcurrentHashMap<>();
+    /** Wins and losses inside the decay window, {@code [wins, losses]}: the "recent form" of the influence formula. */
+    private final Map<UUID, int[]> recentForm = new ConcurrentHashMap<>();
 
     public ConflictArchive(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -74,11 +78,26 @@ public final class ConflictArchive {
         return cached == null ? 1.0 : cached;
     }
 
+    public double lossFreshnessOf(UUID clanId) {
+        if (clanId == null) return 1.0;
+        Double cached = lossFreshness.get(clanId);
+        return cached == null ? 1.0 : cached;
+    }
+
+    /** {@code [recentWins, recentLosses]} within {@code history.influence-decay-days}; zeros until the first refresh. */
+    public int[] recentFormOf(UUID clanId) {
+        int[] cached = clanId == null ? null : recentForm.get(clanId);
+        return cached == null ? new int[]{0, 0} : cached.clone();
+    }
+
     /** Пересчитывает свежесть заслуг клана по архиву и кладёт в кэш. */
     public CompletableFuture<Double> refreshFreshnessAsync(UUID clanId) {
         int decayDays = plugin.getConfig().getInt("history.influence-decay-days", 30);
         if (clanId == null || decayDays <= 0) {
-            if (clanId != null) freshness.put(clanId, 1.0);
+            if (clanId != null) {
+                freshness.put(clanId, 1.0);
+                lossFreshness.put(clanId, 1.0);
+            }
             return CompletableFuture.completedFuture(1.0);
         }
 
@@ -86,7 +105,14 @@ public final class ConflictArchive {
         long cutoff = System.currentTimeMillis() - decayDays * 86_400_000L;
 
         return historyOf(clanId, FRESHNESS_SCAN_LIMIT).thenApply(records -> {
+            long totalLosses = records.stream().filter(record -> record.lostBy(clanId)).count();
+            long recentLosses = records.stream()
+                    .filter(record -> record.lostBy(clanId) && record.endedAt() >= cutoff).count();
+            lossFreshness.put(clanId, totalLosses == 0 ? 1.0 : Math.max(floor, (double) recentLosses / totalLosses));
             long total = records.stream().filter(record -> record.wonBy(clanId)).count();
+            recentForm.put(clanId, new int[]{
+                    (int) records.stream().filter(record -> record.wonBy(clanId) && record.endedAt() >= cutoff).count(),
+                    (int) recentLosses});
             if (total == 0) {
                 freshness.put(clanId, 1.0);
                 return 1.0;
@@ -101,7 +127,11 @@ public final class ConflictArchive {
     }
 
     public void forget(UUID clanId) {
-        if (clanId != null) freshness.remove(clanId);
+        if (clanId != null) {
+            freshness.remove(clanId);
+            lossFreshness.remove(clanId);
+            recentForm.remove(clanId);
+        }
     }
 
     public CompletableFuture<List<ConflictRecord>> historyOf(UUID clanId, int limit) {

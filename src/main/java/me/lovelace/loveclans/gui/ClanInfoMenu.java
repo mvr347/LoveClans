@@ -107,6 +107,7 @@ public final class ClanInfoMenu implements InventoryHolder {
                         Map.of("tag", clan.tag(), "color", clan.tagColor(), "name", clan.name()), player))
                 .lore(plugin.getMessages().component("gui.info.level", Map.of("level", String.valueOf(clan.level())), player))
                 .lore(plugin.getMessages().component("gui.info.influence", Map.of("influence", String.valueOf(clan.influence())), player))
+                .lore(influenceBreakdown(player))
                 .lore(plugin.getMessages().component("gui.info.members",
                         Map.of("current", String.valueOf(totalMemberCount),
                                 "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player))
@@ -284,5 +285,15 @@ public final class ClanInfoMenu implements InventoryHolder {
     @Override
     public Inventory getInventory() {
         return inventory;
+    }
+
+    /** What the power consists of: the base, the battle record, the recent-form and active-share multipliers. */
+    private net.kyori.adventure.text.Component influenceBreakdown(Player player) {
+        var parts = plugin.getClanManager().influenceBreakdown(clan);
+        return plugin.getMessages().component("gui.info.influence-breakdown", Map.of(
+                "base", String.valueOf(parts.base()),
+                "battle", String.valueOf(parts.battle()),
+                "form", String.format(java.util.Locale.ROOT, "%.2f", parts.form()),
+                "share", String.format(java.util.Locale.ROOT, "%.2f", parts.activeShare())), player);
     }
 }

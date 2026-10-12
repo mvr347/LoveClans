@@ -64,6 +64,28 @@ public final class GuiFrames {
         };
     }
 
+    /**
+     * Content buttons centered in one row of a larger menu (side walls stay empty): {@code rowStart} is the first slot of
+     * the row, 1 -> center, 2 -> {3, 5}, 3 -> {2, 4, 6}, 4 -> {1, 3, 5, 7}, 5 -> {1, 2, 4, 6, 7}... capped at 7 buttons.
+     */
+    public static int[] contentRowSlots(int rowStart, int count) {
+        int[] offsets = switch (count) {
+            case 0 -> new int[0];
+            case 1 -> new int[]{4};
+            case 2 -> new int[]{3, 5};
+            case 3 -> new int[]{2, 4, 6};
+            case 4 -> new int[]{1, 3, 5, 7};
+            case 5 -> new int[]{1, 2, 4, 6, 7};
+            case 6 -> new int[]{1, 2, 3, 5, 6, 7};
+            default -> new int[]{1, 2, 3, 4, 5, 6, 7};
+        };
+        int[] slots = new int[offsets.length];
+        for (int i = 0; i < offsets.length; i++) {
+            slots[i] = rowStart + offsets[i];
+        }
+        return slots;
+    }
+
     public static ItemStack glassPane() {
         return ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build();
     }

@@ -14,6 +14,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -110,23 +111,37 @@ public final class ClanSpiritMenu implements InventoryHolder {
             }
             info.lore(plugin.getMessages().component("gui.spirit.info.how", player));
 
-            // Текущее активное благословение
-            if (buffLevel != null) {
-                info.lore(Component.empty());
-                info.lore(plugin.getMessages().component("gui.spirit.info.active-buff",
-                        Map.of("name", buffLevel.getName(), "description", buffLevel.getDescription()), player));
+            // The spirit applies every blessing up to the clan level (SpiritManager checks "level >= N"),
+            // so list all of them, then hint at the next unlock.
+            List<SpiritBuffLevel> active = SpiritBuffLevel.activeUpTo(level);
+            info.lore(Component.empty());
+            info.lore(plugin.getMessages().component("gui.spirit.info.active-title",
+                    Map.of("count", String.valueOf(active.size())), player));
+            for (SpiritBuffLevel bl : active) {
+                info.lore(plugin.getMessages().component("gui.spirit.info.active-entry",
+                        Map.of("name", bl.getName(), "description", bl.getDescription(tickSeconds())), player));
+            }
+            SpiritBuffLevel next = SpiritBuffLevel.nextAfter(level);
+            if (next != null) {
+                info.lore(plugin.getMessages().component("gui.spirit.info.next",
+                        Map.of("level", String.valueOf(next.getLevel()), "name", next.getName(),
+                                "description", next.getDescription(tickSeconds())), player));
             }
 
             info.lore(Component.empty());
             info.lore(plugin.getMessages().component("gui.spirit.info.toggle-show", player));
         } else {
-            // Режим перечисления всех доступных бонусов (без уровней, просто список)
+            // Full ladder: unlocked levels are ticked, the current one is highlighted, the rest are dimmed.
             info.lore(plugin.getMessages().component("gui.spirit.buffs.all-title",
                     Map.of("count", String.valueOf(SpiritBuffLevel.values().length)), player));
 
             for (SpiritBuffLevel bl : SpiritBuffLevel.values()) {
-                info.lore(plugin.getMessages().component("gui.spirit.buffs.simple-entry",
-                        Map.of("name", bl.getName(), "description", bl.getDescription()), player));
+                String key = bl.getLevel() == level ? "gui.spirit.buffs.entry.current"
+                        : bl.getLevel() < level ? "gui.spirit.buffs.entry.unlocked"
+                        : "gui.spirit.buffs.entry.locked";
+                info.lore(plugin.getMessages().component(key,
+                        Map.of("level", String.valueOf(bl.getLevel()), "name", bl.getName(),
+                                "description", bl.getDescription(tickSeconds())), player));
             }
 
             info.lore(Component.empty());
@@ -157,6 +172,10 @@ public final class ClanSpiritMenu implements InventoryHolder {
             }
             new ClanSpiritAbilityMenu(plugin, player, clan).open();
         }
+    }
+
+    private int tickSeconds() {
+        return plugin.getConfig().getInt("mechanics.spirit.tick-seconds", 15);
     }
 
     private String createProgressBar(long current, long max, int length) {

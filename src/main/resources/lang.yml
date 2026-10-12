@@ -9,7 +9,7 @@
 
 # Версия lang.yml (2026-10-12): при росте версии админский файл получает из jar переписанные разделы
 # (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
-lang-version: 4
+lang-version: 5
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -408,7 +408,7 @@ gift:
   sender-not-recognized: "отправитель не признан"
   insufficient-funds: "недостаточно средств в казне"
   too-large: "сумма слишком большая"
-  blocked-by-war: "нельзя во время войны"
+  blocked-by-war: "<prefix><red>Подарки недоступны во время войны."
   cooldown: "дар уже отправлялся недавно"
 
 diplomacy:
@@ -434,7 +434,7 @@ diplomacy:
     leader-only: "<prefix><red>Устроить или отменить блокаду может только глава клана."
     already-active: "<prefix><red>Вы уже блокируете этот клан."
     not-active: "<prefix><red>Вы не блокируете этот клан."
-    insufficient-influence: "<prefix><red>Недостаточно влияния, чтобы устроить блокаду этому клану."
+    insufficient-influence: "<prefix><red>Недостаточно мощи, чтобы устроить блокаду этому клану."
     declared: "<prefix><red>Вы устроили блокаду клану <color><tag></color>."
     received: "<prefix><red>Клан <color><tag></color> устроил вам блокаду! Вы не можете торговать с другими кланами."
     cancelled: "<prefix><green>Блокада клана <color><tag></color> отменена."
@@ -478,7 +478,7 @@ diplomacy:
     auto-broken: "<prefix><red>Соглашение «<type>» с кланом <color><tag></color> распалось: отношения упали слишком низко."
     cancelled: "<prefix><gray>Предложение пакта отменено."
     already-active: "<prefix><red>Это соглашение уже действует."
-    score-too-low: "<prefix><red>Отношения слишком плохи для этого соглашения <gray>· <yellow>улучшите их подарками, торговлей или миссиями"
+    score-too-low: "<prefix><red>Отношения слишком плохи для этого соглашения <gray>· <yellow>поднимите счёт подарками, торговлей или миссиями"
     not-active: "<prefix><red>Указанный пакт не активен."
   guild-shield:
     activated: "<prefix><aqua>{player}</aqua> <green>активировал <aqua>Гильдейский щит</aqua>! Клан защищён от нападений на 24 часа."
@@ -578,7 +578,7 @@ gui:
       name: "<color><name> <white>[<tag>]"
       relation: "<gray>Отношения: <white><relation>"
       members: "<gray>Участников: <white><count>"
-      influence: "<gray>Влияние: <white><influence>"
+      influence: "<gray>Мощь: <white><influence>"
       hint: "<green>ЛКМ <gray>— предложить обмен"
       blocked: "<red>Торговля недоступна: <reason>"
       reason:
@@ -595,7 +595,7 @@ gui:
         peace: "В мире"
         unrestricted: "Без ограничений"
       sort:
-        influence: "Влияние"
+        influence: "Мощь"
         members: "Участники"
         name: "Название"
     request:
@@ -916,7 +916,7 @@ gui:
       name: "<color><tag> <white>(Ваш клан)"
       lore:
         - "<gray>Уровень: <white><level>"
-        - "<gray>Влияние: <white><influence>"
+        - "<gray>Мощь: <white><influence>"
         - "<gray>Участников: <white><members>"
         - "<green>ЛКМ - открыть меню клана"
     no-clan:
@@ -936,7 +936,7 @@ gui:
       name: "<gold>Сортировка"
       newest: "Новые"
       oldest: "Старые"
-      influence: "Влияние"
+      influence: "Мощь"
       members: "Кол-во игроков"
     clan-item:
       name: "<color><name> <white>[<tag>]"
@@ -951,7 +951,7 @@ gui:
         offline: "<red>● не в сети"
       leader-last-seen: "<gray>Был в сети: <white><date>"
       level: "<gray>Уровень: <white><level>"
-      influence: "<gray>Влияние: <white><influence>"
+      influence: "<gray>Мощь: <white><influence>"
       members: "<gray>Участников: <white><current>/<max>"
       created-at: "<gray>Создан: <white><date>"
       already-member: "<gray>Вы состоите в этом клане"
@@ -1228,7 +1228,7 @@ gui:
         lore:
           - "<gray>Запрещает торговлю между вами и этим кланом"
           - "<gray>и усиливает вражду. Отношения: <red>−<score>"
-          - "<gray>Только глава клана; нужно влияния в <white>×<multiplier><gray> больше."
+          - "<gray>Только глава клана; нужно мощи в <white>×<multiplier><gray> больше."
           - "<gray>Возможна только при «Враждебных» отношениях."
           - ""
           - "<yellow>▸ ЛКМ — Объявить блокаду"
@@ -1309,7 +1309,7 @@ gui:
         - "<gray>выбранного клана."
         - ""
         - "<gray>Уровень клана: <white><level>"
-        - "<gray>Влияние: <white><influence>"
+        - "<gray>Мощь: <white><influence>"
         - "<gray>Участников: <white><members>"
         - "<gray>Отношения: <white><relation>"
     select-other:
@@ -1325,7 +1325,7 @@ gui:
       name: "<gold>Сортировка"
       newest: "Новые"
       oldest: "Старые"
-      influence: "Влияние"
+      influence: "Мощь"
       members: "Число игроков"
     filter:
       name: "<gold>Фильтр"
@@ -1338,7 +1338,8 @@ gui:
     title: "<color><name> <white>[<tag>]"
     name: "<color><name> <white>[<tag>]"
     level: "<gray>Уровень: <white><level>"
-    influence: "<gray>Влияние: <white><influence>"
+    influence: "<gray>Мощь: <white><influence>"
+    influence-breakdown: "<dark_gray>база <white><base></white> · бои <white><battle></white> · форма ×<white><form></white> · актив ×<white><share></white>"
     members: "<gray>Участников: <white><current>/<max>"
     leader: "<gray>Глава: <white><player>"
     # Доп. строки в лоре головы главы (SLOT_LEADER в ClanInfoMenu). "leader-member-since" -
@@ -1563,7 +1564,8 @@ gui:
         - "<gray>сражений, торговли, осад и взносов."
         - ""
         - "<gray>С каждым уровнем клан получает пассивные"
-        - "<gray>благословения, действующие на всех соклановцев,"
+        - "<gray>благословения; они складываются и действуют"
+        - "<gray>на соклановцев на территории клана,"
         - "<gray>а на 10 уровне открывается мощная способность."
     info:
       name: "<white>Дух <yellow><level></yellow> <gray>· <white><name>"
@@ -1571,17 +1573,18 @@ gui:
       progress: "<white><bar>"
       maximum: "<gray>Максимальный уровень"
       how: "<gray>Энергия растёт от активности членов клана"
-      active-buff: "<yellow>Активный бонус: <white><name> <gray>(<description>)"
+      active-title: "<yellow>Активные бонусы (<count>):"
+      active-entry: "<green>✔ <white><name> <gray>— <white><description>"
+      next: "<gray>Следующий — ур. <level>: <white><name> <gray>(<description>)"
       toggle-show: "<yellow>▸ Нажмите, чтобы посмотреть все бонусы"
       toggle-hide: "<yellow>▸ Нажмите, чтобы скрыть список бонусов"
     buffs:
       name: "<white>Постоянные бонусы"
       lore_active: "<gray>Постоянные бонусы духа активны для участников клана."
-      all-title: "<yellow>Доступные бонусы духа (<count>):"
-      simple-entry: "<gray>• <white><name> <gray>— <white><description>"
+      all-title: "<yellow>Все бонусы духа (<count>):"
       entry:
         current: "<green>▶ <white>Ур.<level> <name> <gray>· <description>"
-        unlocked: "<white>Ур.<level> <name> <gray>· <description>"
+        unlocked: "<green>✔ <white>Ур.<level> <name> <gray>· <description>"
         locked: "<dark_gray>Ур.<level> <name> <dark_gray>· <description>"
     ability:
       name: "<white>Уникальная способность"
@@ -1675,6 +1678,11 @@ gui:
       name: "<gold>Перк клана"
       lore:
         - "<gray>Выбран: <white><perk>"
+        - ""
+        - "<gray>Клан выбирает один перк. Он действует на"
+        - "<gray>всех членов клана, пока выбран."
+        - "<gray>Смена перка стоит опыта клана, первый"
+        - "<gray>выбор бесплатный."
       none: "<gray>не выбран"
       open: "<gray>ЛКМ - выбрать перк"
     perks:
@@ -1685,23 +1693,34 @@ gui:
       harvester:
         name: "<green>Земледелие"
         lore:
-          - "<gray>+<percent>% к скорости роста культур"
-          - "<gray>+<hearts> сердца в боях против других кланов"
-          - "<gray>+<yield>% к урожайности"
+          - "<gray>Перк для тех, кто кормит клан."
+          - ""
+          - "<gold>Рост: <white><percent>%</white> <gray>шанс ускорить рост культуры"
+          - "<gray>  (только на территории клана)"
+          - "<gold>Урожай: <white><yield>%</white> <gray>шанс лишнего дропа со спелых"
+          - "<gray>  пшеницы, моркови, картофеля, свёклы и нарыва"
+          - "<gold>Бой: <white>+<hearts></white> <gray>сердца, пока клан в войне"
       miner:
         name: "<aqua>Ресурсодобыча"
         lore:
-          - "<gray>+<percent>% ко всем добытым ресурсам"
-          - "<gray>+<rare>% к редким дропам"
+          - "<gray>Перк для шахтёров и охотников на боссов."
+          - ""
+          - "<gold>Руда: <white><percent>%</white> <gray>шанс лишнего дропа при добыче руды"
+          - "<gray>  (в любом мире, с частицами)"
+          - "<gold>Босс: <white><rare>%</white> <gray>шанс удвоить один предмет"
+          - "<gray>  из добычи с убитого босса"
       warrior:
         name: "<red>Война"
         lore:
-          - "<gray>Постоянная Сила I в PvP"
-          - "<gray>Осада длится на <percent>% меньше"
-          - "<gray>+<banner>% урона по знамёнам и осадным лагерям"
+          - "<gray>Перк для клана, который идёт в бой."
+          - ""
+          - "<gold>Сила I: <gray>постоянно у всех членов клана"
+          - "<gold>Осада: <white><percent>%</white> <gray>короче, когда осаду начинаете вы"
+          - "<gold>Знамя врага: <white><banner>%</white> <gray>меньше ударов до поломки"
       active: "<green>✔ Активен"
-      click-to-select: "<green>ЛКМ - выбрать этот перк"
-      click-to-change: "<gray>ЛКМ - сменить перк за <gold><cost></gold> опыта клана"
+      click-to-select: "<green>ЛКМ - выбрать этот перк <gray>(первый выбор бесплатно)"
+      click-to-change: "<gray>ЛКМ - сменить перк за <gold><cost></gold> опыта клана <gray>(есть: <white><have></white>)"
+      need-permission: "<dark_gray>Менять перк может участник с правом «Улучшения»."
     perk-select:
       title: "<gold>Выбрать перк клана <color><tag>"
     perk-change:

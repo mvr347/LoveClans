@@ -20,7 +20,9 @@ public final class LangMigrator {
             // v3: conflicts revamp - boss bars, raid/siege/casus/diplomacy texts were reworded or added
             List.of("gui", "war", "raid", "siege", "casus", "diplomacy", "item", "admin", "clan.help", "modifier"),
             // v4: unified GUI patch - white-first color policy, diplomacy v2, gifts, compact spirit, conflict submenus
-            List.of("gui", "deny", "clan", "diplomacy", "gift", "war", "siege", "raid")
+            List.of("gui", "deny", "clan", "diplomacy", "gift", "war", "siege", "raid"),
+            // v5: spirit/perk descriptions rewritten to match the real effects, diplomacy deny texts
+            List.of("gui", "deny", "diplomacy", "gift")
     );
 
     private LangMigrator() {

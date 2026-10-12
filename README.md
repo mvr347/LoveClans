@@ -197,7 +197,7 @@ LoveClans использует единую валюту LoveCore (`LoveEconomy`
 | `%loveclans_clan_tag%` | Тег клана | `[DRG]` |
 | `%loveclans_clan_level%` | Уровень клана | `5` |
 | `%loveclans_clan_members%` | Количество членов | `12` |
-| `%loveclans_clan_influence%` | Влияние клана | `450` |
+| `%clans_influence%` | Мощь клана | `450` |
 | `%loveclans_player_rank%` | Ранг игрока в клане | `Лидер` |
 | `%loveclans_player_joindate%` | Дата присоединения | `2025-07-01` |
 

@@ -47,4 +47,18 @@ public final class DiplomacyActions {
     public static boolean allowed(Action action, Context ctx, int minScore) {
         return denyKey(action, ctx, minScore) == null;
     }
+
+    /**
+     * Whether the action makes sense for this pair at all, as opposed to being merely blocked right now. The menu hides
+     * irrelevant buttons (no embargo against a friend, no pact offers to an enemy) and keeps relevant-but-blocked ones
+     * grey with the reason (cooldown, money, rights). Every tier and pact rule of {@link #denyKey} is structural; only
+     * the pacts keep a hint window: an offer stays visible while the score is within {@code hintMargin} of its minimum,
+     * so the goal is on screen before it can be reached.
+     */
+    public static boolean relevant(Action action, Context ctx, int minScore, int hintMargin) {
+        return switch (action) {
+            case NAP, TRADE_PACT, ALLIANCE -> ctx.score() >= minScore - Math.max(0, hintMargin);
+            default -> denyKey(action, ctx, minScore) == null;
+        };
+    }
 }

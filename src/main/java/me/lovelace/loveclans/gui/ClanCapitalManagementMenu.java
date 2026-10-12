@@ -62,7 +62,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         if (blockedKey != null) {
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component(nameKey, player))
-                    .lore(plugin.getMessages().component(blockedKey, player))
+                    .lore(plugin.getMessages().denyLore(blockedKey, Map.of(), player))
                     .build();
         }
         return ItemBuilder.head(head)
