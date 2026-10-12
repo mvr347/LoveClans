@@ -31,32 +31,34 @@ import java.util.UUID;
  * What can be done depends on the tier, via {@link DiplomacyActions}: the same matrix decides whether a button is
  * active and whether the server accepts the click, so a button description never promises more than the code does.
  * <p>
- * Layout: slot 4 shows the relation, row 2 warms it (gift, trade, gesture), row 3 holds the pacts, row 4 is pressure
- * (insult, embargo, blockade, conflict).
+ * Layout: slot 4 shows the relation; below it the groups warm-up (gift, trade, gesture), pacts and pressure (insult,
+ * embargo, blockade, conflict). Only buttons that make sense at the current tier are drawn, centered in their row; the
+ * rows of an empty group collapse. Grey buttons are for temporary reasons only (rights, cooldown, money).
  */
 public final class ClanDiplomacyMenu {
     private static final int INVENTORY_SIZE = 54;
     private static final int SLOT_INFO = 0;
     private static final int SLOT_STATE = 4;
 
-    private static final int SLOT_GIFT = 20;
-    private static final int SLOT_TRADE = 22;
-    private static final int SLOT_IMPROVE = 24;
+    /** First slots of the three content rows (header ends at 17, footer starts at 45). */
+    private static final int[] ROW_STARTS = {18, 27, 36};
 
-    private static final int SLOT_NAP = 29;
-    private static final int SLOT_TRADE_PACT = 31;
-    private static final int SLOT_ALLIANCE = 33;
+    /** Buttons by group: warming actions, pacts, pressure. Hidden ones leave no gap, see {@link #layout}. */
+    private enum Button { GIFT, TRADE, IMPROVE, NAP, TRADE_PACT, ALLIANCE, INSULT, EMBARGO, BLOCKADE, CONFLICT }
 
-    private static final int SLOT_INSULT = 37;
-    private static final int SLOT_EMBARGO = 39;
-    private static final int SLOT_BLOCKADE = 41;
-    private static final int SLOT_CONFLICT = 43;
+    private static final Button[][] GROUPS = {
+            {Button.GIFT, Button.TRADE, Button.IMPROVE},
+            {Button.NAP, Button.TRADE_PACT, Button.ALLIANCE},
+            {Button.INSULT, Button.EMBARGO, Button.BLOCKADE, Button.CONFLICT}
+    };
 
     private static final int SLOT_BACK = 52;
     private static final int SLOT_CLOSE = 53;
     private static final int BAR_CELLS = 20;
 
     private final LoveClansPlugin plugin;
+    /** Slot -> button of the screen each viewer has open, so a click is resolved against what was drawn. */
+    private final Map<UUID, Map<Integer, Button>> openLayouts = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ClanDiplomacyMenu(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -87,18 +89,9 @@ public final class ClanDiplomacyMenu {
 
         inventory.setItem(SLOT_STATE, buildStateItem(player, sourceClan, targetClan, tier));
 
-        inventory.setItem(SLOT_GIFT, buildGiftItem(player, sourceClan, targetClan));
-        inventory.setItem(SLOT_TRADE, buildTradeItem(player, sourceClan, targetClan));
-        inventory.setItem(SLOT_IMPROVE, buildImproveItem(player, sourceClan, targetClan));
-
-        inventory.setItem(SLOT_NAP, buildPactItem(player, sourceClan, targetClan, PactType.NAP, "nap", ItemBuilder.HEAD_ABILITY_SANCTUARY));
-        inventory.setItem(SLOT_TRADE_PACT, buildPactItem(player, sourceClan, targetClan, PactType.TRADE, "trade-pact", ItemBuilder.HEAD_CHEST_MONEY));
-        inventory.setItem(SLOT_ALLIANCE, buildPactItem(player, sourceClan, targetClan, PactType.ALLIANCE, "alliance", ItemBuilder.HEAD_RELATION_ALLIED));
-
-        inventory.setItem(SLOT_INSULT, buildInsultItem(player, sourceClan, targetClan));
-        inventory.setItem(SLOT_EMBARGO, buildEmbargoItem(player, sourceClan, targetClan));
-        inventory.setItem(SLOT_BLOCKADE, buildBlockadeItem(player, sourceClan, targetClan));
-        inventory.setItem(SLOT_CONFLICT, buildConflictItem(player, sourceClan, targetClan));
+        Map<Integer, Button> layout = layout(player, sourceClan, targetClan);
+        layout.forEach((slot, button) -> inventory.setItem(slot, buildItem(button, player, sourceClan, targetClan)));
+        openLayouts.put(player.getUniqueId(), layout);
 
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.diplomacy.select-other.name", player))
@@ -112,6 +105,78 @@ public final class ClanDiplomacyMenu {
 
     private String tierTitle(DiplomacyTier tier) {
         return plugin.getMessages().raw("diplomacy.tier." + tier.name().toLowerCase(java.util.Locale.ROOT));
+    }
+
+    // --- Layout: only buttons that make sense for the relation, centered in their row ---
+
+    /**
+     * Groups stay on their own rows; inside a row the visible buttons are centered, and a group with nothing to show
+     * disappears so the rows below move up. Side walls stay empty (gui_gen v2.1, item 8).
+     */
+    private Map<Integer, Button> layout(Player player, Clan sourceClan, Clan targetClan) {
+        Map<Integer, Button> result = new java.util.LinkedHashMap<>();
+        int row = 0;
+        for (Button[] group : GROUPS) {
+            List<Button> visible = new ArrayList<>();
+            for (Button button : group) {
+                if (isVisible(button, sourceClan, targetClan)) visible.add(button);
+            }
+            if (visible.isEmpty()) continue;
+            int[] slots = GuiFrames.contentRowSlots(ROW_STARTS[row++], visible.size());
+            for (int i = 0; i < slots.length; i++) {
+                result.put(slots[i], visible.get(i));
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Tier and pact rules decide relevance ({@link DiplomacyActions#relevant}); whatever is already running (a pact or
+     * an offer, a sanction, a conflict) always stays visible so it can be accepted, withdrawn or lifted.
+     */
+    private boolean isVisible(Button button, Clan sourceClan, Clan targetClan) {
+        var manager = plugin.getDiplomacyManager();
+        DiplomacyActions.Context ctx = manager.contextOf(sourceClan, targetClan);
+        int margin = cfgInt("diplomacy.ui.pact-hint-margin", 10);
+        return switch (button) {
+            case GIFT -> DiplomacyActions.relevant(DiplomacyActions.Action.GIFT, ctx, 0, margin);
+            case TRADE -> DiplomacyActions.relevant(DiplomacyActions.Action.TRADE, ctx, 0, margin);
+            case IMPROVE -> DiplomacyActions.relevant(DiplomacyActions.Action.IMPROVE, ctx, 0, margin);
+            case INSULT -> DiplomacyActions.relevant(DiplomacyActions.Action.INSULT, ctx, 0, margin);
+            case NAP -> pactVisible(manager, sourceClan, targetClan, PactType.NAP, ctx, margin);
+            case TRADE_PACT -> pactVisible(manager, sourceClan, targetClan, PactType.TRADE, ctx, margin);
+            case ALLIANCE -> pactVisible(manager, sourceClan, targetClan, PactType.ALLIANCE, ctx, margin);
+            case EMBARGO -> manager.isEmbargoed(sourceClan.id(), targetClan.id())
+                    || DiplomacyActions.relevant(DiplomacyActions.Action.EMBARGO, ctx, 0, margin);
+            case BLOCKADE -> manager.isBlockading(sourceClan.id(), targetClan.id())
+                    || manager.isBlockading(targetClan.id(), sourceClan.id())
+                    || DiplomacyActions.relevant(DiplomacyActions.Action.BLOCKADE, ctx, 0, margin);
+            case CONFLICT -> plugin.getClanManager().inConflictWith(sourceClan.id(), targetClan.id())
+                    || DiplomacyActions.relevant(DiplomacyActions.Action.CONFLICT, ctx, 0, margin);
+        };
+    }
+
+    private boolean pactVisible(me.lovelace.loveclans.manager.DiplomacyManager manager, Clan sourceClan, Clan targetClan,
+                                PactType type, DiplomacyActions.Context ctx, int margin) {
+        return manager.hasPact(sourceClan.id(), targetClan.id(), type)
+                || manager.hasPendingPactOffer(targetClan.id(), sourceClan.id(), type)
+                || manager.hasPendingPactOffer(sourceClan.id(), targetClan.id(), type)
+                || DiplomacyActions.relevant(pactAction(type), ctx, manager.minScore(type), margin);
+    }
+
+    private ItemStack buildItem(Button button, Player player, Clan sourceClan, Clan targetClan) {
+        return switch (button) {
+            case GIFT -> buildGiftItem(player, sourceClan, targetClan);
+            case TRADE -> buildTradeItem(player, sourceClan, targetClan);
+            case IMPROVE -> buildImproveItem(player, sourceClan, targetClan);
+            case NAP -> buildPactItem(player, sourceClan, targetClan, PactType.NAP, "nap", ItemBuilder.HEAD_ABILITY_SANCTUARY);
+            case TRADE_PACT -> buildPactItem(player, sourceClan, targetClan, PactType.TRADE, "trade-pact", ItemBuilder.HEAD_CHEST_MONEY);
+            case ALLIANCE -> buildPactItem(player, sourceClan, targetClan, PactType.ALLIANCE, "alliance", ItemBuilder.HEAD_RELATION_ALLIED);
+            case INSULT -> buildInsultItem(player, sourceClan, targetClan);
+            case EMBARGO -> buildEmbargoItem(player, sourceClan, targetClan);
+            case BLOCKADE -> buildBlockadeItem(player, sourceClan, targetClan);
+            case CONFLICT -> buildConflictItem(player, sourceClan, targetClan);
+        };
     }
 
     // --- Relation indicator (slot 4) ---
@@ -382,8 +447,16 @@ public final class ClanDiplomacyMenu {
         DenyResult deny = firstDeny(perm, conflictDeny(sourceClan, targetClan),
                 matrixDeny(DiplomacyActions.Action.BLOCKADE, sourceClan, targetClan),
                 plugin.getModifierManager().hasGuildShield(targetClan.id()) ? DenyResult.of("deny.guild-shield.active") : null,
+                blockadedByOther(sourceClan, targetClan) ? DenyResult.of("deny.blockade.already-blockaded-by-other") : null,
                 manager.canBlockade(sourceClan, targetClan) ? null : DenyResult.of("diplomacy.blockade.insufficient-influence"));
         return actionItem(player, ItemBuilder.HEAD_BLOCKADE, "gui.diplomacy.act.blockade", ph, deny, false);
+    }
+
+    /** Mirrors the server-side exclusivity check, so the button is not drawn active just to be refused on click. */
+    private boolean blockadedByOther(Clan sourceClan, Clan targetClan) {
+        if (!plugin.getConfig().getBoolean("diplomacy.blockade-exclusive", true)) return false;
+        Optional<UUID> current = plugin.getDiplomacyManager().blockaderOf(targetClan.id());
+        return current.isPresent() && !current.get().equals(sourceClan.id());
     }
 
     private ItemStack buildConflictItem(Player player, Clan sourceClan, Clan targetClan) {
@@ -416,22 +489,30 @@ public final class ClanDiplomacyMenu {
         }
         Clan sourceClan = sourceClanOpt.get();
 
-        switch (slot) {
-            case SLOT_CLOSE -> player.closeInventory();
-            case SLOT_BACK -> plugin.getGuiManager().openDiplomacySelect(player, sourceClan);
-            case SLOT_GIFT -> handleGiftClick(player, sourceClan, targetClan);
-            case SLOT_TRADE -> handleTradeClick(player, sourceClan, targetClan);
-            case SLOT_IMPROVE -> refresh(player, sourceClan, targetClan,
+        if (slot == SLOT_CLOSE) {
+            player.closeInventory();
+            return;
+        }
+        if (slot == SLOT_BACK) {
+            plugin.getGuiManager().openDiplomacySelect(player, sourceClan);
+            return;
+        }
+        Map<Integer, Button> layout = openLayouts.get(player.getUniqueId());
+        Button button = layout == null ? null : layout.get(slot);
+        if (button == null) return;
+        switch (button) {
+            case GIFT -> handleGiftClick(player, sourceClan, targetClan);
+            case TRADE -> handleTradeClick(player, sourceClan, targetClan);
+            case IMPROVE -> refresh(player, sourceClan, targetClan,
                     plugin.getDiplomacyManager().improveRelationsAsync(player, sourceClan, targetClan));
-            case SLOT_NAP -> handlePactClick(player, sourceClan, targetClan, PactType.NAP);
-            case SLOT_TRADE_PACT -> handlePactClick(player, sourceClan, targetClan, PactType.TRADE);
-            case SLOT_ALLIANCE -> handlePactClick(player, sourceClan, targetClan, PactType.ALLIANCE);
-            case SLOT_INSULT -> refresh(player, sourceClan, targetClan,
+            case NAP -> handlePactClick(player, sourceClan, targetClan, PactType.NAP);
+            case TRADE_PACT -> handlePactClick(player, sourceClan, targetClan, PactType.TRADE);
+            case ALLIANCE -> handlePactClick(player, sourceClan, targetClan, PactType.ALLIANCE);
+            case INSULT -> refresh(player, sourceClan, targetClan,
                     plugin.getDiplomacyManager().insultClanAsync(player, sourceClan, targetClan));
-            case SLOT_EMBARGO -> handleEmbargoToggle(player, sourceClan, targetClan);
-            case SLOT_BLOCKADE -> handleBlockadeToggle(player, sourceClan, targetClan);
-            case SLOT_CONFLICT -> handleConflictClick(player, sourceClan, targetClan);
-            default -> { }
+            case EMBARGO -> handleEmbargoToggle(player, sourceClan, targetClan);
+            case BLOCKADE -> handleBlockadeToggle(player, sourceClan, targetClan);
+            case CONFLICT -> handleConflictClick(player, sourceClan, targetClan);
         }
     }
 

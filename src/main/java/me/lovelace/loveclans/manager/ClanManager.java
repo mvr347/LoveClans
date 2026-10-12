@@ -1826,31 +1826,29 @@ public final class ClanManager {
     }
 
     public long computeInfluence(Clan clan) {
-        if (clan == null) return 0L;
+        return influenceBreakdown(clan).value();
+    }
+
+    /** Gathers the inputs on the calling (main) thread and runs the pure {@link InfluenceFormula}. */
+    public InfluenceFormula.Result influenceBreakdown(Clan clan) {
+        if (clan == null) return new InfluenceFormula.Result(0L, 0L, 0L, 1.0, 1.0);
         var cfg = plugin.getConfig();
-
-        // Текущее состояние клана — размер, уровень, вложенные апгрейды. Не выветривается.
-        long standing = 0L;
-        standing += (long) clan.members().size() * cfg.getInt("influence.member-weight", 10);
-        standing += (long) clan.level() * cfg.getInt("influence.level-weight", 5);
-        standing += (long) totalUpgradeLevelsInvested(clan) * cfg.getInt("influence.upgrade-point-weight", 20);
-
-        // Боевые заслуги. Победы выветриваются со временем, иначе клан, отвоевавший
-        // своё год назад, вечно стоял бы наверху списка. Поражения не выветриваются:
-        // сбрасывать их вместе с победами значило бы прощать разгром за давностью лет.
-        long wins = 0L;
-        wins += (long) clan.warsWon() * cfg.getInt("influence.war-win-weight", 50);
-        wins += (long) clan.siegesWon() * cfg.getInt("influence.siege-win-weight", 75);
-        wins += (long) clan.raidsWon() * cfg.getInt("influence.raid-win-weight", 30);
-
-        long losses = 0L;
-        losses += (long) clan.warsLost() * cfg.getInt("influence.war-loss-weight", 25);
-        losses += (long) clan.siegesLost() * cfg.getInt("influence.siege-loss-weight", 40);
-        losses += (long) clan.raidsLost() * cfg.getInt("influence.raid-loss-weight", 15);
-
-        double freshness = plugin.getConflictArchive().freshnessOf(clan.id());
-        long value = standing + Math.round(wins * freshness) - losses;
-        return Math.max(0L, value);
+        long now = System.currentTimeMillis();
+        long activeWindow = cfg.getLong("influence.active-days", 14L) * 86_400_000L;
+        int active = 0;
+        for (ClanMember member : clan.members().values()) {
+            if (Bukkit.getPlayer(member.playerId()) != null || now - member.lastSeen() <= activeWindow) active++;
+        }
+        long monthlyActivity = plugin.getActivityManager() == null ? 0L
+                : plugin.getActivityManager().getClanActivity(clan.id(), me.lovelace.loveclans.activity.ActivityPeriod.MONTHLY).total();
+        var archive = plugin.getConflictArchive();
+        int[] form = archive.recentFormOf(clan.id());
+        var inputs = new InfluenceFormula.Inputs(clan.members().size(), active, clan.level(),
+                totalUpgradeLevelsInvested(clan), clan.territories().size(), clan.spirit().level(), clan.chestMoney(),
+                monthlyActivity, clan.allianceCount(),
+                clan.warsWon(), clan.warsLost(), clan.siegesWon(), clan.siegesLost(), clan.raidsWon(), clan.raidsLost(),
+                archive.freshnessOf(clan.id()), archive.lossFreshnessOf(clan.id()), form[0], form[1]);
+        return InfluenceFormula.compute(inputs, cfg.getConfigurationSection("influence"));
     }
 
     /** Recomputes and persists {@code clan}'s cached influence value. */

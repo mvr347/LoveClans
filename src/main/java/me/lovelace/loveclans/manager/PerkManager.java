@@ -55,7 +55,8 @@ public final class PerkManager {
             boolean warrior = perk.map(p -> p == ClanPerk.WARRIOR).orElse(false);
             if (warrior) {
                 player.addPotionEffect(new PotionEffect(PotionEffectType.STRENGTH, durationTicks, 0, true, false, false));
-            } else if (player.hasPotionEffect(PotionEffectType.STRENGTH)) {
+            } else if (isPerkStrength(player.getPotionEffect(PotionEffectType.STRENGTH))) {
+                // Only the effect this perk applied: potions and beacons give the player their own Strength.
                 player.removePotionEffect(PotionEffectType.STRENGTH);
             }
 
@@ -66,6 +67,20 @@ public final class PerkManager {
                     : 0.0;
             applyHeartsModifier(player, bonusHealth);
         }
+    }
+
+    /**
+     * The perk's Strength is ambient with no particles and no icon; a potion is not ambient and a beacon shows
+     * particles and an icon, so the marker tells them apart.
+     */
+    static boolean isPerkStrength(PotionEffect effect) {
+        return effect != null && effect.isAmbient() && !effect.hasParticles() && !effect.hasIcon();
+    }
+
+    /** {@code millis} shortened by {@code percent} (clamped to 0..90 so a siege never collapses to nothing). */
+    public static long reduceByPercent(long millis, int percent) {
+        int clamped = Math.max(0, Math.min(90, percent));
+        return Math.round(millis * (100 - clamped) / 100.0);
     }
 
     private void applyHeartsModifier(Player player, double bonusHealth) {

@@ -113,7 +113,7 @@ public final class ClanMainMenu implements InventoryHolder {
         upgradesItem.name(plugin.getMessages().component("gui.main.upgrades.name", player))
                 .lore(plugin.getMessages().component("gui.main.upgrades.lore", player));
         if (atWar) {
-            upgradesItem.lore(plugin.getMessages().component("gui.capital.war-blocked", player));
+            upgradesItem.lore(plugin.getMessages().denyLore("gui.capital.war-blocked", Map.of(), player));
         } else if (!canUpgrade) {
             upgradesItem.lore(plugin.getMessages().component("gui.main.upgrades.no-permission-lore", player));
         }

@@ -85,6 +85,16 @@ public final class SiegeManager {
         return Duration.ofMinutes(plugin.getConfig().getLong("siege.duration-minutes", 22));
     }
 
+    /** The WARRIOR perk shortens the siege its clan starts; the defender's perk does not matter. */
+    private Duration siegeDuration(Clan attacker) {
+        Duration base = siegeDuration();
+        if (!attacker.perk().map(p -> p == me.lovelace.loveclans.model.ClanPerk.WARRIOR).orElse(false)) {
+            return base;
+        }
+        int percent = plugin.getConfig().getInt("perks.warrior.siege-duration-reduction-percent", 25);
+        return Duration.ofMillis(PerkManager.reduceByPercent(base.toMillis(), percent));
+    }
+
     private Duration campHoldDuration() {
         long holdMinutes = plugin.getConfig().getLong("siege.camp-hold-minutes", 10);
         long totalMinutes = plugin.getConfig().getLong("siege.duration-minutes", 22);
@@ -359,7 +369,7 @@ public final class SiegeManager {
 
         long now = System.currentTimeMillis();
         List<SiegeCamp> camps = spawnCamps(siege.id(), center, now);
-        ClanSiege activated = siege.activate(now + siegeDuration().toMillis(), camps);
+        ClanSiege activated = siege.activate(now + siegeDuration(attacker).toMillis(), camps);
         activeSieges.put(activated.id(), activated);
 
         holdProgress.put(activated.id(), 0L);
@@ -368,7 +378,7 @@ public final class SiegeManager {
 
         // Создаём активный BossBar
         BossBar activeBar = BossBar.bossBar(
-                formatActiveBossBarTitle(attacker, defender, camps.size(), camps.size(), false, 0L, siegeDuration().toMillis()),
+                formatActiveBossBarTitle(attacker, defender, camps.size(), camps.size(), false, 0L, siegeDuration(attacker).toMillis()),
                 0.0f,
                 BossBar.Color.YELLOW,
                 BossBar.Overlay.PROGRESS

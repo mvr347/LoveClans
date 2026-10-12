@@ -87,9 +87,12 @@ public final class ClanPerkMenu {
                 builder.lore(plugin.getMessages().component("gui.upgrades.perks.active", player)).glow(true);
             } else if (current.isPresent()) {
                 builder.lore(plugin.getMessages().component("gui.upgrades.perks.click-to-change",
-                        Map.of("cost", String.valueOf(respecCost)), player));
+                        Map.of("cost", String.valueOf(respecCost), "have", String.valueOf(clan.experience())), player));
             } else {
                 builder.lore(plugin.getMessages().component("gui.upgrades.perks.click-to-select", player));
+            }
+            if (!locked && !clan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.UPGRADE)) {
+                builder.lore(plugin.getMessages().component("gui.upgrades.perks.need-permission", player));
             }
 
             inventory.setItem(PERK_SLOTS[i], builder.build());

@@ -15,10 +15,10 @@ public enum SpiritBuffLevel {
     LEVEL_1(1, "Пробуждение", "+5% скорости передвижения"),
     LEVEL_2(2, "Единство", "+7% к получению опыта"),
     LEVEL_3(3, "Защита", "-8% урона от мобов"),
-    LEVEL_4(4, "Благословение", "+8% скорости ломания блоков"), // Haste equivalent via potion or attribute if available
+    LEVEL_4(4, "Благословение", "Спешка I: быстрее копание на территории клана"),
     LEVEL_5(5, "Сила Крови", "+12% урона по мобам"),
-    LEVEL_6(6, "Гармония", "Регенерация +0.5 сердца каждые 6 секунд"),
-    LEVEL_7(7, "Дух Воина", "+15% урона по игрокам других кланов (только на главной территории)"),
+    LEVEL_6(6, "Гармония", "Регенерация +0.5 сердца каждые %tick% сек"),
+    LEVEL_7(7, "Дух Воина", "+15% урона по игрокам других кланов (в радиусе 12 блоков от главного знамени)"),
     LEVEL_8(8, "Хранитель Земли", "-15% урона от взрывов и -10% урона от падения"),
     LEVEL_9(9, "Легенда", "+20% ко всем предыдущим баффам"),
     LEVEL_10(10, "Бессмертный Дух", "Уникальная способность");
@@ -45,6 +45,11 @@ public enum SpiritBuffLevel {
         return description;
     }
 
+    /** Description with the regeneration period filled in; the other levels have no placeholders. */
+    public String getDescription(int tickSeconds) {
+        return description.replace("%tick%", String.valueOf(Math.max(1, tickSeconds)));
+    }
+
     public Component getDisplayName() {
         return MiniMessage.miniMessage().deserialize("<gold>" + name + "</gold>");
     }
@@ -52,6 +57,27 @@ public enum SpiritBuffLevel {
     public static SpiritBuffLevel getByLevel(int level) {
         for (SpiritBuffLevel buffLevel : values()) {
             if (buffLevel.getLevel() == level) {
+                return buffLevel;
+            }
+        }
+        return null;
+    }
+
+    /** Every blessing the clan has unlocked: the spirit applies them cumulatively ("level >= N"), not just the latest one. */
+    public static List<SpiritBuffLevel> activeUpTo(int level) {
+        List<SpiritBuffLevel> result = new ArrayList<>();
+        for (SpiritBuffLevel buffLevel : values()) {
+            if (buffLevel.level <= level) {
+                result.add(buffLevel);
+            }
+        }
+        return result;
+    }
+
+    /** The next blessing to unlock, or {@code null} once the maximum level is reached. */
+    public static SpiritBuffLevel nextAfter(int level) {
+        for (SpiritBuffLevel buffLevel : values()) {
+            if (buffLevel.level > level) {
                 return buffLevel;
             }
         }
