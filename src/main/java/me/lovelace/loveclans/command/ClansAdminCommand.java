@@ -381,8 +381,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
      */
     private void raid(CommandSender sender, String[] args) {
         if (args.length < 4 || !args[1].equalsIgnoreCase("forcestart")) {
-            sender.sendMessage(net.kyori.adventure.text.Component.text(
-                    "§cИспользование: /loveclansadmin raid forcestart <attackerTag> <defenderTag>"));
+            plugin.getMessages().send(sender, "clan.help.admin-raid");
             return;
         }
         var clan1Opt = plugin.getClanManager().getClanByTag(args[2]);
@@ -394,8 +393,8 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         Clan clan1 = clan1Opt.get();
         Clan clan2 = clan2Opt.get();
         plugin.getRaidManager().startRaidAsync(clan1, clan2, true)
-                .thenRun(() -> plugin.runSync(() -> sender.sendMessage(net.kyori.adventure.text.Component.text(
-                        "§aРейд принудительно запущен: " + clan1.tag() + " → " + clan2.tag()))))
+                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(sender, "admin.raid-force-started",
+                        Map.of("clan1", clan1.tag(), "color1", clan1.tagColor(), "clan2", clan2.tag(), "color2", clan2.tagColor()))))
                 .exceptionally(ex -> {
                     plugin.runSync(() -> plugin.sendOperationError(sender, ex));
                     return null;
@@ -558,12 +557,14 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         plugin.getMessages().send(sender, "clan.help.admin-disband");
         plugin.getMessages().send(sender, "clan.help.admin-war");
         plugin.getMessages().send(sender, "clan.help.admin-siege");
+        plugin.getMessages().send(sender, "clan.help.admin-raid");
         plugin.getMessages().send(sender, "clan.help.admin-diplo");
         plugin.getMessages().send(sender, "clan.help.admin-exp");
         plugin.getMessages().send(sender, "clan.help.admin-points");
         plugin.getMessages().send(sender, "clan.help.artifact");
         plugin.getMessages().send(sender, "clan.help.admin-recognize");
         plugin.getMessages().send(sender, "clan.help.admin-givebanner");
+        plugin.getMessages().send(sender, "clan.help.admin-shield");
         plugin.getMessages().send(sender, "clan.help.admin-footer");
     }
 
@@ -587,6 +588,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "givebanner", "givecapitalbanner" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
                 case "war" -> WAR_ACTIONS;
                 case "siege" -> SIEGE_ACTIONS;
+                case "raid" -> RAID_ACTIONS;
                 case "exp", "points" -> AMOUNT_ACTIONS;
                 case "casus" -> List.of("give");
                 case "shield" -> List.of("give", "clear");
@@ -600,7 +602,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
         if (args.length == 3) {
             List<String> completions = switch (action) {
-                case "diplo", "war", "siege", "givecapitalbanner" -> clanTags;
+                case "diplo", "war", "siege", "raid", "givecapitalbanner" -> clanTags;
                 case "exp", "points" -> clanTags;
                 case "casus" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
                 case "shield" -> args[1].equalsIgnoreCase("give")
@@ -614,7 +616,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         if (args.length == 4 && action.equals("diplo")) {
             return StringUtil.copyPartialMatches(args[3], RELATIONS, new ArrayList<>());
         }
-        if (args.length == 4 && (action.equals("war") || action.equals("siege") || action.equals("casus"))) {
+        if (args.length == 4 && (action.equals("war") || action.equals("siege") || action.equals("raid") || action.equals("casus"))) {
             return StringUtil.copyPartialMatches(args[3], clanTags, new ArrayList<>());
         }
         if (args.length == 5 && action.equals("casus")) {

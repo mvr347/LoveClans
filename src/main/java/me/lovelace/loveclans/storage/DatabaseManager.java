@@ -317,14 +317,14 @@ public final class DatabaseManager implements AutoCloseable {
             // History for Clan Spirit
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_spirit_history (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        id %s,
                         clan_id VARCHAR(36) NOT NULL,
                         action VARCHAR(64) NOT NULL,
                         amount INT NOT NULL,
                         timestamp BIGINT NOT NULL,
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
-                    """);
+                    """.formatted(autoIncrementPrimaryKey()));
 
             // Физический общий сундук клана (отдельно от банка-казны)
             statement.executeUpdate("""
@@ -552,6 +552,13 @@ public final class DatabaseManager implements AutoCloseable {
             plugin.getLogger().log(Level.WARNING,
                 "Не удалось удалить колонку " + table + "." + column + " — сохранение обетов может не работать", exception);
         }
+    }
+
+    /** SQLite spells an auto-id column differently from MySQL; "AUTOINCREMENT" is a syntax error on MySQL. */
+    private String autoIncrementPrimaryKey() {
+        return type == DatabaseType.MYSQL
+                ? "BIGINT PRIMARY KEY AUTO_INCREMENT"
+                : "INTEGER PRIMARY KEY AUTOINCREMENT";
     }
 
     /**

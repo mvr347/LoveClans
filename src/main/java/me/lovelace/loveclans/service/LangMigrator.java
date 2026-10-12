@@ -22,7 +22,9 @@ public final class LangMigrator {
             // v4: unified GUI patch - white-first color policy, diplomacy v2, gifts, compact spirit, conflict submenus
             List.of("gui", "deny", "clan", "diplomacy", "gift", "war", "siege", "raid"),
             // v5: spirit/perk descriptions rewritten to match the real effects, diplomacy deny texts
-            List.of("gui", "deny", "diplomacy", "gift")
+            List.of("gui", "deny", "diplomacy", "gift"),
+            // v6: admin raid forcestart texts, dead deny.*.not-in-territory keys removed
+            List.of("deny", "admin", "clan.help")
     );
 
     private LangMigrator() {
