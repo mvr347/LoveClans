@@ -9,7 +9,7 @@
 
 # Версия lang.yml (2026-10-12): при росте версии админский файл получает из jar переписанные разделы
 # (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
-lang-version: 5
+lang-version: 6
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -48,7 +48,6 @@ deny:
     max-wars: "<prefix><red>Достигнут лимит одновременных войн <gray>· <yellow>дождитесь окончания текущих войн на сервере"
     attacker-no-capital: "<prefix><red>У вашего клана нет территории <gray>· <yellow>установите знамя территории"
     defender-no-capital: "<prefix><red>У клана <color><tag></color> нет территории <gray>· <yellow>войну объявить нельзя"
-    not-in-territory: "<prefix><red>Оспариваемая территория не найдена <gray>· <yellow>у цели должна быть территория"
     no-casus: "<prefix><red>Нужен повод (казус белли) <gray>· <yellow>оформите у Гильдмастера"
     not-enough-online: "<prefix><red>Нужно минимум <min> участника онлайн <gray>· <yellow>сейчас <current>"
     defender-no-leader: "<prefix><red>У защитников нет онлайн лидера или хранителя <gray>· <yellow>подождите их появления"
@@ -59,7 +58,6 @@ deny:
     war-in-progress: "<prefix><red>Один из кланов уже воюет <gray>· <yellow>дождитесь окончания войны"
     attacker-no-capital: "<prefix><red>У вашего клана нет территории <gray>· <yellow>установите знамя территории"
     defender-no-capital: "<prefix><red>У клана <color><tag></color> нет территории <gray>· <yellow>осаду объявить нельзя"
-    not-in-territory: "<prefix><red>Оспариваемая территория не найдена <gray>· <yellow>у цели должна быть территория"
     attacker-level-too-low: "<prefix><red>Осада с уровня клана <min> <gray>· <yellow>у вас <level>"
     defender-level-too-low: "<prefix><red>Клан цели ещё не готов к осаде (требуется ур. <min>) <gray>· <yellow>у цели <level>"
     level-gap-too-large: "<prefix><red>Нельзя осаждать слабейших ради лёгкой дани <gray>· <yellow>разница более <max> уровней"
@@ -131,6 +129,7 @@ admin:
   war-not-preparing: "<prefix><red>Между этими кланами нет войны в стадии подготовки."
   war-no-territory: "<prefix><red>У клана <color><clan></color> нет столицы: война не за что, начать её нельзя."
   war-force-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
+  raid-force-started: "<prefix><green>Набег <color1><clan1></color1> на <color2><clan2></color2> принудительно начат администратором (без проверок готовности)."
   siege-force-started: "<prefix><green>Осада <color1><clan1></color1> против <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
   clan-recognized: "<prefix><green>Клан <yellow><tag></yellow> (<white><name></white>) получил статус признанного клана."
   clan-unrecognized: "<prefix><yellow>Клан <yellow><tag></yellow> (<white><name></white>) теперь является непризнанным кланом."
@@ -396,6 +395,7 @@ clan:
     admin-disband: "<aqua>/loveclansadmin disband <tag></aqua> <gray>- распустить клан</gray>"
     admin-war: "<aqua>/loveclansadmin war <start|forcestart|skip|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, skip - пропустить таймер подготовки)</gray>"
     admin-siege: "<aqua>/loveclansadmin siege forcestart <clan1> <clan2></aqua> <gray>- принудительно начать осаду без проверок готовности (для тестов)</gray>"
+    admin-raid: "<aqua>/loveclansadmin raid forcestart <атакующий> <защитник></aqua> <gray>- принудительно начать набег без проверок онлайна, лимитов, щита и кулдауна</gray>"
     admin-diplo: "<aqua>/loveclansadmin diplo <clan1> <clan2> <relation></aqua> <gray>- изменить отношения между кланами</gray>"
     admin-exp: "<aqua>/loveclansadmin exp <add|remove|set> <tag> <amount></aqua> <gray>- изменить опыт клана</gray>"
     admin-points: "<aqua>/loveclansadmin points <add|remove|set> <tag> <amount></aqua> <gray>- изменить очки улучшений клана</gray>"
