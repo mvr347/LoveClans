@@ -9,7 +9,9 @@ import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanSpirit;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
-import me.lovelace.loveclans.model.DiplomacyRelation;
+import me.lovelace.loveclans.model.diplomacy.ClanPact;
+import me.lovelace.loveclans.model.diplomacy.ClanRelationRecord;
+import me.lovelace.loveclans.model.diplomacy.PactType;
 import me.lovelace.loveclans.model.history.ConflictKind;
 import me.lovelace.loveclans.model.history.ConflictRecord;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
@@ -195,9 +197,6 @@ public final class SqlClanStorage implements ClanStorage {
                     for (ClanTerritory territory : clan.territories()) {
                         saveTerritory(connection, territory);
                     }
-                    for (Map.Entry<UUID, DiplomacyRelation> entry : clan.diplomacy().entrySet()) {
-                        saveDiplomacy(connection, clan.id(), entry.getKey(), entry.getValue());
-                    }
                     for (Map.Entry<ClanUpgrade, Integer> entry : clan.upgrades().entrySet()) {
                         saveUpgrade(connection, clan.id(), entry.getKey(), entry.getValue());
                     }
@@ -218,6 +217,7 @@ public final class SqlClanStorage implements ClanStorage {
         return CompletableFuture.runAsync(() -> {
             try (Connection connection = database.dataSource().getConnection();
                  PreparedStatement statement = connection.prepareStatement("DELETE FROM clans WHERE id = ?")) {
+                purgeColumns(connection, "clan_relations", "source_clan_id", "target_clan_id", clanId.toString());
                 statement.setString(1, clanId.toString());
                 statement.executeUpdate();
             } catch (SQLException exception) {
@@ -276,20 +276,76 @@ public final class SqlClanStorage implements ClanStorage {
     }
 
     @Override
-    public CompletableFuture<Void> saveDiplomacyAsync(UUID sourceClanId, UUID targetClanId, DiplomacyRelation relation) {
+    public CompletableFuture<Void> saveRelationPairAsync(ClanRelationRecord first, ClanRelationRecord second) {
         return CompletableFuture.runAsync(() -> {
             try (Connection connection = database.dataSource().getConnection()) {
-                if (relation == DiplomacyRelation.NEUTRAL) {
-                    try (PreparedStatement statement = connection.prepareStatement("DELETE FROM clan_diplomacy WHERE source_clan_id = ? AND target_clan_id = ?")) {
-                        statement.setString(1, sourceClanId.toString());
-                        statement.setString(2, targetClanId.toString());
+                try {
+                    connection.setAutoCommit(false);
+                    saveRelationInternal(connection, first);
+                    saveRelationInternal(connection, second);
+                    connection.commit();
+                } catch (SQLException exception) {
+                    try { connection.rollback(); } catch (SQLException ignored) {}
+                    throw exception;
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save relation pair", exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> purgeClanDiplomacyAsync(UUID clanId) {
+        return CompletableFuture.runAsync(() -> {
+            String id = clanId.toString();
+            try (Connection connection = database.dataSource().getConnection()) {
+                try {
+                    connection.setAutoCommit(false);
+                    purgeColumns(connection, "clan_relations", "source_clan_id", "target_clan_id", id);
+                    purgeColumns(connection, "clan_pacts", "first_clan_id", "second_clan_id", id);
+                    purgeColumns(connection, "clan_embargoes", "clan_a", "clan_b", id);
+                    purgeColumns(connection, "clan_blockades", "clan_blocker", "clan_blocked", id);
+                    connection.commit();
+                } catch (SQLException exception) {
+                    try { connection.rollback(); } catch (SQLException ignored) {}
+                    throw exception;
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to purge diplomacy of clan " + clanId, exception);
+            }
+        }, database.executor());
+    }
+
+    private void purgeColumns(Connection connection, String table, String first, String second, String id) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "DELETE FROM " + table + " WHERE " + first + " = ? OR " + second + " = ?")) {
+            statement.setString(1, id);
+            statement.setString(2, id);
+            statement.executeUpdate();
+        }
+    }
+
+    @Override
+    public CompletableFuture<Void> transferChestMoneyAsync(UUID fromClanId, long fromBalance, UUID toClanId, long toBalance) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection()) {
+                try {
+                    connection.setAutoCommit(false);
+                    try (PreparedStatement statement = connection.prepareStatement("UPDATE clans SET chest_money = ? WHERE id = ?")) {
+                        statement.setLong(1, fromBalance);
+                        statement.setString(2, fromClanId.toString());
+                        statement.executeUpdate();
+                        statement.setLong(1, toBalance);
+                        statement.setString(2, toClanId.toString());
                         statement.executeUpdate();
                     }
-                    return;
+                    connection.commit();
+                } catch (SQLException exception) {
+                    try { connection.rollback(); } catch (SQLException ignored) {}
+                    throw exception;
                 }
-                saveDiplomacy(connection, sourceClanId, targetClanId, relation);
             } catch (SQLException exception) {
-                throw new StorageException("Unable to save diplomacy", exception);
+                throw new StorageException("Unable to transfer clan chest money", exception);
             }
         }, database.executor());
     }
@@ -820,6 +876,140 @@ public final class SqlClanStorage implements ClanStorage {
         }, database.executor());
     }
 
+    @Override
+    public CompletableFuture<Collection<ClanRelationRecord>> loadAllRelationsAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<ClanRelationRecord> list = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_relations");
+                 ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    list.add(new ClanRelationRecord(
+                            UUID.fromString(rs.getString("source_clan_id")),
+                            UUID.fromString(rs.getString("target_clan_id")),
+                            rs.getInt("score"),
+                            rs.getInt("score_24h_ago"),
+                            rs.getLong("last_trend_update"),
+                            rs.getLong("updated_at")
+                    ));
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load clan relations", exception);
+            }
+            return list;
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> saveRelationAsync(ClanRelationRecord record) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection()) {
+                saveRelationInternal(connection, record);
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save relation " + record.sourceClanId() + " -> " + record.targetClanId(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteRelationAsync(UUID sourceClanId, UUID targetClanId) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement(
+                         "DELETE FROM clan_relations WHERE source_clan_id = ? AND target_clan_id = ?")) {
+                statement.setString(1, sourceClanId.toString());
+                statement.setString(2, targetClanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete relation " + sourceClanId + " -> " + targetClanId, exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Collection<ClanPact>> loadAllPactsAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            List<ClanPact> list = new ArrayList<>();
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_pacts");
+                 ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    try {
+                        list.add(new ClanPact(
+                                UUID.fromString(rs.getString("id")),
+                                UUID.fromString(rs.getString("first_clan_id")),
+                                UUID.fromString(rs.getString("second_clan_id")),
+                                PactType.valueOf(rs.getString("pact_type")),
+                                rs.getLong("created_at"),
+                                rs.getLong("expires_at")
+                        ));
+                    } catch (IllegalArgumentException ignored) {}
+                }
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to load clan pacts", exception);
+            }
+            return list;
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> savePactAsync(ClanPact pact) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection()) {
+                savePactInternal(connection, pact);
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to save clan pact " + pact.id(), exception);
+            }
+        }, database.executor());
+    }
+
+    @Override
+    public CompletableFuture<Void> deletePactAsync(UUID pactId) {
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("DELETE FROM clan_pacts WHERE id = ?")) {
+                statement.setString(1, pactId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to delete pact " + pactId, exception);
+            }
+        }, database.executor());
+    }
+
+    private void saveRelationInternal(Connection connection, ClanRelationRecord record) throws SQLException {
+        String sql = database.type() == DatabaseType.MYSQL
+                ? "INSERT INTO clan_relations (source_clan_id, target_clan_id, score, score_24h_ago, last_trend_update, updated_at) " +
+                  "VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE score = VALUES(score), score_24h_ago = VALUES(score_24h_ago), last_trend_update = VALUES(last_trend_update), updated_at = VALUES(updated_at)"
+                : "INSERT INTO clan_relations (source_clan_id, target_clan_id, score, score_24h_ago, last_trend_update, updated_at) " +
+                  "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(source_clan_id, target_clan_id) DO UPDATE SET score = excluded.score, score_24h_ago = excluded.score_24h_ago, last_trend_update = excluded.last_trend_update, updated_at = excluded.updated_at";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, record.sourceClanId().toString());
+            statement.setString(2, record.targetClanId().toString());
+            statement.setInt(3, record.score());
+            statement.setInt(4, record.score24hAgo());
+            statement.setLong(5, record.lastTrendUpdate());
+            statement.setLong(6, record.updatedAt());
+            statement.executeUpdate();
+        }
+    }
+
+    private void savePactInternal(Connection connection, ClanPact pact) throws SQLException {
+        String sql = database.type() == DatabaseType.MYSQL
+                ? "INSERT INTO clan_pacts (id, first_clan_id, second_clan_id, pact_type, created_at, expires_at) " +
+                  "VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE expires_at = VALUES(expires_at)"
+                : "INSERT INTO clan_pacts (id, first_clan_id, second_clan_id, pact_type, created_at, expires_at) " +
+                  "VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET expires_at = excluded.expires_at";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, pact.id().toString());
+            statement.setString(2, pact.firstClanId().toString());
+            statement.setString(3, pact.secondClanId().toString());
+            statement.setString(4, pact.type().name());
+            statement.setLong(5, pact.createdAt());
+            statement.setLong(6, pact.expiresAt());
+            statement.executeUpdate();
+        }
+    }
+
 
 
     // --- Торговля между кланами через сундук (§4.2) ---
@@ -1143,14 +1333,36 @@ public final class SqlClanStorage implements ClanStorage {
     }
 
     private void loadDiplomacy(Connection connection, Map<UUID, Clan> clans) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_diplomacy");
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_pacts");
+             ResultSet result = statement.executeQuery()) {
+            while (result.next()) {
+                try {
+                    UUID firstId = UUID.fromString(result.getString("first_clan_id"));
+                    UUID secondId = UUID.fromString(result.getString("second_clan_id"));
+                    PactType type = PactType.valueOf(result.getString("pact_type"));
+                    Clan first = clans.get(firstId);
+                    Clan second = clans.get(secondId);
+                    if (first != null) first.addPact(secondId, type);
+                    if (second != null) second.addPact(firstId, type);
+                } catch (IllegalArgumentException ignored) {}
+            }
+        }
+
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM clan_relations");
              ResultSet result = statement.executeQuery()) {
             while (result.next()) {
                 Clan clan = clans.get(UUID.fromString(result.getString("source_clan_id")));
                 if (clan == null) {
                     continue;
                 }
-                clan.setDiplomacy(UUID.fromString(result.getString("target_clan_id")), DiplomacyRelation.valueOf(result.getString("relation")));
+                clan.setRelation(new ClanRelationRecord(
+                        UUID.fromString(result.getString("source_clan_id")),
+                        UUID.fromString(result.getString("target_clan_id")),
+                        result.getInt("score"),
+                        result.getInt("score_24h_ago"),
+                        result.getLong("last_trend_update"),
+                        result.getLong("updated_at")
+                ));
             }
         }
     }
@@ -1297,18 +1509,6 @@ public final class SqlClanStorage implements ClanStorage {
             statement.setInt(paramIndex++, territory.pvp() ? 1 : 0);
             statement.setInt(paramIndex++, territory.isCapital() ? 1 : 0);
 
-            statement.executeUpdate();
-        }
-    }
-
-    private void saveDiplomacy(Connection connection, UUID sourceClanId, UUID targetClanId, DiplomacyRelation relation) throws SQLException {
-        String[] columns = {"relation", "updated_at", "source_clan_id", "target_clan_id"};
-        String sql = upsertSql("clan_diplomacy", new String[]{"source_clan_id", "target_clan_id"}, columns);
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, relation.name());
-            statement.setLong(2, System.currentTimeMillis());
-            statement.setString(3, sourceClanId.toString());
-            statement.setString(4, targetClanId.toString());
             statement.executeUpdate();
         }
     }

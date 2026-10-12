@@ -23,6 +23,8 @@ public record ClanModifier(
     public static final String TYPE_SIEGE_PRESSURE = "SIEGE_PRESSURE";
     public static final String TYPE_SIEGE_REPELLED = "SIEGE_REPELLED";
     public static final String TYPE_JUST_CASUS = "JUST_CASUS";
+    public static final String TYPE_GUILD_SHIELD = "GUILD_SHIELD";
+    public static final String TYPE_GUILD_SHIELD_COOLDOWN = "GUILD_SHIELD_COOLDOWN";
 
     public ClanModifier {
         payload = payload == null ? Map.of() : Collections.unmodifiableMap(new HashMap<>(payload));

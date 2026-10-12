@@ -58,21 +58,86 @@ public final class ClanModifiersMenu {
                 .lore(Component.text("§7щитов и доступных казус белли."))
                 .build());
 
-        List<ClanModifier> modifiers = plugin.getModifierManager().getModifiers(clan.id());
+        List<ItemStack> items = new java.util.ArrayList<>();
         long now = System.currentTimeMillis();
 
-        if (modifiers.isEmpty()) {
+        List<ClanModifier> modifiers = plugin.getModifierManager().getModifiers(clan.id());
+        for (ClanModifier mod : modifiers) {
+            items.add(renderModifier(mod, now));
+        }
+
+        if (plugin.getDiplomacyManager() != null) {
+            for (UUID targetId : plugin.getDiplomacyManager().getEmbargoesForClan(clan.id())) {
+                String targetTag = resolveClanTag(targetId);
+                items.add(ItemBuilder.of(Material.BARRIER)
+                        .name(Component.text("§cИсходящее эмбарго: §f" + targetTag))
+                        .lore(Component.text("§7Статус: §cАктивно"))
+                        .lore(Component.text("§7Блокирует прямую торговлю между кланами."))
+                        .lore(Component.empty())
+                        .lore(Component.text("§8Снять можно в меню дипломатии."))
+                        .build());
+            }
+
+            for (UUID targetId : plugin.getDiplomacyManager().getOutgoingBlockades(clan.id())) {
+                String targetTag = resolveClanTag(targetId);
+                items.add(ItemBuilder.of(Material.ANVIL)
+                        .name(Component.text("§4Блокада цели: §f" + targetTag))
+                        .lore(Component.text("§7Статус: §cГегемон"))
+                        .lore(Component.text("§7Вы блокируете торговлю и экспансию цели."))
+                        .lore(Component.empty())
+                        .lore(Component.text("§8Снять можно в меню дипломатии."))
+                        .build());
+            }
+
+            for (UUID blockerId : plugin.getDiplomacyManager().getIncomingBlockades(clan.id())) {
+                String blockerTag = resolveClanTag(blockerId);
+                items.add(ItemBuilder.of(Material.IRON_BARS)
+                        .name(Component.text("§cПод блокадой клана: §f" + blockerTag))
+                        .lore(Component.text("§7Статус: §4Блокирован"))
+                        .lore(Component.text("§cКараваны и торговля остановлены!"))
+                        .lore(Component.empty())
+                        .lore(Component.text("§8Победите агрессора в войне или снимите блокаду."))
+                        .build());
+            }
+
+            for (me.lovelace.loveclans.model.diplomacy.ClanPact pact : plugin.getDiplomacyManager().getPactsForClan(clan.id())) {
+                UUID otherId = pact.otherClanId(clan.id());
+                String otherTag = resolveClanTag(otherId);
+                String timeLeft = TimeUtil.formatDuration(pact.remainingMillis(now));
+                switch (pact.type()) {
+                    case NAP -> items.add(ItemBuilder.of(Material.WHITE_BANNER)
+                            .name(Component.text("§fПакт о ненападении: §e" + otherTag))
+                            .lore(Component.text("§7Осталось времени: §f" + timeLeft))
+                            .lore(Component.empty())
+                            .lore(Component.text("§8Запрещает взаимные объявления войны, осад и набегов."))
+                            .build());
+                    case TRADE -> items.add(ItemBuilder.of(Material.EMERALD)
+                            .name(Component.text("§6Торговое соглашение: §e" + otherTag))
+                            .lore(Component.text("§7Осталось времени: §f" + timeLeft))
+                            .lore(Component.empty())
+                            .lore(Component.text("§8Снижает КД торговли и ускоряет сближение."))
+                            .build());
+                    case ALLIANCE -> items.add(ItemBuilder.of(Material.DIAMOND)
+                            .name(Component.text("§bВоенный союз: §e" + otherTag))
+                            .lore(Component.text("§7Осталось времени: §f" + timeLeft))
+                            .lore(Component.empty())
+                            .lore(Component.text("§8Полный пакт о взаимопомощи и ненападении."))
+                            .build());
+                }
+            }
+        }
+
+        if (items.isEmpty()) {
             inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
-                    .name(Component.text("§cНет активных модификаторов"))
+                    .name(Component.text("§cНет активных эффектов и пактов"))
                     .lore(Component.text("§7У вашего клана в данный момент нет"))
-                    .lore(Component.text("§7выплат дани, щитов или казус белли."))
+                    .lore(Component.text("§7выплат дани, щитов, пактов или блокад."))
                     .build());
         } else {
             int slotIdx = 0;
-            for (ClanModifier mod : modifiers) {
+            for (ItemStack item : items) {
                 if (slotIdx >= CONTENT_SLOTS.length) break;
-                int targetSlot = CONTENT_SLOTS[slotIdx++];
-                inventory.setItem(targetSlot, renderModifier(mod, now));
+                inventory.setItem(CONTENT_SLOTS[slotIdx++], item);
             }
         }
 
@@ -156,6 +221,16 @@ public final class ClanModifiersMenu {
                         .lore(Component.text("§7Срок действия: §f" + timeLeft))
                         .lore(Component.empty())
                         .lore(Component.text("§8Справедливый повод для конфликта."))
+                        .build();
+            }
+            case ClanModifier.TYPE_GUILD_SHIELD -> {
+                String timeLeft = TimeUtil.formatDuration(mod.remainingMillis(now));
+                yield ItemBuilder.of(Material.GOLDEN_APPLE)
+                        .name(Component.text("§bГильдейский щит"))
+                        .lore(Component.text("§7Осталось времени: §f" + timeLeft))
+                        .lore(Component.empty())
+                        .lore(Component.text("§8Защищает клан от объявления войн,"))
+                        .lore(Component.text("§8осад, рейдов и блокад на 24 часа."))
                         .build();
             }
             default -> ItemBuilder.of(Material.PAPER)

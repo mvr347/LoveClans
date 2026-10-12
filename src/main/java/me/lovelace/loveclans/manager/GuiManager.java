@@ -7,6 +7,8 @@ import me.lovelace.loveclans.gui.ClanCapitalManagementMenu;
 import me.lovelace.loveclans.gui.ClanChestMenu;
 import me.lovelace.loveclans.gui.ClanChestMoneyMenu;
 import me.lovelace.loveclans.gui.ClanColorPickerMenu;
+import me.lovelace.loveclans.gui.ClanConflictMenu;
+import me.lovelace.loveclans.gui.ClanGiftMenu;
 
 import me.lovelace.loveclans.gui.ClanConfirmMenu;
 import me.lovelace.loveclans.gui.ClanContractChoiceMenu;
@@ -15,7 +17,6 @@ import me.lovelace.loveclans.gui.ClanRecognitionConfirmMenu;
 import me.lovelace.loveclans.gui.GuildmasterMenu;
 import me.lovelace.loveclans.gui.ClanCreateMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacyMenu;
-import me.lovelace.loveclans.gui.ClanRelationMenu;
 import me.lovelace.loveclans.gui.ClanPerkMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacySelectMenu;
 import me.lovelace.loveclans.gui.ClanInfoMenu;
@@ -62,7 +63,6 @@ public class GuiManager implements Listener {
     private final LoveClansPlugin plugin;
     private final NamespacedKey memberKey;
     private final ClanDiplomacyMenu diplomacyMenu;
-    private final ClanRelationMenu relationMenu;
     private final ClanPerkMenu perkMenu;
     private final ClanTerritoriesMenu territoriesMenu;
     private final ClanMembersMenu membersMenu;
@@ -91,7 +91,6 @@ public class GuiManager implements Listener {
         this.plugin = plugin;
         this.memberKey = new NamespacedKey(plugin, "gui_member");
         this.diplomacyMenu = new ClanDiplomacyMenu(plugin);
-        this.relationMenu = new ClanRelationMenu(plugin);
         this.perkMenu = new ClanPerkMenu(plugin);
         this.territoriesMenu = new ClanTerritoriesMenu(plugin);
         this.membersMenu = new ClanMembersMenu(plugin);
@@ -175,6 +174,14 @@ public class GuiManager implements Listener {
 
     public void openServerTrade(Player player, Clan clan) {
         openTrade(player, clan, ClanTradeMenu.Tab.STATE);
+    }
+
+    public void openGiftMenu(Player player, Clan sourceClan, Clan targetClan) {
+        new ClanGiftMenu(plugin, player, sourceClan, targetClan).open();
+    }
+
+    public void openConflict(Player player, Clan sourceClan, Clan targetClan, ClanDiplomacyMenu diplomacyMenu) {
+        new ClanConflictMenu(plugin, player, sourceClan, targetClan, diplomacyMenu).open();
     }
 
 
@@ -298,7 +305,7 @@ public class GuiManager implements Listener {
     }
 
     public void openTerritories(Player player, Clan clan) {
-        territoriesMenu.open(player, clan);
+        openClanCapitalManagementMenu(player, clan);
     }
 
     public void openTerritorySettings(Player player, Clan clan, ClanTerritory territory) {
@@ -312,7 +319,7 @@ public class GuiManager implements Listener {
     }
 
     public void openRelations(Player player, Clan sourceClan, Clan targetClan) {
-        relationMenu.open(player, sourceClan, targetClan);
+        openDiplomacy(player, sourceClan, targetClan);
     }
 
     public void openDiplomacySelect(Player player, Clan sourceClan) {
@@ -343,6 +350,23 @@ public class GuiManager implements Listener {
 
     // ── Click routing ──────────────────────────────────────────────────────────
 
+    /**
+     * True when the click happened in the player's own inventory (the menu is not affected). Actions that would move
+     * items across, shift-click and "collect to cursor" (double click), are cancelled: otherwise an item would slide
+     * into a free menu slot and vanish on close, or the menu's own items could be pulled out.
+     */
+    private boolean isOwnInventoryClick(InventoryClickEvent event) {
+        if (event.getRawSlot() < event.getView().getTopInventory().getSize()) {
+            return false;
+        }
+        InventoryAction action = event.getAction();
+        if (event.isShiftClick() || action == InventoryAction.MOVE_TO_OTHER_INVENTORY
+                || action == InventoryAction.COLLECT_TO_CURSOR) {
+            event.setCancelled(true);
+        }
+        return true;
+    }
+
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -351,77 +375,91 @@ public class GuiManager implements Listener {
         InventoryHolder holder = event.getView().getTopInventory().getHolder();
 
         if (holder instanceof ClanMainMenu mainMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             mainMenu.handleInventoryClick(player, event.getRawSlot());
             return;
         }
 
         if (holder instanceof ClanCapitalManagementMenu capitalMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             capitalMenu.handleInventoryClick(player, event.getRawSlot());
             return;
         }
 
         if (holder instanceof ClanSpiritMenu spiritMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             spiritMenu.handleInventoryClick(player, event.getRawSlot());
             return;
         }
 
         if (holder instanceof ClanSpiritAbilityMenu spiritAbilityMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             spiritAbilityMenu.handleInventoryClick(player, event.getRawSlot());
             return;
         }
 
+        if (holder instanceof ClanConflictMenu conflictMenu) {
+            if (isOwnInventoryClick(event)) return;
+            event.setCancelled(true);
+            conflictMenu.handleInventoryClick(player, event.getRawSlot());
+            return;
+        }
+
+        if (holder instanceof ClanGiftMenu giftMenu) {
+            if (isOwnInventoryClick(event)) return;
+            event.setCancelled(true);
+            giftMenu.handleInventoryClick(player, event.getRawSlot());
+            return;
+        }
+
         if (holder instanceof TerritorySettingsMenu territorySettingsMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             territorySettingsMenu.handleInventoryClick(player, event.getRawSlot());
             return;
         }
 
         if (holder instanceof ClanListMenu clanListMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             clanListMenu.handleInventoryClick(event.getRawSlot(), event.isRightClick());
             return;
         }
 
         if (holder instanceof ClanDiplomacySelectMenu diplomacySelectMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             diplomacySelectMenu.handleInventoryClick(event.getRawSlot(), event.isRightClick());
             return;
         }
 
         if (holder instanceof ClanCreateMenu createMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             createMenu.handleInventoryClick(event.getRawSlot());
             return;
         }
 
         if (holder instanceof ClanBannerCreationMenu bannerCreateMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             bannerCreateMenu.handleInventoryClick(event.getRawSlot());
             return;
         }
 
         if (holder instanceof PlayerApplicationsMenu playerApplicationsMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             playerApplicationsMenu.handleInventoryClick(event);
             return;
         }
 
         if (holder instanceof ClanInfoMenu infoMenu) {
-            if (event.getRawSlot() >= event.getView().getTopInventory().getSize()) return;
+            if (isOwnInventoryClick(event)) return;
             event.setCancelled(true);
             infoMenu.handleInventoryClick(event.getRawSlot());
             return;
@@ -465,8 +503,7 @@ public class GuiManager implements Listener {
                     }
                     case TERRITORIES -> territoriesMenu.handleTerritoryClick(player, clan, slot, event.isRightClick());
                     case SETTINGS -> settingsMenu.handleInventoryClick(player, clan, slot);
-                    case DIPLOMACY -> diplomacyMenu.handleInventoryClick(player, clan, slot);
-                    case RELATIONS -> relationMenu.handleInventoryClick(player, clan, slot);
+                    case DIPLOMACY -> diplomacyMenu.handleInventoryClick(player, clan, slot, event.isRightClick());
                     case PERKS -> perkMenu.handleInventoryClick(player, clan, slot);
                     case MEMBER_DETAIL -> memberDetailMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case COLOR_PICKER -> colorPickerMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
@@ -509,12 +546,20 @@ public class GuiManager implements Listener {
     /** Dragging an item over a menu would drop it into the menu inventory, where it is lost on close. */
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        if (!(event.getView().getTopInventory().getHolder() instanceof ClanMenuHolder)) return;
-        int topSize = event.getView().getTopInventory().getSize();
-        for (int rawSlot : event.getRawSlots()) {
-            if (rawSlot < topSize) {
-                event.setCancelled(true);
-                return;
+        InventoryHolder holder = event.getView().getTopInventory().getHolder();
+        if (holder instanceof ClanMenuHolder
+                || holder instanceof ClanMainMenu
+                || holder instanceof ClanCapitalManagementMenu
+                || holder instanceof ClanSpiritMenu
+                || holder instanceof ClanSpiritAbilityMenu
+                || holder instanceof ClanConflictMenu
+                || holder instanceof ClanGiftMenu) {
+            int topSize = event.getView().getTopInventory().getSize();
+            for (int rawSlot : event.getRawSlots()) {
+                if (rawSlot < topSize) {
+                    event.setCancelled(true);
+                    return;
+                }
             }
         }
     }

@@ -1,7 +1,9 @@
 package me.lovelace.loveclans.manager;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.manager.diplomacy.DiplomacyActions;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.model.diplomacy.PactType;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.trade.ClanTrade;
 import me.lovelace.loveclans.model.trade.TradeStatus;
@@ -56,6 +58,16 @@ public final class ClanTradeManager {
         return a.compareTo(b) < 0 ? new AbstractMap.SimpleImmutableEntry<>(a, b) : new AbstractMap.SimpleImmutableEntry<>(b, a);
     }
 
+    /** A trade pact between the two clans shortens the cooldown (diplomacy.pacts.trade-cooldown-multiplier). */
+    private Duration cooldownFor(UUID clanA, UUID clanB) {
+        Duration base = cooldown();
+        if (plugin.getDiplomacyManager().hasPact(clanA, clanB, PactType.TRADE)) {
+            double multiplier = plugin.getConfig().getDouble("diplomacy.pacts.trade-cooldown-multiplier", 0.5);
+            return Duration.ofMillis((long) (base.toMillis() * Math.max(0.0, Math.min(1.0, multiplier))));
+        }
+        return base;
+    }
+
     private Duration cooldown() {
         return Duration.ofMinutes(plugin.getConfig().getLong("clans.trade.cooldown-minutes", 30));
     }
@@ -68,6 +80,7 @@ public final class ClanTradeManager {
     /** True if trading between these two clans is currently blocked - reused by LoveTradesHook for the player-to-player side too. */
     public boolean tradeBlocked(UUID clanA, UUID clanB) {
         return plugin.getClanManager().inConflictWith(clanA, clanB)
+                || plugin.getDiplomacyManager().isHostile(clanA, clanB)
                 || plugin.getDiplomacyManager().isEmbargoed(clanA, clanB)
                 || plugin.getDiplomacyManager().isBlockading(clanA, clanB)
                 || plugin.getDiplomacyManager().isBlockading(clanB, clanA);
@@ -84,7 +97,11 @@ public final class ClanTradeManager {
             if (from.id().equals(to.id())) {
                 throw new IllegalStateException("general.error");
             }
+            if (!from.isRecognized() || !to.isRecognized()) {
+                throw new IllegalStateException("deny.diplomacy.need-recognized");
+            }
             ClanManager.requireTerritory(from, to);
+            plugin.getDiplomacyManager().requireAllowed(DiplomacyActions.Action.TRADE, from, to);
             if (tradeBlocked(from.id(), to.id())) {
                 throw new IllegalStateException("trade.blocked");
             }
@@ -96,7 +113,7 @@ public final class ClanTradeManager {
             }
             Long last = lastTradeAt.get(pairKey(from.id(), to.id()));
             if (last != null) {
-                long remaining = cooldown().toMillis() - (System.currentTimeMillis() - last);
+                long remaining = cooldownFor(from.id(), to.id()).toMillis() - (System.currentTimeMillis() - last);
                 if (remaining > 0) {
                     throw new TradeCooldownException(remaining / 1000);
                 }
@@ -131,6 +148,9 @@ public final class ClanTradeManager {
         }
         if (!to.hasPermission(actorId, ClanPermission.TRADE)) {
             return CompletableFuture.failedFuture(new IllegalStateException("general.no-permission"));
+        }
+        if (!to.isRecognized() || plugin.getClanManager().getClanById(trade.fromClanId()).map(c -> !c.isRecognized()).orElse(true)) {
+            return CompletableFuture.failedFuture(new IllegalStateException("deny.diplomacy.need-recognized"));
         }
         if (!to.hasCapital() || plugin.getClanManager().getClanById(trade.fromClanId()).map(c -> !c.hasCapital()).orElse(true)) {
             return CompletableFuture.failedFuture(new IllegalStateException("clan.no-territory"));

@@ -102,6 +102,80 @@ public final class ModifierManager {
         addModifier(modifier);
     }
 
+    public boolean hasGuildShield(UUID clanId) {
+        long now = System.currentTimeMillis();
+        return getModifiers(clanId).stream()
+                .anyMatch(m -> ClanModifier.TYPE_GUILD_SHIELD.equals(m.type()) && !m.isExpired(now));
+    }
+
+    public long getGuildShieldRemaining(UUID clanId) {
+        long now = System.currentTimeMillis();
+        return getModifiers(clanId).stream()
+                .filter(m -> ClanModifier.TYPE_GUILD_SHIELD.equals(m.type()) && !m.isExpired(now))
+                .mapToLong(m -> m.endsAt() - now)
+                .max()
+                .orElse(0L);
+    }
+
+    public void grantGuildShield(UUID clanId, long hours) {
+        long now = System.currentTimeMillis();
+        long endsAt = now + hours * 3600_000L;
+        getModifiers(clanId).stream()
+                .filter(m -> ClanModifier.TYPE_GUILD_SHIELD.equals(m.type()))
+                .forEach(m -> removeModifier(m.id()));
+
+        ClanModifier modifier = new ClanModifier(
+                UUID.randomUUID(),
+                clanId,
+                ClanModifier.TYPE_GUILD_SHIELD,
+                Map.of(),
+                now,
+                endsAt,
+                1
+        );
+        addModifier(modifier);
+    }
+
+    public boolean hasGuildShieldCooldown(UUID clanId) {
+        long now = System.currentTimeMillis();
+        return getModifiers(clanId).stream()
+                .anyMatch(m -> ClanModifier.TYPE_GUILD_SHIELD_COOLDOWN.equals(m.type()) && !m.isExpired(now));
+    }
+
+    public long getGuildShieldCooldownRemaining(UUID clanId) {
+        long now = System.currentTimeMillis();
+        return getModifiers(clanId).stream()
+                .filter(m -> ClanModifier.TYPE_GUILD_SHIELD_COOLDOWN.equals(m.type()) && !m.isExpired(now))
+                .mapToLong(m -> m.endsAt() - now)
+                .max()
+                .orElse(0L);
+    }
+
+    public void grantGuildShieldCooldown(UUID clanId, long days) {
+        long now = System.currentTimeMillis();
+        long endsAt = now + days * 24L * 3600_000L;
+        getModifiers(clanId).stream()
+                .filter(m -> ClanModifier.TYPE_GUILD_SHIELD_COOLDOWN.equals(m.type()))
+                .forEach(m -> removeModifier(m.id()));
+
+        ClanModifier modifier = new ClanModifier(
+                UUID.randomUUID(),
+                clanId,
+                ClanModifier.TYPE_GUILD_SHIELD_COOLDOWN,
+                Map.of(),
+                now,
+                endsAt,
+                1
+        );
+        addModifier(modifier);
+    }
+
+    public void clearGuildShield(UUID clanId) {
+        getModifiers(clanId).stream()
+                .filter(m -> ClanModifier.TYPE_GUILD_SHIELD.equals(m.type()) || ClanModifier.TYPE_GUILD_SHIELD_COOLDOWN.equals(m.type()))
+                .forEach(m -> removeModifier(m.id()));
+    }
+
     public void grantReparations(UUID debtorClanId, UUID creditorClanId, int days, long dailyAmount) {
         long now = System.currentTimeMillis();
         // One extra day of slack: the payments are counted by days_left, not by the clock. With endsAt exactly

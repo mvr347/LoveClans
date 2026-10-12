@@ -166,6 +166,15 @@ public final class RaidManager {
             if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
                 throw new IllegalStateException("war.cannot-declare-on-ally");
             }
+            if (plugin.getDiplomacyManager() != null && plugin.getDiplomacyManager().hasPact(attacker.id(), defender.id(), me.lovelace.loveclans.model.diplomacy.PactType.NAP)) {
+                throw new IllegalStateException("deny.nap.active");
+            }
+            if (plugin.getDiplomacyManager() != null) {
+                plugin.getDiplomacyManager().requireAllowed(me.lovelace.loveclans.manager.diplomacy.DiplomacyActions.Action.CONFLICT, attacker, defender);
+            }
+            if (plugin.getModifierManager() != null && plugin.getModifierManager().hasGuildShield(defender.id())) {
+                throw new IllegalStateException("deny.guild-shield.active");
+            }
 
             // Щит на защитника после рейда (12 часов)
             if (plugin.getModifierManager().hasPostRaidShield(defender.id())) {
@@ -679,6 +688,7 @@ public final class RaidManager {
         return plugin.supplySync(() -> {
             ClanRaid raid = findRaid(source.id(), target.id()).orElseThrow(() -> new IllegalStateException("war.not-at-war"));
             endRaid(raid, RaidResult.CANCELLED);
+            plugin.getDiplomacyManager().onConflictPeace(source, target);
             onlineMembers(source).forEach(p -> plugin.getMessages().send(p, "war.peace", Map.of("tag", target.tag(), "color", target.tagColor())));
             onlineMembers(target).forEach(p -> plugin.getMessages().send(p, "war.peace", Map.of("tag", source.tag(), "color", source.tagColor())));
             return null;
@@ -713,7 +723,13 @@ public final class RaidManager {
         Clan attacker = clansOpt.get().attacker();
         Clan defender = clansOpt.get().defender();
 
+        if (result == RaidResult.DEFENDER_WIN && plugin.getDiplomacyManager() != null) {
+            plugin.getDiplomacyManager().onRaidDefended(attacker, defender);
+        }
         if (result == RaidResult.ATTACKER_WIN) {
+            if (plugin.getDiplomacyManager() != null) {
+                plugin.getDiplomacyManager().onRaidVictory(attacker, defender);
+            }
             onlineMembers(attacker).forEach(p -> plugin.getMessages().sendTitle(p, "raid.end.victory-title", "raid.end.victory-subtitle",
                     Map.of("tag", defender.tag(), "color", defender.tagColor())));
             onlineMembers(defender).forEach(p -> plugin.getMessages().sendTitle(p, "raid.end.defeat-title", "raid.end.defeat-subtitle",

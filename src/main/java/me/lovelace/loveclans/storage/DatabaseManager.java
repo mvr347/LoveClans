@@ -8,10 +8,19 @@ import org.bukkit.configuration.ConfigurationSection;
 import javax.sql.DataSource;
 import java.io.File;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -379,7 +388,7 @@ public final class DatabaseManager implements AutoCloseable {
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);
-            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_modifiers_clan ON clan_modifiers(clan_id)");
+            createIndex(statement, "CREATE INDEX IF NOT EXISTS idx_clan_modifiers_clan ON clan_modifiers(clan_id)");
 
             // Торговля между кланами через сундук (§4.2) — money/items уже списаны с clan_from
             // (эскроу) на момент создания строки; при ACCEPTED оба зачисляются clan_to, при
@@ -409,7 +418,7 @@ public final class DatabaseManager implements AutoCloseable {
                         money_delivered TINYINT NOT NULL DEFAULT 0
                     )
                     """);
-            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_trade_deliveries_clan ON clan_trade_deliveries(clan_id)");
+            createIndex(statement, "CREATE INDEX IF NOT EXISTS idx_clan_trade_deliveries_clan ON clan_trade_deliveries(clan_id)");
             // Items owed to a player who was offline when they were granted (orphan banner cleanup).
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_pending_items (
@@ -420,7 +429,7 @@ public final class DatabaseManager implements AutoCloseable {
                         created_at BIGINT NOT NULL
                     )
                     """);
-            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_pending_items_player ON clan_pending_items(player_id)");
+            createIndex(statement, "CREATE INDEX IF NOT EXISTS idx_clan_pending_items_player ON clan_pending_items(player_id)");
             // State orders (clans.trade.state-orders): one row per opened order, contributions per clan.
             statement.executeUpdate("""
                     CREATE TABLE IF NOT EXISTS clan_state_orders (
@@ -456,8 +465,49 @@ public final class DatabaseManager implements AutoCloseable {
                     """);
             // Кланы удаляются, а их история остаётся: внешних ключей тут намеренно нет,
             // иначе распад клана стирал бы и противостояния, в которых он участвовал.
-            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_conflicts_attacker ON clan_conflicts(attacker_clan_id)");
-            statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_clan_conflicts_defender ON clan_conflicts(defender_clan_id)");
+            createIndex(statement, "CREATE INDEX IF NOT EXISTS idx_clan_conflicts_attacker ON clan_conflicts(attacker_clan_id)");
+            createIndex(statement, "CREATE INDEX IF NOT EXISTS idx_clan_conflicts_defender ON clan_conflicts(defender_clan_id)");
+
+            // Дипломатия v2 (§1): живой score отношений A -> B (-100..+100)
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_relations (
+                        source_clan_id VARCHAR(36) NOT NULL,
+                        target_clan_id VARCHAR(36) NOT NULL,
+                        score INT NOT NULL DEFAULT 0,
+                        score_24h_ago INT NOT NULL DEFAULT 0,
+                        last_trend_update BIGINT NOT NULL DEFAULT 0,
+                        updated_at BIGINT NOT NULL,
+                        PRIMARY KEY (source_clan_id, target_clan_id),
+                        FOREIGN KEY (source_clan_id) REFERENCES clans(id) ON DELETE CASCADE
+                    )
+                    """);
+            createIndex(statement, "CREATE INDEX IF NOT EXISTS idx_clan_relations_target ON clan_relations(target_clan_id)");
+
+            // Дипломатия v2 (§5): соглашения (пакты NAP, TRADE, ALLIANCE)
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_pacts (
+                        id VARCHAR(36) PRIMARY KEY,
+                        first_clan_id VARCHAR(36) NOT NULL,
+                        second_clan_id VARCHAR(36) NOT NULL,
+                        pact_type VARCHAR(32) NOT NULL,
+                        created_at BIGINT NOT NULL,
+                        expires_at BIGINT NOT NULL DEFAULT 0,
+                        FOREIGN KEY (first_clan_id) REFERENCES clans(id) ON DELETE CASCADE,
+                        FOREIGN KEY (second_clan_id) REFERENCES clans(id) ON DELETE CASCADE
+                    )
+                    """);
+            createIndex(statement, "CREATE INDEX IF NOT EXISTS idx_clan_pacts_first ON clan_pacts(first_clan_id)");
+            createIndex(statement, "CREATE INDEX IF NOT EXISTS idx_clan_pacts_second ON clan_pacts(second_clan_id)");
+
+            migrateLegacyDiplomacy(connection);
+
+            statement.executeUpdate("""
+                    CREATE TABLE IF NOT EXISTS clan_diplomacy_meta (
+                        meta_key VARCHAR(64) PRIMARY KEY,
+                        meta_value VARCHAR(64) NOT NULL
+                    )
+                    """);
+            migrateSharedPairScores(connection);
         } catch (SQLException exception) {
             throw new StorageException("Unable to create database schema", exception);
         }
@@ -504,10 +554,240 @@ public final class DatabaseManager implements AutoCloseable {
         }
     }
 
+    /**
+     * "CREATE INDEX IF NOT EXISTS" is SQLite/MariaDB syntax; MySQL rejects it. On MySQL the clause is dropped and the
+     * "duplicate key name" error (1061) of an already existing index is ignored.
+     */
+    private void createIndex(Statement statement, String sql) throws SQLException {
+        if (type != DatabaseType.MYSQL) {
+            statement.executeUpdate(sql);
+            return;
+        }
+        try {
+            statement.executeUpdate(sql.replace("IF NOT EXISTS ", ""));
+        } catch (SQLException exception) {
+            if (exception.getErrorCode() != 1061) {
+                throw exception;
+            }
+        }
+    }
+
     private boolean columnExists(Connection connection, String table, String column) throws SQLException {
         try (var columns = connection.getMetaData().getColumns(null, null, table, null)) {
             while (columns.next()) {
                 if (column.equalsIgnoreCase(columns.getString("COLUMN_NAME"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void migrateLegacyDiplomacy(Connection connection) {
+        try {
+            if (!tableExists(connection, "clan_diplomacy") || !tableExists(connection, "clan_relations")) {
+                return;
+            }
+            try (Statement checkStmt = connection.createStatement();
+                 ResultSet checkRs = checkStmt.executeQuery("SELECT COUNT(*) FROM clan_relations")) {
+                if (checkRs.next() && checkRs.getInt(1) > 0) {
+                    return;
+                }
+            }
+
+            String selectSql = "SELECT source_clan_id, target_clan_id, relation, updated_at FROM clan_diplomacy";
+            List<Object[]> rows = new ArrayList<>();
+            try (Statement selectStmt = connection.createStatement();
+                 ResultSet rs = selectStmt.executeQuery(selectSql)) {
+                while (rs.next()) {
+                    rows.add(new Object[]{
+                            rs.getString("source_clan_id"),
+                            rs.getString("target_clan_id"),
+                            rs.getString("relation"),
+                            rs.getLong("updated_at")
+                    });
+                }
+            }
+
+            if (rows.isEmpty()) {
+                return;
+            }
+
+            String insertRelationSql = type == DatabaseType.MYSQL
+                    ? "INSERT IGNORE INTO clan_relations (source_clan_id, target_clan_id, score, score_24h_ago, last_trend_update, updated_at) VALUES (?, ?, ?, ?, ?, ?)"
+                    : "INSERT OR IGNORE INTO clan_relations (source_clan_id, target_clan_id, score, score_24h_ago, last_trend_update, updated_at) VALUES (?, ?, ?, ?, ?, ?)";
+            String insertPactSql = type == DatabaseType.MYSQL
+                    ? "INSERT IGNORE INTO clan_pacts (id, first_clan_id, second_clan_id, pact_type, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)"
+                    : "INSERT OR IGNORE INTO clan_pacts (id, first_clan_id, second_clan_id, pact_type, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)";
+
+            try (PreparedStatement relStmt = connection.prepareStatement(insertRelationSql);
+                 PreparedStatement pactStmt = connection.prepareStatement(insertPactSql)) {
+
+                Set<String> processedAlliances = new HashSet<>();
+
+                for (Object[] row : rows) {
+                    String src = (String) row[0];
+                    String tgt = (String) row[1];
+                    String rel = (String) row[2];
+                    long updated = (Long) row[3];
+                    if (updated <= 0) updated = System.currentTimeMillis();
+
+                    if ("ALLY".equalsIgnoreCase(rel)) {
+                        relStmt.setString(1, src);
+                        relStmt.setString(2, tgt);
+                        relStmt.setInt(3, 95);
+                        relStmt.setInt(4, 95);
+                        relStmt.setLong(5, updated);
+                        relStmt.setLong(6, updated);
+                        relStmt.executeUpdate();
+
+                        relStmt.setString(1, tgt);
+                        relStmt.setString(2, src);
+                        relStmt.setInt(3, 95);
+                        relStmt.setInt(4, 95);
+                        relStmt.setLong(5, updated);
+                        relStmt.setLong(6, updated);
+                        relStmt.executeUpdate();
+
+                        String pairKey = src.compareTo(tgt) < 0 ? src + ":" + tgt : tgt + ":" + src;
+                        if (processedAlliances.add(pairKey)) {
+                            pactStmt.setString(1, UUID.randomUUID().toString());
+                            pactStmt.setString(2, src);
+                            pactStmt.setString(3, tgt);
+                            pactStmt.setString(4, "ALLIANCE");
+                            pactStmt.setLong(5, updated);
+                            pactStmt.setLong(6, 0L);
+                            pactStmt.executeUpdate();
+                        }
+                    } else if ("ENEMY".equalsIgnoreCase(rel)) {
+                        relStmt.setString(1, src);
+                        relStmt.setString(2, tgt);
+                        relStmt.setInt(3, -70);
+                        relStmt.setInt(4, -70);
+                        relStmt.setLong(5, updated);
+                        relStmt.setLong(6, updated);
+                        relStmt.executeUpdate();
+                    }
+                }
+                plugin.getLogger().info("Миграция дипломатии v1 -> v2: перенесено " + rows.size() + " записей в clan_relations и clan_pacts.");
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().log(Level.WARNING, "Не удалось выполнить миграцию legacy дипломатии: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Relation scores used to be one-directional ("our view of them" and "their view of us"). The score is now shared by
+     * the pair: both mirrored rows get the rounded average. Duplicate pacts (one alliance used to be saved 2-3 times)
+     * are collapsed, and rows pointing at clans that no longer exist are dropped. Runs once, guarded by a marker row,
+     * and is a single transaction so a failure leaves the old data untouched.
+     */
+    private void migrateSharedPairScores(Connection connection) {
+        final String marker = "pair_score_v1";
+        boolean previousAutoCommit = true;
+        try {
+            try (PreparedStatement check = connection.prepareStatement("SELECT meta_value FROM clan_diplomacy_meta WHERE meta_key = ?")) {
+                check.setString(1, marker);
+                try (ResultSet rs = check.executeQuery()) {
+                    if (rs.next()) {
+                        return;
+                    }
+                }
+            }
+            previousAutoCommit = connection.getAutoCommit();
+            connection.setAutoCommit(false);
+
+            Set<String> clanIds = new HashSet<>();
+            try (Statement st = connection.createStatement(); ResultSet rs = st.executeQuery("SELECT id FROM clans")) {
+                while (rs.next()) clanIds.add(rs.getString(1));
+            }
+
+            // Relations: pair key (smaller id first) -> [score a->b, score b->a, updated_at]
+            Map<String, long[]> pairs = new HashMap<>();
+            Map<String, String[]> pairIds = new HashMap<>();
+            try (Statement st = connection.createStatement();
+                 ResultSet rs = st.executeQuery("SELECT source_clan_id, target_clan_id, score, updated_at FROM clan_relations")) {
+                while (rs.next()) {
+                    String src = rs.getString(1);
+                    String tgt = rs.getString(2);
+                    if (!clanIds.contains(src) || !clanIds.contains(tgt) || src.equals(tgt)) continue;
+                    boolean forward = src.compareTo(tgt) < 0;
+                    String a = forward ? src : tgt;
+                    String b = forward ? tgt : src;
+                    String key = a + ":" + b;
+                    long[] values = pairs.computeIfAbsent(key, k -> new long[]{0, 0, 0});
+                    pairIds.putIfAbsent(key, new String[]{a, b});
+                    values[forward ? 0 : 1] = rs.getInt(3);
+                    values[2] = Math.max(values[2], rs.getLong(4));
+                }
+            }
+
+            try (Statement st = connection.createStatement()) {
+                st.executeUpdate("DELETE FROM clan_relations");
+            }
+            String insertSql = "INSERT INTO clan_relations (source_clan_id, target_clan_id, score, score_24h_ago, last_trend_update, updated_at) VALUES (?, ?, ?, ?, ?, ?)";
+            long now = System.currentTimeMillis();
+            try (PreparedStatement insert = connection.prepareStatement(insertSql)) {
+                for (Map.Entry<String, long[]> entry : pairs.entrySet()) {
+                    long[] v = entry.getValue();
+                    int shared = (int) Math.max(-100, Math.min(100, Math.round((v[0] + v[1]) / 2.0)));
+                    if (shared == 0) continue;
+                    String[] ids = pairIds.get(entry.getKey());
+                    long updated = v[2] > 0 ? v[2] : now;
+                    for (int i = 0; i < 2; i++) {
+                        insert.setString(1, ids[i]);
+                        insert.setString(2, ids[1 - i]);
+                        insert.setInt(3, shared);
+                        insert.setInt(4, shared);
+                        insert.setLong(5, now);
+                        insert.setLong(6, updated);
+                        insert.addBatch();
+                    }
+                }
+                insert.executeBatch();
+            }
+
+            // Pacts: keep the oldest row per (unordered pair, type), drop pacts of vanished clans
+            List<String[]> pactRows = new ArrayList<>();
+            try (Statement st = connection.createStatement();
+                 ResultSet rs = st.executeQuery("SELECT id, first_clan_id, second_clan_id, pact_type FROM clan_pacts ORDER BY created_at ASC")) {
+                while (rs.next()) {
+                    pactRows.add(new String[]{rs.getString(1), rs.getString(2), rs.getString(3), rs.getString(4)});
+                }
+            }
+            Set<String> seenPacts = new HashSet<>();
+            try (PreparedStatement delete = connection.prepareStatement("DELETE FROM clan_pacts WHERE id = ?")) {
+                for (String[] row : pactRows) {
+                    String a = row[1].compareTo(row[2]) < 0 ? row[1] : row[2];
+                    String b = row[1].compareTo(row[2]) < 0 ? row[2] : row[1];
+                    boolean valid = clanIds.contains(a) && clanIds.contains(b) && !a.equals(b);
+                    if (!valid || !seenPacts.add(a + ":" + b + ":" + row[3])) {
+                        delete.setString(1, row[0]);
+                        delete.addBatch();
+                    }
+                }
+                delete.executeBatch();
+            }
+
+            try (PreparedStatement mark = connection.prepareStatement("INSERT INTO clan_diplomacy_meta (meta_key, meta_value) VALUES (?, ?)")) {
+                mark.setString(1, marker);
+                mark.setString(2, String.valueOf(now));
+                mark.executeUpdate();
+            }
+            connection.commit();
+            plugin.getLogger().info("Миграция дипломатии: общий счёт пары применён к " + pairs.size() + " парам кланов.");
+        } catch (SQLException e) {
+            try { connection.rollback(); } catch (SQLException ignored) {}
+            plugin.getLogger().log(Level.WARNING, "Не удалось выполнить миграцию общего счёта дипломатии: " + e.getMessage(), e);
+        } finally {
+            try { connection.setAutoCommit(previousAutoCommit); } catch (SQLException ignored) {}
+        }
+    }
+
+    private boolean tableExists(Connection connection, String table) throws SQLException {
+        try (var rs = connection.getMetaData().getTables(null, null, table, null)) {
+            while (rs.next()) {
+                if (table.equalsIgnoreCase(rs.getString("TABLE_NAME"))) {
                     return true;
                 }
             }

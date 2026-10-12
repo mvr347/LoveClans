@@ -6,7 +6,8 @@ import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanPerk;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
-import me.lovelace.loveclans.model.DiplomacyRelation;
+import me.lovelace.loveclans.model.diplomacy.ClanPact;
+import me.lovelace.loveclans.model.diplomacy.ClanRelationRecord;
 
 import me.lovelace.loveclans.model.history.ConflictRecord;
 import me.lovelace.loveclans.model.modifier.ClanModifier;
@@ -40,7 +41,14 @@ public interface ClanStorage {
 
     CompletableFuture<Void> deleteTerritoryAsync(UUID territoryId);
 
-    CompletableFuture<Void> saveDiplomacyAsync(UUID sourceClanId, UUID targetClanId, DiplomacyRelation relation);
+    /** Saves both mirrored relation rows of a clan pair in one transaction (the score is shared by the pair). */
+    CompletableFuture<Void> saveRelationPairAsync(ClanRelationRecord first, ClanRelationRecord second);
+
+    /** Removes every relation row, pact, embargo and blockade that involves the clan. */
+    CompletableFuture<Void> purgeClanDiplomacyAsync(UUID clanId);
+
+    /** Writes both treasury balances of a gift in one transaction. */
+    CompletableFuture<Void> transferChestMoneyAsync(UUID fromClanId, long fromBalance, UUID toClanId, long toBalance);
 
     CompletableFuture<Void> saveUpgradeAsync(UUID clanId, ClanUpgrade upgrade, int level);
 
@@ -121,6 +129,20 @@ public interface ClanStorage {
     CompletableFuture<Void> saveBlockadeAsync(UUID blockerClanId, UUID blockedClanId);
 
     CompletableFuture<Void> deleteBlockadeAsync(UUID blockerClanId, UUID blockedClanId);
+
+    // --- Дипломатия v2: шкала отношений (score) и соглашения (§1, §5) ---
+
+    CompletableFuture<Collection<ClanRelationRecord>> loadAllRelationsAsync();
+
+    CompletableFuture<Void> saveRelationAsync(ClanRelationRecord record);
+
+    CompletableFuture<Void> deleteRelationAsync(UUID sourceClanId, UUID targetClanId);
+
+    CompletableFuture<Collection<ClanPact>> loadAllPactsAsync();
+
+    CompletableFuture<Void> savePactAsync(ClanPact pact);
+
+    CompletableFuture<Void> deletePactAsync(UUID pactId);
 
 
 

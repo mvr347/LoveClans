@@ -89,7 +89,17 @@ public final class CombatListener implements Listener {
         if (killerClan.isEmpty() || victimClan.isEmpty()) {
             return;
         }
-        plugin.getWarManager().addKillScore(killer, victim, killerClan.get(), victimClan.get());
+        Clan kClan = killerClan.get();
+        Clan vClan = victimClan.get();
+        if (!kClan.id().equals(vClan.id())) {
+            plugin.getWarManager().addKillScore(killer, victim, kClan, vClan);
+            if (!plugin.getClanManager().inConflictWith(kClan.id(), vClan.id()) && plugin.getDiplomacyManager() != null) {
+                // Outside a war every kill of another clan's member cools the relations; on the victim's land twice as much
+                Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(victim.getLocation());
+                boolean onVictimTerritory = territoryClan.isPresent() && territoryClan.get().id().equals(vClan.id());
+                plugin.getDiplomacyManager().onKill(kClan, vClan, onVictimTerritory);
+            }
+        }
     }
 
     private Player player(Entity entity) {

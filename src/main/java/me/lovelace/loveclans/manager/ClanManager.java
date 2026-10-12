@@ -309,53 +309,6 @@ public final class ClanManager {
         }).thenCompose(v -> storage.deleteApplicationAsync(clanId, applicantId));
     }
 
-    private final Map<UUID, UUID> pendingAllianceRequests = new ConcurrentHashMap<>();
-
-    public void addAllianceRequest(UUID sourceClanId, UUID targetClanId) {
-        if (sourceClanId == null || targetClanId == null) return;
-        pendingAllianceRequests.put(sourceClanId, targetClanId);
-    }
-
-    public boolean hasPendingAllianceFrom(UUID sourceClanId, UUID targetClanId) {
-        if (sourceClanId == null || targetClanId == null) return false;
-        return targetClanId.equals(pendingAllianceRequests.get(sourceClanId));
-    }
-
-    public void removeAllianceRequest(UUID sourceClanId) {
-        if (sourceClanId == null) return;
-        pendingAllianceRequests.remove(sourceClanId);
-    }
-
-    public CompletableFuture<Void> acceptAllianceAsync(Clan acceptorClan, Clan requesterClan, UUID actorId) {
-        if (acceptorClan == null || requesterClan == null || actorId == null)
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Clans and actor ID cannot be null."));
-        return plugin.supplySync(() -> {
-            requireTerritory(acceptorClan, requesterClan);
-            if (!acceptorClan.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
-                throw new IllegalStateException("general.no-permission");
-            }
-            pendingAllianceRequests.remove(requesterClan.id());
-            DiplomacyRelation before = acceptorClan.relationTo(requesterClan.id());
-            acceptorClan.setDiplomacy(requesterClan.id(), DiplomacyRelation.ALLY);
-            requesterClan.setDiplomacy(acceptorClan.id(), DiplomacyRelation.ALLY);
-            Bukkit.getPluginManager().callEvent(new ClanDiplomacyChangeEvent(acceptorClan.id(), requesterClan.id(), DiplomacyRelation.ALLY, before));
-            return null;
-        }).thenCompose(v -> storage.saveDiplomacyAsync(acceptorClan.id(), requesterClan.id(), DiplomacyRelation.ALLY)
-                .thenCompose(x -> storage.saveDiplomacyAsync(requesterClan.id(), acceptorClan.id(), DiplomacyRelation.ALLY)));
-    }
-
-    public CompletableFuture<Void> declineAllianceAsync(Clan declinerClan, Clan requesterClan, UUID actorId) {
-        if (declinerClan == null || requesterClan == null || actorId == null)
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Clans and actor ID cannot be null."));
-        return plugin.supplySync(() -> {
-            if (!declinerClan.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
-                throw new IllegalStateException("general.no-permission");
-            }
-            pendingAllianceRequests.remove(requesterClan.id());
-            return null;
-        });
-    }
-
     public Optional<Player> getOnlineLeader(Clan clan) {
         if (clan == null) return Optional.empty();
         return clan.leaderId().flatMap(id -> Optional.ofNullable(Bukkit.getPlayer(id)));
@@ -533,7 +486,7 @@ public final class ClanManager {
             plugin.getContractManager().purgeClan(clan.id());
             plugin.getSpiritManager().purgeClan(clan.id());
             return null;
-        }).thenCompose(ignored -> storage.deleteClanAsync(clan.id()).thenCompose(v -> storage.deleteAllApplicationsForClanAsync(clan.id())));
+        }).thenCompose(ignored -> deleteClanRecords(clan.id()).thenCompose(v -> storage.deleteAllApplicationsForClanAsync(clan.id())));
     }
 
     public CompletableFuture<ClanInvite> invitePlayerAsync(Clan clan, UUID inviterId, UUID invitedPlayerId) {
@@ -770,7 +723,7 @@ public final class ClanManager {
             return clan.members().isEmpty();
         }).thenCompose(empty -> {
             if (empty) {
-                return storage.deleteClanAsync(clan.id()).thenCompose(v -> storage.deleteAllApplicationsForClanAsync(clan.id()));
+                return deleteClanRecords(clan.id()).thenCompose(v -> storage.deleteAllApplicationsForClanAsync(clan.id()));
             }
             return storage.deleteMemberAsync(clan.id(), playerId)
                     .thenCompose(ignored -> recalculateInfluenceAsync(clan))
@@ -1531,7 +1484,7 @@ public final class ClanManager {
             unindexClan(clan);
             applicationsByClan.remove(clan.id());
             return null;
-        }).thenCompose(ignored -> storage.deleteClanAsync(clan.id()));
+        }).thenCompose(ignored -> deleteClanRecords(clan.id()));
     }
 
     // --- Orphan clan banners and items owed to offline leaders ---
@@ -1802,34 +1755,22 @@ public final class ClanManager {
         }).thenCompose(territory -> storage.deleteTerritoryAsync(territory.id()));
     }
 
+    /**
+     * Compatibility entry point for the API and the admin command. A relation is no longer a switch: ALLY, ENEMY and
+     * NEUTRAL are expressed through the shared relation score and the alliance pact (see DiplomacyManager).
+     */
     public CompletableFuture<Clan> setDiplomacyAsync(Clan source, Clan target, DiplomacyRelation relation, UUID actorId) {
         if (source == null || target == null || relation == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Source, target and relation cannot be null."));
-        return plugin.supplySync(() -> {
-            if (relation != DiplomacyRelation.NEUTRAL) requireTerritory(source, target);
-            if (actorId != null && !source.hasPermission(actorId, ClanPermission.DIPLOMACY)) {
-                throw new IllegalStateException("general.no-permission");
-            }
-            if (source.id().equals(target.id())) {
-                throw new IllegalStateException("general.error");
-            }
+        return plugin.getDiplomacyManager().adminSetRelationAsync(source, target, relation, actorId);
+    }
 
-            if (source.territories().isEmpty() || target.territories().isEmpty()) {
-                throw new IllegalStateException("diplomacy.requires-home");
-            }
-
-            if (relation == DiplomacyRelation.ALLY) {
-                addAllianceRequest(source.id(), target.id());
-                getOnlineLeader(target).ifPresent(leader ->
-                        plugin.getMessages().sendClickableAlliance(leader, source.tag(), source.tagColor()));
-                return source;
-            }
-            DiplomacyRelation before = source.relationTo(target.id());
-            source.setDiplomacy(target.id(), relation);
-            Bukkit.getPluginManager().callEvent(new ClanDiplomacyChangeEvent(source.id(), target.id(), relation, before));
-            return source;
-        }).thenCompose(clan -> relation == DiplomacyRelation.ALLY ? CompletableFuture.completedFuture(clan)
-                : storage.saveDiplomacyAsync(clan.id(), target.id(), relation).thenApply(ignored -> clan));
+    /** Deletes the clan row together with every diplomacy trace that points at it (pacts, embargoes, relation rows of others). */
+    private CompletableFuture<Void> deleteClanRecords(UUID clanId) {
+        CompletableFuture<Void> purge = plugin.getDiplomacyManager() == null
+                ? CompletableFuture.completedFuture(null)
+                : plugin.getDiplomacyManager().purgeClan(clanId);
+        return purge.thenCompose(v -> storage.deleteClanAsync(clanId));
     }
 
     public CompletableFuture<Clan> addExperienceAsync(Clan clan, long amount) {

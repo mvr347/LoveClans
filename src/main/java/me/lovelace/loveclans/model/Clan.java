@@ -3,6 +3,10 @@ package me.lovelace.loveclans.model;
 import org.bukkit.Location; // Import Location
 import org.bukkit.Material;
 
+import me.lovelace.loveclans.model.diplomacy.ClanRelationRecord;
+import me.lovelace.loveclans.model.diplomacy.DiplomacyTier;
+import me.lovelace.loveclans.model.diplomacy.PactType;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -59,7 +63,9 @@ public final class Clan {
 
     private final Map<UUID, ClanMember> members = new ConcurrentHashMap<>();
     private final Map<UUID, ClanTerritory> territories = new ConcurrentHashMap<>();
-    private final Map<UUID, DiplomacyRelation> diplomacy = new ConcurrentHashMap<>();
+
+    private final Map<UUID, ClanRelationRecord> relations = new ConcurrentHashMap<>();
+    private final Map<UUID, Set<PactType>> pacts = new ConcurrentHashMap<>();
     private final Map<ClanUpgrade, Integer> upgrades = new ConcurrentHashMap<>();
     private final Map<ClanRank, Set<ClanPermission>> permissions = new ConcurrentHashMap<>();
 
@@ -201,8 +207,8 @@ public final class Clan {
         return Collections.unmodifiableCollection(territories.values());
     }
 
-    public Map<UUID, DiplomacyRelation> diplomacy() {
-        return Collections.unmodifiableMap(diplomacy);
+    public Map<UUID, ClanRelationRecord> relations() {
+        return Collections.unmodifiableMap(relations);
     }
 
     public Map<ClanUpgrade, Integer> upgrades() {
@@ -301,16 +307,55 @@ public final class Clan {
         return Optional.ofNullable(territories.get(id));
     }
 
-    public void setDiplomacy(UUID targetClanId, DiplomacyRelation relation) {
-        if (relation == DiplomacyRelation.NEUTRAL) {
-            diplomacy.remove(targetClanId);
-        } else {
-            diplomacy.put(targetClanId, relation);
+    /** Legacy view of the relation, derived from the shared score and the alliance pact (never stored). */
+    public DiplomacyRelation relationTo(UUID targetClanId) {
+        return tierTo(targetClanId).toLegacyRelation();
+    }
+
+    public DiplomacyTier tierTo(UUID targetClanId) {
+        return DiplomacyTier.fromScore(relationScore(targetClanId), hasPactWith(targetClanId, PactType.ALLIANCE));
+    }
+
+    public int relationScore(UUID targetClanId) {
+        ClanRelationRecord record = relations.get(targetClanId);
+        return record != null ? record.score() : 0;
+    }
+
+    public ClanRelationRecord getRelation(UUID targetClanId) {
+        return relations.getOrDefault(targetClanId, ClanRelationRecord.createDefault(id, targetClanId));
+    }
+
+    public void setRelation(ClanRelationRecord record) {
+        relations.put(record.targetClanId(), record);
+    }
+
+    public void removeRelation(UUID targetClanId) {
+        relations.remove(targetClanId);
+    }
+
+    public boolean hasPactWith(UUID targetClanId, PactType type) {
+        Set<PactType> clanPacts = pacts.get(targetClanId);
+        return clanPacts != null && clanPacts.contains(type);
+    }
+
+    public void addPact(UUID targetClanId, PactType type) {
+        pacts.computeIfAbsent(targetClanId, k -> ConcurrentHashMap.newKeySet()).add(type);
+    }
+
+    public void removePact(UUID targetClanId, PactType type) {
+        Set<PactType> clanPacts = pacts.get(targetClanId);
+        if (clanPacts != null) {
+            clanPacts.remove(type);
+            if (clanPacts.isEmpty()) {
+                pacts.remove(targetClanId);
+            }
         }
     }
 
-    public DiplomacyRelation relationTo(UUID targetClanId) {
-        return diplomacy.getOrDefault(targetClanId, DiplomacyRelation.NEUTRAL);
+    /** Drops every relation, pact and pending state that points at a clan that no longer exists. */
+    public void forgetClan(UUID otherClanId) {
+        relations.remove(otherClanId);
+        pacts.remove(otherClanId);
     }
 
     public int upgradeLevel(ClanUpgrade upgrade) {

@@ -32,7 +32,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Members, applications and invitations of the clan in one screen (gui_gen v2.1, 54 slots): a filter and a sort
- * button in the header (slots 3 and 5, LMB forward / RMB back), the list in the work zone with pagination at
+ * button side by side in the header (slots 2 and 3, LMB forward / RMB back), then contribution and period
+ * (slots 5 and 6), the list in the work zone with pagination at
  * 36/44, "Invite" as the footer extra button. Filter, sort and page are remembered per player. The holder keeps
  * the slot -> entry map of what was actually shown, so a click is judged by what the player saw, and every
  * action is re-checked on the server (the real checks live in {@code ClanManager}).
@@ -40,10 +41,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public final class ClanMembersMenu {
     private static final int SIZE = 54;
     private static final int SLOT_INFO = 0;
-    // Three header controls centred in slots 2-7: filter, activity period, sort
+    // Header controls centered in slots 2-6: filter and sort together, then contribution toggle and activity period
     private static final int SLOT_FILTER = 2;
-    private static final int SLOT_ACTIVITY = 4;
-    private static final int SLOT_SORT = 6;
+    private static final int SLOT_SORT = 3;
+    private static final int SLOT_CONTRIBUTION = 5;
+    private static final int SLOT_ACTIVITY = 6;
     private static final int SLOT_PREV = 36;
     private static final int SLOT_NEXT = 44;
     private static final int SLOT_INVITE = 51;
@@ -59,6 +61,8 @@ public final class ClanMembersMenu {
 
     /** Period the activity column and the activity sort use; remembered per viewer like the filter. */
     private final Map<UUID, ActivityPeriod> periodByPlayer = new ConcurrentHashMap<>();
+    /** Toggle state for contribution mode: shows per-category contribution breakdown across all clan members. */
+    private final Map<UUID, Boolean> contributionModeByPlayer = new ConcurrentHashMap<>();
 
     public static final class Holder extends ClanMenuHolder {
         private final Map<Integer, Entry> entries = new HashMap<>();
@@ -92,6 +96,7 @@ public final class ClanMembersMenu {
     public void clearPlayer(UUID playerId) {
         stateByPlayer.remove(playerId);
         periodByPlayer.remove(playerId);
+        contributionModeByPlayer.remove(playerId);
     }
 
     /** Opens the screen with the player's remembered filter/sort/page. */
@@ -114,7 +119,7 @@ public final class ClanMembersMenu {
         return offline.getName() != null ? offline.getName() : id.toString().substring(0, 8);
     }
 
-    private List<Entry> collect(Clan clan, boolean manager, ActivityPeriod period) {
+    private List<Entry> collect(Clan clan, boolean manager, ActivityPeriod period, boolean contributionMode) {
         List<Entry> entries = new ArrayList<>();
         Map<UUID, Long> activity = new HashMap<>();
         for (PlayerActivity row : plugin.getActivityManager().getClanMembersRanking(clan.id(), period)) {
@@ -126,7 +131,7 @@ public final class ClanMembersMenu {
                     member.rank().weight(), member.contribution(), activity.getOrDefault(member.playerId(), 0L),
                     member.joinedAt(), offline.isOnline()));
         }
-        if (manager) {
+        if (manager && !contributionMode) {
             for (ClanApplication application : plugin.getClanManager().getClanApplications(clan.id())) {
                 OfflinePlayer applicant = Bukkit.getOfflinePlayer(application.applicantId());
                 entries.add(new Entry(Kind.APPLICATION, application.applicantId(), nameOf(applicant, application.applicantId()),
@@ -143,13 +148,16 @@ public final class ClanMembersMenu {
 
     private void render(Player player, Clan clan, State requested) {
         boolean manager = canHandleRequests(clan, player.getUniqueId());
-        // A filter the viewer may not use (rights lost since it was remembered) falls back to "all".
-        Filter filter = requested.filter().needsManager() && !manager ? Filter.ALL : requested.filter();
+        boolean contributionMode = contributionModeByPlayer.getOrDefault(player.getUniqueId(), false);
+
+        // In contribution mode, filtering is locked to MEMBERS
+        Filter filter = contributionMode ? Filter.MEMBERS : (requested.filter().needsManager() && !manager ? Filter.ALL : requested.filter());
         ActivityPeriod period = periodByPlayer.getOrDefault(player.getUniqueId(), ActivityPeriod.LIFETIME);
-        List<Entry> shown = MembersView.apply(collect(clan, manager, period), filter, requested.sort(), manager);
+        List<Entry> shown = MembersView.apply(collect(clan, manager, period, contributionMode), filter, requested.sort(), manager);
         int page = MembersView.clampPage(requested.page(), shown.size());
         int pages = MembersView.pageCount(shown.size());
-        stateByPlayer.put(player.getUniqueId(), new State(filter, requested.sort(), page));
+        // The forced MEMBERS filter of contribution mode is not remembered, the player's own filter is restored after it
+        stateByPlayer.put(player.getUniqueId(), new State(contributionMode ? requested.filter() : filter, requested.sort(), page));
 
         List<Entry> pageEntries = MembersView.page(shown, page);
         Map<Integer, Entry> slotMap = new HashMap<>();
@@ -195,9 +203,29 @@ public final class ClanMembersMenu {
                         "leader", leaderName), player))
                 .build());
 
-        inventory.setItem(SLOT_FILTER, cycleButton("filter", Filter.values(), filter, manager, player));
-        inventory.setItem(SLOT_ACTIVITY, CycleButton.build(plugin, player, ItemBuilder.HEAD_EXPERIENCE,
-                "gui.activity.period.name", "gui.activity.period.", ActivityPeriod.values(), period));
+        if (contributionMode) {
+            inventory.setItem(SLOT_FILTER, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                    .name(plugin.getMessages().component("gui.members-hub.filter-disabled.name", player))
+                    .lore(plugin.getMessages().components("gui.members-hub.filter-disabled.lore", player))
+                    .build());
+            inventory.setItem(SLOT_CONTRIBUTION, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
+                    .name(plugin.getMessages().component("gui.members-hub.contribution-mode.name", player))
+                    .lore(plugin.getMessages().components("gui.members-hub.contribution-mode.lore-on", player))
+                    .glow(true)
+                    .build());
+            inventory.setItem(4, GuiFrames.glassPane());
+            inventory.setItem(SLOT_ACTIVITY, CycleButton.build(plugin, player, ItemBuilder.HEAD_EXPERIENCE,
+                    "gui.activity.period.name", "gui.activity.period.", ActivityPeriod.values(), period));
+        } else {
+            inventory.setItem(SLOT_FILTER, cycleButton("filter", Filter.values(), filter, manager, player));
+            inventory.setItem(SLOT_CONTRIBUTION, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
+                    .name(plugin.getMessages().component("gui.members-hub.contribution-mode.name", player))
+                    .lore(plugin.getMessages().components("gui.members-hub.contribution-mode.lore-off", player))
+                    .build());
+            inventory.setItem(4, GuiFrames.glassPane());
+            inventory.setItem(SLOT_ACTIVITY, GuiFrames.glassPane());
+        }
+
         inventory.setItem(SLOT_SORT, cycleButton("sort", Sort.values(), requested.sort(), true, player));
 
         if (shown.isEmpty()) {
@@ -209,7 +237,7 @@ public final class ClanMembersMenu {
         for (int i = 0; i < pageEntries.size(); i++) {
             Entry entry = pageEntries.get(i);
             slotMap.put(CONTENT_SLOTS[i], entry);
-            inventory.setItem(CONTENT_SLOTS[i], buildEntry(entry, clan, player));
+            inventory.setItem(CONTENT_SLOTS[i], buildEntry(entry, clan, player, contributionMode, period));
         }
         holder.updateEntries(slotMap);
 
@@ -244,7 +272,7 @@ public final class ClanMembersMenu {
                 option -> !(option instanceof Filter f && f.needsManager() && !manager));
     }
 
-    private ItemStack buildEntry(Entry entry, Clan clan, Player viewer) {
+    private ItemStack buildEntry(Entry entry, Clan clan, Player viewer, boolean contributionMode, ActivityPeriod period) {
         OfflinePlayer offline = Bukkit.getOfflinePlayer(entry.id());
         return switch (entry.kind()) {
             case MEMBER -> {
@@ -254,12 +282,36 @@ public final class ClanMembersMenu {
                         .name(plugin.getMessages().component("gui.members.item.name", Map.of("player", entry.name()), viewer))
                         .lore(plugin.getMessages().component("gui.members.item.rank",
                                 Map.of("rank", member != null ? member.rank().displayName() : "—"), viewer))
-                        .lore(plugin.getMessages().component("gui.members.item.status", Map.of("status", status), viewer))
-                        .lore(plugin.getMessages().component("gui.members.item.contribution",
-                                Map.of("amount", String.valueOf(entry.contribution())), viewer))
-                        .lore(plugin.getMessages().component("gui.members.item.activity",
-                                Map.of("points", String.valueOf(entry.activity())), viewer));
+                        .lore(plugin.getMessages().component("gui.members.item.status", Map.of("status", status), viewer));
+
+                if (contributionMode) {
+                    PlayerActivity act = plugin.getActivityManager().getPlayerActivity(entry.id(), period);
+                    builder.lore(net.kyori.adventure.text.Component.empty())
+                            .lore(plugin.getMessages().component("gui.members.contribution-item.finance",
+                                    Map.of("amount", String.valueOf(entry.contribution())), viewer))
+                            .lore(plugin.getMessages().component("gui.members.contribution-item.activity-total",
+                                    Map.of("points", String.valueOf(act != null ? act.total() : 0L)), viewer))
+                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-war",
+                                    Map.of("val", String.valueOf(act != null ? act.war() : 0L)), viewer))
+                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-raid",
+                                    Map.of("val", String.valueOf(act != null ? act.raid() : 0L)), viewer))
+                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-siege",
+                                    Map.of("val", String.valueOf(act != null ? act.siege() : 0L)), viewer))
+                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-economy",
+                                    Map.of("val", String.valueOf(act != null ? act.economy() : 0L)), viewer))
+                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-diplomacy",
+                                    Map.of("val", String.valueOf(act != null ? act.diplomacy() : 0L)), viewer))
+                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-territory",
+                                    Map.of("val", String.valueOf(act != null ? act.territory() : 0L)), viewer));
+                } else {
+                    builder.lore(plugin.getMessages().component("gui.members.item.contribution",
+                                    Map.of("amount", String.valueOf(entry.contribution())), viewer))
+                            .lore(plugin.getMessages().component("gui.members.item.activity",
+                                    Map.of("points", String.valueOf(entry.activity())), viewer));
+                }
+
                 if (clan.hasPermission(viewer.getUniqueId(), ClanPermission.KICK) && !entry.id().equals(viewer.getUniqueId())) {
+                    builder.lore(net.kyori.adventure.text.Component.empty());
                     builder.lore(plugin.getMessages().component("gui.members.item.hint", viewer));
                 }
                 builder.mutate(meta -> {
@@ -289,15 +341,31 @@ public final class ClanMembersMenu {
         State state = stateByPlayer.getOrDefault(player.getUniqueId(), new State(Filter.ALL, Sort.RANK, 0));
         boolean forward = !event.isRightClick();
         boolean manager = canHandleRequests(clan, player.getUniqueId());
+        boolean contributionMode = contributionModeByPlayer.getOrDefault(player.getUniqueId(), false);
 
         switch (slot) {
             case SLOT_CLOSE -> player.closeInventory();
             case SLOT_BACK -> plugin.getGuiManager().openMain(player, clan);
-            case SLOT_FILTER -> render(player, clan, new State(state.filter().step(forward, manager), state.sort(), 0));
-            case SLOT_ACTIVITY -> {
-                ActivityPeriod current = periodByPlayer.getOrDefault(player.getUniqueId(), ActivityPeriod.LIFETIME);
-                periodByPlayer.put(player.getUniqueId(), CycleButton.step(current, ActivityPeriod.values(), forward));
+            case SLOT_FILTER -> {
+                if (!contributionMode) {
+                    render(player, clan, new State(state.filter().step(forward, manager), state.sort(), 0));
+                }
+            }
+            case SLOT_CONTRIBUTION -> {
+                contributionModeByPlayer.put(player.getUniqueId(), !contributionMode);
+                if (contributionMode) {
+                    // The period selector is hidden outside contribution mode, so do not keep an invisible period
+                    periodByPlayer.remove(player.getUniqueId());
+                }
+                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 0.5f, 1.2f);
                 render(player, clan, new State(state.filter(), state.sort(), 0));
+            }
+            case SLOT_ACTIVITY -> {
+                if (contributionMode) {
+                    ActivityPeriod current = periodByPlayer.getOrDefault(player.getUniqueId(), ActivityPeriod.LIFETIME);
+                    periodByPlayer.put(player.getUniqueId(), CycleButton.step(current, ActivityPeriod.values(), forward));
+                    render(player, clan, new State(state.filter(), state.sort(), 0));
+                }
             }
             case SLOT_SORT -> render(player, clan, new State(state.filter(), state.sort().step(forward), 0));
             case SLOT_PREV -> render(player, clan, new State(state.filter(), state.sort(), state.page() - 1));

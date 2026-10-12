@@ -43,6 +43,12 @@ clans:
     pattern: "^[\\p{L}\\p{N} _-]+$"
   creation-cooldown-seconds: 86400
 
+  gifts:
+    enabled: true
+    max-amount: 100000
+    cooldown-seconds: 3600
+    presets: [1000, 5000, 10000, 50000]
+
   # Токсичным игрокам закрыт вход в ПРИЗНАННЫЕ кланы через приглашение или заявку —
   # непризнанные остаются открытыми для всех (LoveCore.BehaviorLevels, из LoveBehavior).
   recognized-join-gate:
@@ -752,3 +758,57 @@ activity:
     # Казна: 1 очко за каждые per-coins монет, но не больше daily-cap очков в сутки на игрока -
     # иначе активность можно накачать, гоняя одни и те же монеты туда-сюда.
     economy: { per-coins: 100, daily-cap: 200 }
+
+# Дипломатия — общий счёт отношений пары кланов (-100..100). Он меняется только от действий и событий
+# (подарки, сделки, пакты, санкции, войны, убийства) и медленно затухает к нулю. От тира зависят доступные действия.
+diplomacy:
+  score-min: -100
+  score-max: 100
+  drift-interval-minutes: 30
+  drift-toward-zero: 1
+  tiers:
+    hostile: [-100, -60]
+    unfriendly: [-59, -20]
+    neutral: [-19, 19]
+    cordial: [20, 59]
+    friendly: [60, 89]
+    allied-ready: [90, 100]
+  # Платные жесты. Подарки из меню «Дар» считаются отдельно (clans.gifts), там прирост зависит от суммы.
+  actions:
+    improve-cost: 500
+    improve-score: 5
+    improve-cooldown-hours: 6
+    insult-score: -12
+    insult-cooldown-hours: 6
+  pacts:
+    nap-min-score: -10
+    trade-min-score: 20
+    alliance-min-score: 90
+    # Пакт распадается без штрафа, если счёт упал ниже (минимум пакта - auto-break-margin)
+    auto-break-margin: 20
+    offer-ttl-hours: 24
+    # Торговый пакт: множитель перерыва между сделками
+    trade-cooldown-multiplier: 0.5
+    nap-break-penalty: -15
+    trade-break-penalty: -10
+    alliance-break-penalty: -40
+  # Изменение счёта от событий (для пары кланов, одинаково для обеих сторон)
+  events:
+    war-victory: -25
+    war-peace: 10
+    siege-victory: -20
+    raid-victory: -20
+    raid-defended: -10
+    conflict-peace: 8
+    embargo-declared: -10
+    blockade-declared: -20
+    sanction-lifted: 5
+    pvp-kill: -3
+    pvp-kill-daily-cap: -15
+    trade-completed: 3
+    trade-daily-cap: 9
+    pact-signed: { nap: 5, trade: 8, alliance: 10 }
+  blockade-exclusive: true
+  guild-shield:
+    duration-hours: 24
+    cooldown-days: 7

@@ -47,7 +47,8 @@ public final class ClanMemberDetailMenu {
         // открывающий меню, а третье лицо, которым он управляет).
         ItemBuilder head = ItemBuilder.of(Material.PLAYER_HEAD)
                 .name(plugin.getMessages().component("gui.member-detail.name", Map.of("player", name), player))
-                .lore(plugin.getMessages().component("gui.member-detail.rank", Map.of("rank", member.rank().displayName()), player));
+                .lore(plugin.getMessages().component("gui.member-detail.rank", Map.of("rank", member.rank().displayName()), player))
+                .lore(plugin.getMessages().component("gui.members.contribution", Map.of("value", String.valueOf(member.contribution()), "amount", String.valueOf(member.contribution())), player));
         head.mutate(meta -> {
             if (meta instanceof SkullMeta skullMeta) skullMeta.setOwningPlayer(offline);
         });

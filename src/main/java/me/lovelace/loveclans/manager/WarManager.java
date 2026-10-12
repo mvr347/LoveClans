@@ -152,6 +152,15 @@ public final class WarManager {
                 if (attacker.relationTo(defender.id()) == DiplomacyRelation.ALLY) {
                     throw new IllegalStateException("war.cannot-declare-on-ally");
                 }
+                if (plugin.getDiplomacyManager() != null && plugin.getDiplomacyManager().hasPact(attacker.id(), defender.id(), me.lovelace.loveclans.model.diplomacy.PactType.NAP)) {
+                    throw new IllegalStateException("deny.nap.active");
+                }
+                if (plugin.getDiplomacyManager() != null) {
+                    plugin.getDiplomacyManager().requireAllowed(me.lovelace.loveclans.manager.diplomacy.DiplomacyActions.Action.CONFLICT, attacker, defender);
+                }
+                if (plugin.getModifierManager() != null && plugin.getModifierManager().hasGuildShield(defender.id())) {
+                    throw new IllegalStateException("deny.guild-shield.active");
+                }
                 // Two different attackers contesting the same defender territory would share one
                 // siege flag on the defender's claim; whichever war ends first would incorrectly
                 // lift siege mode while the other is still active. Simplest correct fix: only one
@@ -457,6 +466,12 @@ public final class WarManager {
                     plugin.getModifierManager().grantReparations(war.defenderClanId(), war.attackerClanId(), durationDays, dailyAmount);
                     plugin.getModifierManager().grantJustCasusBoth(war.defenderClanId(), war.attackerClanId(), "revenge_war");
 
+                    Clan atkClan = plugin.getClanManager().getClanById(war.attackerClanId()).orElse(null);
+                    Clan defClan = plugin.getClanManager().getClanById(war.defenderClanId()).orElse(null);
+                    if (atkClan != null && defClan != null && plugin.getDiplomacyManager() != null) {
+                        plugin.getDiplomacyManager().onWarVictory(atkClan, defClan);
+                    }
+
                 } else if (result == WarResult.DEFENDER_WIN) {
                     plugin.getClanManager().getClanById(war.defenderClanId()).ifPresent(clan -> {
                         plugin.getClanManager().addExperienceAsync(clan, reward).exceptionally(t -> {
@@ -479,6 +494,12 @@ public final class WarManager {
                     // Репарации и Casus мести (newwars-1.md)
                     plugin.getModifierManager().grantReparations(war.attackerClanId(), war.defenderClanId(), durationDays, dailyAmount);
                     plugin.getModifierManager().grantJustCasusBoth(war.attackerClanId(), war.defenderClanId(), "revenge_war");
+
+                    Clan atkClan = plugin.getClanManager().getClanById(war.attackerClanId()).orElse(null);
+                    Clan defClan = plugin.getClanManager().getClanById(war.defenderClanId()).orElse(null);
+                    if (atkClan != null && defClan != null && plugin.getDiplomacyManager() != null) {
+                        plugin.getDiplomacyManager().onWarVictory(defClan, atkClan);
+                    }
                 }
             }
             return null;
@@ -496,6 +517,10 @@ public final class WarManager {
             activeWars.remove(war.id());
             clearPendingPhase(war.id(), resolveWarClans(war).orElse(null));
             Bukkit.getPluginManager().callEvent(new ClanWarEndEvent(war.withState(WarState.FINISHED), WarResult.DRAW));
+
+            if (plugin.getDiplomacyManager() != null) {
+                plugin.getDiplomacyManager().onPeaceSettled(sourceClan, targetClan);
+            }
 
             for (UUID memberId : sourceClan.members().keySet()) {
                 Player p = Bukkit.getPlayer(memberId);
