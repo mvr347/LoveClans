@@ -2,8 +2,10 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
-import me.lovelace.loveclans.model.ClanRank;
+import me.lovelace.loveclans.service.CapitalRelocationService;
+import me.lovelace.loveclans.service.GuildShieldService;
 import me.lovelace.loveclans.util.ItemBuilder;
+import me.lovelace.loveclans.util.TimeUtil;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -12,14 +14,17 @@ import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * Клановый спавн и клановая территория (gui_gen v2.1, 27 слотов): две кнопки в рабочей зоне -
- * «Перенести территорию» и «Свернуть территорию». Слот 0 - стекло. Знамя здесь не выдаётся: новое знамя
- * клан получает при основании, а утерянный баннер восстанавливается кликом по кнопке в главном меню.
+ * Capital management (gui_gen v2.1, 27 slots): two buttons in the work row. «Щит» raises the Guild Shield and
+ * «Перенос» moves the capital; both are used by clicking the button with the matching item on the cursor, so the item
+ * is "inserted" into the button. Nothing is spent unless the checks pass, and the lore of each button always says what
+ * is missing.
  */
 public class ClanCapitalManagementMenu implements InventoryHolder {
-    static final int SLOT_DISBAND = 13;
+    static final int SLOT_SHIELD = 12;
+    static final int SLOT_RELOCATE = 14;
     private static final int SLOT_BACK = 25;
     private static final int SLOT_CLOSE = 26;
 
@@ -39,13 +44,12 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                 Map.of("tag", clan.tag(), "color", clan.tagColor()), player));
 
         GuiFrames.fillFrame27(inventory);
-        inventory.setItem(0, GuiFrames.glassPane());
+        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_CAPITAL)
+                .name(plugin.getMessages().component("gui.capital.header.name", player))
+                .lore(plugin.getMessages().components("gui.capital.header.lore", Map.of(), player))
+                .build());
+        refreshButtons();
 
-        // Единственная кнопка в рабочей зоне — Свернуть территорию (по центру, слот 13)
-        inventory.setItem(SLOT_DISBAND, actionItem(ItemBuilder.HEAD_COLLAPSE,
-                "gui.capital.disband.name", "gui.capital.disband.lore"));
-
-        // Футер: «Назад» в главное меню и закрытие (слот 25 рамка не заполняет)
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
                 .build());
@@ -56,67 +60,100 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         player.openInventory(inventory);
     }
 
-    /** Active button, or an inactive one with the reason: no territory / no right / war. */
-    private ItemStack actionItem(String head, String nameKey, String loreKey) {
-        String blockedKey = blockedReasonKey();
-        if (blockedKey != null) {
-            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component(nameKey, player))
-                    .lore(plugin.getMessages().denyLore(blockedKey, Map.of(), player))
-                    .build();
+    private void refreshButtons() {
+        inventory.setItem(SLOT_SHIELD, shieldItem());
+        inventory.setItem(SLOT_RELOCATE, relocateItem());
+    }
+
+    private GuildShieldService shields() {
+        return plugin.getGuildShieldService();
+    }
+
+    private CapitalRelocationService relocation() {
+        return plugin.getCapitalRelocationService();
+    }
+
+    private ItemStack shieldItem() {
+        var messages = plugin.getMessages();
+        var mods = plugin.getModifierManager();
+        if (mods.hasGuildShield(clan.id())) {
+            return ItemBuilder.head(ItemBuilder.HEAD_RELATION_ALLIED)
+                    .name(messages.component("gui.capital.shield.name-active", player))
+                    .lore(messages.components("gui.capital.shield.lore-active", Map.of(
+                            "time", TimeUtil.formatDuration(mods.getGuildShieldRemaining(clan.id()))), player))
+                    .glow(true).build();
         }
-        return ItemBuilder.head(head)
-                .name(plugin.getMessages().component(nameKey, player))
-                .lore(plugin.getMessages().component(loreKey, player))
-                .build();
+        Optional<GuildShieldService.Block> block = shields().check(clan, player.getUniqueId());
+        ItemBuilder builder = ItemBuilder.head(block.isPresent() ? ItemBuilder.HEAD_INACTIVE : ItemBuilder.HEAD_RELATION_ALLIED)
+                .name(messages.component("gui.capital.shield.name", player))
+                .lore(messages.components("gui.capital.shield.lore", Map.of(
+                        "hours", String.valueOf(plugin.getConfig().getLong("diplomacy.guild-shield.duration-hours", 24L)),
+                        "days", String.valueOf(plugin.getConfig().getLong("diplomacy.guild-shield.cooldown-days", 7L))), player));
+        builder.lore(Component.empty());
+        if (block.isPresent()) {
+            builder.lore(messages.component("gui.capital.unavailable", player));
+            builder.lore(messages.denyLore(block.get().key(), block.get().placeholders(), player));
+        } else {
+            builder.lore(messages.component("gui.capital.shield.action", player));
+        }
+        return builder.build();
     }
 
-    private boolean canManage() {
-        return clan.member(player.getUniqueId())
-                .map(m -> m.rank() == ClanRank.LEADER || m.rank() == ClanRank.GUARDIAN).orElse(false);
-    }
-
-    /** Lang key explaining why the buttons are unavailable, or null when they work. */
-    private String blockedReasonKey() {
-        if (!clan.hasCapital()) return "gui.capital.no-house-lore";
-        if (!canManage()) return "gui.capital.no-permission-lore";
-        if (plugin.getClanManager().inAnyConflict(clan.id())) return "gui.capital.war-blocked";
-        return null;
+    private ItemStack relocateItem() {
+        var messages = plugin.getMessages();
+        Optional<CapitalRelocationService.Block> block = relocation().check(clan, player.getUniqueId());
+        ItemBuilder builder = ItemBuilder.head(block.isPresent() ? ItemBuilder.HEAD_INACTIVE : ItemBuilder.HEAD_RELOCATE_TERRITORY)
+                .name(messages.component("gui.capital.relocate.name", player))
+                .lore(messages.components("gui.capital.relocate.lore", Map.of(
+                        "hours", String.valueOf(plugin.getConfig().getLong("clans.capital.relocate-cooldown-hours", 72L))), player));
+        builder.lore(Component.empty());
+        if (block.isPresent()) {
+            builder.lore(messages.component("gui.capital.unavailable", player));
+            builder.lore(messages.denyLore(block.get().key(), block.get().placeholders(), player));
+        } else {
+            builder.lore(messages.component("gui.capital.relocate.action", player));
+        }
+        return builder.build();
     }
 
     public void handleInventoryClick(Player clicker, int slot) {
         switch (slot) {
             case SLOT_BACK -> plugin.getGuiManager().openMain(clicker, clan);
             case SLOT_CLOSE -> clicker.closeInventory();
-            case SLOT_DISBAND -> {
-                if (!allowed(clicker)) return;
-                plugin.getGuiManager().openConfirm(clicker, clan,
-                        plugin.getMessages().component("gui.confirm.disband-capital.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), clicker), Component.empty(),
-                        () -> plugin.getClanManager().relocateCapitalTerritoryAsync(clan, clicker.getUniqueId())
-                                .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(clicker, "gui.capital.disband.action")))
-                                .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(clicker, t)); return null; }),
-                        () -> plugin.runSync(this::open)
-                );
-            }
+            case SLOT_SHIELD -> useShield(clicker);
+            case SLOT_RELOCATE -> useSeal(clicker);
             default -> { }
         }
     }
 
-    /** State may have changed since the screen was built, so the click re-checks what the button promised. */
-    private boolean allowed(Player clicker) {
-        if (!clan.hasCapital()) {
-            plugin.getMessages().send(clicker, "gui.capital.no-house");
-            return false;
-        }
-        if (!canManage()) {
-            plugin.getMessages().send(clicker, "gui.capital.no-permission");
-            return false;
-        }
-        if (plugin.getClanManager().inAnyConflict(clan.id())) {
-            plugin.getMessages().send(clicker, "gui.capital.war-blocked");
-            return false;
-        }
-        return true;
+    /**
+     * Runs one tick later: the click event is cancelled by the menu router, and the server restores the cursor after a
+     * cancelled click, which would undo spending the item right here.
+     */
+    private void useShield(Player clicker) {
+        plugin.runSync(() -> {
+            ItemStack cursor = clicker.getItemOnCursor();
+            if (!plugin.getItemFactory().isGuildShieldItem(cursor)) {
+                plugin.getMessages().send(clicker, "gui.capital.shield.need-item");
+                return;
+            }
+            if (shields().activate(clicker, clan)) {
+                cursor.setAmount(cursor.getAmount() - 1);
+                clicker.setItemOnCursor(cursor.getAmount() <= 0 ? null : cursor);
+                refreshButtons();
+            }
+        });
+    }
+
+    private void useSeal(Player clicker) {
+        plugin.runSync(() -> {
+            ItemStack cursor = clicker.getItemOnCursor();
+            if (!plugin.getItemFactory().isRelocationSeal(cursor)) {
+                plugin.getMessages().send(clicker, "gui.capital.relocate.need-item");
+                return;
+            }
+            relocation().relocate(clicker, clan, cursor);
+        });
     }
 
     @Override

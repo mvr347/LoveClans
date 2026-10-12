@@ -9,7 +9,7 @@
 
 # Версия lang.yml (2026-10-12): при росте версии админский файл получает из jar переписанные разделы
 # (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
-lang-version: 8
+lang-version: 9
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -91,6 +91,9 @@ deny:
   nap:
     active: "<prefix><red>Между кланами действует Пакт о ненападении (NAP) <gray>· <yellow>разорвите пакт в дипломатии"
 
+  relocation:
+    not-recognized: "<prefix><red>Переносить столицу может только признанный клан <gray>· <yellow>получите признание у Гильдмастера"
+    cooldown: "<prefix><red>Столицу недавно переносили <gray>· <yellow>снова можно через <time>"
   guild-shield:
     active: "<prefix><red>Клан цели защищён Гильдейским щитом <gray>· <yellow>нападения и блокады временно запрещены"
     in-conflict: "<prefix><red>Нельзя активировать щит во время войны, осады или рейда <gray>· <yellow>дождитесь окончания конфликта"
@@ -137,6 +140,7 @@ admin:
   siege-force-started: "<prefix><green>Осада <color1><clan1></color1> против <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
   clan-recognized: "<prefix><green>Клан <yellow><tag></yellow> (<white><name></white>) получил статус признанного клана."
   clan-unrecognized: "<prefix><yellow>Клан <yellow><tag></yellow> (<white><name></white>) теперь является непризнанным кланом."
+  seal-given: "<prefix><green>Печать переноса выдана игроку <white><player></white>."
   givebanner:
     success: "<prefix><green>Знамя основания клана выдано игроку <white><player></white>."
   npc:
@@ -405,6 +409,7 @@ clan:
     admin-points: "<aqua>/loveclansadmin points <add|remove|set> <tag> <amount></aqua> <gray>- изменить очки улучшений клана</gray>"
     admin-recognize: "<aqua>/loveclansadmin recognize/unrecognize <tag></aqua> <gray>- присвоить или отозвать признание клана</gray>"
     admin-givebanner: "<aqua>/loveclansadmin givebanner <player></aqua> <gray>- выдать знамя основания клана</gray>"
+    admin-seal: "<aqua>/loveclansadmin seal give <player></aqua> <gray>- выдать Печать переноса столицы</gray>"
     admin-shield: "<aqua>/loveclansadmin shield <give|clear> ...</aqua> <gray>- выдать или снять Гильдейский щит клана</gray>"
 
 gift:
@@ -486,7 +491,7 @@ diplomacy:
     score-too-low: "<prefix><red>Отношения слишком плохи для этого соглашения <gray>· <yellow>поднимите счёт подарками, торговлей или миссиями"
     not-active: "<prefix><red>Указанный пакт не активен."
   guild-shield:
-    activated: "<prefix><aqua>{player}</aqua> <green>активировал <aqua>Гильдейский щит</aqua>! Клан защищён от нападений на 24 часа."
+    activated: "<prefix><aqua><player></aqua> <green>активировал <aqua>Гильдейский щит</aqua>! Клан защищён от нападений на <hours> ч."
 
 gui:
   activity:
@@ -894,6 +899,38 @@ gui:
     no-house-lore: "<dark_gray>Сначала создайте территорию."
     no-house: "<prefix><white>У клана ещё нет территории."
     war-blocked: "<prefix><red>Это действие недоступно во время войны."
+    unavailable: "<red>✘ Недоступно сейчас"
+    header:
+      name: "<white>Столица клана"
+      lore:
+        - "<gray>Здесь управляют защитой и расположением столицы."
+        - ""
+        - "<white>Как пользоваться:"
+        - "<gray>возьмите предмет курсором из инвентаря"
+        - "<gray>и кликните им по нужной кнопке."
+    shield:
+      name: "<aqua>Гильдейский щит"
+      name-active: "<aqua>Гильдейский щит <gray>· <green>действует"
+      lore:
+        - "<gray>Эдикт гильдий: на <white><hours> ч <gray>запрещает другим"
+        - "<gray>кланам объявлять вам войну, осаду, набег и блокаду."
+        - "<gray>Идущие конфликты он не отменяет."
+        - "<dark_gray>Повторно — через <days> дн."
+      lore-active:
+        - "<green>✔ <gray>Клан под защитой ещё <white><time>"
+        - "<gray>Идущие конфликты щит не отменяет."
+      action: "<yellow>▸ Кликните по кнопке Гильдейским щитом"
+      need-item: "<prefix><white>Возьмите Гильдейский щит курсором и кликните им по кнопке."
+    relocate:
+      name: "<gold>Перенос столицы"
+      lore:
+        - "<gray>Печать переноса тратится сразу:"
+        - "<gray>текущая территория разрушается, а знамя"
+        - "<gray>столицы оказывается у вас в руке."
+        - "<dark_gray>Только признанный клан, раз в <hours> ч."
+      action: "<yellow>▸ Кликните по кнопке Печатью переноса"
+      need-item: "<prefix><white>Возьмите Печать переноса курсором и кликните ею по кнопке."
+      done: "<prefix><green>Территория разрушена. Знамя столицы в вашей руке — установите его на новом месте."
     show-border:
       name: "<white>Показать границы территории"
       lore: "<gray>Подсветить границы клановой территории на несколько секунд."
@@ -1906,6 +1943,15 @@ gui:
     success: "<prefix><green>Клан <color><tag></color> <white><name></white> основан!"
 
 item:
+  relocation-seal:
+    name: "<gold>Печать переноса"
+    lore:
+      - "<gray>Одноразовая печать гильдий."
+      - "<gray>Переносит столицу клана: старая территория"
+      - "<gray>разрушается, знамя возвращается в руку."
+      - ""
+      - "<yellow>Кликните ею по кнопке «Перенос столицы»"
+      - "<yellow>в меню территории клана."
   foundation-banner:
     name: "<gold>Знамя Основания клана <white><clan>"
     lore:

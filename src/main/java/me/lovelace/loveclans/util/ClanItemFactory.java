@@ -20,6 +20,7 @@ public final class ClanItemFactory {
     private final LoveClansPlugin plugin;
     public static final NamespacedKey BANNER_TYPE_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "banner_type");
     public static final NamespacedKey CLAN_ID_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "clan_id");
+    public static final NamespacedKey RELOCATION_SEAL_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "relocation_seal");
     public static final NamespacedKey WAR_COMPASS_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "war_compass_war_id");
     public static final NamespacedKey RAID_COMPASS_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "raid_compass_raid_id");
     public static final NamespacedKey SIEGE_COMPASS_KEY = new NamespacedKey(LoveClansPlugin.getPlugin(LoveClansPlugin.class), "siege_compass_siege_id");
@@ -398,5 +399,33 @@ public final class ClanItemFactory {
     public boolean isGuildShieldItem(ItemStack item) {
         if (item == null || !item.hasItemMeta()) return false;
         return item.getItemMeta().getPersistentDataContainer().has(GUILD_SHIELD_KEY, PersistentDataType.INTEGER);
+    }
+
+    /** One-use seal that moves the capital: the old claim is destroyed and the capital banner is handed back. */
+    public ItemStack createRelocationSeal() {
+        ItemStack item = null;
+        String iaId = plugin.getConfig().getString("clans.capital.relocation-seal.itemsadder-id", "");
+        if (iaId != null && !iaId.isBlank()) {
+            item = ItemsAdderHook.createCustomStack(iaId);
+        }
+        if (item == null) {
+            item = new ItemStack(Material.PAPER);
+        }
+        ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            meta.getPersistentDataContainer().set(RELOCATION_SEAL_KEY, PersistentDataType.INTEGER, 1);
+            var messages = plugin.getMessages();
+            meta.displayName(messages.component("item.relocation-seal.name"));
+            meta.lore(messages.components("item.relocation-seal.lore", Map.of(), null));
+            meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 1, true);
+            meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    public boolean isRelocationSeal(ItemStack item) {
+        if (item == null || !item.hasItemMeta()) return false;
+        return item.getItemMeta().getPersistentDataContainer().has(RELOCATION_SEAL_KEY, PersistentDataType.INTEGER);
     }
 }

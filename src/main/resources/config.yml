@@ -43,6 +43,14 @@ clans:
     pattern: "^[\\p{L}\\p{N} _-]+$"
   creation-cooldown-seconds: 86400
 
+  # 2026-10-12: перенос столицы по Печати переноса (меню территории → кнопка «Перенос столицы»).
+  # 72 часа между переносами: без паузы клан мог бы «убегать» из-под осады, перенося столицу в последнюю минуту.
+  # itemsadder-id пустой — печать выглядит как бумага; её выдаёт /loveclansadmin seal give <игрок>.
+  capital:
+    relocate-cooldown-hours: 72
+    relocation-seal:
+      itemsadder-id: ""
+
   gifts:
     enabled: true
     max-amount: 100000
@@ -459,6 +467,7 @@ perks:
 sounds:
   enabled: true
   spirit-level-up: { sound: ENTITY_PLAYER_LEVELUP, volume: 1.0, pitch: 1.0 }
+  guild-shield-on: { sound: BLOCK_BEACON_ACTIVATE, volume: 1.0, pitch: 1.0 }
   spirit-power-loss: { sound: BLOCK_BELL_USE, volume: 0.8, pitch: 0.7 }
 
 mechanics:

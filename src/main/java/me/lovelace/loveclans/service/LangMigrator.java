@@ -28,7 +28,9 @@ public final class LangMigrator {
             // v7: military actions screen rework (gui.conflict.*), deny texts take <max> placeholders
             List.of("gui", "deny"),
             // v8: spirit rework - Power + Mastery, abilities and the level ladder removed
-            List.of("gui", "spirit")
+            List.of("gui", "spirit"),
+            // v9: capital menu (shield and relocation buttons), relocation seal item, admin seal command
+            List.of("gui", "deny", "item", "admin", "clan.help", "diplomacy")
     );
 
     private LangMigrator() {

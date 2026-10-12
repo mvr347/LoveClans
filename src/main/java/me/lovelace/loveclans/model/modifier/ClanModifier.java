@@ -25,6 +25,7 @@ public record ClanModifier(
     public static final String TYPE_JUST_CASUS = "JUST_CASUS";
     public static final String TYPE_GUILD_SHIELD = "GUILD_SHIELD";
     public static final String TYPE_GUILD_SHIELD_COOLDOWN = "GUILD_SHIELD_COOLDOWN";
+    public static final String TYPE_CAPITAL_RELOCATE_COOLDOWN = "CAPITAL_RELOCATE_COOLDOWN";
 
     public ClanModifier {
         payload = payload == null ? Map.of() : Collections.unmodifiableMap(new HashMap<>(payload));
