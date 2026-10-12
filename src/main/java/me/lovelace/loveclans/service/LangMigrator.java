@@ -24,7 +24,9 @@ public final class LangMigrator {
             // v5: spirit/perk descriptions rewritten to match the real effects, diplomacy deny texts
             List.of("gui", "deny", "diplomacy", "gift"),
             // v6: admin raid forcestart texts, dead deny.*.not-in-territory keys removed
-            List.of("deny", "admin", "clan.help")
+            List.of("deny", "admin", "clan.help"),
+            // v7: military actions screen rework (gui.conflict.*), deny texts take <max> placeholders
+            List.of("gui", "deny")
     );
 
     private LangMigrator() {

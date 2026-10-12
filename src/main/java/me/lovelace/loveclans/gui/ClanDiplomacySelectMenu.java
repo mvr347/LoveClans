@@ -228,7 +228,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
         me.lovelace.loveclans.model.diplomacy.DiplomacyTier tier = source.tierTo(target.id());
         me.lovelace.loveclans.model.diplomacy.ClanRelationRecord record = source.getRelation(target.id());
         return plugin.getMessages().raw("diplomacy.tier." + tier.name().toLowerCase(java.util.Locale.ROOT))
-                + " <gray>(" + record.score() + ") " + record.trendUnicode() + "</gray>";
+                + " <gray>(" + record.score() + ")</gray> " + me.lovelace.loveclans.util.TrendFormat.delta(record.trend());
     }
 
     @Override

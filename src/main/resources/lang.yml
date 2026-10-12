@@ -9,7 +9,7 @@
 
 # Версия lang.yml (2026-10-12): при росте версии админский файл получает из jar переписанные разделы
 # (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
-lang-version: 6
+lang-version: 7
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -74,8 +74,8 @@ deny:
     attacker-no-capital: "<prefix><red>У вашего клана нет территории <gray>· <yellow>установите знамя территории"
     defender-no-capital: "<prefix><red>У клана <color><tag></color> нет территории <gray>· <yellow>набег провести нельзя"
     shield-active: "<prefix><red>У клана <color><tag></color> действует щит от набегов <gray>· <yellow>осталось <time>"
-    daily-attacker-limit: "<prefix><red>Ваш дневной лимит набегов исчерпан <gray>· <yellow>максимум 5 в день"
-    daily-defender-limit: "<prefix><red>Цель уже грабили сегодня <gray>· <yellow>максимум 1 набег в день на клан"
+    daily-attacker-limit: "<prefix><red>Ваш дневной лимит набегов исчерпан <gray>· <yellow>максимум <max> в день"
+    daily-defender-limit: "<prefix><red>Цель уже грабили сегодня <gray>· <yellow>максимум <max> в день на клан"
     not-enough-attackers: "<prefix><red>Нужно минимум <min> атакующих онлайн <gray>· <yellow>сейчас <current>"
     too-many-defenders: "<prefix><red>У защитников слишком много игроков онлайн (<current>) <gray>· <yellow>для рейдов максимум <max>"
     cooldown: "<prefix><red>Набег на <color><tag></color> на кулдауне <gray>· <yellow>доступно через <time>"
@@ -1029,13 +1029,135 @@ gui:
     create:
       ready: "<green>✔ Купить Знамя Основания"
       not-ready: "<red>✗ Сначала введите название и тег"
+  conflict:
+    title: "<white>Военные действия <gray>· <color><tag>"
+    compare:
+      name: "<white>Сравнение сил <gray>· <color><tag>"
+      lore:
+        - "<gray>Вы против клана <color><tag></color>:"
+        - ""
+        - "<arrow_influence> <gray>Мощь: <white><our_influence> <dark_gray>/ <white><their_influence> <gray>(<ratio_influence>)"
+        - "<arrow_level> <gray>Уровень: <white><our_level> <dark_gray>/ <white><their_level>"
+        - "<arrow_online> <gray>Онлайн: <white><our_online> <dark_gray>/ <white><their_online>"
+        - "<arrow_spirit> <gray>Дух: <white><our_spirit> <dark_gray>/ <white><their_spirit>"
+        - "<arrow_money> <gray>Казна: <white><money_verdict>"
+        - ""
+        - "<green>▲</green> <gray>вы сильнее  <red>▼</red> <gray>слабее  <gray>■ равны"
+      verdict:
+        richer: "у вас больше"
+        poorer: "у врага больше"
+        equal: "примерно поровну"
+    req-title: "<white>Условия"
+    confirm-casus: "<gray>Будет израсходован Casus Belli: <white><type>"
+    blocked: "<red>✘ Недоступно сейчас"
+    war:
+      short: "Война"
+      name: "<red>Война"
+      name-blocked: "<dark_gray>Война"
+      desc:
+        - "<gray>Битва за территорию: удержание точек,"
+        - "<gray>убийства врагов и разрушение знамени."
+      timing: "<yellow>⌛ <white><pre> мин <gray>подготовка <dark_gray>· <white><duration> мин <gray>боя"
+      stakes:
+        - "<gold>⚑ Ставки"
+        - "<green>▲ <gray>Победа: <white>+<exp> <gray>опыта клана и репарации <white><daily>/день <gray>× <white><days> дн"
+        - "<red>▼ <gray>Поражение: вы платите репарации <white><daily>/день <gray>× <white><days> дн"
+      action: "<yellow>▸ ЛКМ — объявить войну"
+    siege:
+      short: "Осада"
+      name: "<gold>Осада"
+      name-blocked: "<dark_gray>Осада"
+      desc:
+        - "<gray>Захват лагерей у столицы врага:"
+        - "<gray>удерживайте их, пока идёт отсчёт."
+      timing: "<yellow>⌛ <white><pre> мин <gray>подготовка <dark_gray>· <white><duration> мин <gray>осады <dark_gray>· <white><hold> мин <gray>удержания"
+      stakes:
+        - "<gold>⚑ Ставки"
+        - "<green>▲ <gray>Победа: <white>+<exp> <gray>опыта, <white><loot>% <gray>казны врага сразу (до <white><loot_cap>%<gray>), репарации от <white><daily>/день"
+        - "<red>▼ <gray>Поражение: сбор за осаду <white><fee> <gray>из казны не возвращается"
+      action: "<yellow>▸ ЛКМ — начать осаду"
+    raid:
+      short: "Набег"
+      name: "<white>Набег"
+      name-blocked: "<dark_gray>Набег"
+      desc:
+        - "<gray>Быстрый налёт на сундук врага:"
+        - "<gray>захватите точку, заберите добычу и уйдите."
+      timing: "<yellow>⌛ <white><pre> мин <gray>подготовка <dark_gray>· <white><duration> мин <gray>набега"
+      stakes:
+        - "<gold>⚑ Ставки"
+        - "<green>▲ <gray>Победа: до <white><money>% <gray>казны и <white><items>% <gray>слотов сундука"
+        - "<red>▼ <gray>Вражеский клан получает щит от набегов на <white><shield> ч"
+      action: "<yellow>▸ ЛКМ — начать набег"
+    req:
+      cap-self:
+        ok: "<green>✔ <gray>У вашего клана есть территория"
+        fail: "<red>✘ <gray>У вашего клана нет территории"
+      cap-target:
+        ok: "<green>✔ <gray>У <color><tag></color> есть территория"
+        fail: "<red>✘ <gray>У <color><tag></color> нет территории"
+      casus:
+        ok: "<green>✔ <gray>Casus Belli «<type>» в инвентаре"
+        fail: "<red>✘ <gray>Нужен Casus Belli «<type>» <dark_gray>(Гильдмастер)"
+      online-self:
+        ok: "<green>✔ <gray>Ваш онлайн: <white><current>/<min>"
+        fail: "<red>✘ <gray>Ваш онлайн: <white><current>/<min>"
+      online-target:
+        ok: "<green>✔ <gray>Онлайн врага: <white><current>/<min>"
+        fail: "<red>✘ <gray>Онлайн врага: <white><current>/<min>"
+      online-target-max:
+        ok: "<green>✔ <gray>Онлайн врага: <white><current> <gray>(не больше <max>)"
+        fail: "<red>✘ <gray>Онлайн врага: <white><current> <gray>(не больше <max>)"
+      leader-target:
+        ok: "<green>✔ <gray>Лидер или хранитель врага в сети"
+        fail: "<red>✘ <gray>Лидер и хранитель врага не в сети"
+      level-self:
+        ok: "<green>✔ <gray>Ваш уровень: <white><level> <gray>(от <min>)"
+        fail: "<red>✘ <gray>Ваш уровень: <white><level> <gray>(нужен <min>)"
+      level-target:
+        ok: "<green>✔ <gray>Уровень врага: <white><level> <gray>(от <min>)"
+        fail: "<red>✘ <gray>Уровень врага: <white><level> <gray>(нужен <min>)"
+      level-gap:
+        ok: "<green>✔ <gray>Разница уровней: <white><gap> <gray>(до <max>)"
+        fail: "<red>✘ <gray>Разница уровней: <white><gap> <gray>(до <max>)"
+      fee:
+        ok: "<green>✔ <gray>Сбор за осаду: <white><cost> <gray>в казне"
+        fail: "<red>✘ <gray>Сбор за осаду: <white><cost> <gray>(у вас <have>)"
+      shield:
+        ok: "<green>✔ <gray>У врага нет щита от набегов"
+        fail: "<yellow>⌛ <gray>Щит врага от набегов: <white><time>"
+      daily-self:
+        ok: "<green>✔ <gray>Ваши набеги сегодня: <white><used>/<max>"
+        fail: "<red>✘ <gray>Ваши набеги сегодня: <white><used>/<max>"
+      daily-target:
+        ok: "<green>✔ <gray>Набегов на врага сегодня: <white><used>/<max>"
+        fail: "<red>✘ <gray>Набегов на врага сегодня: <white><used>/<max>"
+      cooldown:
+        ok: "<green>✔ <gray>Кулдаун пары не активен"
+        fail: "<yellow>⌛ <gray>Кулдаун пары: <white><time>"
+    summary:
+      name: "<white>Военные действия"
+      lore:
+        - "<gray>Война, осада и набег против клана <color><tag></color>."
+        - ""
+        - "<white>Сейчас доступно:"
+      line-ok: "<green>✔ <white><type>"
+      line-fail: "<red>✘ <gray><type> <dark_gray>— <reason>"
+      action: "<yellow>▸ ЛКМ — выбрать тип конфликта"
+      active-name: "<red>Идёт <type>"
+      active-lore:
+        - "<gray>Между кланами идут боевые действия."
+        - "<gray>Мирное завершение улучшает отношения."
+      active-score: "<gray>Счёт: <white><our> <dark_gray>: <white><their> <gray>(<trend>)"
+      active-time: "<yellow>⌛ <gray>Осталось: <white><time>"
+      active-action: "<yellow>▸ ЛКМ — предложить мир"
   diplomacy:
     title: "<white>Дипломатия <gray>· <color><tag>"
     unavailable: "<red>✘ Недоступно:"
     state:
       name: "<white>Отношения: <tier>"
       lore:
-        - "<gray>Счёт: <white><score><gray> из <max> <trend> <gray>(<diff> за сутки)"
+        - "<gray>Счёт: <white><score><gray> из <max> <gray>· за сутки <trend>"
         - "<bar>"
         - "<gray>Соглашения и санкции: <white><agreements>"
         - ""
@@ -1260,15 +1382,6 @@ gui:
           - "<gray>Мирное завершение улучшает отношения."
           - ""
           - "<yellow>▸ ЛКМ — Предложить мир"
-    conflict:
-      open-name: "<white>Военные действия"
-      open-lore:
-        - "<gray>Начать открытое противостояние против"
-        - "<gray>данного клана."
-        - ""
-        - "<gray>Доступно: <red>Война <gray>· <yellow>Осада <gray>· <white>Рейд"
-        - ""
-        - "<yellow>▸ ЛКМ — Выбрать тип конфликта"
     gift:
       title: "<white>Дар <gray>· <color><tag>"
       name: "<white>Дар"
@@ -1284,23 +1397,6 @@ gui:
       recognized-badge: "<white>Признанный клан <gray>· договоры и союзы доступны"
       other: "<white>Лагерь <gray>· не признан Гильдией; договоры недоступны"
       self: "<white>Ваш клан не признан <gray>· обратитесь к Гильдмастеру"
-    war:
-      name: "<white>Объявить войну"
-      lore: "<gray>ЛКМ - начать войну за территорию"
-      unavailable-conflict: "<dark_gray>Конфликт уже идёт"
-      unavailable-location: "<dark_gray>Нужно стоять на территории этого клана"
-      unavailable-no-capital: "<dark_gray>Требуется территория клана"
-    siege:
-      name: "<white>Устроить осаду"
-      lore: "<gray>ЛКМ - начать осаду столицы клана"
-      unavailable-conflict: "<dark_gray>Конфликт уже идёт"
-      unavailable-location: "<dark_gray>Нужно стоять на территории этого клана"
-      unavailable-no-capital: "<dark_gray>Требуется территория клана"
-    raid:
-      name: "<white>Устроить набег"
-      lore: "<gray>ЛКМ - начать набег на сундук этого клана"
-      unavailable-conflict: "<dark_gray>Конфликт уже идёт"
-      unavailable-no-capital: "<dark_gray>Требуется территория клана"
     unavailable-name: "<dark_gray>Мир"
     info:
       name: "<white>Клан <color><tag> <gray>· <white>Информация"

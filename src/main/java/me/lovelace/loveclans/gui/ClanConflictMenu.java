@@ -1,16 +1,16 @@
 package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.gui.conflict.ConflictLore;
+import me.lovelace.loveclans.gui.conflict.ConflictType;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.util.ItemBuilder;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 
 import java.util.Map;
-import java.util.Optional;
 
 public final class ClanConflictMenu implements InventoryHolder {
     private static final int SLOT_WAR = 11;
@@ -36,24 +36,20 @@ public final class ClanConflictMenu implements InventoryHolder {
 
     public void open() {
         this.inventory = Bukkit.createInventory(this, 27,
-                plugin.getMessages().component("gui.diplomacy.conflict.open-name",
+                plugin.getMessages().component("gui.conflict.title",
                         Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player));
 
         GuiFrames.fillFrame27(inventory);
 
-        inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_ACTIVE_WAR)
-                .name(plugin.getMessages().component("gui.diplomacy.conflict.open-name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.conflict.open-lore", player))
-                .build());
+        ConflictLore lore = new ConflictLore(plugin);
+        inventory.setItem(0, lore.compareItem(player, sourceClan, targetClan));
 
-        // 11 War
-        inventory.setItem(SLOT_WAR, buildWarItem().build());
-
-        // 13 Siege
-        inventory.setItem(SLOT_SIEGE, buildSiegeItem().build());
-
-        // 15 Raid
-        inventory.setItem(SLOT_RAID, buildRaidItem().build());
+        inventory.setItem(SLOT_WAR, lore.typeButton(player, ConflictType.WAR,
+                diplomacyMenu.warReadiness(player, sourceClan, targetClan), targetClan));
+        inventory.setItem(SLOT_SIEGE, lore.typeButton(player, ConflictType.SIEGE,
+                diplomacyMenu.siegeReadiness(player, sourceClan, targetClan), targetClan));
+        inventory.setItem(SLOT_RAID, lore.typeButton(player, ConflictType.RAID,
+                diplomacyMenu.raidReadiness(player, sourceClan, targetClan), targetClan));
 
         // Footer
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
@@ -64,52 +60,6 @@ public final class ClanConflictMenu implements InventoryHolder {
                 .build());
 
         player.openInventory(inventory);
-    }
-
-    private ItemBuilder buildWarItem() {
-        Optional<ClanDiplomacyMenu.DenyResult> deny = diplomacyMenu.checkWarDeny(player, sourceClan, targetClan);
-        if (deny.isPresent()) {
-            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.diplomacy.war.name", player))
-                    .lore(plugin.getMessages().denyLore(deny.get().key(), deny.get().placeholders(), player));
-        }
-        boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.war", true);
-        ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_RELATION_HOSTILE)
-                .name(plugin.getMessages().component("gui.diplomacy.war.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.war.lore", player));
-        if (cbRequired) {
-            builder.lore(Component.text("§a✔ Casus Belli готов в инвентаре"));
-        }
-        return builder;
-    }
-
-    private ItemBuilder buildSiegeItem() {
-        Optional<ClanDiplomacyMenu.DenyResult> deny = diplomacyMenu.checkSiegeDeny(player, sourceClan, targetClan);
-        if (deny.isPresent()) {
-            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.diplomacy.siege.name", player))
-                    .lore(plugin.getMessages().denyLore(deny.get().key(), deny.get().placeholders(), player));
-        }
-        boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.siege", true);
-        ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_BLOCKADE)
-                .name(plugin.getMessages().component("gui.diplomacy.siege.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.siege.lore", player));
-        if (cbRequired) {
-            builder.lore(Component.text("§a✔ Casus Belli готов в инвентаре"));
-        }
-        return builder;
-    }
-
-    private ItemBuilder buildRaidItem() {
-        Optional<ClanDiplomacyMenu.DenyResult> deny = diplomacyMenu.checkRaidDeny(player, sourceClan, targetClan);
-        if (deny.isPresent()) {
-            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.diplomacy.raid.name", player))
-                    .lore(plugin.getMessages().denyLore(deny.get().key(), deny.get().placeholders(), player));
-        }
-        return ItemBuilder.head(ItemBuilder.HEAD_ABILITY_BERSERKER)
-                .name(plugin.getMessages().component("gui.diplomacy.raid.name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.raid.lore", player));
     }
 
     public void handleInventoryClick(Player clicker, int slot) {

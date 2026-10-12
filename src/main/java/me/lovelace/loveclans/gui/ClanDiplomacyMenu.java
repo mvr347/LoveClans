@@ -1,6 +1,9 @@
 package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.gui.conflict.ConflictLore;
+import me.lovelace.loveclans.gui.conflict.ConflictReadiness;
+import me.lovelace.loveclans.gui.conflict.ConflictType;
 import me.lovelace.loveclans.manager.diplomacy.DiplomacyActions;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPermission;
@@ -189,8 +192,7 @@ public final class ClanDiplomacyMenu {
         ph.put("tier", tierTitle(tier));
         ph.put("score", String.valueOf(score));
         ph.put("max", String.valueOf(max));
-        ph.put("trend", record.trendUnicode());
-        ph.put("diff", (record.trend() > 0 ? "+" : "") + record.trend());
+        ph.put("trend", me.lovelace.loveclans.util.TrendFormat.delta(record.trend()));
         ph.put("bar", progressBar(score, tier));
 
         List<String> agreements = new ArrayList<>();
@@ -460,19 +462,15 @@ public final class ClanDiplomacyMenu {
     }
 
     private ItemStack buildConflictItem(Player player, Clan sourceClan, Clan targetClan) {
+        ConflictLore lore = new ConflictLore(plugin);
         if (plugin.getClanManager().inConflictWith(sourceClan.id(), targetClan.id())) {
-            String type = "Конфликт";
-            if (plugin.getWarManager().areAtWar(sourceClan.id(), targetClan.id())) {
-                type = "Война";
-            } else if (plugin.getSiegeManager().isInSiege(sourceClan.id()) && plugin.getSiegeManager().isInSiege(targetClan.id())) {
-                type = "Осада";
-            } else if (plugin.getRaidManager().isInRaid(sourceClan.id()) && plugin.getRaidManager().isInRaid(targetClan.id())) {
-                type = "Рейд";
-            }
-            return actionItem(player, ItemBuilder.HEAD_ACTIVE_WAR, "gui.diplomacy.act.conflict-active", Map.of("type", type), null, true);
+            return lore.activeButton(player, sourceClan, targetClan);
         }
-        DenyResult deny = matrixDeny(DiplomacyActions.Action.CONFLICT, sourceClan, targetClan);
-        return actionItem(player, ItemBuilder.HEAD_ACTIVE_WAR, "gui.diplomacy.act.conflict", Map.of(), deny, false);
+        Map<ConflictType, ConflictReadiness> readiness = new java.util.EnumMap<>(ConflictType.class);
+        readiness.put(ConflictType.WAR, warReadiness(player, sourceClan, targetClan));
+        readiness.put(ConflictType.SIEGE, siegeReadiness(player, sourceClan, targetClan));
+        readiness.put(ConflictType.RAID, raidReadiness(player, sourceClan, targetClan));
+        return lore.summaryButton(player, readiness, targetClan);
     }
 
     // --- Clicks ---
@@ -642,219 +640,162 @@ public final class ClanDiplomacyMenu {
         return count;
     }
 
-    public Optional<DenyResult> checkWarDeny(Player player, Clan sourceClan, Clan targetClan) {
-        if (!sourceClan.hasPermission(player.getUniqueId(), ClanPermission.DIPLOMACY)) {
-            return Optional.of(DenyResult.of("deny.no-permission"));
-        }
-        if (sourceClan.id().equals(targetClan.id())) {
-            return Optional.of(DenyResult.of("war.cannot-target-self"));
-        }
-        if (sourceClan.relationTo(targetClan.id()) == DiplomacyRelation.ALLY) {
-            return Optional.of(DenyResult.of("deny.war.cannot-declare-ally"));
-        }
-        if (plugin.getDiplomacyManager().hasPact(sourceClan.id(), targetClan.id(), PactType.NAP)) {
-            return Optional.of(DenyResult.of("deny.nap.active"));
-        }
-        DenyResult tierDeny = matrixDeny(DiplomacyActions.Action.CONFLICT, sourceClan, targetClan);
-        if (tierDeny != null) {
-            return Optional.of(tierDeny);
-        }
-        if (plugin.getModifierManager().hasGuildShield(targetClan.id())) {
-            return Optional.of(DenyResult.of("deny.guild-shield.active"));
-        }
-        if (plugin.getWarManager().areAtWar(sourceClan.id(), targetClan.id())) {
-            return Optional.of(DenyResult.of("deny.war.already-at-war"));
-        }
-        if (plugin.getWarManager().isAtWar(sourceClan.id()) || plugin.getWarManager().isAtWar(targetClan.id())
+    // --- Military actions: one readiness model per type, shared by the lore and the server-side declaration ---
+
+    private Map<String, String> targetPh(Clan targetClan) {
+        return Map.of("tag", targetClan.tag(), "color", targetClan.tagColor());
+    }
+
+    private void blockMatrix(ConflictReadiness.Builder b, DenyResult deny) {
+        if (deny != null) b.blockIf(true, deny.key(), deny.placeholders());
+    }
+
+    /** Shared leading blocks of war, siege and raid, in the order the server has always applied them. */
+    private ConflictReadiness.Builder commonConflictBlocks(Player player, Clan sourceClan, Clan targetClan) {
+        ConflictReadiness.Builder b = ConflictReadiness.builder();
+        b.blockIf(!sourceClan.hasPermission(player.getUniqueId(), ClanPermission.DIPLOMACY), "deny.no-permission");
+        b.blockIf(sourceClan.id().equals(targetClan.id()), "war.cannot-target-self");
+        b.blockIf(sourceClan.relationTo(targetClan.id()) == DiplomacyRelation.ALLY, "deny.war.cannot-declare-ally");
+        b.blockIf(plugin.getDiplomacyManager().hasPact(sourceClan.id(), targetClan.id(), PactType.NAP), "deny.nap.active");
+        blockMatrix(b, matrixDeny(DiplomacyActions.Action.CONFLICT, sourceClan, targetClan));
+        b.blockIf(plugin.getModifierManager().hasGuildShield(targetClan.id()), "deny.guild-shield.active");
+        return b;
+    }
+
+    private void cooldownRequirement(ConflictReadiness.Builder b, String denyKey, long remainingSeconds, Clan targetClan) {
+        String time = me.lovelace.loveclans.util.TimeUtil.formatDuration(remainingSeconds * 1000L);
+        Map<String, String> ph = new HashMap<>(targetPh(targetClan));
+        ph.put("time", time);
+        b.require("cooldown", remainingSeconds <= 0, ph, denyKey, ph);
+    }
+
+    private void casusRequirement(ConflictReadiness.Builder b, Player player, Clan targetClan, String type, String denyKey) {
+        boolean required = plugin.getConfig().getBoolean("casus-belli.required-for." + type.toLowerCase(java.util.Locale.ROOT), true);
+        boolean ok = !required || plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), type);
+        b.require("casus", ok, Map.of("type", plugin.getMessages().raw("gui.conflict." + type.toLowerCase(java.util.Locale.ROOT) + ".short")), denyKey, Map.of());
+    }
+
+    public ConflictReadiness warReadiness(Player player, Clan sourceClan, Clan targetClan) {
+        var war = plugin.getWarManager();
+        ConflictReadiness.Builder b = commonConflictBlocks(player, sourceClan, targetClan);
+        b.blockIf(war.areAtWar(sourceClan.id(), targetClan.id()), "deny.war.already-at-war");
+        b.blockIf(war.isAtWar(sourceClan.id()) || war.isAtWar(targetClan.id())
                 || plugin.getSiegeManager().isInSiege(sourceClan.id()) || plugin.getSiegeManager().isInSiege(targetClan.id())
-                || plugin.getRaidManager().isInRaid(sourceClan.id()) || plugin.getRaidManager().isInRaid(targetClan.id())) {
-            return Optional.of(DenyResult.of("deny.war.already-in-conflict"));
-        }
-        if (plugin.getWarManager().activeWarsCount() >= plugin.getConfig().getInt("war.max-concurrent", 3)) {
-            return Optional.of(DenyResult.of("deny.war.max-wars"));
-        }
-        if (!sourceClan.hasCapital()) {
-            return Optional.of(DenyResult.of("deny.war.attacker-no-capital"));
-        }
-        if (!targetClan.hasCapital()) {
-            return Optional.of(DenyResult.of("deny.war.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())));
-        }
-        if (resolveContestedTerritory(player, targetClan).isEmpty()) {
-            return Optional.of(DenyResult.of("deny.war.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())));
-        }
-        boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.war", true);
-        if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "WAR")) {
-            return Optional.of(DenyResult.of("deny.war.no-casus"));
-        }
+                || plugin.getRaidManager().isInRaid(sourceClan.id()) || plugin.getRaidManager().isInRaid(targetClan.id()),
+                "deny.war.already-in-conflict");
+        b.blockIf(war.activeWarsCount() >= plugin.getConfig().getInt("war.max-concurrent", 3), "deny.war.max-wars");
+
+        Map<String, String> tp = targetPh(targetClan);
+        b.require("cap-self", sourceClan.hasCapital(), "deny.war.attacker-no-capital");
+        b.require("cap-target", targetClan.hasCapital() && resolveContestedTerritory(player, targetClan).isPresent(),
+                tp, "deny.war.defender-no-capital", tp);
+        casusRequirement(b, player, targetClan, "WAR", "deny.war.no-casus");
+
         int minOnline = plugin.getConfig().getInt("war.min-online", 3);
         int atkOnline = countOnline(sourceClan);
         int defOnline = countOnline(targetClan);
-        if (atkOnline < minOnline || defOnline < minOnline) {
-            return Optional.of(DenyResult.of("deny.war.not-enough-online",
-                    Map.of("min", String.valueOf(minOnline), "current", String.valueOf(atkOnline < minOnline ? atkOnline : defOnline))));
-        }
+        Map<String, String> atkPh = Map.of("min", String.valueOf(minOnline), "current", String.valueOf(atkOnline));
+        Map<String, String> defPh = Map.of("min", String.valueOf(minOnline), "current", String.valueOf(defOnline));
+        b.require("online-self", atkOnline >= minOnline, atkPh, "deny.war.not-enough-online", atkPh);
+        b.require("online-target", defOnline >= minOnline, defPh, "deny.war.not-enough-online", defPh);
         boolean defLeaderOrGuardian = targetClan.members().values().stream()
                 .filter(m -> m.rank() == ClanRank.LEADER || m.rank() == ClanRank.GUARDIAN)
                 .anyMatch(m -> Bukkit.getPlayer(m.playerId()) != null);
-        if (!defLeaderOrGuardian) {
-            return Optional.of(DenyResult.of("deny.war.defender-no-leader"));
-        }
-        long warCooldown = plugin.getWarManager().getCooldownRemaining(sourceClan.id(), targetClan.id());
-        if (warCooldown > 0) {
-            return Optional.of(DenyResult.of("deny.war.cooldown",
-                    Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "time", me.lovelace.loveclans.util.TimeUtil.formatDuration(warCooldown * 1000L))));
-        }
-        return Optional.empty();
+        b.require("leader-target", defLeaderOrGuardian, "deny.war.defender-no-leader");
+        cooldownRequirement(b, "deny.war.cooldown", war.getCooldownRemaining(sourceClan.id(), targetClan.id()), targetClan);
+        return b.build();
     }
 
-    public Optional<DenyResult> checkSiegeDeny(Player player, Clan sourceClan, Clan targetClan) {
-        if (!sourceClan.hasPermission(player.getUniqueId(), ClanPermission.DIPLOMACY)) {
-            return Optional.of(DenyResult.of("deny.no-permission"));
-        }
-        if (sourceClan.id().equals(targetClan.id())) {
-            return Optional.of(DenyResult.of("war.cannot-target-self"));
-        }
-        if (sourceClan.relationTo(targetClan.id()) == DiplomacyRelation.ALLY) {
-            return Optional.of(DenyResult.of("deny.war.cannot-declare-ally"));
-        }
-        if (plugin.getDiplomacyManager().hasPact(sourceClan.id(), targetClan.id(), PactType.NAP)) {
-            return Optional.of(DenyResult.of("deny.nap.active"));
-        }
-        DenyResult tierDeny = matrixDeny(DiplomacyActions.Action.CONFLICT, sourceClan, targetClan);
-        if (tierDeny != null) {
-            return Optional.of(tierDeny);
-        }
-        if (plugin.getModifierManager().hasGuildShield(targetClan.id())) {
-            return Optional.of(DenyResult.of("deny.guild-shield.active"));
-        }
-        if (plugin.getSiegeManager().isInSiege(sourceClan.id()) || plugin.getSiegeManager().isInSiege(targetClan.id())) {
-            return Optional.of(DenyResult.of("deny.siege.already-in-siege"));
-        }
-        if (plugin.getWarManager().isAtWar(sourceClan.id()) || plugin.getWarManager().isAtWar(targetClan.id())) {
-            return Optional.of(DenyResult.of("deny.siege.war-in-progress"));
-        }
-        if (plugin.getRaidManager().isInRaid(sourceClan.id()) || plugin.getRaidManager().isInRaid(targetClan.id())) {
-            return Optional.of(DenyResult.of("deny.raid.already-in-raid"));
-        }
-        if (plugin.getSiegeManager().activeSiegesCount() >= plugin.getConfig().getInt("siege.max-concurrent", 3)) {
-            return Optional.of(DenyResult.of("deny.siege.already-in-siege"));
-        }
-        if (!sourceClan.hasCapital()) {
-            return Optional.of(DenyResult.of("deny.siege.attacker-no-capital"));
-        }
-        if (!targetClan.hasCapital()) {
-            return Optional.of(DenyResult.of("deny.siege.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())));
-        }
-        if (resolveContestedTerritory(player, targetClan).isEmpty()) {
-            return Optional.of(DenyResult.of("deny.siege.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())));
-        }
+    public ConflictReadiness siegeReadiness(Player player, Clan sourceClan, Clan targetClan) {
+        var siege = plugin.getSiegeManager();
+        ConflictReadiness.Builder b = commonConflictBlocks(player, sourceClan, targetClan);
+        b.blockIf(siege.isInSiege(sourceClan.id()) || siege.isInSiege(targetClan.id()), "deny.siege.already-in-siege");
+        b.blockIf(plugin.getWarManager().isAtWar(sourceClan.id()) || plugin.getWarManager().isAtWar(targetClan.id()), "deny.siege.war-in-progress");
+        b.blockIf(plugin.getRaidManager().isInRaid(sourceClan.id()) || plugin.getRaidManager().isInRaid(targetClan.id()), "deny.raid.already-in-raid");
+        b.blockIf(siege.activeSiegesCount() >= plugin.getConfig().getInt("siege.max-concurrent", 3), "deny.siege.already-in-siege");
+
+        Map<String, String> tp = targetPh(targetClan);
+        b.require("cap-self", sourceClan.hasCapital(), "deny.siege.attacker-no-capital");
+        b.require("cap-target", targetClan.hasCapital() && resolveContestedTerritory(player, targetClan).isPresent(),
+                tp, "deny.siege.defender-no-capital", tp);
         int minAtkLevel = plugin.getConfig().getInt("siege.min-attacker-clan-level", 5);
         int minDefLevel = plugin.getConfig().getInt("siege.min-defender-clan-level", 4);
         int maxGap = plugin.getConfig().getInt("siege.level-gap-max", 8);
-        if (sourceClan.level() < minAtkLevel) {
-            return Optional.of(DenyResult.of("deny.siege.attacker-level-too-low",
-                    Map.of("min", String.valueOf(minAtkLevel), "level", String.valueOf(sourceClan.level()))));
-        }
-        if (targetClan.level() < minDefLevel) {
-            return Optional.of(DenyResult.of("deny.siege.defender-level-too-low",
-                    Map.of("min", String.valueOf(minDefLevel), "level", String.valueOf(targetClan.level()))));
-        }
-        if (sourceClan.level() - targetClan.level() > maxGap) {
-            return Optional.of(DenyResult.of("deny.siege.level-gap-too-large", Map.of("max", String.valueOf(maxGap))));
-        }
-        boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.siege", true);
-        if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "SIEGE")) {
-            return Optional.of(DenyResult.of("deny.siege.no-casus"));
-        }
+        Map<String, String> atkLevel = Map.of("min", String.valueOf(minAtkLevel), "level", String.valueOf(sourceClan.level()));
+        Map<String, String> defLevel = Map.of("min", String.valueOf(minDefLevel), "level", String.valueOf(targetClan.level()));
+        Map<String, String> gap = Map.of("max", String.valueOf(maxGap), "gap", String.valueOf(sourceClan.level() - targetClan.level()));
+        b.require("level-self", sourceClan.level() >= minAtkLevel, atkLevel, "deny.siege.attacker-level-too-low", atkLevel);
+        b.require("level-target", targetClan.level() >= minDefLevel, defLevel, "deny.siege.defender-level-too-low", defLevel);
+        b.require("level-gap", sourceClan.level() - targetClan.level() <= maxGap, gap, "deny.siege.level-gap-too-large", gap);
+        casusRequirement(b, player, targetClan, "SIEGE", "deny.siege.no-casus");
+
         int afk = plugin.getConfig().getInt("siege.afk-ignore-minutes", 15);
         int minAtkOnline = plugin.getConfig().getInt("siege.min-attacker-online", 2);
         int minDefOnline = plugin.getConfig().getInt("siege.min-defender-online", 3);
-        int atkOnline = plugin.getSiegeManager().countActiveOnline(sourceClan, afk);
-        int defOnline = plugin.getSiegeManager().countActiveOnline(targetClan, afk);
-        if (atkOnline < minAtkOnline) {
-            return Optional.of(DenyResult.of("deny.siege.not-enough-attackers",
-                    Map.of("min", String.valueOf(minAtkOnline), "current", String.valueOf(atkOnline))));
-        }
-        if (defOnline < minDefOnline) {
-            return Optional.of(DenyResult.of("deny.siege.not-enough-defenders",
-                    Map.of("min", String.valueOf(minDefOnline), "current", String.valueOf(defOnline))));
-        }
-        long siegeCooldown = plugin.getSiegeManager().getCooldownRemaining(sourceClan.id(), targetClan.id());
-        if (siegeCooldown > 0) {
-            return Optional.of(DenyResult.of("deny.war.cooldown",
-                    Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "time", me.lovelace.loveclans.util.TimeUtil.formatDuration(siegeCooldown * 1000L))));
-        }
+        int atkOnline = siege.countActiveOnline(sourceClan, afk);
+        int defOnline = siege.countActiveOnline(targetClan, afk);
+        Map<String, String> atkPh = Map.of("min", String.valueOf(minAtkOnline), "current", String.valueOf(atkOnline));
+        Map<String, String> defPh = Map.of("min", String.valueOf(minDefOnline), "current", String.valueOf(defOnline));
+        b.require("online-self", atkOnline >= minAtkOnline, atkPh, "deny.siege.not-enough-attackers", atkPh);
+        b.require("online-target", defOnline >= minDefOnline, defPh, "deny.siege.not-enough-defenders", defPh);
+        cooldownRequirement(b, "deny.war.cooldown", siege.getCooldownRemaining(sourceClan.id(), targetClan.id()), targetClan);
         long declareFee = plugin.getConfig().getLong("siege.declare-treasury-fee", 500L);
-        if (declareFee > 0 && sourceClan.chestMoney() < declareFee) {
-            return Optional.of(DenyResult.of("deny.siege.not-enough-treasury", Map.of("cost", String.valueOf(declareFee))));
-        }
-        return Optional.empty();
+        Map<String, String> feePh = Map.of("cost", String.valueOf(declareFee), "have", String.valueOf(sourceClan.chestMoney()));
+        b.require("fee", declareFee <= 0 || sourceClan.chestMoney() >= declareFee, feePh, "deny.siege.not-enough-treasury", feePh);
+        return b.build();
     }
 
-    public Optional<DenyResult> checkRaidDeny(Player player, Clan sourceClan, Clan targetClan) {
-        if (!sourceClan.hasPermission(player.getUniqueId(), ClanPermission.DIPLOMACY)) {
-            return Optional.of(DenyResult.of("deny.no-permission"));
-        }
-        if (sourceClan.id().equals(targetClan.id())) {
-            return Optional.of(DenyResult.of("war.cannot-target-self"));
-        }
-        if (sourceClan.relationTo(targetClan.id()) == DiplomacyRelation.ALLY) {
-            return Optional.of(DenyResult.of("deny.war.cannot-declare-ally"));
-        }
-        if (plugin.getDiplomacyManager().hasPact(sourceClan.id(), targetClan.id(), PactType.NAP)) {
-            return Optional.of(DenyResult.of("deny.nap.active"));
-        }
-        DenyResult tierDeny = matrixDeny(DiplomacyActions.Action.CONFLICT, sourceClan, targetClan);
-        if (tierDeny != null) {
-            return Optional.of(tierDeny);
-        }
-        if (plugin.getModifierManager().hasGuildShield(targetClan.id())) {
-            return Optional.of(DenyResult.of("deny.guild-shield.active"));
-        }
-        if (plugin.getRaidManager().isInRaid(sourceClan.id()) || plugin.getRaidManager().isInRaid(targetClan.id())) {
-            return Optional.of(DenyResult.of("deny.raid.already-in-raid"));
-        }
-        if (plugin.getClanManager().inAnyConflict(sourceClan.id()) || plugin.getClanManager().inAnyConflict(targetClan.id())) {
-            return Optional.of(DenyResult.of("deny.raid.conflict-in-progress"));
-        }
-        if (!sourceClan.hasCapital()) {
-            return Optional.of(DenyResult.of("deny.raid.attacker-no-capital"));
-        }
-        if (!targetClan.hasCapital()) {
-            return Optional.of(DenyResult.of("deny.raid.defender-no-capital", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())));
-        }
-        if (plugin.getModifierManager().hasPostRaidShield(targetClan.id())) {
-            long shieldSec = plugin.getModifierManager().getPostRaidShieldRemaining(targetClan.id());
-            return Optional.of(DenyResult.of("deny.raid.shield-active",
-                    Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "time", me.lovelace.loveclans.util.TimeUtil.formatDuration(shieldSec * 1000L))));
-        }
+    public ConflictReadiness raidReadiness(Player player, Clan sourceClan, Clan targetClan) {
+        var raid = plugin.getRaidManager();
+        ConflictReadiness.Builder b = commonConflictBlocks(player, sourceClan, targetClan);
+        b.blockIf(raid.isInRaid(sourceClan.id()) || raid.isInRaid(targetClan.id()), "deny.raid.already-in-raid");
+        b.blockIf(plugin.getClanManager().inAnyConflict(sourceClan.id()) || plugin.getClanManager().inAnyConflict(targetClan.id()),
+                "deny.raid.conflict-in-progress");
+
+        Map<String, String> tp = targetPh(targetClan);
+        b.require("cap-self", sourceClan.hasCapital(), "deny.raid.attacker-no-capital");
+        b.require("cap-target", targetClan.hasCapital(), tp, "deny.raid.defender-no-capital", tp);
+        boolean shielded = plugin.getModifierManager().hasPostRaidShield(targetClan.id());
+        Map<String, String> shieldPh = new HashMap<>(tp);
+        shieldPh.put("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(
+                shielded ? plugin.getModifierManager().getPostRaidShieldRemaining(targetClan.id()) * 1000L : 0L));
+        b.require("shield", !shielded, shieldPh, "deny.raid.shield-active", shieldPh);
+
         long afk = plugin.getConfig().getLong("raid.afk-ignore-minutes", 15L);
         int minAtkOnline = plugin.getConfig().getInt("raid.min-attacker-online", 2);
         int maxDefOnline = plugin.getConfig().getInt("raid.max-defender-online", 2);
-        int atkOnline = plugin.getRaidManager().countOnlineNonAfk(sourceClan, afk);
-        int defOnline = plugin.getRaidManager().countOnlineNonAfk(targetClan, afk);
-        if (atkOnline < minAtkOnline) {
-            return Optional.of(DenyResult.of("deny.raid.not-enough-attackers",
-                    Map.of("min", String.valueOf(minAtkOnline), "current", String.valueOf(atkOnline))));
-        }
-        if (defOnline > maxDefOnline) {
-            return Optional.of(DenyResult.of("deny.raid.too-many-defenders",
-                    Map.of("max", String.valueOf(maxDefOnline), "current", String.valueOf(defOnline))));
-        }
+        int atkOnline = raid.countOnlineNonAfk(sourceClan, afk);
+        int defOnline = raid.countOnlineNonAfk(targetClan, afk);
+        Map<String, String> atkPh = Map.of("min", String.valueOf(minAtkOnline), "current", String.valueOf(atkOnline));
+        Map<String, String> defPh = Map.of("max", String.valueOf(maxDefOnline), "current", String.valueOf(defOnline));
+        b.require("online-self", atkOnline >= minAtkOnline, atkPh, "deny.raid.not-enough-attackers", atkPh);
+        b.require("online-target-max", defOnline <= maxDefOnline, defPh, "deny.raid.too-many-defenders", defPh);
         int maxAtkPerDay = plugin.getConfig().getInt("raid.max-raids-per-clan-per-day", 5);
         int maxDefPerDay = plugin.getConfig().getInt("raid.max-times-raided-per-day", 1);
-        if (plugin.getRaidManager().countRaidsAsAttackerToday(sourceClan.id()) >= maxAtkPerDay) {
-            return Optional.of(DenyResult.of("deny.raid.daily-attacker-limit"));
-        }
-        if (plugin.getRaidManager().countRaidsAsDefenderToday(targetClan.id()) >= maxDefPerDay) {
-            return Optional.of(DenyResult.of("deny.raid.daily-defender-limit"));
-        }
-        long raidCooldown = plugin.getRaidManager().getCooldownRemaining(sourceClan.id(), targetClan.id());
-        if (raidCooldown > 0) {
-            return Optional.of(DenyResult.of("deny.raid.cooldown",
-                    Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "time", me.lovelace.loveclans.util.TimeUtil.formatDuration(raidCooldown * 1000L))));
-        }
-        return Optional.empty();
+        int atkToday = raid.countRaidsAsAttackerToday(sourceClan.id());
+        int defToday = raid.countRaidsAsDefenderToday(targetClan.id());
+        Map<String, String> atkDay = Map.of("used", String.valueOf(atkToday), "max", String.valueOf(maxAtkPerDay));
+        Map<String, String> defDay = Map.of("used", String.valueOf(defToday), "max", String.valueOf(maxDefPerDay));
+        b.require("daily-self", atkToday < maxAtkPerDay, atkDay, "deny.raid.daily-attacker-limit", atkDay);
+        b.require("daily-target", defToday < maxDefPerDay, defDay, "deny.raid.daily-defender-limit", defDay);
+        cooldownRequirement(b, "deny.raid.cooldown", raid.getCooldownRemaining(sourceClan.id(), targetClan.id()), targetClan);
+        return b.build();
+    }
+
+    private Optional<DenyResult> toDeny(ConflictReadiness readiness) {
+        return readiness.firstDeny().map(d -> DenyResult.of(d.key(), d.placeholders()));
+    }
+
+    public Optional<DenyResult> checkWarDeny(Player player, Clan sourceClan, Clan targetClan) {
+        return toDeny(warReadiness(player, sourceClan, targetClan));
+    }
+
+    public Optional<DenyResult> checkSiegeDeny(Player player, Clan sourceClan, Clan targetClan) {
+        return toDeny(siegeReadiness(player, sourceClan, targetClan));
+    }
+
+    public Optional<DenyResult> checkRaidDeny(Player player, Clan sourceClan, Clan targetClan) {
+        return toDeny(raidReadiness(player, sourceClan, targetClan));
     }
 
     public void handleWarDeclare(Player player, Clan sourceClan, Clan targetClan) {
@@ -872,7 +813,7 @@ public final class ClanDiplomacyMenu {
         boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.war", true);
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.war.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                cbRequired ? Component.text("§7Будет израсходован Casus Belli: Война") : Component.empty(),
+                cbRequired ? plugin.getMessages().component("gui.conflict.confirm-casus", Map.of("type", plugin.getMessages().raw("gui.conflict.war.short")), player) : Component.empty(),
                 () -> {
                     if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "WAR")) {
                         plugin.getMessages().sendDeny(player, "deny.war.no-casus", Map.of());
@@ -899,7 +840,7 @@ public final class ClanDiplomacyMenu {
         boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.siege", true);
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.siege.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                cbRequired ? Component.text("§7Будет израсходован Casus Belli: Осада") : Component.empty(),
+                cbRequired ? plugin.getMessages().component("gui.conflict.confirm-casus", Map.of("type", plugin.getMessages().raw("gui.conflict.siege.short")), player) : Component.empty(),
                 () -> {
                     if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "SIEGE")) {
                         plugin.getMessages().sendDeny(player, "deny.siege.no-casus", Map.of());
