@@ -767,6 +767,8 @@ public final class DiplomacyManager {
     /** Завершённая сделка между кланами: небольшой плюс, не больше суточного лимита. */
     public void onTradeCompleted(Clan clanA, Clan clanB) {
         applyCappedDelta(clanA.id(), clanB.id(), "trade", eventDelta("trade-completed", 3), eventDelta("trade-daily-cap", 9));
+        plugin.getGuildRewards().grant(clanA, me.lovelace.loveclans.model.upgrade.GuildReward.MERCHANT);
+        plugin.getGuildRewards().grant(clanB, me.lovelace.loveclans.model.upgrade.GuildReward.MERCHANT);
     }
 
     private record DailyDelta(long day, int total) {}

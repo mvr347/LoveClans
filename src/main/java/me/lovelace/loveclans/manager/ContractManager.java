@@ -362,7 +362,13 @@ public final class ContractManager {
         if (bonusPoints > 0) {
             reward = reward.thenCompose(c -> {
                 c.addUpgradePoints(bonusPoints);
-                return plugin.getClanManager().updateClanAsync(c);
+                return plugin.getClanManager().updateClanAsync(c)
+                        .thenCompose(saved -> plugin.supplySync(() -> {
+                            if (plugin.getUpgradeOffers().topUp(saved) > 0) {
+                                plugin.getUpgradeOffers().notifyOwner(saved);
+                            }
+                            return saved;
+                        }));
             });
         }
         return reward.thenCompose(c -> keepSlot

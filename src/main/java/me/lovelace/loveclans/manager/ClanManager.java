@@ -17,6 +17,7 @@ import me.lovelace.loveclans.api.events.ClanMemberLeaveEvent;
 import me.lovelace.loveclans.api.events.ClanRankChangeEvent;
 import me.lovelace.loveclans.api.events.ClanUnclaimEvent;
 import me.lovelace.loveclans.integration.AdvancedClaimsHook;
+import me.lovelace.loveclans.manager.upgrade.ExperienceMath;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanApplication;
 import me.lovelace.loveclans.model.ClanInvite;
@@ -89,6 +90,10 @@ public final class ClanManager {
     private final Map<UUID, HomeTeleportWarmup> pendingHomeTeleports = new ConcurrentHashMap<>();
 
     private record HomeTeleportWarmup(BukkitTask task, BossBar bossBar, long endsAt, long durationMillis) {}
+
+    public ClanStorage storage() {
+        return storage;
+    }
 
     public ClanManager(LoveClansPlugin plugin, ClanStorage storage) {
         this.plugin = plugin;
@@ -1782,12 +1787,17 @@ public final class ClanManager {
     }
 
     public CompletableFuture<Clan> addExperienceAsync(Clan clan, long amount) {
+        return addExperienceAsync(clan, amount, false);
+    }
+
+    /** @param raw true for admin grants: no upgrade/reward bonuses and no experience tax */
+    public CompletableFuture<Clan> addExperienceAsync(Clan clan, long amount, boolean raw) {
         if (clan == null) return CompletableFuture.failedFuture(new IllegalArgumentException("Clan cannot be null."));
         java.util.concurrent.atomic.AtomicBoolean leveledUp = new java.util.concurrent.atomic.AtomicBoolean(false);
         return plugin.supplySync(() -> {
             int maxLevel = plugin.getConfig().getInt("limits.max-level", 20);
             int oldLevel = clan.level();
-            long boostedAmount = Math.round(amount * experienceBonusMultiplier(clan));
+            long boostedAmount = raw ? amount : ExperienceMath.apply(amount, plugin.getClanBonuses().experiencePercent(clan), experienceTaxFactor(clan));
             clan.addExperience(boostedAmount);
             while (clan.level() < maxLevel && clan.experience() >= experienceForLevel(clan.level() + 1)) {
                 clan.levelUp();
@@ -1841,12 +1851,7 @@ public final class ClanManager {
     public InfluenceFormula.Result influenceBreakdown(Clan clan) {
         if (clan == null) return new InfluenceFormula.Result(0L, 0L, 0L, 1.0, 1.0);
         var cfg = plugin.getConfig();
-        long now = System.currentTimeMillis();
-        long activeWindow = cfg.getLong("influence.active-days", 14L) * 86_400_000L;
-        int active = 0;
-        for (ClanMember member : clan.members().values()) {
-            if (Bukkit.getPlayer(member.playerId()) != null || now - member.lastSeen() <= activeWindow) active++;
-        }
+        int active = activeMemberCount(clan);
         long monthlyActivity = plugin.getActivityManager() == null ? 0L
                 : plugin.getActivityManager().getClanActivity(clan.id(), me.lovelace.loveclans.activity.ActivityPeriod.MONTHLY).total();
         var archive = plugin.getConflictArchive();
@@ -1856,7 +1861,13 @@ public final class ClanManager {
                 monthlyActivity, clan.allianceCount(),
                 clan.warsWon(), clan.warsLost(), clan.siegesWon(), clan.siegesLost(), clan.raidsWon(), clan.raidsLost(),
                 archive.freshnessOf(clan.id()), archive.lossFreshnessOf(clan.id()), form[0], form[1]);
-        return InfluenceFormula.compute(inputs, cfg.getConfigurationSection("influence"));
+        InfluenceFormula.Result computed = InfluenceFormula.compute(inputs, cfg.getConfigurationSection("influence"));
+        double bonus = plugin.getClanBonuses().influencePercent(clan);
+        if (bonus <= 0.0D) {
+            return computed;
+        }
+        return new InfluenceFormula.Result(Math.round(computed.value() * (1.0D + bonus / 100.0D)),
+                computed.base(), computed.battle(), computed.form(), computed.activeShare());
     }
 
     /** Recomputes and persists {@code clan}'s cached influence value. */
@@ -2087,7 +2098,8 @@ public final class ClanManager {
         double multiplier = 1.0 + Math.max(0, clan.members().size() - 1) * perMember
                 + Math.max(0, clan.territories().size() - 1) * perTerritory
                 + Math.max(0, clan.chestRows() - baseRows) * perRow;
-        return Math.round(base * multiplier * leaderBehaviorTaxFactor(clan));
+        double discount = 1.0D - plugin.getClanBonuses().taxDiscountPercent(clan) / 100.0D;
+        return Math.round(base * multiplier * leaderBehaviorTaxFactor(clan) * discount);
     }
 
     /**
@@ -2206,7 +2218,7 @@ public final class ClanManager {
         }
     }
 
-    private java.util.stream.Stream<Player> onlineMembers(Clan clan) {
+    public java.util.stream.Stream<Player> onlineMembers(Clan clan) {
         return clan.members().keySet().stream().map(Bukkit::getPlayer).filter(Objects::nonNull);
     }
 
@@ -2326,99 +2338,67 @@ public final class ClanManager {
 
     public int maxTerritories(Clan clan) {
         if (clan == null) return 0;
+        // Extra territories are switched off: the clan grows through the size of its main claim.
+        if (!plugin.getConfig().getBoolean("limits.extra-territories-enabled", false)) {
+            return 1;
+        }
         if (!clan.isRecognized()) {
             return 1; // Непризнанный клан ограничен только своей столицей
         }
         return plugin.getConfig().getInt("limits.base-territories", 4)
-                + clan.level() * plugin.getConfig().getInt("limits.territories-per-level", 1)
-                + clan.upgradeLevel(ClanUpgrade.TERRITORIES) * plugin.getConfig().getInt("limits.territories-per-upgrade", 2);
+                + clan.level() * plugin.getConfig().getInt("limits.territories-per-level", 1);
     }
 
     public double experienceBonusMultiplier(Clan clan) {
-        if (clan == null) return 1.0D;
-        double perUpgrade = plugin.getConfig().getDouble("limits.experience-percent-per-upgrade", 5.0D);
-        return 1.0D + (clan.upgradeLevel(ClanUpgrade.EXPERIENCE) * perUpgrade / 100.0D);
+        return 1.0D + plugin.getClanBonuses().experiencePercent(clan) / 100.0D;
     }
 
     public int maxUpgradeLevel(ClanUpgrade upgrade) {
         return plugin.getConfig().getInt("upgrades." + upgrade.name() + ".max-level", 1);
     }
 
-    public CompletableFuture<Clan> purchaseUpgradeAsync(Clan clan, UUID actorId, ClanUpgrade upgrade) {
-        if (clan == null || actorId == null || upgrade == null)
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor ID and upgrade cannot be null."));
-        return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.UPGRADE)) {
-                throw new IllegalStateException("general.no-permission");
-            }
-            if (clan.upgradePoints() <= 0) {
-                throw new IllegalStateException("gui.upgrades.not-enough-points");
-            }
-            int maxLevel = maxUpgradeLevel(upgrade);
-            if (clan.upgradeLevel(upgrade) >= maxLevel) {
-                throw new IllegalStateException("gui.upgrades.max-level-reached");
-            }
-            clan.setUpgradeLevel(upgrade, clan.upgradeLevel(upgrade) + 1);
-            clan.removeUpgradePoints(1);
-            // Улучшение "Сундук" (§2.1) не хранит собственное состояние - его уровень напрямую
-            // определяет число разблокированных рядов физического сундука клана.
-            if (upgrade == ClanUpgrade.CHEST) {
-                clan.setChestRows(clan.chestRows() + 1);
-            }
-            return clan;
-        }).thenCompose(updatedClan -> storage.saveUpgradeAsync(updatedClan.id(), upgrade, updatedClan.upgradeLevel(upgrade))
-                .thenCompose(ignored -> storage.updateClanUpgradePoints(updatedClan.id(), updatedClan.upgradePoints()))
-                .thenCompose(ignored -> upgrade == ClanUpgrade.CHEST
-                        ? storage.updateClanChestRows(updatedClan.id(), updatedClan.chestRows())
-                        : CompletableFuture.completedFuture(null))
-                .thenCompose(ignored -> recalculateInfluenceAsync(updatedClan)));
+    /** Online now, or seen within {@code influence.active-days}: the members that count for the experience tax. */
+    public int activeMemberCount(Clan clan) {
+        long now = System.currentTimeMillis();
+        long window = plugin.getConfig().getLong("influence.active-days", 14L) * 86_400_000L;
+        int active = 0;
+        for (ClanMember member : clan.members().values()) {
+            if (Bukkit.getPlayer(member.playerId()) != null || now - member.lastSeen() <= window) active++;
+        }
+        return active;
     }
 
-    // --- Клановые перки (§7) ---
-
-    public int perkUnlockLevel() {
-        return plugin.getConfig().getInt("perks.unlock-level", 5);
+    /** Experience tax multiplier for this clan right now (1.0 = nothing taken). */
+    public double experienceTaxFactor(Clan clan) {
+        var cfg = plugin.getConfig();
+        return ExperienceMath.taxFactor(activeMemberCount(clan),
+                cfg.getInt("leveling.experience-tax.free-members", 5),
+                cfg.getDouble("leveling.experience-tax.per-member", 0.03D),
+                cfg.getDouble("leveling.experience-tax.min-factor", 0.4D));
     }
 
-    public long perkRespecCost() {
-        return plugin.getConfig().getLong("perks.respec-cost-experience", 10000L);
-    }
-
-    public CompletableFuture<Clan> choosePerkAsync(Clan clan, UUID actorId, me.lovelace.loveclans.model.ClanPerk perk) {
-        if (clan == null || actorId == null || perk == null)
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor ID and perk cannot be null."));
-        return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.UPGRADE)) {
-                throw new IllegalStateException("general.no-permission");
-            }
-            if (clan.level() < perkUnlockLevel()) {
-                throw new IllegalStateException("gui.upgrades.perk-locked");
-            }
-            Optional<me.lovelace.loveclans.model.ClanPerk> current = clan.perk();
-            if (current.isPresent() && current.get() == perk) {
-                return clan;
-            }
-            if (current.isPresent()) {
-                long cost = perkRespecCost();
-                if (clan.experience() < cost) {
-                    throw new IllegalStateException("gui.upgrades.perk-insufficient-experience");
+    private double[] difficultyFactors() {
+        double[] factors = new double[64];
+        var section = plugin.getConfig().getConfigurationSection("leveling.difficulty");
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                try {
+                    int level = Integer.parseInt(key);
+                    if (level >= 0 && level < factors.length) factors[level] = section.getDouble(key);
+                } catch (NumberFormatException ignored) {
+                    // "after" and other non-level keys
                 }
-                clan.removeExperience(cost);
             }
-            clan.setPerk(perk, System.currentTimeMillis());
-            return clan;
-        }).thenCompose(updatedClan -> storage.updateClanPerk(updatedClan.id(), updatedClan.perk().orElse(null), updatedClan.perkChosenAt())
-                .thenCompose(ignored -> storage.updateClanProgression(updatedClan.id(), updatedClan.level(), updatedClan.experience(), updatedClan.upgradePoints(), updatedClan.spirit().level()))
-                .thenApply(ignored -> updatedClan));
+        }
+        return factors;
     }
 
     public long experienceForLevel(int level) {
-        if (level <= 1) {
-            return 0L;
-        }
-        double base = plugin.getConfig().getDouble("leveling.base-exp", 1000D);
-        double multiplier = plugin.getConfig().getDouble("leveling.multiplier", 1.35D);
-        return Math.round(base * Math.pow(multiplier, level - 2));
+        return ExperienceMath.thresholdFor(level,
+                plugin.getConfig().getDouble("leveling.base-exp", 1000D),
+                plugin.getConfig().getDouble("leveling.multiplier", 1.35D),
+                difficultyFactors(),
+                plugin.getConfig().getDouble("leveling.difficulty.after", 3.5D));
     }
 
     public List<Clan> topClansByLevel(int limit) {

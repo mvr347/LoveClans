@@ -3,7 +3,7 @@ package me.lovelace.loveclans.storage;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanApplication;
 import me.lovelace.loveclans.model.ClanMember;
-import me.lovelace.loveclans.model.ClanPerk;
+import me.lovelace.loveclans.model.ClanDirection;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanSpirit;
@@ -145,10 +145,10 @@ public final class SqlClanStorage implements ClanStorage {
                         }
                         try {
                             String rawPerk = result.getString("perk");
-                            ClanPerk perk = rawPerk == null ? null : ClanPerk.valueOf(rawPerk);
-                            clan.setPerk(perk, result.getLong("perk_chosen_at"));
+                            ClanDirection direction = rawPerk == null ? null : ClanDirection.valueOf(rawPerk);
+                            clan.setDirection(direction, result.getLong("perk_chosen_at"));
                         } catch (SQLException | IllegalArgumentException ignored) {
-                            // Column might not exist yet, or contain a retired perk name
+                            // Column might not exist yet, or contain a retired perk name (reset by the schema migration)
                         }
                         try {
                             clan.setChestMoney(result.getLong("chest_money"));
@@ -517,7 +517,7 @@ public final class SqlClanStorage implements ClanStorage {
     }
 
     @Override
-    public CompletableFuture<Void> updateClanPerk(UUID clanId, ClanPerk perk, long chosenAt) {
+    public CompletableFuture<Void> updateClanDirection(UUID clanId, ClanDirection perk, long chosenAt) {
         return CompletableFuture.runAsync(() -> {
             try (Connection connection = database.dataSource().getConnection();
                  PreparedStatement statement = connection.prepareStatement(
@@ -531,7 +531,7 @@ public final class SqlClanStorage implements ClanStorage {
                 statement.setString(3, clanId.toString());
                 statement.executeUpdate();
             } catch (SQLException exception) {
-                throw new StorageException("Unable to update perk for clan " + clanId, exception);
+                throw new StorageException("Unable to update direction for clan " + clanId, exception);
             }
         }, database.executor());
     }

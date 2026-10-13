@@ -517,6 +517,8 @@ public final class DatabaseManager implements AutoCloseable {
                     )
                     """);
             migrateSharedPairScores(connection);
+            UpgradeStore.createTables(statement);
+            UpgradeStore.runLegacyMigration(statement);
         } catch (SQLException exception) {
             throw new StorageException("Unable to create database schema", exception);
         }

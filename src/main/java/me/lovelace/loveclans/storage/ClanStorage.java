@@ -3,7 +3,7 @@ package me.lovelace.loveclans.storage;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanApplication;
 import me.lovelace.loveclans.model.ClanMember;
-import me.lovelace.loveclans.model.ClanPerk;
+import me.lovelace.loveclans.model.ClanDirection;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.ClanUpgrade;
 import me.lovelace.loveclans.model.diplomacy.ClanPact;
@@ -82,7 +82,7 @@ public interface ClanStorage {
     CompletableFuture<Void> updateClanInfluenceStats(UUID clanId, int warsWon, int warsLost, int siegesWon,
                                                        int siegesLost, int raidsWon, int raidsLost, long influence);
 
-    CompletableFuture<Void> updateClanPerk(UUID clanId, ClanPerk perk, long chosenAt);
+    CompletableFuture<Void> updateClanDirection(UUID clanId, ClanDirection direction, long chosenAt);
 
     // --- Клановый сундук: деньги и налог (§2; заменяет прежний отдельный /clan bank) ---
 

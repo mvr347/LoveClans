@@ -4,6 +4,9 @@ package me.lovelace.loveclans.history;
 public enum HistoryType {
     CLAN_CREATED,
     CLAN_LEVEL_UP,
+    UPGRADE_CHOSEN,
+    DIRECTION_CHOSEN,
+    GUILD_REWARD,
 
     MEMBER_JOINED,
     MEMBER_LEFT,

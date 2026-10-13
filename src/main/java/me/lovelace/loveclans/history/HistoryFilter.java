@@ -11,7 +11,8 @@ public enum HistoryFilter {
     SIEGES(EnumSet.of(HistoryType.SIEGE_DECLARED, HistoryType.SIEGE_WON, HistoryType.SIEGE_LOST, HistoryType.SIEGE_DEFENDED)),
     TERRITORIES(EnumSet.of(HistoryType.TERRITORY_CAPTURED, HistoryType.TERRITORY_LOST)),
     DIPLOMACY(EnumSet.of(HistoryType.DIPLOMACY_CREATED, HistoryType.DIPLOMACY_ENDED)),
-    MEMBERS(EnumSet.of(HistoryType.CLAN_CREATED, HistoryType.CLAN_LEVEL_UP, HistoryType.MEMBER_JOINED,
+    MEMBERS(EnumSet.of(HistoryType.CLAN_CREATED, HistoryType.CLAN_LEVEL_UP, HistoryType.UPGRADE_CHOSEN,
+            HistoryType.DIRECTION_CHOSEN, HistoryType.GUILD_REWARD, HistoryType.MEMBER_JOINED,
             HistoryType.MEMBER_LEFT, HistoryType.MEMBER_KICKED, HistoryType.RANK_CHANGED, HistoryType.LEADER_CHANGED));
 
     private final Set<HistoryType> types;

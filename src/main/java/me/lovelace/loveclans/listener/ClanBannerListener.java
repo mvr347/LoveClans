@@ -95,7 +95,7 @@ public final class ClanBannerListener implements Listener {
             if (check.hasConflict()) {
                 long ticks = plugin.getConfig().getLong("integration.advanced-claims.preview-display-ticks", 300L);
                 showConflictBorders(player, check, ticks);
-                int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
+                int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 25);
                 int conflictX = check.conflict().map(c -> c.getBoundingBox() != null ? (int) c.getBoundingBox().getCenterX() : location.getBlockX()).orElse(location.getBlockX());
                 int conflictZ = check.conflict().map(c -> c.getBoundingBox() != null ? (int) c.getBoundingBox().getCenterZ() : location.getBlockZ()).orElse(location.getBlockZ());
                 plugin.getMessages().send(player, "clan.banner.overlap-denied", Map.of(
@@ -125,7 +125,7 @@ public final class ClanBannerListener implements Listener {
                 return;
             }
 
-            int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
+            int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 25);
             plugin.getClanManager().updateFoundationSession(session.withPreview(location).withPhase(FoundationPhase.PREVIEWED));
             plugin.getMessages().send(player, "clan.banner.preview-ok", Map.of("radius", String.valueOf(radius)));
             return;
@@ -150,7 +150,7 @@ public final class ClanBannerListener implements Listener {
                     return;
                 }
 
-                int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
+                int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 25);
                 plugin.getClanManager().updateFoundationSession(session.withPreview(location).withPhase(FoundationPhase.PREVIEWED));
                 plugin.getMessages().send(player, "clan.banner.preview-mismatch", Map.of("radius", String.valueOf(radius)));
                 return;

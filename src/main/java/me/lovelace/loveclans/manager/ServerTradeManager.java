@@ -334,7 +334,9 @@ public final class ServerTradeManager {
 
         final long reward;
         try {
-            reward = Math.multiplyExact(unit.getAsLong(), amount);
+            // Guild reward "Богач" and friends: income bonus on top of the state price.
+            long base = Math.multiplyExact(unit.getAsLong(), amount);
+            reward = Math.round(base * (1.0D + plugin.getClanBonuses().incomePercent(clan) / 100.0D));
         } catch (ArithmeticException overflow) {
             plugin.getLogger().warning("State trade reward overflow for " + material + " x" + amount
                     + " unit=" + unit.getAsLong() + " clan=" + clan.id());

@@ -474,7 +474,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
         if (isExp) {
             switch (subAction) {
-                case "add" -> plugin.getClanManager().addExperienceAsync(clan, amount);
+                case "add" -> plugin.getClanManager().addExperienceAsync(clan, amount, true); // admin grants skip bonuses and the tax
                 case "remove" -> {
                     clan.removeExperience(amount);
                     plugin.getClanManager().updateClanAsync(clan);
@@ -492,6 +492,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
                 case "set" -> clan.setUpgradePoints((int) amount);
             }
             plugin.getClanManager().updateClanAsync(clan);
+            plugin.getUpgradeOffers().topUp(clan);
             plugin.getMessages().send(sender, "admin.points-updated", Map.of("tag", clan.tag(), "color", clan.tagColor()));
         }
     }

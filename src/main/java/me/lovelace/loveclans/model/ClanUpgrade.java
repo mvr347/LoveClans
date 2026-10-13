@@ -2,9 +2,10 @@ package me.lovelace.loveclans.model;
 
 public enum ClanUpgrade {
     MEMBERS("Состав клана"),
-    TERRITORIES("Территории"),
+    CLAIM_SIZE("Размер территории"),
     EXPERIENCE("Развитие клана"),
-    CHEST("Сундук");
+    CHEST("Сундук"),
+    TAX("Налоги");
 
     private final String displayName;
 
