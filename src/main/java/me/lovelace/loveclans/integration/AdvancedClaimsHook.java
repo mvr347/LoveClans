@@ -111,7 +111,21 @@ public final class AdvancedClaimsHook {
      * вниз и {@code claim-height-above} вверх, обрезанная границами мира.
      */
     public static BoundingBox computeTerritoryBounds(LoveClansPlugin plugin, int bannerX, int bannerY, int bannerZ, World world) {
-        int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 35);
+        return computeTerritoryBounds(plugin, bannerX, bannerY, bannerZ, world, 0);
+    }
+
+    /** Radius of a clan's territory: the base radius plus the "Размер территории" upgrade. */
+    public static int claimRadiusFor(LoveClansPlugin plugin, Clan clan) {
+        int base = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 25);
+        if (clan == null) {
+            return base;
+        }
+        int perLevel = plugin.getConfig().getInt("upgrades.CLAIM_SIZE.blocks-per-level", 1);
+        return base + clan.upgradeLevel(me.lovelace.loveclans.model.ClanUpgrade.CLAIM_SIZE) * perLevel;
+    }
+
+    public static BoundingBox computeTerritoryBounds(LoveClansPlugin plugin, int bannerX, int bannerY, int bannerZ, World world, int extraRadius) {
+        int radius = plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 25) + Math.max(0, extraRadius);
         int heightBelow = plugin.getConfig().getInt("integration.advanced-claims.claim-height-below", 24);
         int heightAbove = plugin.getConfig().getInt("integration.advanced-claims.claim-height-above", 48);
         int minY = Math.max(world.getMinHeight(), bannerY - heightBelow);
@@ -152,7 +166,8 @@ public final class AdvancedClaimsHook {
             return ClaimAttachment.refused();
         }
 
-        BoundingBox box = computeTerritoryBounds(plugin, territory.bannerX(), territory.bannerY(), territory.bannerZ(), world);
+        BoundingBox box = computeTerritoryBounds(plugin, territory.bannerX(), territory.bannerY(), territory.bannerZ(), world,
+                claimRadiusFor(plugin, clan) - plugin.getConfig().getInt("integration.advanced-claims.claim-radius", 25));
         Location centerLoc = new Location(world, territory.bannerX(), territory.bannerY(), territory.bannerZ());
 
         // Use createClanClaim instead of createClaim for clan territories.
@@ -174,6 +189,60 @@ public final class AdvancedClaimsHook {
         UUID claimId = claim.getId();
         syncClanTrust(clan, territory.withAdvancedClaimId(claimId));
         return ClaimAttachment.created(claimId);
+    }
+
+    /**
+     * Grows (or re-fits) the clan's main claim to the radius its "Размер территории" level calls
+     * for. LoveClaims refuses when the new box touches somebody else's claim - then nothing changes
+     * and the caller keeps the upgrade point. Main thread only.
+     *
+     * @return true when the claim now has the wanted size
+     */
+    public boolean resizeToUpgradeLevel(Clan clan, ClanTerritory territory, int claimSizeLevel) {
+        if (!enabled() || clan == null || territory == null || territory.advancedClaimId() == null
+                || territory.bannerX() == null || territory.bannerY() == null || territory.bannerZ() == null) {
+            return false;
+        }
+        World world = Bukkit.getWorld(territory.world());
+        if (world == null) {
+            return false;
+        }
+        int perLevel = plugin.getConfig().getInt("upgrades.CLAIM_SIZE.blocks-per-level", 1);
+        BoundingBox wanted = computeTerritoryBounds(plugin, territory.bannerX(), territory.bannerY(), territory.bannerZ(),
+                world, claimSizeLevel * perLevel);
+        try {
+            return api.resizeClaim(territory.advancedClaimId(), wanted);
+        } catch (RuntimeException exception) {
+            plugin.getLogger().log(Level.WARNING, "AdvancedClaims call failed for resizeClaim: " + exception.getMessage(), exception);
+            return false;
+        }
+    }
+
+    /** Half-width of the territory's claim, or empty when its geometry is unknown right now. */
+    public java.util.OptionalInt currentRadiusOf(ClanTerritory territory) {
+        return boundingBoxOf(territory)
+                .map(box -> java.util.OptionalInt.of((int) Math.round(box.getWidthX() / 2.0D)))
+                .orElse(java.util.OptionalInt.empty());
+    }
+
+    /** True when growing the claim to the given upgrade level would not touch a foreign claim. */
+    public boolean canResizeTo(ClanTerritory territory, int claimSizeLevel) {
+        if (!enabled() || territory == null || territory.advancedClaimId() == null
+                || territory.bannerX() == null || territory.bannerY() == null || territory.bannerZ() == null) {
+            return false;
+        }
+        World world = Bukkit.getWorld(territory.world());
+        if (world == null) {
+            return false;
+        }
+        int perLevel = plugin.getConfig().getInt("upgrades.CLAIM_SIZE.blocks-per-level", 1);
+        BoundingBox wanted = computeTerritoryBounds(plugin, territory.bannerX(), territory.bannerY(), territory.bannerZ(),
+                world, claimSizeLevel * perLevel);
+        try {
+            return !api.checkOverlap(world, wanted, territory.advancedClaimId());
+        } catch (RuntimeException exception) {
+            return false;
+        }
     }
 
     /**

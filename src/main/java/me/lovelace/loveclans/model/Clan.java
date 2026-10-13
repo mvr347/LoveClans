@@ -46,8 +46,8 @@ public final class Clan {
     private long influence;
 
     // --- Perk (§7): unlocked at level >= perks.unlock-level, one active at a time ---
-    private ClanPerk perk;
-    private long perkChosenAt;
+    private ClanDirection direction;
+    private long directionChosenAt;
 
     // --- Клановый сундук (§2): деньги хранятся отдельным полем прямо на клане, а не как
     // произвольный предметный банк - в сундуке ровно одна валюта (clans.chest.currency-item).
@@ -545,19 +545,19 @@ public final class Clan {
         this.influence = Math.max(0L, influence);
     }
 
-    // --- Perk (§7) ---
+    // --- Development direction (chosen once, never reset) ---
 
-    public Optional<ClanPerk> perk() {
-        return Optional.ofNullable(perk);
+    public Optional<ClanDirection> direction() {
+        return Optional.ofNullable(direction);
     }
 
-    public long perkChosenAt() {
-        return perkChosenAt;
+    public long directionChosenAt() {
+        return directionChosenAt;
     }
 
-    public void setPerk(ClanPerk perk, long chosenAt) {
-        this.perk = perk;
-        this.perkChosenAt = chosenAt;
+    public void setDirection(ClanDirection direction, long chosenAt) {
+        this.direction = direction;
+        this.directionChosenAt = chosenAt;
     }
 
     // --- Признание и статус клана ---

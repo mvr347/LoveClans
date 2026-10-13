@@ -543,6 +543,9 @@ gui:
     entry:
       CLAN_CREATED: "<gold>Клан основан"
       CLAN_LEVEL_UP: "<green>Клан достиг уровня <white><level>"
+      UPGRADE_CHOSEN: "<green>Улучшение <white><upgrade></white> повышено до <white><level></white> уровня"
+      DIRECTION_CHOSEN: "<green>Выбрано направление развития <white><direction>"
+      GUILD_REWARD: "<gold>Получена гильдейская награда <white><reward>"
       MEMBER_JOINED: "<green><player> вступил в клан"
       MEMBER_LEFT: "<gray><player> покинул клан"
       MEMBER_KICKED: "<red><player> изгнан из клана"
@@ -1960,13 +1963,7 @@ gui:
     item:
       name: "<gold><name>"
       level: "<gray>Уровень: <white><level></white>/<max>"
-      members: "<gray>+3 участника за уровень"
-      territories: "<gray>+2 территории за уровень"
-      experience: "<gray>+5% опыта клана за уровень"
-      chest: "<gray>+1 ряд сундука за уровень"
-      click-to-upgrade: "<gray>ЛКМ - повысить уровень"
       maxed: "<gold>Максимальный уровень достигнут"
-      no-points: "<red>Недостаточно очков улучшений"
     level-info:
       name: "<gold>Информация об уровне"
       lore:
@@ -1974,64 +1971,172 @@ gui:
         - "<gray>Опыт: <white><current_exp></white>/<next_exp>"
         - "<gray>Прогресс: <white><percent>%"
     points-info:
-      lore: "<gray>Доступно очков улучшений: <white><points>"
-    success: "<prefix><green>Улучшение <gold><upgrade></gold> успешно применено."
-    not-enough-points: "<prefix><red>Недостаточно очков улучшений."
-    max-level-reached: "<prefix><red>Это улучшение уже достигло максимального уровня."
-    perk-button:
-      name: "<gold>Перк клана"
+      lore: "<gray>Очков улучшений: <white><points>"
+    available:
+      name: "<yellow>✦ Доступные улучшения"
       lore:
-        - "<gray>Выбран: <white><perk>"
+        - "<gray>Нажмите, чтобы выбрать"
+        - "<dark_gray>Накоплено: <count>"
+      none: "<gray>Новые варианты появятся с новым уровнем клана."
+    direction-button:
+      name: "<gold>Направление развития"
+      locked: "<gray>Открывается на <white><level></white> уровне клана."
+      pending:
+        - "<gray>Выбирается один раз и навсегда."
+        - "<gray>Усиливается на 10 и 15 уровнях."
         - ""
-        - "<gray>Клан выбирает один перк. Он действует на"
-        - "<gray>всех членов клана, пока выбран."
-        - "<gray>Смена перка стоит опыта клана, первый"
-        - "<gray>выбор бесплатный."
-      none: "<gray>не выбран"
-      open: "<gray>ЛКМ - выбрать перк"
-    perks:
-      title: "<gray>Перк клана <color><tag>"
-      locked:
-        name: "<dark_gray>Перки клана заблокированы"
-        lore: "<gray>Открываются на <white><level></white> уровне клана."
-      harvester:
-        name: "<green>Земледелие"
+        - "<green>ЛКМ - выбрать направление"
+      chosen:
+        - "<gray>Выбрано: <white><direction>"
+        - "<gray>Усиление: <white><tier></white>/3"
+      next-tier: "<gray>Следующее усиление на <white><level></white> уровне клана."
+      max-tier: "<gold>Достигнуто максимальное усиление"
+    option:
+      level: "<dark_gray>Уровень улучшения: <level>/<max>"
+      choose: "<green>ЛКМ - выбрать"
+      members:
+        name: "<gold>Состав клана"
+        desc: "<gray>Больше мест для участников."
+        now: "<gray>Сейчас: <white><now> мест"
+        after: "<gray>После выбора: <green><after> мест"
+      claim-size:
+        name: "<gold>Размер территории"
+        desc: "<gray>Приват клана вокруг знамени шире."
+        now: "<gray>Сейчас: <white><now> блоков"
+        after: "<gray>После выбора: <green><after> блоков"
+      experience:
+        name: "<gold>Развитие клана"
+        desc: "<gray>Клан быстрее набирает опыт."
+        now: "<gray>Сейчас: <white>+<now>% опыта"
+        after: "<gray>После выбора: <green>+<after>% опыта"
+      chest:
+        name: "<gold>Сундук"
+        desc: "<gray>Больше места в сундуке клана."
+        now: "<gray>Сейчас: <white><now> рядов"
+        after: "<gray>После выбора: <green><after> рядов"
+      tax:
+        name: "<gold>Налоги"
+        desc: "<gray>Недельный налог сундука ниже."
+        now: "<gray>Сейчас: <white>-<now>% налога"
+        after: "<gray>После выбора: <green>-<after>% налога"
+    unavailable:
+      maxed: "<red>Улучшение уже на максимальном уровне."
+      unrecognized: "<red>Клан не признан: лимит участников пока не действует."
+      no-tax: "<red>Налог на сундук пока не взимается."
+      no-claim: "<red>У клана нет основной территории."
+      already-big: "<red>Территория уже не меньше, чем даст улучшение."
+      blocked: "<red>Рядом чужой приват: территория не расширится."
+    offer:
+      title: "<gray>Выбор улучшения <color><tag>"
+      info:
+        name: "<gold>Новое улучшение"
         lore:
-          - "<gray>Перк для тех, кто кормит клан."
+          - "<gray>Предложение <white><index></white> из <white><total></white>"
           - ""
-          - "<gold>Рост: <white><percent>%</white> <gray>шанс ускорить рост культуры"
-          - "<gray>  (только на территории клана)"
-          - "<gold>Урожай: <white><yield>%</white> <gray>шанс лишнего дропа со спелых"
-          - "<gray>  пшеницы, моркови, картофеля, свёклы и нарыва"
-          - "<gold>Бой: <white>+<hearts></white> <gray>сердца, пока клан в войне"
-      miner:
-        name: "<aqua>Ресурсодобыча"
-        lore:
-          - "<gray>Перк для шахтёров и охотников на боссов."
-          - ""
-          - "<gold>Руда: <white><percent>%</white> <gray>шанс лишнего дропа при добыче руды"
-          - "<gray>  (в любом мире, с частицами)"
-          - "<gold>Босс: <white><rare>%</white> <gray>шанс удвоить один предмет"
-          - "<gray>  из добычи с убитого босса"
-      warrior:
-        name: "<red>Война"
-        lore:
-          - "<gray>Перк для клана, который идёт в бой."
-          - ""
-          - "<gold>Сила I: <gray>постоянно у всех членов клана"
-          - "<gold>Осада: <white><percent>%</white> <gray>короче, когда осаду начинаете вы"
-          - "<gold>Знамя врага: <white><banner>%</white> <gray>меньше ударов до поломки"
-      active: "<green>✔ Активен"
-      click-to-select: "<green>ЛКМ - выбрать этот перк <gray>(первый выбор бесплатно)"
-      click-to-change: "<gray>ЛКМ - сменить перк за <gold><cost></gold> опыта клана <gray>(есть: <white><have></white>)"
-      need-permission: "<dark_gray>Менять перк может участник с правом «Улучшения»."
-    perk-select:
-      title: "<gold>Выбрать перк клана <color><tag>"
-    perk-change:
-      title: "<gold>Сменить перк за <cost> опыта клана?"
-    perk-selected: "<prefix><green>Клан выбрал перк <gold><perk></gold>!"
-    perk-locked: "<prefix><red>Перки клана ещё не открыты."
-    perk-insufficient-experience: "<prefix><red>Недостаточно опыта клана для смены перка."
+          - "<gray>Очко тратится только после выбора."
+          - "<gray>Закрытие меню очко не тратит."
+    notify: "<gold>[Клан] <white>Доступно новое улучшение!<newline><gray>Откройте меню улучшений, чтобы выбрать."
+    chosen: "<prefix><green>Улучшение <gold><upgrade></gold> применено."
+    error:
+      no-permission: "<prefix><red>Выбирать улучшения может участник с правом «Улучшения»."
+      already-handled: "<prefix><gray>Это предложение уже обработано."
+      not-oldest: "<prefix><red>Сначала выберите более раннее улучшение."
+      unavailable: "<prefix><red>Этот вариант больше недоступен."
+      no-points: "<prefix><red>Нет очков улучшений."
+      resize-refused: "<prefix><red>Территорию не удалось расширить: рядом чужой приват. Очко не потрачено."
+  direction:
+    title: "<gray>Направление развития <color><tag>"
+    info:
+      name: "<gold>Направление развития"
+      lore:
+        - "<gray>Выбирается один раз и навсегда."
+        - "<gray>Усиливается на <white><t1></white>, <white><t2></white> и <white><t3></white> уровнях клана."
+    farming:
+      name: "<green>Земледелие"
+      lore:
+        - "<gray>Для кланов, которые кормят сервер."
+        - ""
+        - "<gold>Ур. <t1>: <white>+<a1>% к росту растений, +<b1>% к урожаю"
+        - "<gold>Ур. <t2>: <white>+<a2>% к росту растений, +<b2>% к урожаю"
+        - "<gold>Ур. <t3>: <white>+<a3>% к росту растений, +<b3>% к урожаю"
+        - ""
+        - "<dark_gray>Рост действует на земле клана."
+    mining:
+      name: "<aqua>Ресурсодобыча"
+      lore:
+        - "<gray>Для шахтёров и лесорубов."
+        - ""
+        - "<gold>Ур. <t1>: <white>+<a1>% к скорости добычи руд и дерева, +<b1>% к доп. дропу"
+        - "<gold>Ур. <t2>: <white>+<a2>% к скорости добычи руд и дерева, +<b2>% к доп. дропу"
+        - "<gold>Ур. <t3>: <white>+<a3>% к скорости добычи руд и дерева, +<b3>% к доп. дропу"
+    military:
+      name: "<red>Военное дело"
+      lore:
+        - "<gray>Небольшие, но надёжные преимущества в бою."
+        - ""
+        - "<gold>Ур. <t1>: <white>+<a1>% урона и +<b1>% защиты на своей земле, -<c1>% кулдауна рейдов и осад"
+        - "<gold>Ур. <t2>: <white>+<a2>% урона и +<b2>% защиты на своей земле, -<c2>% кулдауна рейдов и осад"
+        - "<gold>Ур. <t3>: <white>+<a3>% урона и +<b3>% защиты на своей земле, -<c3>% кулдауна рейдов и осад"
+        - "<gold>Ур. <t3>: <white>рейды и осады против вас заметно сложнее"
+    choose: "<green>ЛКМ - выбрать это направление"
+    confirm:
+      title: "<gold>Выбрать «<direction>»?"
+      lore: "<gray>Направление выбирается один раз и навсегда."
+    chosen: "<prefix><green>Клан выбрал направление <gold><direction></gold>!"
+    locked: "<prefix><red>Направление открывается на <level> уровне клана."
+    already: "<prefix><gray>Направление уже выбрано."
+  rewards:
+    title: "<gray>Гильдейские награды <color><tag>"
+    open:
+      name: "<gold>Гильдейские награды"
+      lore:
+        - "<gray>Одноразовые достижения клана."
+        - "<gray>Каждое даёт постоянный бонус."
+        - ""
+        - "<green>ЛКМ - открыть"
+    info:
+      name: "<gold>Гильдейские награды"
+      lore: "<gray>Получено: <white><done></white>/<total>"
+    unlocked: "<prefix><gold>Гильдейская награда: <white><reward></white>!"
+    state:
+      done: "<green>✔ Получено <gray>(<date>)"
+    entry:
+      pioneer:
+        name: "<gold>Первопроходец"
+        bonus: "<gray>Бонус: <white>+2% ко всему получаемому опыту"
+        condition: "<red>Создать клан."
+      first-blood:
+        name: "<gold>Первая кровь"
+        bonus: "<gray>Бонус: <white>+3% урона на своей территории"
+        condition: "<red>Одержать первую победу в войне."
+      merchant:
+        name: "<gold>Торговец"
+        bonus: "<gray>Бонус: <white>-2% к налогу на сундук"
+        condition: "<red>Провести первые торги с другим кланом."
+      defender:
+        name: "<gold>Защитник"
+        bonus: "<gray>Бонус: <white>+3% сопротивления на своей территории"
+        condition: "<red>Отбить первую осаду."
+      diplomat:
+        name: "<gold>Дипломат"
+        bonus: "<gray>Бонус: <white>+2% к влиянию клана"
+        condition: "<red>Заключить первый союз."
+      rich:
+        name: "<gold>Богач"
+        bonus: "<gray>Бонус: <white>+2% ко всем доходам казны"
+        condition: "<red>Накопить <amount> монет в казне."
+      legion:
+        name: "<gold>Легион"
+        bonus: "<gray>Бонус: <white>+1% ко всему получаемому опыту"
+        condition: "<red>Набрать <amount> участников."
+      veteran:
+        name: "<gold>Ветеран"
+        bonus: "<gray>Бонус: <white>+2% сопротивления"
+        condition: "<red>Продержаться <amount> дней."
+      conqueror:
+        name: "<gold>Завоеватель"
+        bonus: "<gray>Бонус: <white>+3% урона в нападении"
+        condition: "<red>Выиграть <amount> войн."
   banner-create:
     title: "<gray>Основание нового клана"
     name-btn: "<gold>Название: <white><name>"

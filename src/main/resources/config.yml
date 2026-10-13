@@ -404,10 +404,16 @@ limits:
   max-level: 20
   base-members: 10
   members-per-upgrade: 3
+  # 2026-10-13: дополнительные территории отключены по запросу владельца — клан владеет только
+  # основным приватом вокруг столицы, а растёт он улучшением «Размер территории». Уже занятые
+  # дополнительные территории остаются, запрещён только захват новых. false → maxTerritories = 1.
+  extra-territories-enabled: false
   base-territories: 4
   territories-per-level: 1
-  territories-per-upgrade: 2
   experience-percent-per-upgrade: 5.0
+  # 2026-10-13: «Налоги» — скидка на недельный налог сундука за уровень улучшения. 10% × 5 уровней
+  # дают -50%: заметно, но налог не обнуляется, поэтому казна всё равно нужна.
+  tax-discount-percent-per-upgrade: 10.0
   base-chest-rows: 3
   # 2026-10-07: 6 → 5. Шестой ряд экрана склада стал футером по стандарту gui_gen (Назад/Закрыть),
   # поэтому хранить предметы можно максимум в 5 рядах. Кланов с 6 открытыми рядами нет — миграция не нужна.
@@ -421,6 +427,34 @@ leveling:
   # искажало бы прогрессию экспоненциально).
   base-exp: 200
   multiplier: 1.83
+  # 2026-10-13: каждый шаг прежней кривой (стоимость одного уровня) умножается на коэффициент
+  # сложности целевого уровня — «как сейчас × коэффициент», уже набранные уровни не отнимаются.
+  # Таблица владельца: 1→2 ×1.3, 2→3 ×1.4, 3→4 ×1.5, 4→5 ×1.7, 5→6 ×1.9, 6→8 ×2.2, 8→10 ×2.5,
+  # 10→12 ×2.8, 12→15 ×3.2, дальше ×3.5. Ключ — уровень, который клан получает этим шагом.
+  difficulty:
+    2: 1.3
+    3: 1.4
+    4: 1.5
+    5: 1.7
+    6: 1.9
+    7: 2.2
+    8: 2.2
+    9: 2.5
+    10: 2.5
+    11: 2.8
+    12: 2.8
+    13: 3.2
+    14: 3.2
+    15: 3.2
+    after: 3.5
+  # 2026-10-13: налог на опыт — чем больше активных участников, тем меньше опыта получает клан:
+  # множитель = 1 - (активные - free-members) * per-member, но не ниже min-factor. Три процента
+  # на участника по запросу владельца; пол 0.4 нужен, чтобы очень большой клан не замирал совсем.
+  # Активный = сейчас онлайн или заходил в influence.active-days. Админская выдача опыта не облагается.
+  experience-tax:
+    free-members: 5
+    per-member: 0.03
+    min-factor: 0.4
   territory-claim-exp: 150
   war-win-exp: 1200
   # Опыт за проведённый ритуал, отдельно по каждому типу.
@@ -429,44 +463,71 @@ leveling:
     war_drum: 350
     guardian: 300
 
+# 2026-10-13: обычные улучшения. Очко улучшения даёт право выбрать один из двух предложенных
+# вариантов (предложение создаётся при каждом уровне клана и копится). max-level — потолок,
+# дойдя до которого вариант больше не предлагается.
 upgrades:
+  # +limits.members-per-upgrade мест за уровень.
   MEMBERS:
     max-level: 5
-  TERRITORIES:
-    max-level: 5
+  # +1 блок радиуса привата за уровень поверх integration.advanced-claims.claim-radius (25). Десять
+  # уровней дают 35 — прежний размер территории; больше не нужно, иначе приваты клановых баз
+  # начнут упираться друг в друга.
+  CLAIM_SIZE:
+    max-level: 10
+    blocks-per-level: 1
+  # +limits.experience-percent-per-upgrade процентов опыта за уровень.
   EXPERIENCE:
     max-level: 5
   # Уровни этого улучшения = число рядов сундука сверх базового (limits.base-chest-rows).
   # max-level здесь должен совпадать с (limits.max-chest-rows - limits.base-chest-rows).
-  # 2026-10-07: 3 → 2 вслед за limits.max-chest-rows 6 → 5 (5 - 3 базовых = 2 улучшения).
   CHEST:
     max-level: 2
+  # -limits.tax-discount-percent-per-upgrade процентов недельного налога сундука за уровень.
+  TAX:
+    max-level: 5
 
-# Клановые перки (§7) — доступны с perks.unlock-level, один активный за раз, смена стоит
-# опыта клана после первого (бесплатного) выбора.
-perks:
-  unlock-level: 5
-  respec-cost-experience: 10000
-  tick-seconds: 15
-  harvester:
-    crop-growth-bonus-percent: 40
-    harvest-yield-bonus-percent: 10
-    pvp-bonus-hearts: 2
-  miner:
-    resource-yield-bonus-percent: 25
-    rare-drop-bonus-percent: 15
-    ore-break-particle: HAPPY_VILLAGER
-    # Тип босса, за убийство которого действует бонус на редкий дроп (§7.1's "боссов, редких рейдов").
-    rare-drop-boss-type: WITHER
-  warrior:
-    banner-damage-bonus-percent: 10
-    siege-duration-reduction-percent: 25
+# 2026-10-13: направление развития — выбирается один раз и навсегда на уровне tiers.first и
+# усиливается на tiers.second / tiers.third. Военное направление намеренно слабое: дух клана
+# (mechanics.spirit) уже даёт урон и защиту, и без потолка два источника складывались бы в
+# непробиваемый клан. Значения — по тирам (индекс 0 = тир I на 5 ур., 1 = тир II, 2 = тир III).
+direction:
+  tiers:
+    first: 5
+    second: 10
+    third: 15
+  farming:
+    crop-growth-percent: [12, 20, 28]      # шанс, что культура на своей земле вырастет на стадию быстрее
+    harvest-yield-percent: [8, 15, 22]     # шанс дополнительного дропа при сборе спелой культуры
+  mining:
+    break-speed-percent: [12, 20, 28]      # ускорение копания руд и брёвен (атрибут block_break_speed)
+    extra-drop-percent: [8, 15, 22]        # шанс дополнительного дропа с руды и бревна
+  military:
+    damage-own-land-percent: [3, 4, 5]     # урон по врагам на своей территории (потолок 5%)
+    resistance-own-land-percent: [6, 10, 15]
+    cooldown-reduction-percent: [6, 10, 15]  # кулдаун рейда/осады, начатых этим кланом
+    # Тир III: рейды и осады ПРОТИВ клана тяжелее.
+    hardening:
+      siege-hold-extra-percent: 25         # больше времени удержания лагерей
+      raid-capture-slowdown-percent: 20    # медленнее набирается захват
+      extra-attackers-online: 1            # на столько больше нужно нападающих онлайн
+
+# 2026-10-13: гильдейские награды — одноразовые достижения. Значения бонусов заданы в коде
+# (model/upgrade/GuildReward), здесь только пороги условий.
+guild-rewards:
+  rich-treasury: 100000    # «Богач»: монет в казне
+  legion-members: 20       # «Легион»: участников
+  veteran-days: 30         # «Ветеран»: дней существования клана
+  conqueror-wars: 5        # «Завоеватель»: выигранных войн
 
 # 2026-10-12: звуки событий. Играются только онлайн-участникам клана, не всему серверу.
 # sound — имя звука Bukkit (например ENTITY_PLAYER_LEVELUP); enabled: false отключает все.
 sounds:
   enabled: true
   spirit-level-up: { sound: ENTITY_PLAYER_LEVELUP, volume: 1.0, pitch: 1.0 }
+  upgrade-offer: { sound: BLOCK_NOTE_BLOCK_CHIME, volume: 1.0, pitch: 1.2 }
+  upgrade-chosen: { sound: ENTITY_EXPERIENCE_ORB_PICKUP, volume: 1.0, pitch: 1.0 }
+  guild-reward: { sound: UI_TOAST_CHALLENGE_COMPLETE, volume: 1.0, pitch: 1.0 }
   guild-shield-on: { sound: BLOCK_BEACON_ACTIVATE, volume: 1.0, pitch: 1.0 }
   guild-shield-off: { sound: BLOCK_BEACON_DEACTIVATE, volume: 1.0, pitch: 1.0 }
   recognition: { sound: UI_TOAST_CHALLENGE_COMPLETE, volume: 1.0, pitch: 1.0 }
@@ -814,8 +875,10 @@ integration:
     # "не заводить приват, но территорию всё равно взять": выключить его означает выключить
     # захват территорий вообще (см. territory.advancedclaims-disabled).
     enabled: true
-    # Радиус территории клана от знамени в блоках (35 = квадрат 71x71 блок)
-    claim-radius: 35 # Radius for LoveClaims (71x71 area)
+    # Радиус территории клана от знамени в блоках (25 = квадрат 51x51 блок).
+    # 2026-10-13: 35 → 25 по запросу владельца; дальше территория растёт улучшением «Размер
+    # территории» (+1 блок за уровень, upgrades.CLAIM_SIZE). Уже созданные приваты не сжимаются.
+    claim-radius: 25
     # Вертикальная полоса привата вокруг Y знамени, а не вся высота мира (было: min..max мира,
     # то есть приват защищал весь столбец от бедрока до предела постройки над базой любой высоты).
     # Обрезается границами мира (world.getMinHeight()/getMaxHeight()).

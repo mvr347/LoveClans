@@ -89,6 +89,12 @@ public final class RaidManager {
         return Duration.ofHours(plugin.getConfig().getLong("raid.cooldown-hours", 24));
     }
 
+    /** The cooldown as the attacking clan sees it: the Military direction shortens it. */
+    private Duration cooldownDuration(Clan attacker) {
+        double reduction = Math.min(90.0D, plugin.getClanBonuses().cooldownReductionPercent(attacker));
+        return Duration.ofMillis(Math.round(cooldownDuration().toMillis() * (1.0D - reduction / 100.0D)));
+    }
+
     private Duration preparingCancelCooldownDuration() {
         return Duration.ofHours(plugin.getConfig().getLong("raid.preparing-cancel-cooldown-hours", 2));
     }
@@ -185,7 +191,7 @@ public final class RaidManager {
             int minAttackerOnline = plugin.getConfig().getInt("raid.min-attacker-online", 2);
             int maxDefenderOnline = plugin.getConfig().getInt("raid.max-defender-online", 2);
 
-            if (countOnlineNonAfk(attacker, afkMinutes) < minAttackerOnline) {
+            if (countOnlineNonAfk(attacker, afkMinutes) < minAttackerOnline + plugin.getClanBonuses().extraAttackersOnline(defender)) {
                 throw new IllegalStateException("raid.not-enough-attackers");
             }
             if (countOnlineNonAfk(defender, afkMinutes) > maxDefenderOnline) {
@@ -206,8 +212,8 @@ public final class RaidManager {
             AbstractMap.SimpleImmutableEntry<UUID, UUID> pair = pairKey(attacker.id(), defender.id());
             long checkNow = System.currentTimeMillis();
             Long lastRaidTime = raidCooldowns.get(pair);
-            if (lastRaidTime != null && (checkNow - lastRaidTime < cooldownDuration().toMillis())) {
-                long remainingSeconds = (cooldownDuration().toMillis() - (checkNow - lastRaidTime)) / 1000;
+            if (lastRaidTime != null && (checkNow - lastRaidTime < cooldownDuration(attacker).toMillis())) {
+                long remainingSeconds = (cooldownDuration(attacker).toMillis() - (checkNow - lastRaidTime)) / 1000;
                 throw new WarCooldownException(remainingSeconds);
             }
             } // end !force readiness checks
@@ -1019,6 +1025,9 @@ public final class RaidManager {
                 double perExtra = plugin.getConfig().getDouble("raid.capture.per-extra-attacker", 0.6);
                 double maxRate = plugin.getConfig().getDouble("raid.capture.max-rate-per-second", 4.0);
                 delta = Math.min(maxRate, base + (attackersInZone - 1) * perExtra);
+                // A tier III Military defender slows the capture down.
+                delta *= plugin.getClanManager().getClanById(raid.defenderClanId())
+                        .map(plugin.getClanBonuses()::raidCaptureMultiplier).orElse(1.0D);
             } else {
                 delta = -plugin.getConfig().getDouble("raid.capture.passive-decay-per-second", 0.4);
             }
@@ -1140,7 +1149,8 @@ public final class RaidManager {
         Long last = raidCooldowns.get(cooldownKey);
         if (last == null) return 0;
         long elapsed = System.currentTimeMillis() - last;
-        long duration = cooldownDuration().toMillis();
+        long duration = plugin.getClanManager().getClanById(clan1).map(c -> cooldownDuration(c).toMillis())
+                .orElse(cooldownDuration().toMillis());
         return elapsed < duration ? (duration - elapsed) : 0;
     }
 

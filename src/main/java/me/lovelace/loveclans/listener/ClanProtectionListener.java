@@ -468,15 +468,6 @@ public class ClanProtectionListener implements Listener {
         event.setCancelled(true);
 
         int requiredHits = warManager.bannerBreakHitsRequired();
-        // Перк ВОЙНА (§7): +N% урона по знамёнам — реализовано как уменьшение числа ударов,
-        // необходимых для поломки знамени атакующим кланом с этим перком.
-        boolean attackerIsWarrior = breakerClanOpt.get().perk()
-                .map(perk -> perk == me.lovelace.loveclans.model.ClanPerk.WARRIOR).orElse(false);
-        if (attackerIsWarrior) {
-            int bonusPercent = plugin.getConfig().getInt("perks.warrior.banner-damage-bonus-percent", 10);
-            // floor, not round: with the defaults 5 hits * 0.9 = 4.5 rounded back up to 5 and the perk did nothing
-            requiredHits = Math.max(1, (int) Math.floor(requiredHits * (1.0 - bonusPercent / 100.0)));
-        }
         long resetMs = warManager.bannerBreakResetMillis();
         int hits = warManager.registerBannerHit(war.id(), resetMs);
         if (hits < requiredHits) {

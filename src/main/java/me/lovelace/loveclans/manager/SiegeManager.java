@@ -85,20 +85,22 @@ public final class SiegeManager {
         return Duration.ofMinutes(plugin.getConfig().getLong("siege.duration-minutes", 22));
     }
 
-    /** The WARRIOR perk shortens the siege its clan starts; the defender's perk does not matter. */
+    /** The attacker's own bonuses do not change how long the siege lasts any more (only its cooldown does). */
     private Duration siegeDuration(Clan attacker) {
-        Duration base = siegeDuration();
-        if (!attacker.perk().map(p -> p == me.lovelace.loveclans.model.ClanPerk.WARRIOR).orElse(false)) {
-            return base;
-        }
-        int percent = plugin.getConfig().getInt("perks.warrior.siege-duration-reduction-percent", 25);
-        return Duration.ofMillis(PerkManager.reduceByPercent(base.toMillis(), percent));
+        return siegeDuration();
     }
 
     private Duration campHoldDuration() {
         long holdMinutes = plugin.getConfig().getLong("siege.camp-hold-minutes", 10);
         long totalMinutes = plugin.getConfig().getLong("siege.duration-minutes", 22);
         return Duration.ofMinutes(Math.max(1, Math.min(holdMinutes, totalMinutes - 1)));
+    }
+
+    /** A tier III Military clan is harder to besiege: the attackers must hold the camps longer. */
+    private Duration campHoldDuration(UUID defenderClanId) {
+        double multiplier = plugin.getClanManager().getClanById(defenderClanId)
+                .map(plugin.getClanBonuses()::siegeHoldMultiplier).orElse(1.0D);
+        return Duration.ofMillis(Math.round(campHoldDuration().toMillis() * multiplier));
     }
 
     private Duration campRespawnDuration() {
@@ -111,6 +113,12 @@ public final class SiegeManager {
 
     private Duration cooldownDuration() {
         return Duration.ofHours(plugin.getConfig().getLong("siege.cooldown-hours", 36));
+    }
+
+    /** The cooldown as the attacking clan sees it: the Military direction shortens it. */
+    private Duration cooldownDuration(Clan attacker) {
+        double reduction = Math.min(90.0D, plugin.getClanBonuses().cooldownReductionPercent(attacker));
+        return Duration.ofMillis(Math.round(cooldownDuration().toMillis() * (1.0D - reduction / 100.0D)));
     }
 
     public int hitsRequired(UUID siegeId, int campIndex) {
@@ -255,15 +263,15 @@ public final class SiegeManager {
             }
 
             Long lastSiegeTime = siegeCooldowns.get(cooldownKey);
-            if (lastSiegeTime != null && (now - lastSiegeTime < cooldownDuration().toMillis())) {
-                long remainingSeconds = (cooldownDuration().toMillis() - (now - lastSiegeTime)) / 1000;
+            if (lastSiegeTime != null && (now - lastSiegeTime < cooldownDuration(attacker).toMillis())) {
+                long remainingSeconds = (cooldownDuration(attacker).toMillis() - (now - lastSiegeTime)) / 1000;
                 throw new WarCooldownException(remainingSeconds);
             }
 
             int afkIgnore = plugin.getConfig().getInt("siege.afk-ignore-minutes", 15);
             int attackerOnline = countActiveOnline(attacker, afkIgnore);
             int defenderOnline = countActiveOnline(defender, afkIgnore);
-            if (attackerOnline < plugin.getConfig().getInt("siege.min-attacker-online", 2)) {
+            if (attackerOnline < plugin.getConfig().getInt("siege.min-attacker-online", 2) + plugin.getClanBonuses().extraAttackersOnline(defender)) {
                 throw new IllegalStateException("siege.not-enough-attackers");
             }
             if (defenderOnline < plugin.getConfig().getInt("siege.min-defender-online", 3)) {
@@ -621,7 +629,7 @@ public final class SiegeManager {
 
     private void endSiege(ClanSiege siege, SiegeResult result) {
         // Read before the maps are cleared: how far the attackers got decides if a lost siege was a near thing.
-        long requiredHoldMs = Math.max(1L, campHoldDuration().toMillis());
+        long requiredHoldMs = Math.max(1L, campHoldDuration(siege.defenderClanId()).toMillis());
         double holdFraction = Math.min(1.0, holdProgress.getOrDefault(siege.id(), 0L) / (double) requiredHoldMs);
         activeSieges.remove(siege.id());
         campFortification.remove(siege.id());
@@ -940,7 +948,7 @@ public final class SiegeManager {
             siege = updated;
         }
 
-        long requiredHoldMs = campHoldDuration().toMillis();
+        long requiredHoldMs = campHoldDuration(siege.defenderClanId()).toMillis();
         long currentHold = holdProgress.getOrDefault(siege.id(), 0L);
 
         // Логика удержания:
@@ -1184,7 +1192,8 @@ public final class SiegeManager {
         Long last = siegeCooldowns.get(cooldownKey);
         if (last == null) return 0;
         long elapsed = System.currentTimeMillis() - last;
-        long duration = cooldownDuration().toMillis();
+        long duration = plugin.getClanManager().getClanById(clan1).map(c -> cooldownDuration(c).toMillis())
+                .orElse(cooldownDuration().toMillis());
         return elapsed < duration ? (duration - elapsed) : 0;
     }
 

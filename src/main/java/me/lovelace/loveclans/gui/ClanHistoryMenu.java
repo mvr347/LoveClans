@@ -142,13 +142,43 @@ public final class ClanHistoryMenu {
         map.put("old", meta.getOrDefault("old", "?"));
         map.put("new", meta.getOrDefault("new", "?"));
         map.put("name", meta.getOrDefault("name", "?"));
+        map.put("upgrade", enumName(meta.get("upgrade"), me.lovelace.loveclans.model.ClanUpgrade.class));
+        map.put("direction", enumName(meta.get("direction"), me.lovelace.loveclans.model.ClanDirection.class));
+        String reward = meta.get("reward");
+        String rewardName = "?";
+        if (reward != null) {
+            try {
+                rewardName = plugin.getMessages().raw("gui.rewards.entry."
+                        + me.lovelace.loveclans.model.upgrade.GuildReward.valueOf(reward).langKey() + ".name");
+            } catch (IllegalArgumentException ignored) {
+                // a reward that was retired later
+            }
+        }
+        map.put("reward", rewardName);
         return map;
+    }
+
+    private static <E extends Enum<E>> String enumName(String raw, Class<E> type) {
+        if (raw == null) {
+            return "?";
+        }
+        try {
+            E value = Enum.valueOf(type, raw);
+            if (value instanceof me.lovelace.loveclans.model.ClanUpgrade upgrade) return upgrade.displayName();
+            if (value instanceof me.lovelace.loveclans.model.ClanDirection direction) return direction.displayName();
+            return value.name();
+        } catch (IllegalArgumentException ignored) {
+            return "?";
+        }
     }
 
     private static Material iconOf(ClanHistoryEntry entry) {
         return switch (entry.type()) {
             case CLAN_CREATED -> Material.WHITE_BANNER;
             case CLAN_LEVEL_UP -> Material.EXPERIENCE_BOTTLE;
+            case UPGRADE_CHOSEN -> Material.ANVIL;
+            case DIRECTION_CHOSEN -> Material.COMPASS;
+            case GUILD_REWARD -> Material.NETHER_STAR;
             case MEMBER_JOINED -> Material.LIME_DYE;
             case MEMBER_LEFT -> Material.GRAY_DYE;
             case MEMBER_KICKED -> Material.RED_DYE;

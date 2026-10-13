@@ -15,7 +15,8 @@ import me.lovelace.loveclans.listener.ClanProtectionListener;
 import me.lovelace.loveclans.listener.CombatListener;
 import me.lovelace.loveclans.listener.GuildmasterListener;
 import me.lovelace.loveclans.listener.ContractListener;
-import me.lovelace.loveclans.listener.PerkEffectListener;
+import me.lovelace.loveclans.listener.DirectionEffectListener;
+import me.lovelace.loveclans.listener.UpgradeListener;
 import me.lovelace.loveclans.listener.PlayerConnectionListener;
 import me.lovelace.loveclans.listener.SiegeCampListener;
 import me.lovelace.loveclans.listener.ShieldColorListener;
@@ -32,7 +33,10 @@ import me.lovelace.loveclans.manager.ClanTradeDeliveryManager;
 import me.lovelace.loveclans.manager.ClanTradeManager;
 import me.lovelace.loveclans.manager.ClanTradeSessionManager;
 import me.lovelace.loveclans.manager.DiplomacyManager;
-import me.lovelace.loveclans.manager.PerkManager;
+import me.lovelace.loveclans.manager.upgrade.ClanBonusService;
+import me.lovelace.loveclans.manager.upgrade.GuildRewardService;
+import me.lovelace.loveclans.manager.upgrade.UpgradeOfferManager;
+import me.lovelace.loveclans.storage.UpgradeStore;
 import me.lovelace.loveclans.manager.RaidManager;
 import me.lovelace.loveclans.manager.RitualManager;
 import me.lovelace.loveclans.manager.ShieldColorManager;
@@ -91,7 +95,10 @@ public final class LoveClansPlugin extends JavaPlugin {
     private me.lovelace.loveclans.service.SoundService soundService;
     private me.lovelace.loveclans.service.GuildShieldService guildShieldService;
     private me.lovelace.loveclans.service.CapitalRelocationService capitalRelocationService;
-    private PerkManager perkManager;
+    private UpgradeStore upgradeStore;
+    private UpgradeOfferManager upgradeOffers;
+    private GuildRewardService guildRewards;
+    private ClanBonusService clanBonuses;
     private AfkManager afkManager;
     private PlayerPreferencesManager playerPreferencesManager;
     private ArtifactManager artifactManager;
@@ -140,7 +147,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         guildShieldService = new me.lovelace.loveclans.service.GuildShieldService(this);
         capitalRelocationService = new me.lovelace.loveclans.service.CapitalRelocationService(this);
         spiritManager = new SpiritManager(this);
-        perkManager = new PerkManager(this);
+        upgradeStore = new UpgradeStore(databaseManager);
+        guildRewards = new GuildRewardService(this, upgradeStore);
+        upgradeOffers = new UpgradeOfferManager(this, upgradeStore);
+        clanBonuses = new ClanBonusService(this);
         afkManager = new AfkManager(this);
         playerPreferencesManager = new PlayerPreferencesManager(this);
         artifactManager = new ArtifactManager(this);
@@ -252,7 +262,22 @@ public final class LoveClansPlugin extends JavaPlugin {
 
                 spiritManager.start();
                 successionManager.start();
-                perkManager.start();
+                guildRewards.load(upgradeStore.loadRewards());
+                upgradeOffers.load();
+                guildRewards.backfill(clanManager.getAllClans());
+                upgradeOffers.topUpAll();
+                // Milestone rewards (treasury, members, age, wars, alliances, founding) are polled:
+                // cheap, idempotent, and it catches every source of the underlying numbers.
+                Bukkit.getScheduler().runTaskTimer(this, () -> {
+                    try {
+                        for (me.lovelace.loveclans.model.Clan clan : clanManager.getAllClans()) {
+                            guildRewards.grant(clan, me.lovelace.loveclans.model.upgrade.GuildReward.PIONEER);
+                            guildRewards.checkMilestones(clan);
+                        }
+                    } catch (Throwable t) {
+                        getLogger().log(java.util.logging.Level.WARNING, "Guild reward check failed", t);
+                    }
+                }, 20L * 30L, 20L * 30L);
                 diplomacyDriftService.start();
 
                 // Еженедельный налог сундука (§2.2) — не привязан к календарному понедельнику
@@ -418,9 +443,6 @@ public final class LoveClansPlugin extends JavaPlugin {
         if (spiritManager != null) {
             spiritManager.stop();
         }
-        if (perkManager != null) {
-            perkManager.stop();
-        }
         if (successionManager != null) {
             successionManager.stop();
         }
@@ -541,8 +563,16 @@ public final class LoveClansPlugin extends JavaPlugin {
         return spiritManager;
     }
 
-    public PerkManager getPerkManager() {
-        return perkManager;
+    public UpgradeOfferManager getUpgradeOffers() {
+        return upgradeOffers;
+    }
+
+    public GuildRewardService getGuildRewards() {
+        return guildRewards;
+    }
+
+    public ClanBonusService getClanBonuses() {
+        return clanBonuses;
     }
 
     public PlayerPreferencesManager getPlayerPreferencesManager() {
@@ -738,7 +768,8 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new ContractListener(this), this);
         pluginManager.registerEvents(new GuildmasterListener(this, citizensIntegration), this);
         pluginManager.registerEvents(new ClanBannerListener(this, citizensIntegration), this);
-        pluginManager.registerEvents(new PerkEffectListener(this), this);
+        pluginManager.registerEvents(new DirectionEffectListener(this), this);
+        pluginManager.registerEvents(new UpgradeListener(this), this);
         pluginManager.registerEvents(new SiegeCampListener(this), this);
         pluginManager.registerEvents(new me.lovelace.loveclans.listener.GuildShieldListener(this), this);
     }

@@ -270,6 +270,12 @@ public final class SpiritManager implements Listener {
         if (overloaded(victimClan) && side(victimClan) == Side.OFFENSE) {
             damage *= 1.0 + settings.overloadIncomingPercent() / 100.0;
         }
+        // Development direction (Military) and guild rewards: one combined step, so the sources
+        // cannot be applied twice or in a different order than the spirit bonuses above.
+        var bonuses = plugin.getClanBonuses();
+        boolean attackerOnOwnLand = onOwnLand(attacker, attackerClan);
+        damage *= 1.0 + bonuses.damagePercent(attackerClan, attackerOnOwnLand) / 100.0;
+        damage *= 1.0 - Math.min(80.0, bonuses.resistancePercent(victimClan, victimOnOwnLand)) / 100.0;
         damage = Math.max(0.0, damage);
         event.setDamage(damage);
 

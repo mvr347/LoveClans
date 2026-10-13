@@ -23,6 +23,8 @@ import java.util.UUID;
 public final class ClanModifiersMenu {
     private static final int INVENTORY_SIZE = 54;
     private static final int SLOT_INFO = 0;
+    // The single control button of this header: guild rewards (gui_gen v2.1: one button -> slot 4).
+    private static final int SLOT_REWARDS = GuiFrames.controlSlots(1)[0];
     private static final int SLOT_BACK = 52;
     private static final int SLOT_CLOSE = 53;
 
@@ -55,6 +57,11 @@ public final class ClanModifiersMenu {
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(plugin.getMessages().component("gui.modifiers.info.name", Map.of("clan", clan.name()), player))
                 .lore(plugin.getMessages().components("gui.modifiers.info.lore", Map.of(), player))
+                .build());
+
+        inventory.setItem(SLOT_REWARDS, ItemBuilder.head(ItemBuilder.HEAD_QUEST)
+                .name(plugin.getMessages().component("gui.rewards.open.name", player))
+                .lore(plugin.getMessages().components("gui.rewards.open.lore", Map.of(), player))
                 .build());
 
         List<ItemStack> items = new java.util.ArrayList<>();
@@ -119,6 +126,10 @@ public final class ClanModifiersMenu {
     }
 
     public void handleInventoryClick(Player player, Clan clan, int slot) {
+        if (slot == SLOT_REWARDS) {
+            new ClanGuildRewardsMenu(plugin).open(player, clan);
+            return;
+        }
         if (slot == SLOT_BACK) {
             new ClanMainMenu(plugin, clan, player).open();
             return;

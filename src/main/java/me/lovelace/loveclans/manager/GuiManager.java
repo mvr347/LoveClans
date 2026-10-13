@@ -17,7 +17,9 @@ import me.lovelace.loveclans.gui.ClanRecognitionConfirmMenu;
 import me.lovelace.loveclans.gui.GuildmasterMenu;
 import me.lovelace.loveclans.gui.ClanCreateMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacyMenu;
-import me.lovelace.loveclans.gui.ClanPerkMenu;
+import me.lovelace.loveclans.gui.ClanDirectionMenu;
+import me.lovelace.loveclans.gui.ClanGuildRewardsMenu;
+import me.lovelace.loveclans.gui.ClanUpgradeOfferMenu;
 import me.lovelace.loveclans.gui.ClanDiplomacySelectMenu;
 import me.lovelace.loveclans.gui.ClanInfoMenu;
 import me.lovelace.loveclans.gui.ClanListMenu;
@@ -62,7 +64,9 @@ public class GuiManager implements Listener {
     private final LoveClansPlugin plugin;
     private final NamespacedKey memberKey;
     private final ClanDiplomacyMenu diplomacyMenu;
-    private final ClanPerkMenu perkMenu;
+    private final ClanDirectionMenu directionMenu;
+    private final ClanGuildRewardsMenu rewardsMenu;
+    private final ClanUpgradeOfferMenu offerMenu;
     private final ClanTerritoriesMenu territoriesMenu;
     private final ClanMembersMenu membersMenu;
     private final ClanUpgradesMenu upgradesMenu;
@@ -90,7 +94,9 @@ public class GuiManager implements Listener {
         this.plugin = plugin;
         this.memberKey = new NamespacedKey(plugin, "gui_member");
         this.diplomacyMenu = new ClanDiplomacyMenu(plugin);
-        this.perkMenu = new ClanPerkMenu(plugin);
+        this.directionMenu = new ClanDirectionMenu(plugin);
+        this.rewardsMenu = new ClanGuildRewardsMenu(plugin);
+        this.offerMenu = new ClanUpgradeOfferMenu(plugin);
         this.territoriesMenu = new ClanTerritoriesMenu(plugin);
         this.membersMenu = new ClanMembersMenu(plugin);
         this.upgradesMenu = new ClanUpgradesMenu(plugin);
@@ -235,8 +241,16 @@ public class GuiManager implements Listener {
         upgradesMenu.open(player, clan);
     }
 
-    public void openPerks(Player player, Clan clan) {
-        perkMenu.open(player, clan);
+    public void openUpgradeOffer(Player player, Clan clan) {
+        offerMenu.open(player, clan);
+    }
+
+    public void openDirection(Player player, Clan clan) {
+        directionMenu.open(player, clan);
+    }
+
+    public void openRewards(Player player, Clan clan) {
+        rewardsMenu.open(player, clan);
     }
 
     public void openSettings(Player player, Clan clan) {
@@ -496,7 +510,13 @@ public class GuiManager implements Listener {
                     case TERRITORIES -> territoriesMenu.handleTerritoryClick(player, clan, slot, event.isRightClick());
                     case SETTINGS -> settingsMenu.handleInventoryClick(player, clan, slot);
                     case DIPLOMACY -> diplomacyMenu.handleInventoryClick(player, clan, slot, event.isRightClick());
-                    case PERKS -> perkMenu.handleInventoryClick(player, clan, slot);
+                    case UPGRADE_OFFER -> {
+                        if (clanMenuHolder instanceof ClanUpgradeOfferMenu.Holder offerHolder) {
+                            offerMenu.handleInventoryClick(player, clan, slot, offerHolder);
+                        }
+                    }
+                    case DIRECTION -> directionMenu.handleInventoryClick(player, clan, slot);
+                    case REWARDS -> rewardsMenu.handleInventoryClick(player, clan, slot);
                     case MEMBER_DETAIL -> memberDetailMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case COLOR_PICKER -> colorPickerMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
                     case ROLE_SETTINGS -> roleSettingsMenu.handleInventoryClick(player, clan, slot, event.getCurrentItem());
