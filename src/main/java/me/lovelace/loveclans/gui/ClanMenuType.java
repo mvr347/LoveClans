@@ -7,7 +7,6 @@ public enum ClanMenuType {
     UPGRADES,
     UPGRADE_OFFER,
     DIRECTION,
-    REWARDS,
     SETTINGS,
     DIPLOMACY,
     DIPLOMACY_SELECT,

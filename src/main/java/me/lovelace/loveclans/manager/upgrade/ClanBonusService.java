@@ -69,7 +69,7 @@ public final class ClanBonusService {
 
     public double taxDiscountPercent(Clan clan) {
         if (clan == null) return 0.0D;
-        double percent = clan.upgradeLevel(ClanUpgrade.TAX) * cfg().getDouble("limits.tax-discount-percent-per-upgrade", 10.0D)
+        double percent = clan.upgradeLevel(ClanUpgrade.TAX) * cfg().getDouble("limits.tax-discount-percent-per-level", 5.0D)
                 + plugin.getGuildRewards().percent(clan, GuildReward.Bonus.TAX_DISCOUNT);
         return Math.min(90.0D, percent);
     }

@@ -26,13 +26,6 @@ public final class GuiFrames {
         for (int i = 27; i <= 33; i++) inv.setItem(i, glassPane());
     }
 
-    /** 45-слотовое: стекло в 1-8, 9-17 (Row1) и 36-43 (footer). Слоты 0, 18-35 (рабочая зона), 44 не трогает. */
-    public static void fillFrame45(Inventory inv) {
-        for (int i = 1; i <= 8; i++) inv.setItem(i, glassPane());
-        for (int i = 9; i <= 17; i++) inv.setItem(i, glassPane());
-        for (int i = 36; i <= 43; i++) inv.setItem(i, glassPane());
-    }
-
     /** 54-слотовое: стекло в 1-8, 9-17, 45-52. Слоты 0, 18-44 (вся рабочая зона), 53 не трогает. */
     public static void fillFrame54(Inventory inv) {
         for (int i = 1; i <= 8; i++) inv.setItem(i, glassPane());
