@@ -163,7 +163,7 @@ public final class UpgradeOfferManager {
                 values.put("delta", "1");
             }
             case TAX -> {
-                double per = cfg.getDouble("limits.tax-discount-percent-per-upgrade", 10.0D);
+                double per = cfg.getDouble("limits.tax-discount-percent-per-level", 5.0D);
                 values.put("now", trim(Math.min(90.0D, level * per)));
                 values.put("after", trim(Math.min(90.0D, (level + 1) * per)));
                 values.put("delta", trim(per));

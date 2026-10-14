@@ -3,6 +3,7 @@ package me.lovelace.loveclans.gui;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.modifier.ClanModifier;
+import me.lovelace.loveclans.model.upgrade.GuildReward;
 import me.lovelace.loveclans.util.ItemBuilder;
 import me.lovelace.loveclans.util.TimeUtil;
 import net.kyori.adventure.text.Component;
@@ -23,8 +24,6 @@ import java.util.UUID;
 public final class ClanModifiersMenu {
     private static final int INVENTORY_SIZE = 54;
     private static final int SLOT_INFO = 0;
-    // The single control button of this header: guild rewards (gui_gen v2.1: one button -> slot 4).
-    private static final int SLOT_REWARDS = GuiFrames.controlSlots(1)[0];
     private static final int SLOT_BACK = 52;
     private static final int SLOT_CLOSE = 53;
 
@@ -57,11 +56,6 @@ public final class ClanModifiersMenu {
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(plugin.getMessages().component("gui.modifiers.info.name", Map.of("clan", clan.name()), player))
                 .lore(plugin.getMessages().components("gui.modifiers.info.lore", Map.of(), player))
-                .build());
-
-        inventory.setItem(SLOT_REWARDS, ItemBuilder.head(ItemBuilder.HEAD_QUEST)
-                .name(plugin.getMessages().component("gui.rewards.open.name", player))
-                .lore(plugin.getMessages().components("gui.rewards.open.lore", Map.of(), player))
                 .build());
 
         List<ItemStack> items = new java.util.ArrayList<>();
@@ -100,6 +94,13 @@ public final class ClanModifiersMenu {
             }
         }
 
+        // Guild rewards are granted automatically and simply listed here, after the live effects.
+        for (GuildReward reward : GuildReward.values()) {
+            if (plugin.getGuildRewards().has(clan, reward)) {
+                items.add(rewardEntry(player, clan, reward));
+            }
+        }
+
         if (items.isEmpty()) {
             inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
                     .name(plugin.getMessages().component("gui.modifiers.empty.name", player))
@@ -126,10 +127,6 @@ public final class ClanModifiersMenu {
     }
 
     public void handleInventoryClick(Player player, Clan clan, int slot) {
-        if (slot == SLOT_REWARDS) {
-            new ClanGuildRewardsMenu(plugin).open(player, clan);
-            return;
-        }
         if (slot == SLOT_BACK) {
             new ClanMainMenu(plugin, clan, player).open();
             return;
@@ -161,6 +158,25 @@ public final class ClanModifiersMenu {
             case ClanModifier.TYPE_CAPITAL_RELOCATE_COOLDOWN -> entry(player, Material.CLOCK, "relocate-cooldown", Map.of("time", timeLeft));
             default -> entry(player, Material.PAPER, "unknown", Map.of("type", mod.type()));
         };
+    }
+
+    private ItemStack rewardEntry(Player player, Clan clan, GuildReward reward) {
+        String base = "gui.rewards.entry." + reward.langKey();
+        long at = plugin.getGuildRewards().unlockedAt(clan, reward);
+        Material icon = switch (reward.bonus()) {
+            case EXPERIENCE -> Material.EXPERIENCE_BOTTLE;
+            case DAMAGE_OWN_LAND, DAMAGE_OFFENSE -> Material.IRON_SWORD;
+            case RESISTANCE_OWN_LAND, RESISTANCE -> Material.SHIELD;
+            case TAX_DISCOUNT, INCOME -> Material.GOLD_INGOT;
+            case INFLUENCE -> Material.NETHER_STAR;
+        };
+        return ItemBuilder.of(icon)
+                .name(plugin.getMessages().component(base + ".name", player))
+                .lore(plugin.getMessages().component(base + ".bonus", player))
+                .lore(plugin.getMessages().component("gui.modifiers.reward-state",
+                        Map.of("date", at > 0 ? plugin.getMessages().formatDate(at) : "-"), player))
+                .flags(org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES)
+                .build();
     }
 
     /** One list entry: {@code gui.modifiers.entry.<id>.name} and {@code .lore}, all text lives in lang. */

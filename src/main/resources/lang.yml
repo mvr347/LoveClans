@@ -568,6 +568,7 @@ gui:
   modifiers:
     title: "<gray>Модификаторы: <gold><clan>"
     forever: "бессрочно"
+    reward-state: "<green>Гильдейская награда <dark_gray>· <date>"
     unknown-clan: "неизвестно"
     info:
       name: "<gold>Модификаторы клана <white><clan>"
@@ -2086,57 +2087,35 @@ gui:
     locked: "<prefix><red>Направление открывается на <level> уровне клана."
     already: "<prefix><gray>Направление уже выбрано."
   rewards:
-    title: "<gray>Гильдейские награды <color><tag>"
-    open:
-      name: "<gold>Гильдейские награды"
-      lore:
-        - "<gray>Одноразовые достижения клана."
-        - "<gray>Каждое даёт постоянный бонус."
-        - ""
-        - "<green>ЛКМ - открыть"
-    info:
-      name: "<gold>Гильдейские награды"
-      lore: "<gray>Получено: <white><done></white>/<total>"
     unlocked: "<prefix><gold>Гильдейская награда: <white><reward></white>!"
-    state:
-      done: "<green>✔ Получено <gray>(<date>)"
     entry:
       pioneer:
         name: "<gold>Первопроходец"
         bonus: "<gray>Бонус: <white>+2% ко всему получаемому опыту"
-        condition: "<red>Создать клан."
       first-blood:
         name: "<gold>Первая кровь"
         bonus: "<gray>Бонус: <white>+3% урона на своей территории"
-        condition: "<red>Одержать первую победу в войне."
       merchant:
         name: "<gold>Торговец"
         bonus: "<gray>Бонус: <white>-2% к налогу на сундук"
-        condition: "<red>Провести первые торги с другим кланом."
       defender:
         name: "<gold>Защитник"
         bonus: "<gray>Бонус: <white>+3% сопротивления на своей территории"
-        condition: "<red>Отбить первую осаду."
       diplomat:
         name: "<gold>Дипломат"
         bonus: "<gray>Бонус: <white>+2% к влиянию клана"
-        condition: "<red>Заключить первый союз."
       rich:
         name: "<gold>Богач"
         bonus: "<gray>Бонус: <white>+2% ко всем доходам казны"
-        condition: "<red>Накопить <amount> монет в казне."
       legion:
         name: "<gold>Легион"
         bonus: "<gray>Бонус: <white>+1% ко всему получаемому опыту"
-        condition: "<red>Набрать <amount> участников."
       veteran:
         name: "<gold>Ветеран"
         bonus: "<gray>Бонус: <white>+2% сопротивления"
-        condition: "<red>Продержаться <amount> дней."
       conqueror:
         name: "<gold>Завоеватель"
         bonus: "<gray>Бонус: <white>+3% урона в нападении"
-        condition: "<red>Выиграть <amount> войн."
   banner-create:
     title: "<gray>Основание нового клана"
     name-btn: "<gold>Название: <white><name>"
