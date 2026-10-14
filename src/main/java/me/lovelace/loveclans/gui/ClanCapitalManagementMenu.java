@@ -25,7 +25,7 @@ import java.util.Optional;
 public class ClanCapitalManagementMenu implements InventoryHolder {
     static final int SLOT_SHIELD = 12;
     static final int SLOT_RELOCATE = 14;
-    private static final int SLOT_BACK = 25;
+    private static final int SLOT_FILLER = 25;
     private static final int SLOT_CLOSE = 26;
 
     private final LoveClansPlugin plugin;
@@ -50,9 +50,8 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
                 .build());
         refreshButtons();
 
-        inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
-                .name(plugin.getMessages().component("gui.back", player))
-                .build());
+        // Footer slot next to Close: glass, never empty (gui_gen v2.1). The menu is standalone, so no Back.
+        inventory.setItem(SLOT_FILLER, GuiFrames.glassPane());
         inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
                 .build());
@@ -118,7 +117,6 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
 
     public void handleInventoryClick(Player clicker, int slot) {
         switch (slot) {
-            case SLOT_BACK -> plugin.getGuiManager().openMain(clicker, clan);
             case SLOT_CLOSE -> clicker.closeInventory();
             case SLOT_SHIELD -> useShield(clicker);
             case SLOT_RELOCATE -> useSeal(clicker);

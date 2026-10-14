@@ -36,7 +36,7 @@ public final class GuiFrames {
     /**
      * gui_gen v2.1, п. 8: control buttons live only in header slots 2-7 and are centered on the row, so the
      * layout stays symmetric whether the screen shows one button or all of them. An even count skips the
-     * middle slot (2 buttons -> 3 and 5), an odd one is centered on slot 4. Not-shown buttons leave glass behind.
+     * middle slot (2 buttons -> 3 and 5), an odd one is centered on slot 4 (up to three buttons). Four buttons skip the middle pair ({2,3,5,6}); five fill the zone minus slot 5 ({2,3,4,6,7}). Not-shown buttons leave glass behind.
      */
     public static int[] controlSlots(int count) {
         return switch (count) {
@@ -45,7 +45,7 @@ public final class GuiFrames {
             case 2 -> new int[]{3, 5};
             case 3 -> new int[]{2, 4, 6};
             case 4 -> new int[]{2, 3, 5, 6};
-            case 5 -> new int[]{2, 3, 4, 5, 6};
+            case 5 -> new int[]{2, 3, 4, 6, 7};
             default -> new int[]{2, 3, 4, 5, 6, 7};
         };
     }

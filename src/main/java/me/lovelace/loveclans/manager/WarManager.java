@@ -906,7 +906,7 @@ public final class WarManager {
                                 world.spawnParticle(Particle.HAPPY_VILLAGER, bannerLoc.clone().add(0.5, 0.8, 0.5), 4, 0.2, 0.2, 0.2, 0.02);
                                 onlineMembers(clansOpt.get().defender())
                                         .filter(p -> p.getWorld().equals(world) && p.getLocation().distanceSquared(bannerLoc) <= 9.0)
-                                        .forEach(p -> p.sendActionBar(Component.text("§aПочинка знамени: " + (int) nextProgress + "%")));
+                                        .forEach(p -> plugin.getMessages().hud(p, Component.text("§aПочинка знамени: " + (int) nextProgress + "%")));
 
                                 if (nextProgress >= 100.0) {
                                     ClanWar restored = war.withBannerRestored();
@@ -942,9 +942,9 @@ public final class WarManager {
         Optional<WarClans> clansOpt = resolveWarClans(war);
         if (clansOpt.isEmpty()) return;
         onlineMembers(clansOpt.get().defender()).forEach(p ->
-                p.sendTitle("§a§lЗНАМЯ ВОССТАНОВЛЕНО!", "§7Знамя починено и снова готово к защите!", 10, 40, 10));
+                plugin.getMessages().title(p, Component.text("§a§lЗНАМЯ ВОССТАНОВЛЕНО!"), Component.text("§7Знамя починено и снова готово к защите!"), true));
         onlineMembers(clansOpt.get().attacker()).forEach(p ->
-                p.sendTitle("§c§lЗНАМЯ ВОССТАНОВЛЕНО!", "§7Защитники починили знамя!", 10, 40, 10));
+                plugin.getMessages().title(p, Component.text("§c§lЗНАМЯ ВОССТАНОВЛЕНО!"), Component.text("§7Защитники починили знамя!"), true));
     }
 
     private void tickTerritoryControl(ClanWar war, long now) {
@@ -997,7 +997,7 @@ public final class WarManager {
             }
             for (Player p : java.util.stream.Stream.concat(onlineMembers(clansOpt.get().attacker()), onlineMembers(clansOpt.get().defender())).toList()) {
                 if (p.getWorld().equals(world) && box.contains(p.getLocation().toVector())) {
-                    p.sendActionBar(Component.text("§6" + dominanceMsg));
+                    plugin.getMessages().hud(p, Component.text("§6" + dominanceMsg));
                 }
             }
         }
@@ -1176,12 +1176,12 @@ public final class WarManager {
 
     private void announceWarStart(ClanWar war, Clan attacker, Clan defender) {
         onlineMembers(attacker).forEach(player -> {
-            plugin.getMessages().sendTitle(player, "war.start.attacker-title", "war.start.attacker-subtitle",
+            plugin.getMessages().sendImportantTitle(player, "war.start.attacker-title", "war.start.attacker-subtitle",
                     Map.of("tag", defender.tag(), "color", defender.tagColor()));
             plugin.getSoundService().play(player, "war-declared-attacker");
         });
         onlineMembers(defender).forEach(player -> {
-            plugin.getMessages().sendTitle(player, "war.start.defender-title", "war.start.defender-subtitle",
+            plugin.getMessages().sendImportantTitle(player, "war.start.defender-title", "war.start.defender-subtitle",
                     Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
             plugin.getSoundService().play(player, "war-declared-defender");
         });
@@ -1235,12 +1235,12 @@ public final class WarManager {
             String titleKey = result == WarResult.CANCELLED ? "war.end.cancelled-title" : "war.end.draw-title";
             String subtitleKey = result == WarResult.CANCELLED ? "war.end.cancelled-subtitle" : "war.end.draw-subtitle";
             onlineMembers(attacker).forEach(player -> {
-                plugin.getMessages().sendTitle(player, titleKey, subtitleKey,
+                plugin.getMessages().sendImportantTitle(player, titleKey, subtitleKey,
                         Map.of("tag", defender.tag(), "color", defender.tagColor()));
                 plugin.getMessages().playSound(player, Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 1f);
             });
             onlineMembers(defender).forEach(player -> {
-                plugin.getMessages().sendTitle(player, titleKey, subtitleKey,
+                plugin.getMessages().sendImportantTitle(player, titleKey, subtitleKey,
                         Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
                 plugin.getMessages().playSound(player, Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 1f);
             });
@@ -1251,12 +1251,12 @@ public final class WarManager {
         Clan loser = result == WarResult.ATTACKER_WIN ? defender : attacker;
 
         onlineMembers(winner).forEach(player -> {
-            plugin.getMessages().sendTitle(player, "war.end.victory-title", "war.end.victory-subtitle",
+            plugin.getMessages().sendImportantTitle(player, "war.end.victory-title", "war.end.victory-subtitle",
                     Map.of("tag", loser.tag(), "color", loser.tagColor()));
             plugin.getMessages().playSound(player, Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
         });
         onlineMembers(loser).forEach(player -> {
-            plugin.getMessages().sendTitle(player, "war.end.defeat-title", "war.end.defeat-subtitle",
+            plugin.getMessages().sendImportantTitle(player, "war.end.defeat-title", "war.end.defeat-subtitle",
                     Map.of("tag", winner.tag(), "color", winner.tagColor()));
             plugin.getMessages().playSound(player, Sound.ENTITY_WITHER_DEATH, 1f, 1f);
         });
@@ -1271,12 +1271,12 @@ public final class WarManager {
         Clan defender = warClansOpt.get().defender();
 
         onlineMembers(defender).forEach(player -> {
-            plugin.getMessages().sendTitle(player, "war.banner.broken-defender-title", "war.banner.broken-defender-subtitle",
+            plugin.getMessages().sendImportantTitle(player, "war.banner.broken-defender-title", "war.banner.broken-defender-subtitle",
                     Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
             plugin.getMessages().playSound(player, Sound.ENTITY_WITHER_SPAWN, 1f, 1f);
         });
         onlineMembers(attacker).forEach(player -> {
-            plugin.getMessages().sendTitle(player, "war.banner.broken-attacker-title", "war.banner.broken-attacker-subtitle",
+            plugin.getMessages().sendImportantTitle(player, "war.banner.broken-attacker-title", "war.banner.broken-attacker-subtitle",
                     Map.of("tag", defender.tag(), "color", defender.tagColor()));
             plugin.getMessages().playSound(player, Sound.ENTITY_PLAYER_LEVELUP, 1f, 1f);
         });

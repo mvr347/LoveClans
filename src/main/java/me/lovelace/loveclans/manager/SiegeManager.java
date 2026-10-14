@@ -401,12 +401,12 @@ public final class SiegeManager {
         // Звуки и оповещения
         onlineMembers(attacker).forEach(p -> {
             p.playSound(p.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_0, 1.2f, 1.0f);
-            plugin.getMessages().sendTitle(p, "siege.start.attacker-title", "siege.start.attacker-subtitle",
+            plugin.getMessages().sendImportantTitle(p, "siege.start.attacker-title", "siege.start.attacker-subtitle",
                     Map.of("tag", defender.tag(), "color", defender.tagColor()));
         });
         onlineMembers(defender).forEach(p -> {
             p.playSound(p.getLocation(), Sound.BLOCK_BELL_USE, 1.2f, 0.8f);
-            plugin.getMessages().sendTitle(p, "siege.start.defender-title", "siege.start.defender-subtitle",
+            plugin.getMessages().sendImportantTitle(p, "siege.start.defender-title", "siege.start.defender-subtitle",
                     Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
         });
     }
@@ -484,7 +484,7 @@ public final class SiegeManager {
             resolveClans(siege).ifPresent(clans -> onlineMembers(clans.defender())
                     .forEach(p -> {
                         p.playSound(p.getLocation(), Sound.ENTITY_ITEM_BREAK, 1.0f, 1.2f);
-                        p.sendActionBar(Component.text("§eСнос лагеря #" + (campIndex + 1) + " · §f" + accumulated + "/" + required + " §eудара"));
+                        plugin.getMessages().hud(p, Component.text("§eСнос лагеря #" + (campIndex + 1) + " · §f" + accumulated + "/" + required + " §eудара"));
                         plugin.getMessages().send(p, "siege.camp.weakened", Map.of(
                                 "index", String.valueOf(campIndex + 1),
                                 "hits", String.valueOf(accumulated),
@@ -680,23 +680,23 @@ public final class SiegeManager {
         if (result == SiegeResult.ATTACKER_WIN) {
             onlineMembers(attacker).forEach(p -> {
                 p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.2f, 1.0f);
-                plugin.getMessages().sendTitle(p, "siege.end.victory-title", "siege.end.victory-subtitle",
+                plugin.getMessages().sendImportantTitle(p, "siege.end.victory-title", "siege.end.victory-subtitle",
                         Map.of("tag", defender.tag(), "color", defender.tagColor()));
             });
             onlineMembers(defender).forEach(p -> {
                 p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.8f, 0.8f);
-                plugin.getMessages().sendTitle(p, "siege.end.defeat-title", "siege.end.defeat-subtitle",
+                plugin.getMessages().sendImportantTitle(p, "siege.end.defeat-title", "siege.end.defeat-subtitle",
                         Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
             });
         } else {
             onlineMembers(defender).forEach(p -> {
                 p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.2f, 1.0f);
-                plugin.getMessages().sendTitle(p, "siege.end.repelled-title", "siege.end.repelled-subtitle",
+                plugin.getMessages().sendImportantTitle(p, "siege.end.repelled-title", "siege.end.repelled-subtitle",
                         Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
             });
             onlineMembers(attacker).forEach(p -> {
                 p.playSound(p.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.8f, 0.8f);
-                plugin.getMessages().sendTitle(p, "siege.end.failed-title", "siege.end.failed-subtitle",
+                plugin.getMessages().sendImportantTitle(p, "siege.end.failed-title", "siege.end.failed-subtitle",
                         Map.of("tag", defender.tag(), "color", defender.tagColor()));
             });
         }
@@ -933,7 +933,7 @@ public final class SiegeManager {
                         unbrokenCount++;
 
                         campWorld.playSound(restored.toLocation(), Sound.BLOCK_FIRE_AMBIENT, 1.0f, 1.0f);
-                        onlineMembers(attacker).forEach(p -> p.sendActionBar(Component.text("§aОсадный лагерь #" + (camp.index() + 1) + " восстановлен!")));
+                        onlineMembers(attacker).forEach(p -> plugin.getMessages().actionBar(p, Component.text("§aОсадный лагерь #" + (camp.index() + 1) + " восстановлен!"), true));
                     }
                 }
             } else {
@@ -1069,7 +1069,7 @@ public final class SiegeManager {
                         if (attacker.hasMember(p.getUniqueId())) {
                             int req = hitsRequired(siege.id(), camp.index());
                             int cur = campHits.getOrDefault(siege.id(), Map.of()).getOrDefault(camp.index(), 0);
-                            p.sendActionBar(Component.text("§6Лагерь #" + (camp.index() + 1)
+                            plugin.getMessages().hud(p, Component.text("§6Лагерь #" + (camp.index() + 1)
                                     + " §8· §7Укрепление §e" + fortLevel + "/3"
                                     + " §8· §7Ударов до сноса: §c" + Math.max(1, req - cur)));
                         }
