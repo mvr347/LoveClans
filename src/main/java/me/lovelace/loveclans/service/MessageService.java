@@ -355,32 +355,78 @@ public final class MessageService {
 
     /**
      * Shows a title/subtitle to a player, both resolved from lang.yml. Pass null for
-     * subtitleKey to show a title-only prompt.
+     * subtitleKey to show a title-only prompt. Goes through LoveNotify (action bar by default,
+     * chat on overflow); with LoveNotify the subtitle is folded into the same line.
      */
     public void sendTitle(Player player, String titleKey, String subtitleKey, Map<String, String> placeholders) {
-        if (!isNotifyChannelEnabled(player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel.TITLE)) {
-            return;
-        }
+        deliverTitle(player, titleKey, subtitleKey, placeholders, false);
+    }
+
+    /** Same as {@link #sendTitle}, but LoveNotify always duplicates it to chat (war, siege, property loss). */
+    public void sendImportantTitle(Player player, String titleKey, String subtitleKey, Map<String, String> placeholders) {
+        deliverTitle(player, titleKey, subtitleKey, placeholders, true);
+    }
+
+    /** Title with already-built components (hardcoded texts); see {@link #sendTitle}. */
+    public void title(Player player, Component title, Component subtitle, boolean important) {
+        Component combined = subtitle == null || subtitle.equals(Component.empty())
+                ? title : title.append(Component.space()).append(subtitle);
+        deliver(player, combined, TITLE_CHANNELS, important, () -> player.showTitle(Title.title(
+                title, subtitle == null ? Component.empty() : subtitle,
+                Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(3000), Duration.ofMillis(500)))));
+    }
+
+    private void deliverTitle(Player player, String titleKey, String subtitleKey, Map<String, String> placeholders, boolean important) {
         Component titleComponent = component(titleKey, placeholders, player);
         Component subtitleComponent = subtitleKey != null ? component(subtitleKey, placeholders, player) : Component.empty();
-        player.showTitle(Title.title(titleComponent, subtitleComponent,
-                Title.Times.times(Duration.ofMillis(250), Duration.ofMillis(3000), Duration.ofMillis(500))));
+        title(player, titleComponent, subtitleComponent, important);
     }
 
     public void sendActionBar(Player player, String key, Map<String, String> placeholders) {
-        if (!isNotifyChannelEnabled(player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel.ACTION_BAR)) {
-            return;
-        }
-        player.sendActionBar(component(key, placeholders, player));
+        actionBar(player, component(key, placeholders, player), false);
+    }
+
+    /** Event notification on the action bar; {@code important} also duplicates it to chat. */
+    public void actionBar(Player player, Component message, boolean important) {
+        deliver(player, message, ACTION_BAR_CHANNELS, important, () -> player.sendActionBar(message));
     }
 
     /**
-     * Для мест, которые собирают {@link Title} сами (нестандартный тайминг — например,
-     * подстроенный под длительность визуализации границы клейма) и не могут переиспользовать
-     * {@link #sendTitle}. Проверяйте перед вызовом {@code player.showTitle(...)} напрямую.
+     * Ticking HUD text (progress counters refreshed every second or on every hit). Deliberately not routed
+     * through notify(): its chat fallback would flood the chat. It respects the player's action bar toggle.
      */
-    public boolean isTitleChannelEnabled(Player player) {
-        return isNotifyChannelEnabled(player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel.TITLE);
+    public void hud(Player player, Component message) {
+        if (isNotifyChannelEnabled(player, dev.lovelace.lovecore.api.notify.LoveNotify.Channel.ACTION_BAR)) {
+            player.sendActionBar(message);
+        }
+    }
+
+    private static final java.util.Set<dev.lovelace.lovecore.api.notify.LoveNotify.Channel> ACTION_BAR_CHANNELS =
+            java.util.Set.of(dev.lovelace.lovecore.api.notify.LoveNotify.Channel.ACTION_BAR);
+    private static final java.util.Set<dev.lovelace.lovecore.api.notify.LoveNotify.Channel> TITLE_CHANNELS =
+            java.util.Set.of(dev.lovelace.lovecore.api.notify.LoveNotify.Channel.TITLE,
+                    dev.lovelace.lovecore.api.notify.LoveNotify.Channel.ACTION_BAR);
+
+    /**
+     * Per-call LoveNotify lookup (a neighbour may register it later). LoveCore is a softdepend: if it is
+     * missing, {@code direct} delivers to the original channel and important text still reaches chat.
+     */
+    private void deliver(Player player, Component message,
+                         java.util.Set<dev.lovelace.lovecore.api.notify.LoveNotify.Channel> channels,
+                         boolean important, Runnable direct) {
+        try {
+            var service = dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.notify.LoveNotify.class);
+            if (service.isPresent()) {
+                service.get().notify(player, message, channels, important);
+                return;
+            }
+        } catch (NoClassDefFoundError missingLoveCore) {
+            // fall through to direct delivery
+        }
+        direct.run();
+        if (important) {
+            player.sendMessage(message);
+        }
     }
 
     public void playSound(Player player, Sound sound, float volume, float pitch) {

@@ -14,6 +14,8 @@ class GuiFramesTest {
         assertArrayEquals(new int[]{4}, GuiFrames.controlSlots(1));
         assertArrayEquals(new int[]{3, 5}, GuiFrames.controlSlots(2));
         assertArrayEquals(new int[]{2, 4, 6}, GuiFrames.controlSlots(3));
+        assertArrayEquals(new int[]{2, 3, 5, 6}, GuiFrames.controlSlots(4));
+        assertArrayEquals(new int[]{2, 3, 4, 6, 7}, GuiFrames.controlSlots(5));
     }
 
     @Test
@@ -24,8 +26,9 @@ class GuiFramesTest {
             for (int i = 0; i < slots.length; i++) {
                 assertTrue(slots[i] >= 2 && slots[i] <= 7, "slot " + slots[i] + " is outside 2..7");
                 if (i > 0) assertTrue(slots[i] > slots[i - 1], "slots must be increasing");
-                // up to five buttons the layout is a mirror image around the middle of the row (slot 4)
-                if (count <= 5) assertEquals(8, slots[i] + slots[slots.length - 1 - i], "count " + count);
+                // up to four buttons the layout mirrors around slot 4; five buttons cannot be symmetric inside the six-slot zone
+                // 2..7 (the middle button would have to sit on the gap), so {2,3,4,6,7} is asserted explicitly above
+                if (count <= 4) assertEquals(8, slots[i] + slots[slots.length - 1 - i], "count " + count);
             }
         }
     }

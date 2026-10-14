@@ -1043,12 +1043,12 @@ public final class RaidManager {
 
                 // Оповещения о взломе
                 onlineMembers(attacker).forEach(p -> {
-                    plugin.getMessages().sendTitle(p, "raid.loot.hacked-title", "raid.loot.hacked-subtitle",
+                    plugin.getMessages().sendImportantTitle(p, "raid.loot.hacked-title", "raid.loot.hacked-subtitle",
                             Map.of("tag", defender.tag(), "color", defender.tagColor()));
                     p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
                 });
                 onlineMembers(defender).forEach(p -> {
-                    plugin.getMessages().sendTitle(p, "raid.loot.defender-breached-title", "raid.loot.defender-breached-subtitle",
+                    plugin.getMessages().sendImportantTitle(p, "raid.loot.defender-breached-title", "raid.loot.defender-breached-subtitle",
                             Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
                     p.playSound(p.getLocation(), Sound.BLOCK_CHEST_OPEN, 1.0f, 0.7f);
                 });

@@ -461,11 +461,9 @@ public final class ClanManager {
                 Player player = Bukkit.getPlayer(memberId);
                 if (player != null) {
                     player.closeInventory();
-                    player.showTitle(net.kyori.adventure.title.Title.title(
-                            plugin.getMessages().component("notification.disbanded-title", player),
-                            plugin.getMessages().component("notification.disbanded-subtitle", Map.of("tag", clan.tag(), "color", clan.tagColor()), player)
-                    ));
-                    plugin.getMessages().send(player, "notification.disbanded-subtitle", Map.of("tag", clan.tag(), "color", clan.tagColor()));
+                    // important: the clan is gone. The title text (with subtitle) is duplicated to chat by LoveNotify.
+                    plugin.getMessages().sendImportantTitle(player, "notification.disbanded-title", "notification.disbanded-subtitle",
+                            Map.of("tag", clan.tag(), "color", clan.tagColor()));
                 }
             }
             // Must run before unindexClan: it still needs to resolve this clan (and messages
@@ -711,11 +709,9 @@ public final class ClanManager {
             if (kicked) {
                 Player targetPlayer = Bukkit.getPlayer(playerId);
                 if (targetPlayer != null) {
-                    targetPlayer.showTitle(net.kyori.adventure.title.Title.title(
-                            plugin.getMessages().component("notification.kicked-title", targetPlayer),
-                            plugin.getMessages().component("notification.kicked-subtitle", Map.of("tag", clan.tag(), "color", clan.tagColor()), targetPlayer)
-                    ));
-                    plugin.getMessages().send(targetPlayer, "notification.kicked-subtitle", Map.of("tag", clan.tag(), "color", clan.tagColor()));
+                    // important: loss of membership. The title text (with subtitle) is duplicated to chat by LoveNotify.
+                    plugin.getMessages().sendImportantTitle(targetPlayer, "notification.kicked-title", "notification.kicked-subtitle",
+                            Map.of("tag", clan.tag(), "color", clan.tagColor()));
                 }
             }
             if (clan.members().isEmpty()) {
@@ -986,13 +982,7 @@ public final class ClanManager {
         plugin.getAdvancedClaimsHook().showClaimBorder(player, visualizationBox, borderDuration);
 
         plugin.getMessages().send(player, "territory.claim-confirm-chat");
-        if (plugin.getMessages().isTitleChannelEnabled(player)) {
-            player.showTitle(Title.title(
-                    plugin.getMessages().component("territory.claim-confirm-title", Map.of(), player),
-                    plugin.getMessages().component("territory.claim-confirm-subtitle", Map.of(), player),
-                    Title.Times.times(Duration.ofMillis(500), Duration.ofSeconds(borderDuration / 20), Duration.ofMillis(500))
-            ));
-        }
+        plugin.getMessages().sendTitle(player, "territory.claim-confirm-title", "territory.claim-confirm-subtitle", Map.of());
 
         return true;
     }

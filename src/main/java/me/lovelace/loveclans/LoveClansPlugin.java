@@ -759,6 +759,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         me.lovelace.loveclans.listener.BannerProtectionListener.setRegisteredBannerCheck(clanManager::isRegisteredBanner);
         pluginManager.registerEvents(new me.lovelace.loveclans.listener.BannerProtectionListener(), this);
         pluginManager.registerEvents(new me.lovelace.loveclans.listener.OrphanBannerListener(this), this);
+        if (pluginManager.isPluginEnabled("LoveClaims")) {
+            // Needs the ClaimBorderCrossEvent class, which only exists when LoveClaims is installed.
+            pluginManager.registerEvents(new me.lovelace.loveclans.listener.TerritoryBorderListener(this), this);
+        }
         pluginManager.registerEvents(new CombatListener(this), this);
         pluginManager.registerEvents(new ArtifactListener(this), this);
         pluginManager.registerEvents(new ChatInputListener(this), this);
