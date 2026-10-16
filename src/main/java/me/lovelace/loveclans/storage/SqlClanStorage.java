@@ -343,7 +343,7 @@ public final class SqlClanStorage implements ClanStorage {
             } catch (SQLException exception) {
                 throw new StorageException("Unable to transfer clan chest money", exception);
             }
-        }, database.executor());
+        }, database.chestMoneyExecutor());
     }
 
     @Override
@@ -553,7 +553,16 @@ public final class SqlClanStorage implements ClanStorage {
 
     @Override
     public CompletableFuture<Void> updateClanChestMoney(UUID clanId, long amount) {
-        return updateClanColumn(clanId, "chest_money", amount);
+        return CompletableFuture.runAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection();
+                 PreparedStatement statement = connection.prepareStatement("UPDATE clans SET chest_money = ? WHERE id = ?")) {
+                statement.setLong(1, amount);
+                statement.setString(2, clanId.toString());
+                statement.executeUpdate();
+            } catch (SQLException exception) {
+                throw new StorageException("Unable to update chest_money for clan " + clanId, exception);
+            }
+        }, database.chestMoneyExecutor());
     }
 
     @Override
@@ -1572,41 +1581,16 @@ public final class SqlClanStorage implements ClanStorage {
         if (location == null || location.getWorld() == null) {
             return null;
         }
-        return String.format("%s;%f;%f;%f;%f;%f",
-                location.getWorld().getName(),
-                location.getX(),
-                location.getY(),
-                location.getZ(),
-                location.getYaw(),
-                location.getPitch());
+        return me.lovelace.loveclans.util.LocationCodec.format(location.getWorld().getName(),
+                location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
     }
 
     private Location deserializeLocation(String serializedLocation) {
-        if (serializedLocation == null || serializedLocation.isEmpty()) {
-            return null;
-        }
-        String[] parts = serializedLocation.split(";");
-        if (parts.length != 6) {
-            // Log a warning or handle invalid format
-            return null;
-        }
-        try {
-            String worldName = parts[0];
-            World world = Bukkit.getWorld(worldName);
-            if (world == null) {
-                // Log a warning or handle missing world
-                return null;
-            }
-            double x = Double.parseDouble(parts[1]);
-            double y = Double.parseDouble(parts[2]);
-            double z = Double.parseDouble(parts[3]);
-            float yaw = Float.parseFloat(parts[4]);
-            float pitch = Float.parseFloat(parts[5]);
-            return new Location(world, x, y, z, yaw, pitch);
-        } catch (NumberFormatException e) {
-            // Log error
-            return null;
-        }
+        me.lovelace.loveclans.util.LocationCodec.Parts p = me.lovelace.loveclans.util.LocationCodec.parse(serializedLocation);
+        if (p == null) return null;
+        World world = Bukkit.getWorld(p.world());
+        if (world == null) return null;
+        return new Location(world, p.x(), p.y(), p.z(), p.yaw(), p.pitch());
     }
 
     // --- Архив конфликтов ---

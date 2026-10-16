@@ -203,6 +203,7 @@ public final class LoveClansPlugin extends JavaPlugin {
             runSync(() -> {
                 // A crash mid-raid leaves the raid chest in the world: put the ground back
                 raidManager.recoverOrphanChests();
+                clanManager.healMissingHomes();
                 // After a crash LoveClaims may still hold "under siege" on territories of conflicts that no longer
                 // exist (onDisable never ran); nothing is running yet, so every siege flag is stale.
                 for (me.lovelace.loveclans.model.Clan clan : clanManager.getAllClans()) {

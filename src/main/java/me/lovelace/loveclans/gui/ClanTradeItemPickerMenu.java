@@ -9,6 +9,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 
@@ -49,7 +50,6 @@ public final class ClanTradeItemPickerMenu implements Listener {
         }
         this.snapshot = contents;
         ChestLayout.drawFooter(inventory, plugin, player, false);
-        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     public static void open(LoveClansPlugin plugin, Clan clan, Player player, BiConsumer<Player, ItemStack> onPick) {
@@ -62,8 +62,16 @@ public final class ClanTradeItemPickerMenu implements Listener {
         }
         plugin.getClanManager().loadChestContentsAsync(clan).thenAccept(contents ->
                 plugin.runSync(() -> {
+                    if (!player.isOnline()) {
+                        plugin.getClanManager().unlockItemChest(clan.id());
+                        return;
+                    }
                     ClanTradeItemPickerMenu menu = new ClanTradeItemPickerMenu(plugin, clan, player, contents.clone(), onPick);
-                    player.openInventory(menu.inventory);
+                    if (player.openInventory(menu.inventory) == null) {
+                        plugin.getClanManager().unlockItemChest(clan.id());
+                        return;
+                    }
+                    plugin.getServer().getPluginManager().registerEvents(menu, plugin);
                 })
         ).exceptionally(t -> {
             plugin.getClanManager().unlockItemChest(clan.id());
@@ -100,6 +108,19 @@ public final class ClanTradeItemPickerMenu implements Listener {
     @EventHandler
     public void onInventoryClose(InventoryCloseEvent event) {
         if (!event.getInventory().equals(inventory)) return;
+        release();
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        if (event.getPlayer().equals(player)) release();
+    }
+
+    private boolean released = false;
+
+    private void release() {
+        if (released) return;
+        released = true;
         HandlerList.unregisterAll(this);
         plugin.getClanManager().unlockItemChest(clan.id());
     }

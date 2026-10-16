@@ -258,7 +258,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             plugin.getClanManager().cancelHomeTeleport(player.getUniqueId(), "territory.home-teleport.cancelled-manual");
             return;
         }
-        clan.getHomeLocation().ifPresentOrElse(homeLoc -> {
+        plugin.getClanManager().ensureHome(clan).ifPresentOrElse(homeLoc -> {
             if (homeLoc.getWorld() == null) {
                 plugin.getMessages().send(player, "territory.world-not-found");
                 return;
@@ -345,7 +345,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Optional<Clan> clanOpt = requireClan(player);
         if (clanOpt.isEmpty()) { plugin.getMessages().send(player, "clan.not-in-clan"); return; }
         Clan clan = clanOpt.get();
-        org.bukkit.OfflinePlayer applicant = Bukkit.getOfflinePlayer(applicantName);
+        org.bukkit.OfflinePlayer applicant = Bukkit.getOfflinePlayerIfCached(applicantName);
+        if (applicant == null) {
+            plugin.getMessages().send(player, "general.player-not-found", Map.of("player", applicantName));
+            return;
+        }
         plugin.getClanManager().acceptApplicationAsync(clan, player.getUniqueId(), applicant.getUniqueId())
                 .thenAccept(updatedClan -> plugin.runSync(() -> {
                     plugin.getMessages().send(player, "gui.applications.accepted", Map.of("player", applicantName));
@@ -360,7 +364,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         Optional<Clan> clanOpt = requireClan(player);
         if (clanOpt.isEmpty()) { plugin.getMessages().send(player, "clan.not-in-clan"); return; }
         Clan clan = clanOpt.get();
-        org.bukkit.OfflinePlayer applicant = Bukkit.getOfflinePlayer(applicantName);
+        org.bukkit.OfflinePlayer applicant = Bukkit.getOfflinePlayerIfCached(applicantName);
+        if (applicant == null) {
+            plugin.getMessages().send(player, "general.player-not-found", Map.of("player", applicantName));
+            return;
+        }
         plugin.getClanManager().rejectApplicationAsync(clan, player.getUniqueId(), applicant.getUniqueId())
                 .thenRun(() -> plugin.runSync(() -> {
                     plugin.getMessages().send(player, "gui.applications.rejected", Map.of("player", applicantName));
@@ -470,7 +478,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         Clan clan = optionalClan.get();
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+        OfflinePlayer target = Bukkit.getOfflinePlayerIfCached(args[1]);
+        if (target == null) {
+            plugin.getMessages().send(player, "general.player-not-found", Map.of("player", args[1]));
+            return;
+        }
         plugin.getClanManager().removeMemberAsync(clan, player.getUniqueId(), target.getUniqueId(), true)
                 .thenRun(() -> plugin.runSync(() -> plugin.getMessages().send(player, "clan.kicked", Map.of("player", displayName(target)))))
                 .exceptionally(throwable -> {
@@ -491,7 +503,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         Clan clan = optionalClan.get();
-        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+        OfflinePlayer target = Bukkit.getOfflinePlayerIfCached(args[1]);
+        if (target == null) {
+            plugin.getMessages().send(player, "general.player-not-found", Map.of("player", args[1]));
+            return;
+        }
         plugin.getClanManager().setRankAsync(clan, player.getUniqueId(), target.getUniqueId(), rank)
                 .thenAccept(updated -> plugin.runSync(() -> plugin.getMessages().send(player, "clan.rank-changed", Map.of("player", displayName(target), "rank", rank.displayName()))))
                 .exceptionally(throwable -> {
@@ -1165,7 +1181,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             return;
         }
         Clan clan = optionalClan.get();
-        OfflinePlayer candidate = Bukkit.getOfflinePlayer(args[1]);
+        OfflinePlayer candidate = Bukkit.getOfflinePlayerIfCached(args[1]);
+        if (candidate == null) {
+            plugin.getMessages().send(player, "general.player-not-found", Map.of("player", args[1]));
+            return;
+        }
         plugin.getSuccessionManager().castVote(clan, player.getUniqueId(), candidate.getUniqueId());
         plugin.getMessages().send(player, "succession.voted");
     }

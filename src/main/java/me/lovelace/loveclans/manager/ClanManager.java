@@ -1176,7 +1176,18 @@ public final class ClanManager {
 
     private void refundCreationCost(Player player) {
         long cost = MoneyConfig.getScaled(plugin.getConfig(), "clans.creation-cost", 0L);
-        if (cost <= 0 || player == null || !player.isOnline()) return;
+        if (cost <= 0 || player == null) return;
+        if (!player.isOnline()) {
+            // Coins are inventory items, so an offline player cannot be paid now: queue the refund
+            // and deliver it on the next join (see deliverPendingItems).
+            storage.savePendingItemAsync(new ClanStorage.PendingClanItem(UUID.randomUUID(), player.getUniqueId(),
+                    player.getUniqueId(), ClanStorage.PendingClanItem.CREATION_REFUND, System.currentTimeMillis()))
+                    .exceptionally(t -> {
+                        plugin.getLogger().warning("Could not queue creation refund for " + player.getUniqueId() + ": " + t.getMessage());
+                        return null;
+                    });
+            return;
+        }
         LoveCore.service(LoveEconomy.class).ifPresent(economy -> economy.give(player, cost));
     }
 
@@ -1423,6 +1434,38 @@ public final class ClanManager {
     }
 
     /**
+     * Self-heal for a clan whose home was lost (old builds stored comma-formatted coordinates that
+     * failed to parse): rebuild it from the capital banner. Main thread only (reads world blocks).
+     *
+     * @return the home location, empty when the clan has no capital banner or its world is not loaded
+     */
+    public Optional<Location> ensureHome(Clan clan) {
+        Optional<Location> existing = clan.getHomeLocation();
+        if (existing.isPresent() && existing.get().getWorld() != null) return existing;
+        Optional<ClanTerritory> capital = clan.getCapitalTerritory();
+        if (capital.isEmpty()) return Optional.empty();
+        ClanTerritory t = capital.get();
+        if (t.bannerX() == null || t.bannerY() == null || t.bannerZ() == null) return Optional.empty();
+        World world = Bukkit.getWorld(t.world());
+        if (world == null) return Optional.empty();
+        Location home = BukkitBlockView.spawnNear(world, t.bannerX(), t.bannerY(), t.bannerZ())
+                .orElseGet(() -> BukkitBlockView.highestNear(world, t.bannerX(), t.bannerY(), t.bannerZ()));
+        if (home == null) return Optional.empty();
+        clan.setHomeLocation(home);
+        storage.updateClanHomeLocation(clan.id(), home);
+        return Optional.of(home);
+    }
+
+    /** Runs {@link #ensureHome} for every loaded clan; call on the main thread after load. */
+    public void healMissingHomes() {
+        for (Clan clan : getAllClans()) {
+            if (clan.getHomeLocation().isEmpty() && ensureHome(clan).isPresent()) {
+                plugin.getLogger().info("Restored missing home of clan " + clan.name() + " from its capital banner.");
+            }
+        }
+    }
+
+    /**
      * Re-validates the stored spawn right before teleporting: the area may have changed since it was
      * set (lava poured, blocks placed). Falls back to a fresh search around the capital banner and,
      * failing that, to the top of the column next to it.
@@ -1491,7 +1534,11 @@ public final class ClanManager {
      * may legitimately be in flux there. Main thread only.
      */
     public void cleanOrphanBanners(org.bukkit.Chunk chunk) {
-        for (org.bukkit.block.BlockState state : chunk.getTileEntities()) {
+        if (clansById.isEmpty()) return;
+        // Banner-only filter and no snapshot: copying every tile entity of every loaded chunk was the hot spot.
+        // Chunks without a territory are deliberately NOT skipped: an orphan banner is exactly one that no
+        // territory points at, so such chunks are where orphans live.
+        for (org.bukkit.block.BlockState state : chunk.getTileEntities(b -> org.bukkit.Tag.BANNERS.isTagged(b.getType()), false)) {
             if (!(state instanceof org.bukkit.block.Banner banner)) continue;
             org.bukkit.persistence.PersistentDataContainer pdc = banner.getPersistentDataContainer();
             String type = pdc.get(ClanItemFactory.BANNER_TYPE_KEY, org.bukkit.persistence.PersistentDataType.STRING);
@@ -1550,6 +1597,10 @@ public final class ClanManager {
             for (ClanStorage.PendingClanItem item : items) {
                 storage.deletePendingItemAsync(item.id());
                 queuedCapitalBanners.remove(item.playerId() + ":" + item.clanId());
+                if (ClanStorage.PendingClanItem.CREATION_REFUND.equals(item.kind())) {
+                    refundCreationCost(player);
+                    continue;
+                }
                 if (!ClanStorage.PendingClanItem.CAPITAL_BANNER.equals(item.kind())) continue;
                 Clan clan = clansById.get(item.clanId());
                 // Only still useful if the player still leads a clan that still has no capital.

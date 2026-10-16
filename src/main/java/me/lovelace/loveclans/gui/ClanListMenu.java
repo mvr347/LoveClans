@@ -145,7 +145,7 @@ public final class ClanListMenu implements InventoryHolder {
             // handleInventoryClick: SLOT_MY_CLAN там уже no-op без клана).
             inventory.setItem(SLOT_MY_CLAN, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.clan-list.no-clan.name", player))
-                    .lore(plugin.getMessages().reason("gui.clan-list.no-clan.lore", player))
+                    .lore(plugin.getMessages().reason("gui.clan-list.no-clan.hint", player))
                     .build());
         }
 

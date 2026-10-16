@@ -118,6 +118,20 @@ public final class ActivityLedger {
         return limit > 0 && list.size() > limit ? new ArrayList<>(list.subList(0, limit)) : list;
     }
 
+    /**
+     * Drops in-memory rows of weekly/monthly periods that are over. They stay in the database; without this
+     * the map grew by one row per player per period forever. Rows with unflushed changes are kept.
+     */
+    public synchronized int pruneOldPeriods(long nowMillis) {
+        String week = PeriodKeys.of(ActivityPeriod.WEEKLY, nowMillis);
+        String month = PeriodKeys.of(ActivityPeriod.MONTHLY, nowMillis);
+        String lifetime = PeriodKeys.of(ActivityPeriod.LIFETIME, nowMillis);
+        int before = totals.size();
+        totals.keySet().removeIf(r -> !dirtyRows.contains(r)
+                && !r.period().equals(week) && !r.period().equals(month) && !r.period().equals(lifetime));
+        return before - totals.size();
+    }
+
     /** A disbanded clan's rows go with it. */
     public synchronized void dropClan(UUID clan) {
         totals.keySet().removeIf(r -> r.clan().equals(clan));

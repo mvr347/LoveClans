@@ -124,4 +124,17 @@ class ActivityLedgerTest {
             }
         }
     }
+
+    @Test
+    void pruneDropsOldPeriodsButKeepsCurrentAndDirty() {
+        ActivityLedger ledger = new ActivityLedger();
+        ledger.add(CLAN, ALEX, ActivityCategory.RAID, 60, WED);
+        ledger.drainDirty(); // flushed: old rows may now be pruned
+        assertTrue(ledger.pruneOldPeriods(NEXT_MONTH) > 0);
+        assertEquals(60, PlayerActivity.of(ALEX, ledger.playerTotals(ALEX, ActivityPeriod.LIFETIME, NEXT_MONTH)).total());
+        assertEquals(0, PlayerActivity.of(ALEX, ledger.playerTotals(ALEX, ActivityPeriod.WEEKLY, WED)).total());
+        ledger.add(CLAN, MAX, ActivityCategory.RAID, 5, WED); // dirty, not flushed
+        ledger.pruneOldPeriods(NEXT_MONTH);
+        assertEquals(5, PlayerActivity.of(MAX, ledger.playerTotals(MAX, ActivityPeriod.WEEKLY, WED)).total());
+    }
 }
