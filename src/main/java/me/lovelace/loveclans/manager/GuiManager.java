@@ -46,12 +46,15 @@ import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
 import net.kyori.adventure.text.Component;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.InventoryHolder;
 
 import java.util.Map;
@@ -549,6 +552,25 @@ public class GuiManager implements Listener {
         }
     }
 
+    @EventHandler
+    public void onDiplomacyClose(InventoryCloseEvent event) {
+        if (!(event.getInventory().getHolder() instanceof ClanMenuHolder h) || h.type() != me.lovelace.loveclans.gui.ClanMenuType.DIPLOMACY) return;
+        Player player = (Player) event.getPlayer();
+        // A refresh re-opens the menu right after this event with a freshly stored layout: only forget
+        // when, a tick later, the player no longer has a diplomacy menu open.
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            InventoryHolder now = player.isOnline() ? player.getOpenInventory().getTopInventory().getHolder() : null;
+            if (!(now instanceof ClanMenuHolder nh && nh.type() == me.lovelace.loveclans.gui.ClanMenuType.DIPLOMACY)) {
+                diplomacyMenu.forget(player.getUniqueId());
+            }
+        });
+    }
+
+    @EventHandler
+    public void onDiplomacyQuit(PlayerQuitEvent event) {
+        diplomacyMenu.forget(event.getPlayer().getUniqueId());
+    }
+
     /** Dragging an item over a menu would drop it into the menu inventory, where it is lost on close. */
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
@@ -558,7 +580,13 @@ public class GuiManager implements Listener {
                 || holder instanceof ClanCapitalManagementMenu
                 || holder instanceof ClanSpiritMenu
                 || holder instanceof ClanConflictMenu
-                || holder instanceof ClanGiftMenu) {
+                || holder instanceof ClanGiftMenu
+                || holder instanceof me.lovelace.loveclans.gui.ClanCreateMenu
+                || holder instanceof me.lovelace.loveclans.gui.ClanBannerCreationMenu
+                || holder instanceof me.lovelace.loveclans.gui.ClanDiplomacySelectMenu
+                || holder instanceof me.lovelace.loveclans.gui.PlayerApplicationsMenu
+                || holder instanceof me.lovelace.loveclans.gui.ClanInfoMenu
+                || holder instanceof me.lovelace.loveclans.gui.ClanListMenu) {
             int topSize = event.getView().getTopInventory().getSize();
             for (int rawSlot : event.getRawSlots()) {
                 if (rawSlot < topSize) {

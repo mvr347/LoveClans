@@ -74,6 +74,7 @@ public final class ActivityManager implements ActivityService {
 
     /** Writes everything changed since the last flush on the storage thread. */
     public void flushAsync() {
+        ledger.pruneOldPeriods(System.currentTimeMillis());
         List<ActivityLedger.Cell> cells = ledger.drainDirty();
         List<String> keys = drainProcessed();
         if (cells.isEmpty() && keys.isEmpty()) return;

@@ -31,6 +31,9 @@ public final class DatabaseManager implements AutoCloseable {
     private final LoveClansPlugin plugin;
     private HikariDataSource dataSource;
     private ExecutorService executor;
+    // Treasury (chest_money) writes carry absolute balances; on MySQL the pool is multi-threaded and
+    // two writes for one clan could land out of order. One thread keeps them in submission order.
+    private ExecutorService chestMoneyExecutor;
     private DatabaseType type;
 
     public DatabaseManager(LoveClansPlugin plugin) {
@@ -56,6 +59,7 @@ public final class DatabaseManager implements AutoCloseable {
 
         dataSource = new HikariDataSource(config);
         executor = Executors.newFixedThreadPool(type == DatabaseType.SQLITE ? 1 : poolSize, new ClanThreadFactory());
+        chestMoneyExecutor = Executors.newSingleThreadExecutor(new ClanThreadFactory());
         createSchema();
         migrateEconomy();
     }
@@ -99,6 +103,10 @@ public final class DatabaseManager implements AutoCloseable {
 
     public DataSource dataSource() {
         return Objects.requireNonNull(dataSource, "DatabaseManager is not initialized");
+    }
+
+    public ExecutorService chestMoneyExecutor() {
+        return Objects.requireNonNull(chestMoneyExecutor, "DatabaseManager is not initialized");
     }
 
     public ExecutorService executor() {
@@ -815,6 +823,15 @@ public final class DatabaseManager implements AutoCloseable {
 
     @Override
     public void close() {
+        if (chestMoneyExecutor != null) {
+            chestMoneyExecutor.shutdown();
+            try {
+                if (!chestMoneyExecutor.awaitTermination(10, java.util.concurrent.TimeUnit.SECONDS)) chestMoneyExecutor.shutdownNow();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                chestMoneyExecutor.shutdownNow();
+            }
+        }
         if (executor != null) {
             executor.shutdown();
             try {

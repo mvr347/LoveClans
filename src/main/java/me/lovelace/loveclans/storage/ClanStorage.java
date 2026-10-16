@@ -184,6 +184,8 @@ public interface ClanStorage {
     /** Kinds of {@link PendingClanItem}; the item itself is rebuilt on delivery from current clan data. */
     record PendingClanItem(UUID id, UUID playerId, UUID clanId, String kind, long createdAt) {
         public static final String CAPITAL_BANNER = "CAPITAL_BANNER";
+        /** Clan creation fee refund owed to a player who was offline when the founding failed (amount = current fee). */
+        public static final String CREATION_REFUND = "CREATION_REFUND";
     }
 
     // --- Архив конфликтов: войны, осады и набеги переживают перезапуск ---

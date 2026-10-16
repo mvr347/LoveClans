@@ -63,6 +63,11 @@ public final class ClanDiplomacyMenu {
     /** Slot -> button of the screen each viewer has open, so a click is resolved against what was drawn. */
     private final Map<UUID, Map<Integer, Button>> openLayouts = new java.util.concurrent.ConcurrentHashMap<>();
 
+    /** Drops the remembered layout of a player who closed the menu or left; it was never removed before. */
+    public void forget(UUID playerId) {
+        openLayouts.remove(playerId);
+    }
+
     public ClanDiplomacyMenu(LoveClansPlugin plugin) {
         this.plugin = plugin;
     }

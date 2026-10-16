@@ -12,6 +12,7 @@ import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
@@ -44,7 +45,6 @@ public final class ClanChestMenu implements Listener {
         inventory.setContents(contents);
         drawLockedSlots();
         ChestLayout.drawFooter(inventory, plugin, player, true);
-        plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
     public static void open(LoveClansPlugin plugin, Clan clan, Player player) {
@@ -57,8 +57,19 @@ public final class ClanChestMenu implements Listener {
         }
         plugin.getClanManager().loadChestContentsAsync(clan).thenAccept(contents ->
                 plugin.runSync(() -> {
+                    // The player may have left while the contents were loading: nobody would ever close
+                    // the menu, so the lock would stay held forever.
+                    if (!player.isOnline()) {
+                        plugin.getClanManager().unlockItemChest(clan.id());
+                        return;
+                    }
                     ClanChestMenu menu = new ClanChestMenu(plugin, clan, player, contents);
-                    player.openInventory(menu.inventory);
+                    if (player.openInventory(menu.inventory) == null) {
+                        plugin.getClanManager().unlockItemChest(clan.id());
+                        return;
+                    }
+                    // Register only once the inventory is really open, so a failed open leaks no listener.
+                    plugin.getServer().getPluginManager().registerEvents(menu, plugin);
                 })
         ).exceptionally(throwable -> {
             plugin.getClanManager().unlockItemChest(clan.id());
@@ -145,6 +156,22 @@ public final class ClanChestMenu implements Listener {
         if (!event.getInventory().equals(inventory)) {
             return;
         }
+        release();
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent event) {
+        if (event.getPlayer().equals(player)) {
+            release();
+        }
+    }
+
+    private boolean released = false;
+
+    /** Persists the contents and frees the chest lock exactly once (close and quit can both arrive). */
+    private void release() {
+        if (released) return;
+        released = true;
         HandlerList.unregisterAll(this);
         ItemStack[] full = inventory.getContents();
         ItemStack[] toPersist = new ItemStack[full.length];

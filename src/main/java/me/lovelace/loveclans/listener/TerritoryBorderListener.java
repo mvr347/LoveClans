@@ -19,6 +19,8 @@ import java.util.UUID;
  */
 public final class TerritoryBorderListener implements Listener {
     private final LoveClansPlugin plugin;
+    /** Claims already reported as ownerless, so the log gets one line per claim instead of one per step. */
+    private final java.util.Set<UUID> reportedMissing = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     public TerritoryBorderListener(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -31,6 +33,10 @@ public final class TerritoryBorderListener implements Listener {
         }
         Optional<Clan> owner = findOwner(event.getClaimId());
         if (owner.isEmpty()) {
+            if (reportedMissing.add(event.getClaimId())) {
+                plugin.getLogger().warning("Clan territory claim " + event.getClaimId()
+                        + " has no owning clan in LoveClans; LoveClaims will show its fallback text.");
+            }
             return;
         }
         event.setHandled(true);
