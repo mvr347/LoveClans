@@ -3,6 +3,7 @@ package me.lovelace.loveclans.util;
 import com.google.gson.JsonParser;
 import me.lovelace.loveclans.model.diplomacy.DiplomacyTier;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -215,18 +216,26 @@ public final class ItemBuilder {
         }
     }
 
+    /** The client renders custom names and lore in italics unless told otherwise; an explicit italic in the text still wins. */
+    static Component upright(Component component) {
+        return component.decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE);
+    }
+
     public ItemBuilder name(Component name) {
-        mutate(meta -> meta.displayName(name));
+        Component upright = upright(name);
+        mutate(meta -> meta.displayName(upright));
         return this;
     }
 
     public ItemBuilder lore(Component line) {
-        lore.add(line);
+        lore.add(upright(line));
         return this;
     }
 
     public ItemBuilder lore(Collection<Component> lines) {
-        lore.addAll(lines);
+        for (Component line : lines) {
+            lore.add(upright(line));
+        }
         return this;
     }
 

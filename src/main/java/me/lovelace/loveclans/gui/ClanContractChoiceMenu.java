@@ -113,7 +113,7 @@ public final class ClanContractChoiceMenu {
             lore.add(plugin.getMessages().component("gui.contracts.item.reward-points", Map.of("points", String.valueOf(points)), player));
         }
         lore.add(Component.empty());
-        lore.add(plugin.getMessages().component("gui.contracts.item.select", player));
+        lore.addAll(plugin.getMessages().components("gui.contracts.item.select", player));
         return ItemBuilder.head(type == ContractType.MONTHLY ? ItemBuilder.HEAD_MONTHLY_QUESTS : ItemBuilder.HEAD_WEEKLY_QUESTS)
                 .name(plugin.getMessages().component("gui.contracts.item.name", Map.of("name", offer.definition().displayName()), player))
                 .lore(lore)

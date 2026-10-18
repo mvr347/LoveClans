@@ -2,6 +2,7 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -65,9 +66,9 @@ public final class ClanGiftMenu implements InventoryHolder {
         inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.diplomacy.gift.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.gift.lore", player))
-                .lore(plugin.getMessages().component("gui.chest.money.balance.lore", Map.of("amount", String.valueOf(sourceClan.chestMoney())), player))
+                .lore(plugin.getMessages().component("gui.chest.money.balance.lore", Map.of("amount", CoinFormat.format(sourceClan.chestMoney())), player))
                 .lore(plugin.getMessages().components("gui.diplomacy.gift.limits", Map.of(
-                        "max", String.valueOf(maxAmount()),
+                        "max", CoinFormat.format(maxAmount()),
                         "cooldown", me.lovelace.loveclans.util.TimeUtil.formatDuration(
                                 plugin.getConfig().getLong("clans.gifts.cooldown-seconds", 3600L) * 1000L)), player))
                 .build());
@@ -77,12 +78,17 @@ public final class ClanGiftMenu implements InventoryHolder {
         for (int i = 0; i < PRESET_SLOTS.length && i < presets.size(); i++) {
             long amt = presets.get(i);
             String deny = giftDeny(amt);
+            Map<String, String> amountPh = Map.of("amount", CoinFormat.format(amt));
             ItemBuilder b = ItemBuilder.head(deny == null ? ItemBuilder.HEAD_CHEST_MONEY : ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.diplomacy.gift.preset-name", Map.of("amount", String.valueOf(amt)), player))
-                    .lore(plugin.getMessages().component("gui.diplomacy.gift.preset-lore", Map.of("amount", String.valueOf(amt)), player));
+                    .name(deny == null ? plugin.getMessages().component("gui.diplomacy.gift.preset-name", amountPh, player)
+                            : LoreBlocks.disabledName(plugin.getMessages(), player, "gui.diplomacy.gift.preset-name", amountPh))
+                    .lore(plugin.getMessages().component("gui.diplomacy.gift.preset-lore", amountPh, player));
+            LoreBlocks.Hint send = LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.diplomacy.gift.preset-action");
+            b.lore(Component.empty());
             if (deny != null) {
-                b.lore(Component.empty());
-                b.lore(plugin.getMessages().denyLore(deny, denyPlaceholders(), player));
+                b.lore(LoreBlocks.blocked(plugin.getMessages(), player, "gui.style.status.unavailable", deny, denyPlaceholders(), send));
+            } else {
+                b.lore(LoreBlocks.clicks(plugin.getMessages(), player, List.of(send)));
             }
             inventory.setItem(PRESET_SLOTS[i], b.build());
         }
@@ -90,6 +96,8 @@ public final class ClanGiftMenu implements InventoryHolder {
         inventory.setItem(SLOT_CUSTOM, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
                 .name(plugin.getMessages().component("gui.diplomacy.gift.custom-name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.gift.custom-lore", player))
+                .lore(LoreBlocks.clicks(plugin.getMessages(), player, List.of(
+                        LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.diplomacy.gift.custom-action"))))
                 .build());
 
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
@@ -159,7 +167,7 @@ public final class ClanGiftMenu implements InventoryHolder {
     private void promptConfirm(long amount) {
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.gift.title",
-                        Map.of("amount", String.valueOf(amount), "tag", targetClan.tag(), "color", targetClan.tagColor()), player),
+                        Map.of("amount", CoinFormat.format(amount), "tag", targetClan.tag(), "color", targetClan.tagColor()), player),
                 Component.empty(),
                 () -> plugin.getClanGiftManager().sendGiftAsync(sourceClan, targetClan, amount, player.getUniqueId())
                         .thenRun(() -> plugin.runSync(() -> plugin.getGuiManager().openDiplomacy(player, sourceClan, targetClan)))

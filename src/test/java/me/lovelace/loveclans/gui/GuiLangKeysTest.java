@@ -58,7 +58,7 @@ class GuiLangKeysTest {
         assertTrue(missing.isEmpty(), "keys missing from lang.yml: " + missing);
     }
 
-    private static final String SYMBOLS = "💰📦🤝🏛✉✎→⇄🔒🚫📮⚔🎯🏹🕊🌾⛏";
+    private static final String SYMBOLS = "💰📦🤝🏛✉✎→⇄🔒🚫📮⚔🎯🏹🕊🌾⛏✦✔✘·▸";
 
     /** Item names and menu titles carry no emoji/arrow symbols (owner request 2026-10-07). */
     @Test

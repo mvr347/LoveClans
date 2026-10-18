@@ -32,7 +32,9 @@ public final class LangMigrator {
             // v9: capital menu (shield and relocation buttons), relocation seal item, admin seal command
             List.of("gui", "deny", "item", "admin", "clan.help", "diplomacy"),
             // v10: item chest refuses coins, shield expiry message
-            List.of("deny", "chest", "diplomacy")
+            List.of("deny", "chest", "diplomacy"),
+            // v11: GUI lore style standard - click hints, status/reason lines, progress bars, white coin values
+            List.of("gui", "clan.banner", "raid.loot")
     );
 
     private LangMigrator() {

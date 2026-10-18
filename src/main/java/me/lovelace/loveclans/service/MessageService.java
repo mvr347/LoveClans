@@ -59,15 +59,17 @@ public final class MessageService {
         try (InputStream stream = plugin.getResource("lang.yml")) {
             if (stream != null) {
                 YamlConfiguration defaults = YamlConfiguration.loadConfiguration(new InputStreamReader(stream, StandardCharsets.UTF_8));
+                int versionBefore = lang.getInt(LangMigrator.VERSION_KEY, 1);
                 if (LangMigrator.migrate(lang, defaults)) {
                     // keep the owner's previous texts next to the file before the reworded sections replace them
-                    File backup = new File(plugin.getDataFolder(), "lang.yml.v1.bak");
+                    String backupName = "lang.yml.v" + versionBefore + ".bak";
+                    File backup = new File(plugin.getDataFolder(), backupName);
                     if (!backup.exists()) {
                         java.nio.file.Files.copy(file.toPath(), backup.toPath());
                     }
                     lang.save(file);
                     plugin.getLogger().info("lang.yml migrated to version " + LangMigrator.latestVersion()
-                            + " (old file saved as lang.yml.v1.bak)");
+                            + " (old file saved as " + backupName + ")");
                 }
                 lang.setDefaults(defaults);
                 lang.options().copyDefaults(true);
@@ -174,6 +176,11 @@ public final class MessageService {
         return raw("diplomacy.relation." + relation.name());
     }
 
+    /** True when the key exists in the loaded lang file (or its bundled defaults). */
+    public boolean has(String key) {
+        return lang.contains(key);
+    }
+
     public String raw(String key) {
         String raw = lang.getString(key);
         if (raw == null) {
@@ -211,12 +218,16 @@ public final class MessageService {
         return template.replace("<prefix>", "").trim();
     }
 
-    /** "✘ reason" template for the first lore line of a greyed-out button: red cross, then the reason text. */
+    /**
+     * Reason line for a greyed-out button: {@code Причина: <text>}. The text comes from a chat deny key, so its own
+     * colors are stripped and the lore standard colors apply (red label, gray reason).
+     */
     static String reasonTemplate(String template) {
-        return "<red>✘</red> " + stripPrefixTag(template);
+        return "<red>Причина:</red> <gray>" + MiniMessage.miniMessage().stripTags(stripPrefixTag(template),
+                TagResolver.standard()) + "</gray>";
     }
 
-    /** Single reason line for a disabled button. Same look as {@link #denyLore}, for lang keys that hold one plain sentence. */
+    /** Single reason line for a disabled button, for lang keys that hold one plain sentence. */
     public Component reason(String key, Map<String, String> placeholders, Player player) {
         return parse(reasonTemplate(lang.getString(key, key)), placeholders, player);
     }
@@ -225,18 +236,23 @@ public final class MessageService {
         return reason(key, Map.of(), player);
     }
 
+    /**
+     * Lore for a disabled button from a chat deny key shaped {@code <red>reason <gray>· <yellow>hint}: the reason
+     * becomes {@code Причина: …}, the hint (if any) its own gray line.
+     */
     public List<Component> denyLore(String key, Map<String, String> placeholders, Player player) {
         // Read the template untouched: raw() already substitutes <prefix>, which left "[LoveClans]" in item lore.
         String rawText = lang.getString(key, key);
         if (rawText.isBlank()) return List.of();
-        String withoutPrefix = stripPrefixTag(rawText);
-        String[] parts = withoutPrefix.split("<gray>·</gray>|<gray>·");
+        String[] parts = stripPrefixTag(rawText).split("<gray>·</gray>|<gray>·", 2);
         List<Component> components = new ArrayList<>();
-        for (String part : parts) {
-            String trimmed = part.trim();
-            if (!trimmed.isEmpty()) {
-                components.add(parse(trimmed, placeholders, player));
-            }
+        String reason = parts[0].trim();
+        if (!reason.isEmpty()) {
+            components.add(parse(reasonTemplate(reason), placeholders, player));
+        }
+        if (parts.length > 1 && !parts[1].trim().isEmpty()) {
+            components.add(parse("<gray>" + MiniMessage.miniMessage().stripTags(parts[1].trim(),
+                    TagResolver.standard()) + "</gray>", placeholders, player));
         }
         return components;
     }

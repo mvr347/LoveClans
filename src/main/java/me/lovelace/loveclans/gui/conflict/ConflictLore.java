@@ -1,6 +1,7 @@
 package me.lovelace.loveclans.gui.conflict;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.gui.LoreBlocks;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.war.ClanWar;
 import me.lovelace.loveclans.util.ItemBuilder;
@@ -62,13 +63,13 @@ public final class ConflictLore {
             }
             builder.lore(Component.empty());
         }
+        LoreBlocks.Hint start = LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, base + ".action", ph);
         if (ready) {
-            builder.lore(messages.component(base + ".action", ph, player));
+            builder.lore(LoreBlocks.clicks(messages, player, List.of(start)));
             builder.glow(true);
         } else {
             ConflictReadiness.Deny deny = readiness.firstDeny().orElseThrow();
-            builder.lore(messages.component("gui.conflict.blocked", player));
-            builder.lore(messages.denyLore(deny.key(), deny.placeholders(), player));
+            builder.lore(LoreBlocks.blocked(messages, player, "gui.style.status.unavailable", deny.key(), deny.placeholders(), start));
         }
         return builder.build();
     }
@@ -93,7 +94,7 @@ public final class ConflictLore {
                 ph.put("loot", trimmed(cfg.getDouble("siege.instant-loot.money-percent-base", 20.0)));
                 ph.put("loot_cap", trimmed(cfg.getDouble("siege.instant-loot.money-percent-cap", 35.0)));
                 ph.put("daily", String.valueOf(cfg.getLong("siege.reparations.daily-amount", 300L)));
-                ph.put("fee", String.valueOf(cfg.getLong("siege.declare-treasury-fee", 500L)));
+                ph.put("fee", me.lovelace.loveclans.util.CoinFormat.format(cfg.getLong("siege.declare-treasury-fee", 500L)));
             }
             case RAID -> {
                 ph.put("pre", String.valueOf(cfg.getInt("raid.pre-start-minutes", 5)));
@@ -158,9 +159,10 @@ public final class ConflictLore {
         }
         boolean sharedBlock = denies.size() == ConflictType.values().length
                 && denies.stream().allMatch(d -> d.key().equals(denies.get(0).key()));
+        LoreBlocks.Hint choose = LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.conflict.summary.action");
         if (sharedBlock) {
-            builder.lore(messages.component("gui.conflict.blocked", player));
-            builder.lore(messages.denyLore(denies.get(0).key(), denies.get(0).placeholders(), player));
+            builder.lore(LoreBlocks.blocked(messages, player, "gui.style.status.unavailable",
+                    denies.get(0).key(), denies.get(0).placeholders(), choose));
         } else {
             for (ConflictType type : ConflictType.values()) {
                 Map<String, String> typePh = Map.of("type", messages.raw("gui.conflict." + type.key() + ".short"));
@@ -176,8 +178,10 @@ public final class ConflictLore {
                 }
             }
         }
-        builder.lore(Component.empty());
-        builder.lore(messages.component("gui.conflict.summary.action", player));
+        if (!sharedBlock) {
+            builder.lore(Component.empty());
+            builder.lore(LoreBlocks.clicks(messages, player, List.of(choose)));
+        }
         return builder.build();
     }
 
@@ -210,7 +214,8 @@ public final class ConflictLore {
             });
         }
         builder.lore(Component.empty());
-        builder.lore(messages.component("gui.conflict.summary.active-action", player));
+        builder.lore(LoreBlocks.clicks(messages, player, List.of(
+                LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.conflict.summary.active-action"))));
         return builder.build();
     }
 

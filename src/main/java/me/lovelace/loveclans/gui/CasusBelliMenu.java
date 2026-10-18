@@ -4,9 +4,9 @@ import dev.lovelace.lovecore.api.LoveCore;
 import dev.lovelace.lovecore.api.economy.LoveEconomy;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
-import me.lovelace.loveclans.model.history.ConflictRecord;
-import me.lovelace.loveclans.model.modifier.ClanModifier;
+import me.lovelace.loveclans.service.MessageService;
 import me.lovelace.loveclans.util.CasusPrices;
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -20,7 +20,7 @@ import java.util.*;
 
 /**
  * Меню оформления повода к войне / осаде (Casus Belli) у Гильдмастера.
- * Стандарт gui-gen-5 (54 слота).
+ * Стандарт gui-gen-6 (54 слота). Весь текст живёт в lang.yml, ветка {@code gui.casus-belli}.
  */
 public final class CasusBelliMenu {
     private static final int INVENTORY_SIZE = 54;
@@ -73,40 +73,50 @@ public final class CasusBelliMenu {
         this.plugin = plugin;
     }
 
+    private MessageService messages() {
+        return plugin.getMessages();
+    }
+
+    private String typeName(String conflictType) {
+        return messages().raw("gui.casus-belli.type." + (conflictType.equalsIgnoreCase("WAR") ? "war" : "siege"));
+    }
+
+    /** Type switch in the header: the selected one is marked in its name, the other one carries the click hint. */
+    private ItemStack tabItem(Material material, boolean war, boolean selected, Player player) {
+        String base = "gui.casus-belli.tab." + (war ? "war" : "siege");
+        ItemBuilder builder = ItemBuilder.of(material)
+                .name(messages().component(base + (selected ? ".name-selected" : ".name"), player))
+                .lore(messages().components(base + ".lore", Map.of("level",
+                        String.valueOf(plugin.getConfig().getInt("siege.min-attacker-clan-level", 5))), player));
+        if (!selected) {
+            builder.lore(LoreBlocks.clicks(messages(), player,
+                    List.of(LoreBlocks.hint(messages(), LoreBlocks.Click.LEFT, base + ".action"))));
+        }
+        return builder.build();
+    }
+
     public void open(Player player, Clan clan) {
         openTargetSelect(player, clan, "WAR", 0);
     }
 
     public void openTargetSelect(Player player, Clan clan, String conflictType, int page) {
         Holder holder = new Holder(clan.id(), Stage.TARGET_SELECT, conflictType, null, page);
-        String typeTitle = conflictType.equalsIgnoreCase("WAR") ? "Война" : "Осада";
         Inventory inventory = Bukkit.createInventory(holder, INVENTORY_SIZE,
-                Component.text("§8Казус белли: §6Выбор цели (" + typeTitle + ")"));
+                messages().component("gui.casus-belli.title-target", Map.of("type", typeName(conflictType)), player));
         holder.setInventory(inventory);
 
         GuiFrames.fillFrame54(inventory);
 
         // Слот 0: Инфо
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
-                .name(Component.text("§6Оформление повода"))
-                .lore(Component.text("§7Выберите тип конфликта и клан-цель,"))
-                .lore(Component.text("§7чтобы перейти к выбору поводов."))
+                .name(messages().component("gui.casus-belli.info.name", player))
+                .lore(messages().components("gui.casus-belli.info.lore", player))
                 .build());
 
         // Header кнопки переключения типа: слоты 3 и 5 (динамическое центрирование по gui-gen-5)
         boolean isWar = conflictType.equalsIgnoreCase("WAR");
-        inventory.setItem(SLOT_TAB_WAR, ItemBuilder.of(Material.IRON_SWORD)
-                .name(Component.text(isWar ? "§a▶ Война (Выбрано)" : "§7Война"))
-                .lore(Component.text("§7Открытый конфликт за честь и репарации."))
-                .lore(Component.text("§eНажмите для переключения"))
-                .build());
-
-        inventory.setItem(SLOT_TAB_SIEGE, ItemBuilder.of(Material.CAMPFIRE)
-                .name(Component.text(!isWar ? "§a▶ Осада (Выбрано)" : "§7Осада"))
-                .lore(Component.text("§7Штурм периметра с лагерями и трофеями."))
-                .lore(Component.text("§7Требует 5 ур. клана атакующего."))
-                .lore(Component.text("§eНажмите для переключения"))
-                .build());
+        inventory.setItem(SLOT_TAB_WAR, tabItem(Material.IRON_SWORD, true, isWar, player));
+        inventory.setItem(SLOT_TAB_SIEGE, tabItem(Material.CAMPFIRE, false, !isWar, player));
 
         // Working zone: список доступных кланов
         List<Clan> targets = plugin.getClanManager().getAllClans().stream()
@@ -129,32 +139,34 @@ public final class CasusBelliMenu {
             Material emblem = target.emblem() != null && target.emblem().name().endsWith("_BANNER")
                     ? target.emblem() : Material.WHITE_BANNER;
             inventory.setItem(slot, ItemBuilder.of(emblem)
-                    .name(Component.text("§eКлан §f" + target.name() + " §7[" + target.tag() + "]"))
-                    .lore(Component.text("§7Уровень клана: §b" + target.level()))
-                    .lore(Component.text("§7Участников: §f" + target.members().size()))
-                    .lore(Component.empty())
-                    .lore(Component.text("§eНажмите, чтобы выбрать повод"))
+                    .name(messages().component("gui.casus-belli.target.name",
+                            Map.of("name", target.name(), "tag", target.tag()), player))
+                    .lore(messages().components("gui.casus-belli.target.lore", Map.of(
+                            "level", String.valueOf(target.level()),
+                            "members", String.valueOf(target.members().size())), player))
+                    .lore(LoreBlocks.clicks(messages(), player, List.of(
+                            LoreBlocks.hint(messages(), LoreBlocks.Click.LEFT, "gui.casus-belli.target.action"))))
                     .build());
         }
 
         // Пагинация в слотах 36 и 44
         if (safePage > 0) {
             inventory.setItem(SLOT_PREV_PAGE, ItemBuilder.head(ItemBuilder.HEAD_PREVIOUS)
-                    .name(Component.text("§e← Предыдущая страница"))
+                    .name(messages().component("gui.previous-page", player))
                     .build());
         }
         if (safePage < maxPages - 1) {
             inventory.setItem(SLOT_NEXT_PAGE, ItemBuilder.head(ItemBuilder.HEAD_NEXT)
-                    .name(Component.text("§eСледующая страница →"))
+                    .name(messages().component("gui.next-page", player))
                     .build());
         }
 
         // Footer
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
-                .name(Component.text("§7Назад к Гильдмастеру"))
+                .name(messages().component("gui.casus-belli.back-guildmaster", player))
                 .build());
         inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
-                .name(Component.text("§cЗакрыть"))
+                .name(messages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
@@ -168,29 +180,25 @@ public final class CasusBelliMenu {
         }
 
         Holder holder = new Holder(clan.id(), Stage.REASON_SELECT, conflictType, targetClanId, 0);
-        String typeTitle = conflictType.equalsIgnoreCase("WAR") ? "Война" : "Осада";
+        String typeTitle = typeName(conflictType);
         Inventory inventory = Bukkit.createInventory(holder, INVENTORY_SIZE,
-                Component.text("§8Повод: §6" + targetClan.name() + " §8(" + typeTitle + ")"));
+                messages().component("gui.casus-belli.title-reason", Map.of("target", targetClan.name(), "type", typeTitle), player));
         holder.setInventory(inventory);
 
         GuiFrames.fillFrame54(inventory);
 
         // Слот 0: эмблема цели
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
-                .name(Component.text("§6Цель: §f" + targetClan.name() + " §7[" + targetClan.tag() + "]"))
-                .lore(Component.text("§7Тип: §e" + typeTitle))
-                .lore(Component.text("§7Уровень атакующего: §b" + clan.level()))
-                .lore(Component.text("§7Уровень цели: §b" + targetClan.level()))
+                .name(messages().component("gui.casus-belli.reason-info.name",
+                        Map.of("name", targetClan.name(), "tag", targetClan.tag()), player))
+                .lore(messages().components("gui.casus-belli.reason-info.lore", Map.of("type", typeTitle,
+                        "attacker", String.valueOf(clan.level()), "target", String.valueOf(targetClan.level())), player))
                 .build());
 
         // Header переключатели
         boolean isWar = conflictType.equalsIgnoreCase("WAR");
-        inventory.setItem(SLOT_TAB_WAR, ItemBuilder.of(Material.IRON_SWORD)
-                .name(Component.text(isWar ? "§a▶ Война" : "§7Переключить на Войну"))
-                .build());
-        inventory.setItem(SLOT_TAB_SIEGE, ItemBuilder.of(Material.CAMPFIRE)
-                .name(Component.text(!isWar ? "§a▶ Осада" : "§7Переключить на Осаду"))
-                .build());
+        inventory.setItem(SLOT_TAB_WAR, tabItem(Material.IRON_SWORD, true, isWar, player));
+        inventory.setItem(SLOT_TAB_SIEGE, tabItem(Material.CAMPFIRE, false, !isWar, player));
 
         // Проверка уровней для осады
         String siegeError = null;
@@ -199,11 +207,11 @@ public final class CasusBelliMenu {
             int minDefender = plugin.getConfig().getInt("siege.min-defender-clan-level", 4);
             int gapMax = plugin.getConfig().getInt("siege.level-gap-max", 8);
             if (clan.level() < minAttacker) {
-                siegeError = "Клан слишком слаб для осады (требуется ур. " + minAttacker + ")";
+                siegeError = messages().raw("gui.casus-belli.siege-error.attacker-level").replace("<min>", String.valueOf(minAttacker));
             } else if (targetClan.level() < minDefender) {
-                siegeError = "Цель ещё не готова к осаде (требуется ур. " + minDefender + ")";
+                siegeError = messages().raw("gui.casus-belli.siege-error.defender-level").replace("<min>", String.valueOf(minDefender));
             } else if (clan.level() - targetClan.level() > gapMax) {
-                siegeError = "Нельзя осаждать слабейших (разница > " + gapMax + " уровней)";
+                siegeError = messages().raw("gui.casus-belli.siege-error.level-gap").replace("<max>", String.valueOf(gapMax));
             }
         }
 
@@ -217,7 +225,7 @@ public final class CasusBelliMenu {
             ReasonEntry entry = justReasons.get(i);
             int slot = justSlots[i];
             holder.reasonSlots.put(slot, entry);
-            inventory.setItem(slot, renderReasonItem(entry));
+            inventory.setItem(slot, renderReasonItem(entry, player));
         }
 
         // Раскладка Frivolous (справа: 23, 24, 32, 33, 41, 42)
@@ -226,15 +234,15 @@ public final class CasusBelliMenu {
             ReasonEntry entry = frivolousReasons.get(i);
             int slot = frivSlots[i];
             holder.reasonSlots.put(slot, entry);
-            inventory.setItem(slot, renderReasonItem(entry));
+            inventory.setItem(slot, renderReasonItem(entry, player));
         }
 
         // Footer
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
-                .name(Component.text("§7Назад к выбору цели"))
+                .name(messages().component("gui.casus-belli.back-target", player))
                 .build());
         inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
-                .name(Component.text("§cЗакрыть"))
+                .name(messages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
@@ -296,7 +304,7 @@ public final class CasusBelliMenu {
             ReasonEntry entry = holder.reasonSlots.get(slot);
             if (entry != null) {
                 if (!entry.available) {
-                    player.sendMessage(Component.text("§cПовод недоступен: " + entry.unavailableReason));
+                    messages().send(player, "gui.casus-belli.message.unavailable", Map.of("reason", entry.unavailableReason()));
                     player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
                     return;
                 }
@@ -308,7 +316,7 @@ public final class CasusBelliMenu {
     private void purchaseCasusBelli(Player player, Clan clan, UUID targetClanId, String conflictType, ReasonEntry entry) {
         Clan targetClan = plugin.getClanManager().getClanById(targetClanId).orElse(null);
         if (targetClan == null) {
-            player.sendMessage(Component.text("§cЦелевой клан не найден."));
+            messages().send(player, "gui.casus-belli.message.target-missing");
             return;
         }
 
@@ -327,7 +335,7 @@ public final class CasusBelliMenu {
         }
 
         if (!paid) {
-            player.sendMessage(Component.text("§cНедостаточно средств для оформления! Требуется: §e" + cost + "⛃"));
+            messages().send(player, "gui.casus-belli.message.not-enough-money", Map.of("cost", CoinFormat.format(cost)));
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
             return;
         }
@@ -346,7 +354,7 @@ public final class CasusBelliMenu {
         }
 
         player.playSound(player.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 1f, 1f);
-        player.sendMessage(Component.text("§aКазус белли успешно оформлен! Предмет добавлен в ваш инвентарь."));
+        messages().send(player, "gui.casus-belli.message.issued");
         player.closeInventory();
     }
 
@@ -361,33 +369,33 @@ public final class CasusBelliMenu {
 
         // 1. revenge_raid
         boolean hasRaid = plugin.getModifierManager().hasJustCasus(clan.id(), targetClan.id(), conflictType, "revenge_raid");
-        list.add(new ReasonEntry("revenge_raid", "Месть за набег", price(true, "revenge_raid", isWar), true,
+        list.add(new ReasonEntry("revenge_raid", reasonTitle("revenge_raid"), price(true, "revenge_raid", isWar), true,
                 siegeError == null && hasRaid,
-                siegeError != null ? siegeError : "Требуется недавний набег цели на ваш клан"));
+                siegeError != null ? siegeError : reasonHint("revenge_raid")));
 
         // 2. revenge_war
         boolean hasWar = plugin.getModifierManager().hasJustCasus(clan.id(), targetClan.id(), conflictType, "revenge_war");
-        list.add(new ReasonEntry("revenge_war", "Месть за войну", price(true, "revenge_war", isWar), true,
+        list.add(new ReasonEntry("revenge_war", reasonTitle("revenge_war"), price(true, "revenge_war", isWar), true,
                 siegeError == null && hasWar,
-                siegeError != null ? siegeError : "Требуется поражение в недавней войне от цели"));
+                siegeError != null ? siegeError : reasonHint("revenge_war")));
 
         // 3. revenge_siege
         boolean hasSiege = plugin.getModifierManager().hasJustCasus(clan.id(), targetClan.id(), conflictType, "revenge_siege");
-        list.add(new ReasonEntry("revenge_siege", "Месть за осаду", price(true, "revenge_siege", isWar), true,
+        list.add(new ReasonEntry("revenge_siege", reasonTitle("revenge_siege"), price(true, "revenge_siege", isWar), true,
                 siegeError == null && hasSiege,
-                siegeError != null ? siegeError : "Требуется недавняя осада от цели"));
+                siegeError != null ? siegeError : reasonHint("revenge_siege")));
 
         // 4. unpaid_tribute
         boolean hasTribute = plugin.getModifierManager().hasJustCasus(clan.id(), targetClan.id(), conflictType, "unpaid_tribute");
-        list.add(new ReasonEntry("unpaid_tribute", "Неуплата дани", price(true, "unpaid_tribute", isWar), true,
+        list.add(new ReasonEntry("unpaid_tribute", reasonTitle("unpaid_tribute"), price(true, "unpaid_tribute", isWar), true,
                 siegeError == null && hasTribute,
-                siegeError != null ? siegeError : "Требуется задолженность по выплате дани цели вам"));
+                siegeError != null ? siegeError : reasonHint("unpaid_tribute")));
 
         // 5. broken_peace
         boolean hasBroken = plugin.getModifierManager().hasJustCasus(clan.id(), targetClan.id(), conflictType, "broken_peace");
-        list.add(new ReasonEntry("broken_peace", "Нарушение мира", price(true, "broken_peace", isWar), true,
+        list.add(new ReasonEntry("broken_peace", reasonTitle("broken_peace"), price(true, "broken_peace", isWar), true,
                 siegeError == null && hasBroken,
-                siegeError != null ? siegeError : "Требуется нарушение мирного договора или эмбарго"));
+                siegeError != null ? siegeError : reasonHint("broken_peace")));
 
         return list;
     }
@@ -396,34 +404,46 @@ public final class CasusBelliMenu {
         boolean isWar = conflictType.equalsIgnoreCase("WAR");
 
         List<ReasonEntry> list = new ArrayList<>();
-        list.add(new ReasonEntry("insult", "Оскорбление чести", price(false, "insult", isWar), false, siegeError == null, siegeError));
-        list.add(new ReasonEntry("dislike", "Просто не нравятся", price(false, "dislike", isWar), false, siegeError == null, siegeError));
-        list.add(new ReasonEntry("looked_wrong", "Криво посмотрели на знамя", price(false, "looked_wrong", isWar), false, siegeError == null, siegeError));
-        list.add(new ReasonEntry("bad_fashion", "Уродские щиты", price(false, "bad_fashion", isWar), false, siegeError == null, siegeError));
-        list.add(new ReasonEntry("land_envy", "Зависть к землям", price(false, "land_envy", isWar), false, siegeError == null, siegeError));
-        list.add(new ReasonEntry("drunk_dare", "Пьяный спор в таверне", price(false, "drunk_dare", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("insult", reasonTitle("insult"), price(false, "insult", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("dislike", reasonTitle("dislike"), price(false, "dislike", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("looked_wrong", reasonTitle("looked_wrong"), price(false, "looked_wrong", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("bad_fashion", reasonTitle("bad_fashion"), price(false, "bad_fashion", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("land_envy", reasonTitle("land_envy"), price(false, "land_envy", isWar), false, siegeError == null, siegeError));
+        list.add(new ReasonEntry("drunk_dare", reasonTitle("drunk_dare"), price(false, "drunk_dare", isWar), false, siegeError == null, siegeError));
 
         return list;
     }
 
-    private ItemStack renderReasonItem(ReasonEntry entry) {
+    private String reasonTitle(String reasonId) {
+        return messages().raw("gui.casus-belli.reason." + reasonId + ".title");
+    }
+
+    private String reasonHint(String reasonId) {
+        return messages().raw("gui.casus-belli.reason." + reasonId + ".unavailable");
+    }
+
+    private ItemStack renderReasonItem(ReasonEntry entry, Player player) {
+        Map<String, String> ph = Map.of("title", entry.title(), "cost", CoinFormat.format(entry.cost()));
+        LoreBlocks.Hint issue = LoreBlocks.hint(messages(), LoreBlocks.Click.LEFT, "gui.casus-belli.reason-item.action");
         if (!entry.available) {
             return ItemBuilder.of(Material.GRAY_DYE)
-                    .name(Component.text("§7" + entry.title))
-                    .lore(Component.text("§cНедоступно"))
-                    .lore(Component.text("§7Причина: §c" + entry.unavailableReason))
+                    .name(messages().component("gui.casus-belli.reason-item.name-unavailable", ph, player))
+                    .lore(messages().component("gui.casus-belli.reason-item.cost", ph, player))
                     .lore(Component.empty())
-                    .lore(Component.text("§8Цена оформления: §7" + entry.cost + "⛃"))
+                    .lore(LoreBlocks.blockedLines(messages(), player, "gui.style.status.unavailable",
+                            List.of(messages().component("gui.style.reason", Map.of("reason", String.valueOf(entry.unavailableReason())), player)),
+                            issue))
                     .build();
         }
 
         Material mat = entry.isJust ? Material.LIME_BANNER : Material.ORANGE_BANNER;
         return ItemBuilder.of(mat)
-                .name(Component.text((entry.isJust ? "§a" : "§6") + entry.title))
-                .lore(Component.text("§7Категория: " + (entry.isJust ? "§aСправедливый повод" : "§6Шуточный/ничтожный")))
-                .lore(Component.text("§7Цена оформления: §e" + entry.cost + "⛃"))
-                .lore(Component.empty())
-                .lore(Component.text("§eНажмите для оформления"))
+                .name(messages().component(entry.isJust ? "gui.casus-belli.reason-item.name-just"
+                        : "gui.casus-belli.reason-item.name-frivolous", ph, player))
+                .lore(messages().component(entry.isJust ? "gui.casus-belli.reason-item.category-just"
+                        : "gui.casus-belli.reason-item.category-frivolous", player))
+                .lore(messages().component("gui.casus-belli.reason-item.cost", ph, player))
+                .lore(LoreBlocks.clicks(messages(), player, List.of(issue)))
                 .build();
     }
 

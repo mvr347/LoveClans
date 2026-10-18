@@ -82,7 +82,7 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
                     ItemBuilder builder = ItemBuilder.of(emblemMaterial)
                             .name(plugin.getMessages().component("gui.player-applications.application-item.name",
                                     Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "name", targetClan.name()), player))
-                            .lore(plugin.getMessages().component("gui.player-applications.application-item.lore", player));
+                            .lore(plugin.getMessages().components("gui.player-applications.application-item.lore", player));
                     builder.mutate(meta -> meta.getPersistentDataContainer()
                             .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING,
                                     APPLICATION_TAG + application.clanId()));
@@ -93,7 +93,7 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
                     ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_INVITE)
                             .name(plugin.getMessages().component("gui.player-applications.invite-item.name",
                                     Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "name", targetClan.name()), player))
-                            .lore(plugin.getMessages().component("gui.player-applications.invite-item.left-click-accept", player))
+                            .lore(plugin.getMessages().components("gui.player-applications.invite-item.left-click-accept", player))
                             .lore(plugin.getMessages().component("gui.player-applications.invite-item.right-click-decline", player));
                     builder.mutate(meta -> meta.getPersistentDataContainer()
                             .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING,

@@ -181,12 +181,13 @@ public final class ClanInfoMenu implements InventoryHolder {
             if (clan.isOpen()) {
                 inventory.setItem(applySlot, ItemBuilder.head(ItemBuilder.HEAD_INVITE)
                         .name(plugin.getMessages().component("gui.info.apply.name", player))
-                        .lore(plugin.getMessages().component("gui.info.apply.lore", player))
+                        .lore(plugin.getMessages().components("gui.info.apply.lore", player))
                         .build());
             } else {
                 inventory.setItem(applySlot, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                         .name(plugin.getMessages().component("gui.info.apply-closed.name", player))
-                        .lore(plugin.getMessages().reason("gui.info.apply-closed.lore", player))
+                        .lore(LoreBlocks.blockedReason(plugin.getMessages(), player, "gui.info.apply-closed.lore", Map.of(),
+                                LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.info.apply-closed.action")))
                         .build());
             }
         } else {

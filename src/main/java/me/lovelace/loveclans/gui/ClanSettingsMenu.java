@@ -33,23 +33,23 @@ public final class ClanSettingsMenu {
 
         inventory.setItem(10, ItemBuilder.head(HeadTextures.HEAD_NAME)
                 .name(plugin.getMessages().component("gui.settings.rename.name", player))
-                .lore(plugin.getMessages().component("gui.settings.rename.lore", player))
+                .lore(plugin.getMessages().components("gui.settings.rename.lore", player))
                 .build());
 
         inventory.setItem(12, ItemBuilder.head(HeadTextures.HEAD_TAG)
                 .name(plugin.getMessages().component("gui.settings.change-tag.name", player))
-                .lore(plugin.getMessages().component("gui.settings.change-tag.lore", player))
+                .lore(plugin.getMessages().components("gui.settings.change-tag.lore", player))
                 .build());
 
         Material emblemMaterial = clan.emblem().name().endsWith("_BANNER") ? clan.emblem() : Material.WHITE_BANNER;
         inventory.setItem(14, ItemBuilder.of(emblemMaterial)
                 .name(plugin.getMessages().component("gui.settings.change-banner.name", player))
-                .lore(plugin.getMessages().component("gui.settings.change-banner.lore", player))
+                .lore(plugin.getMessages().components("gui.settings.change-banner.lore", player))
                 .build());
 
         inventory.setItem(16, ItemBuilder.head(HeadTextures.HEAD_COLOR)
                 .name(plugin.getMessages().component("gui.settings.change-color.name", player))
-                .lore(plugin.getMessages().component("gui.settings.change-color.lore",
+                .lore(plugin.getMessages().components("gui.settings.change-color.lore",
                         Map.of("preview", clan.coloredTag()), player))
                 .build());
 
@@ -57,23 +57,23 @@ public final class ClanSettingsMenu {
         if (clan.isOpen()) {
             inventory.setItem(19, ItemBuilder.head(HeadTextures.HEAD_OPEN)
                     .name(plugin.getMessages().component("gui.settings.status.open.name", player))
-                    .lore(plugin.getMessages().component("gui.settings.status.open.lore", player))
+                    .lore(plugin.getMessages().components("gui.settings.status.open.lore", player))
                     .build());
         } else {
             inventory.setItem(19, ItemBuilder.head(HeadTextures.HEAD_CLOSED)
                     .name(plugin.getMessages().component("gui.settings.status.closed.name", player))
-                    .lore(plugin.getMessages().component("gui.settings.status.closed.lore", player))
+                    .lore(plugin.getMessages().components("gui.settings.status.closed.lore", player))
                     .build());
         }
 
         inventory.setItem(22, ItemBuilder.head(HeadTextures.HEAD_ROLES)
                 .name(plugin.getMessages().component("gui.settings.roles.name", player))
-                .lore(plugin.getMessages().component("gui.settings.roles.lore", player))
+                .lore(plugin.getMessages().components("gui.settings.roles.lore", player))
                 .build());
 
         inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
                 .name(plugin.getMessages().component("gui.settings.disband.name", player))
-                .lore(plugin.getMessages().component("gui.settings.disband.lore", player))
+                .lore(plugin.getMessages().components("gui.settings.disband.lore", player))
                 .build());
 
         inventory.setItem(34, ItemBuilder.head(ItemBuilder.HEAD_BACK)

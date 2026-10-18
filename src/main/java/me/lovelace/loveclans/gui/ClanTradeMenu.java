@@ -156,7 +156,7 @@ public final class ClanTradeMenu {
         plugin.getClanTradeSessionManager().activeSessionForClan(clan.id()).ifPresent(session ->
                 inventory.setItem(SLOT_SESSION, ItemBuilder.head(ItemBuilder.HEAD_TRADE)
                         .name(plugin.getMessages().component("gui.trade.active-session.name", player))
-                        .lore(plugin.getMessages().component("gui.trade.active-session.lore", player))
+                        .lore(plugin.getMessages().components("gui.trade.active-session.lore", player))
                         .glow(true)
                         .build()));
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)
@@ -265,10 +265,10 @@ public final class ClanTradeMenu {
                         Map.of("influence", String.valueOf(target.influence())), player))
                 .lore(net.kyori.adventure.text.Component.empty());
         if (reason != null) {
-            builder.lore(plugin.getMessages().component("gui.trade.clan.blocked",
+            builder.lore(plugin.getMessages().components("gui.trade.clan.blocked",
                     Map.of("reason", plugin.getMessages().raw(reason)), player));
         } else {
-            builder.lore(plugin.getMessages().component("gui.trade.clan.hint", player));
+            builder.lore(plugin.getMessages().components("gui.trade.clan.hint", player));
         }
         return builder.build();
     }
@@ -341,7 +341,7 @@ public final class ClanTradeMenu {
         if (!clan.isRecognized()) {
             inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.trade.state.unrecognized.name", player))
-                    .lore(plugin.getMessages().reason("gui.trade.state.unrecognized.lore", player))
+                    .lore(LoreBlocks.blockedReason(plugin.getMessages(), player, "gui.trade.state.unrecognized.lore", Map.of(), null))
                     .build());
             return 0;
         }
@@ -382,9 +382,9 @@ public final class ClanTradeMenu {
                     .lore(plugin.getMessages().component("gui.trade.state.item.have", Map.of("amount", String.valueOf(have)), player))
                     .lore(net.kyori.adventure.text.Component.empty());
             if (order.isFull() || allowance <= 0) {
-                builder.lore(plugin.getMessages().component("gui.trade.state.item.closed", player));
+                builder.lore(plugin.getMessages().components("gui.trade.state.item.closed", player));
             } else {
-                builder.lore(plugin.getMessages().component("gui.trade.state.item.hint-stack", player))
+                builder.lore(plugin.getMessages().components("gui.trade.state.item.hint-stack", player))
                         .lore(plugin.getMessages().component("gui.trade.state.item.hint-all", player));
             }
             slotMap.put(slots[i], new Entry(null, null, material));

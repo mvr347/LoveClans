@@ -121,11 +121,8 @@ public final class GuildmasterMenu {
                     .lore(plugin.getMessages().components("gui.guildmaster.button.clans.lore", player))
                     .build();
             case CASUS_BELLI -> ItemBuilder.of(org.bukkit.Material.WRITTEN_BOOK)
-                    .name(Component.text("§6Оформить повод к войне"))
-                    .lore(Component.text("§7Получение казус белли для объявления"))
-                    .lore(Component.text("§7войны или осады вражескому клану."))
-                    .lore(Component.empty())
-                    .lore(Component.text("§eНажмите для оформления"))
+                    .name(plugin.getMessages().component("gui.guildmaster.button.casus.name", player))
+                    .lore(plugin.getMessages().components("gui.guildmaster.button.casus.lore", player))
                     .build();
         };
     }

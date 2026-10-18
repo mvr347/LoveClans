@@ -13,6 +13,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -98,27 +99,25 @@ public final class ClanMainMenu implements InventoryHolder {
 
         boolean hasTerritory = clan.hasCapital();
         boolean diplomacyActive = canManageDiplomacy && hasTerritory;
-        ItemBuilder diplomacyItem = diplomacyActive
-                ? ItemBuilder.head(ItemBuilder.HEAD_DIPLOMACY)
-                : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE);
-        diplomacyItem.name(plugin.getMessages().component("gui.main.diplomacy.name", player))
-                .lore(!canManageDiplomacy ? plugin.getMessages().reason("gui.main.diplomacy.no-permission-lore", player)
-                        : !hasTerritory ? plugin.getMessages().reason("gui.main.no-territory-lore", player)
-                        : plugin.getMessages().component("gui.main.diplomacy.lore", player));
-        inventory.setItem(SLOT_DIPLOMACY, withOpenHint(diplomacyItem).build());
-
-        boolean upgradesInactive = atWar || !canUpgrade;
-        ItemBuilder upgradesItem = upgradesInactive
-                ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                : ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE);
-        upgradesItem.name(plugin.getMessages().component("gui.main.upgrades.name", player))
-                .lore(plugin.getMessages().component("gui.main.upgrades.lore", player));
-        if (atWar) {
-            upgradesItem.lore(plugin.getMessages().denyLore("gui.capital.war-blocked", Map.of(), player));
-        } else if (!canUpgrade) {
-            upgradesItem.lore(plugin.getMessages().reason("gui.main.upgrades.no-permission-lore", player));
+        if (diplomacyActive) {
+            inventory.setItem(SLOT_DIPLOMACY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_DIPLOMACY)
+                    .name(plugin.getMessages().component("gui.main.diplomacy.name", player))
+                    .lore(plugin.getMessages().component("gui.main.diplomacy.lore", player))).build());
+        } else {
+            inventory.setItem(SLOT_DIPLOMACY, disabledItem("gui.main.diplomacy.name", "gui.main.diplomacy.lore",
+                    List.of(plugin.getMessages().reason(!canManageDiplomacy
+                            ? "gui.main.diplomacy.no-permission-lore" : "gui.main.no-territory-lore", player))));
         }
-        inventory.setItem(SLOT_UPGRADES, withOpenHint(upgradesItem).build());
+
+        if (atWar || !canUpgrade) {
+            inventory.setItem(SLOT_UPGRADES, disabledItem("gui.main.upgrades.name", "gui.main.upgrades.lore",
+                    atWar ? plugin.getMessages().denyLore("gui.capital.war-blocked", Map.of(), player)
+                            : List.of(plugin.getMessages().reason("gui.main.upgrades.no-permission-lore", player))));
+        } else {
+            inventory.setItem(SLOT_UPGRADES, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
+                    .name(plugin.getMessages().component("gui.main.upgrades.name", player))
+                    .lore(plugin.getMessages().component("gui.main.upgrades.lore", player))).build());
+        }
 
         // Row 3 — clan storage and the spirit
         boolean hasCapital = clan.hasCapital();
@@ -136,10 +135,8 @@ public final class ClanMainMenu implements InventoryHolder {
                         .name(plugin.getMessages().component("gui.main.trade.name", player))
                         .lore(plugin.getMessages().component("gui.main.trade.description", player)))
                         .build()
-                : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                        .name(plugin.getMessages().component("gui.main.trade.name", player))
-                        .lore(plugin.getMessages().reason("gui.main.no-territory-lore", player))
-                        .build());
+                : disabledItem("gui.main.trade.name", "gui.main.trade.description",
+                        List.of(plugin.getMessages().reason("gui.main.no-territory-lore", player))));
 
         inventory.setItem(SLOT_HISTORY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_MAP)
                 .name(plugin.getMessages().component("gui.main.history.name", player))
@@ -150,13 +147,12 @@ public final class ClanMainMenu implements InventoryHolder {
                 .name(plugin.getMessages().component("gui.main.modifiers.name", player))
                 .lore(plugin.getMessages().component("gui.main.modifiers.description", player))).build());
 
-        ItemBuilder settingsItem = canManageSettings
-                ? ItemBuilder.head(ItemBuilder.HEAD_MAIN_SETTINGS)
-                : ItemBuilder.head(ItemBuilder.HEAD_INACTIVE);
-        settingsItem.name(plugin.getMessages().component("gui.main.settings.name", player))
-                .lore(canManageSettings ? plugin.getMessages().component("gui.main.settings.lore", player)
-                        : plugin.getMessages().reason("gui.main.settings.no-permission-lore", player));
-        inventory.setItem(SLOT_SETTINGS, withOpenHint(settingsItem).build());
+        inventory.setItem(SLOT_SETTINGS, canManageSettings
+                ? withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_MAIN_SETTINGS)
+                        .name(plugin.getMessages().component("gui.main.settings.name", player))
+                        .lore(plugin.getMessages().component("gui.main.settings.lore", player))).build()
+                : disabledItem("gui.main.settings.name", "gui.main.settings.lore",
+                        List.of(plugin.getMessages().reason("gui.main.settings.no-permission-lore", player))));
 
         // Footer — standalone menu: no Back button, so Leave Clan (with confirmation) takes slot 52 right before Close
         boolean isLeader = clan.member(player.getUniqueId())
@@ -165,7 +161,7 @@ public final class ClanMainMenu implements InventoryHolder {
         if (!isLeader) {
             inventory.setItem(SLOT_LEAVE, ItemBuilder.head(ItemBuilder.HEAD_LEAVE_CLAN)
                     .name(plugin.getMessages().component("gui.main.leave.name", player))
-                    .lore(plugin.getMessages().component("gui.main.leave.lore", player))
+                    .lore(plugin.getMessages().components("gui.main.leave.lore", player))
                     .build());
         }
 
@@ -176,17 +172,26 @@ public final class ClanMainMenu implements InventoryHolder {
         player.openInventory(inventory);
     }
 
-    /** Standard footer of a main-menu button: an empty line, then the left-click action. */
+    /** Greyed-out main-menu button: disabled name, its description, then status, reason lines and the blocked click. */
+    private ItemStack disabledItem(String nameKey, String descriptionKey, List<Component> reasonLines) {
+        ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                .name(LoreBlocks.disabledName(plugin.getMessages(), player, nameKey))
+                .lore(plugin.getMessages().component(descriptionKey, player))
+                .lore(Component.empty());
+        builder.lore(LoreBlocks.blockedLines(plugin.getMessages(), player, "gui.style.status.unavailable", reasonLines,
+                LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.style.action.open")));
+        return builder.build();
+    }
+
+    /** Standard footer of a main-menu button: an empty line, then the separator and the left-click action. */
     private ItemBuilder withOpenHint(ItemBuilder builder) {
-        return builder.lore(Component.empty()).lore(plugin.getMessages().component("gui.main.open-hint", player));
+        return builder.lore(Component.empty()).lore(plugin.getMessages().components("gui.main.open-hint", player));
     }
 
     private ItemStack chestItem(boolean hasCapital, boolean taxLocked) {
         if (!hasCapital) {
-            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.chest.items-button.name", player))
-                    .lore(plugin.getMessages().reason("gui.capital.no-house-lore", player))
-                    .build();
+            return disabledItem("gui.chest.items-button.name", "gui.chest.items-button.lore",
+                    List.of(plugin.getMessages().reason("gui.capital.no-house-lore", player)));
         }
         if (taxLocked) {
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
@@ -202,10 +207,8 @@ public final class ClanMainMenu implements InventoryHolder {
     /** Treasury button: coins of the clan. */
     private ItemStack treasuryItem(boolean hasCapital) {
         if (!hasCapital) {
-            return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.chest.money-button.name", player))
-                    .lore(plugin.getMessages().reason("gui.capital.no-house-lore", player))
-                    .build();
+            return disabledItem("gui.chest.money-button.name", "gui.chest.money-button.description",
+                    List.of(plugin.getMessages().reason("gui.capital.no-house-lore", player)));
         }
         // Name plus one description line like every other main menu button: balance and tax live in the treasury itself
         return withOpenHint(ItemBuilder.head(clan.isChestTaxLocked() ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST_MONEY)

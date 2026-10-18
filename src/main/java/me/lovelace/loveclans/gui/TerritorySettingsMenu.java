@@ -39,7 +39,7 @@ public class TerritorySettingsMenu implements InventoryHolder {
         // Rename Private
         inventory.setItem(11, ItemBuilder.head(HeadTextures.HEAD_NAME)
                 .name(plugin.getMessages().component("gui.territory-settings.rename-private.name", player))
-                .lore(plugin.getMessages().component("gui.territory-settings.rename-private.lore", player))
+                .lore(plugin.getMessages().components("gui.territory-settings.rename-private.lore", player))
                 .build());
 
         // Toggle PvP
@@ -47,13 +47,13 @@ public class TerritorySettingsMenu implements InventoryHolder {
         String pvpStatus = plugin.getMessages().raw(pvpEnabled ? "gui.territory-settings.pvp.enabled" : "gui.territory-settings.pvp.disabled");
         inventory.setItem(13, ItemBuilder.head(pvpEnabled ? ItemBuilder.HEAD_WOOL_LIME : ItemBuilder.HEAD_WOOL_RED)
                 .name(plugin.getMessages().component("gui.territory-settings.pvp.name", player))
-                .lore(plugin.getMessages().component("gui.territory-settings.pvp.lore", Map.of("status", pvpStatus), player))
+                .lore(plugin.getMessages().components("gui.territory-settings.pvp.lore", Map.of("status", pvpStatus), player))
                 .build());
 
         // Disband Private button
         inventory.setItem(15, ItemBuilder.head(ItemBuilder.HEAD_BARRIER)
                 .name(plugin.getMessages().component("gui.territory-settings.disband-private.name", player))
-                .lore(plugin.getMessages().component("gui.territory-settings.disband-private.lore", player))
+                .lore(plugin.getMessages().components("gui.territory-settings.disband-private.lore", player))
                 .build());
 
         inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)

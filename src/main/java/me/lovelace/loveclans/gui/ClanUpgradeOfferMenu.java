@@ -98,16 +98,20 @@ public final class ClanUpgradeOfferMenu {
         Map<String, String> values = plugin.getUpgradeOffers().describe(clan, option);
 
         ItemBuilder builder = ItemBuilder.head(reason == null ? ClanUpgradesMenu.headFor(option) : ItemBuilder.HEAD_INACTIVE)
-                .name(messages.component("gui.upgrades.option." + key + ".name", player))
-                .lore(messages.component("gui.upgrades.option." + key + ".desc", player))
-                .lore(messages.component("gui.upgrades.option." + key + ".now", values, player));
+                .name(reason == null ? messages.component("gui.upgrades.option." + key + ".name", player)
+                        : LoreBlocks.disabledName(messages, player, "gui.upgrades.option." + key + ".name"))
+                .lore(messages.component("gui.upgrades.option." + key + ".desc", player));
         if (reason == null) {
-            builder.lore(messages.component("gui.upgrades.option." + key + ".after", values, player))
+            builder.lore(Component.empty())
+                    .lore(messages.components("gui.upgrades.option." + key + ".change", values, player))
                     .lore(messages.component("gui.upgrades.option.level", values, player))
                     .lore(Component.empty())
-                    .lore(messages.component("gui.upgrades.option.choose", player));
+                    .lore(messages.components("gui.upgrades.option.choose", player));
         } else {
-            builder.lore(messages.reason("gui.upgrades.unavailable." + reason, player));
+            builder.lore(messages.component("gui.upgrades.option." + key + ".now", values, player))
+                    .lore(Component.empty())
+                    .lore(LoreBlocks.blockedReason(messages, player, "gui.upgrades.unavailable." + reason, Map.of(),
+                            LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.upgrades.option.action")));
         }
         return builder.build();
     }
