@@ -193,7 +193,7 @@ public final class ClanTradeSessionMenu implements Listener {
         if (stage == Stage.CONFIRMED) {
             return ItemBuilder.head(ItemBuilder.HEAD_WOOL_LIME)
                     .name(plugin.getMessages().component("gui.trade-session.locked.name", Map.of("tag", tag, "color", color)))
-                    .lore(plugin.getMessages().component("gui.trade-session.locked.lore"))
+                    .lore(plugin.getMessages().components("gui.trade-session.locked.lore", null))
                     .build();
         }
         boolean review = stage == Stage.REVIEW;
@@ -203,21 +203,21 @@ public final class ClanTradeSessionMenu implements Listener {
                 : (ready ? "gui.trade-session.side.ready" : "gui.trade-session.side.not-ready");
         return ItemBuilder.head(ready ? ItemBuilder.HEAD_WOOL_LIME : ItemBuilder.HEAD_WOOL_RED)
                 .name(plugin.getMessages().component(nameKey, Map.of("tag", tag, "color", color)))
-                .lore(plugin.getMessages().component(loreKey))
+                .lore(plugin.getMessages().components(loreKey, null))
                 .build();
     }
 
     private ItemStack addItemButton() {
         return ItemBuilder.head(ItemBuilder.HEAD_CHEST)
                 .name(plugin.getMessages().component("gui.trade-session.add-item.name"))
-                .lore(plugin.getMessages().component("gui.trade-session.add-item.lore"))
+                .lore(plugin.getMessages().components("gui.trade-session.add-item.lore", null))
                 .build();
     }
 
     private ItemStack moneyButton(long amount) {
         return ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.trade-session.money.name"))
-                .lore(plugin.getMessages().component("gui.trade-session.money.lore", Map.of("amount", CoinFormat.format(amount))))
+                .lore(plugin.getMessages().components("gui.trade-session.money.lore", Map.of("amount", CoinFormat.format(amount)), null))
                 .build();
     }
 

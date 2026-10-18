@@ -8,6 +8,7 @@ import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.siege.ClanSiege;
 import me.lovelace.loveclans.model.siege.SiegeCamp;
 import me.lovelace.loveclans.model.siege.SiegeState;
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -16,12 +17,14 @@ import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
  * Меню укрепления осадного лагеря (27 слотов).
- * Соответствует стандарту gui-gen-5:
+ * Соответствует стандарту gui-gen-6 (текст - в lang.yml, ветка gui.camp-fortify):
  * Header: 0-8 (стекло, 0 - иконка лагеря)
  * Working zone: 9-17 (без стекла, стенки 9 и 17 пусты, центр 13 - кнопка улучшения)
  * Footer: 18-26 (стекло, 26 - кнопка закрытия)
@@ -55,7 +58,7 @@ public final class CampFortifyMenu {
     public void open(Player player, UUID siegeId, int campIndex) {
         Optional<ClanSiege> siegeOpt = plugin.getSiegeManager().findSiegeById(siegeId);
         if (siegeOpt.isEmpty() || siegeOpt.get().state() != SiegeState.ACTIVE) {
-            player.sendMessage(Component.text("§cОсада не активна."));
+            plugin.getMessages().send(player, "gui.camp-fortify.message.inactive");
             return;
         }
         ClanSiege siege = siegeOpt.get();
@@ -70,13 +73,13 @@ public final class CampFortifyMenu {
         }
         SiegeCamp camp = siege.camps().get(campIndex);
         if (camp.broken()) {
-            player.sendMessage(Component.text("§cРазрушенный лагерь нельзя укрепить до его восстановления!"));
+            plugin.getMessages().send(player, "gui.camp-fortify.message.broken");
             return;
         }
 
         Holder holder = new Holder(clan.id(), siegeId, campIndex);
         Inventory inventory = Bukkit.createInventory(holder, INVENTORY_SIZE,
-                Component.text("§8Укрепление лагеря §6#" + (campIndex + 1)));
+                plugin.getMessages().component("gui.camp-fortify.title", Map.of("number", String.valueOf(campIndex + 1)), player));
         holder.setInventory(inventory);
 
         // Стандарт gui-gen-5: заливка рамки 27 слотов (1-8 и 18-24 стекло)
@@ -91,9 +94,10 @@ public final class CampFortifyMenu {
 
         // Слот 0: Инфо о лагере
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
-                .name(Component.text("§6Осадный лагерь #" + (campIndex + 1)))
-                .lore(Component.text("§7Текущее укрепление: §e" + currentLevel + " / " + maxLevel))
-                .lore(Component.text("§7Ударов для сноса: §c" + hitsRequired))
+                .name(plugin.getMessages().component("gui.camp-fortify.info.name", Map.of("number", String.valueOf(campIndex + 1)), player))
+                .lore(plugin.getMessages().components("gui.camp-fortify.info.lore", Map.of(
+                        "level", String.valueOf(currentLevel), "max", String.valueOf(maxLevel),
+                        "hits", String.valueOf(hitsRequired)), player))
                 .build());
 
         // Слот 13: Кнопка апгрейда
@@ -105,24 +109,28 @@ public final class CampFortifyMenu {
             long cost = plugin.getSiegeManager().fortifyCost(siegeId, campIndex);
             int nextHits = 1 + (currentLevel + 1) * hitsPerLevel;
 
+            Map<String, String> ph = Map.of(
+                    "level", String.valueOf(currentLevel + 1), "max", String.valueOf(maxLevel),
+                    "hits", String.valueOf(hitsRequired), "next", String.valueOf(nextHits),
+                    "per", String.valueOf(hitsPerLevel), "cost", CoinFormat.format(cost));
             inventory.setItem(SLOT_UPGRADE, ItemBuilder.of(Material.ANVIL)
-                    .name(Component.text("§aУкрепить лагерь (Ур. " + (currentLevel + 1) + " / " + maxLevel + ")"))
-                    .lore(Component.text("§7Увеличивает прочность лагеря на §a+" + hitsPerLevel + " §7удар."))
-                    .lore(Component.text("§7Ударов для сноса станет: §a" + nextHits))
-                    .lore(Component.text("§7Стоимость: §6" + cost + "⛃"))
-                    .lore(Component.empty())
-                    .lore(Component.text("§eНажмите для улучшения"))
+                    .name(plugin.getMessages().component("gui.camp-fortify.upgrade.name", ph, player))
+                    .lore(plugin.getMessages().components("gui.camp-fortify.upgrade.lore", ph, player))
+                    .lore(LoreBlocks.clicks(plugin.getMessages(), player, List.of(
+                            LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.camp-fortify.upgrade.action"))))
                     .build());
         } else {
             inventory.setItem(SLOT_UPGRADE, ItemBuilder.of(Material.BARRIER)
-                    .name(Component.text("§cМаксимальный уровень"))
-                    .lore(Component.text("§7Лагерь максимально укреплён (" + maxLevel + "/" + maxLevel + ")."))
+                    .name(plugin.getMessages().component("gui.camp-fortify.max.name", player))
+                    .lore(plugin.getMessages().components("gui.camp-fortify.max.lore", Map.of("max", String.valueOf(maxLevel)), player))
+                    .lore(LoreBlocks.separator(plugin.getMessages(), player))
+                    .lore(plugin.getMessages().component("gui.style.status.max", player))
                     .build());
         }
 
         // Слот 26: Закрыть
         inventory.setItem(SLOT_CLOSE, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
-                .name(Component.text("§cЗакрыть"))
+                .name(plugin.getMessages().component("gui.close", player))
                 .build());
 
         player.openInventory(inventory);
@@ -144,7 +152,7 @@ public final class CampFortifyMenu {
 
             Optional<ClanSiege> siegeOpt = plugin.getSiegeManager().findSiegeById(siegeId);
             if (siegeOpt.isEmpty() || siegeOpt.get().state() != SiegeState.ACTIVE) {
-                player.sendMessage(Component.text("§cОсада завершена или не активна."));
+                plugin.getMessages().send(player, "gui.camp-fortify.message.finished");
                 player.closeInventory();
                 return;
             }
@@ -156,7 +164,7 @@ public final class CampFortifyMenu {
             Clan clan = clanOpt.get();
 
             if (!clan.hasMember(player.getUniqueId())) {
-                player.sendMessage(Component.text("§cВы не состоите в клане атакующих!"));
+                plugin.getMessages().send(player, "gui.camp-fortify.message.not-member");
                 player.closeInventory();
                 return;
             }
@@ -164,7 +172,7 @@ public final class CampFortifyMenu {
             int currentLevel = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
             int maxLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.max-level", 3));
             if (currentLevel >= maxLevel) {
-                player.sendMessage(Component.text("§cЛагерь уже максимально укреплён!"));
+                plugin.getMessages().send(player, "gui.camp-fortify.message.maxed");
                 return;
             }
 
@@ -186,7 +194,7 @@ public final class CampFortifyMenu {
             }
 
             if (!paid) {
-                player.sendMessage(Component.text("§cНедостаточно средств для улучшения! Требуется: §e" + cost + "⛃"));
+                plugin.getMessages().send(player, "gui.camp-fortify.message.not-enough-money", Map.of("cost", CoinFormat.format(cost)));
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
                 return;
             }
@@ -195,7 +203,8 @@ public final class CampFortifyMenu {
                 player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1f, 1f);
                 int newLevel = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
                 int hitsReq = plugin.getSiegeManager().hitsRequired(siegeId, campIndex);
-                player.sendMessage(Component.text("§aЛагерь #" + (campIndex + 1) + " успешно укреплён до уровня " + newLevel + "! Теперь требуется " + hitsReq + " ударов."));
+                plugin.getMessages().send(player, "gui.camp-fortify.message.fortified", Map.of("number", String.valueOf(campIndex + 1),
+                        "level", String.valueOf(newLevel), "hits", String.valueOf(hitsReq)));
                 open(player, siegeId, campIndex);
             } else {
                 // The siege ended or the camp fell between the check and now: give the money back

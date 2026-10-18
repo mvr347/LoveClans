@@ -55,7 +55,7 @@ public final class ClanRankPermissionsMenu {
             // тумблер, а не набор разнородных тематических иконок.
             ItemBuilder builder = ItemBuilder.head(enabled ? ItemBuilder.HEAD_PERMISSION_ON : ItemBuilder.HEAD_PERMISSION_OFF)
                     .name(plugin.getMessages().component("gui.rank-permissions.permission." + permission.name().toLowerCase(), player))
-                    .lore(plugin.getMessages().component(enabled ? "gui.rank-permissions.enabled" : "gui.rank-permissions.disabled", player));
+                    .lore(plugin.getMessages().components(enabled ? "gui.rank-permissions.enabled" : "gui.rank-permissions.disabled", player));
             if (enabled) builder.glow(true);
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, permission.name()));

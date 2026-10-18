@@ -252,11 +252,16 @@ public final class ClanMembersMenu {
 
         if (clan.hasPermission(player.getUniqueId(), ClanPermission.INVITE)) {
             boolean full = plugin.getClanManager().isClanFull(clan);
-            inventory.setItem(SLOT_INVITE, (full ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE) : ItemBuilder.head(ItemBuilder.HEAD_INVITE))
-                    .name(plugin.getMessages().component("gui.members.invite.name", player))
-                    .lore(full ? plugin.getMessages().reason("gui.members.invite.lore-full", player)
-                            : plugin.getMessages().component("gui.members.invite.lore", player))
-                    .build());
+            inventory.setItem(SLOT_INVITE, full
+                    ? ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
+                            .name(LoreBlocks.disabledName(plugin.getMessages(), player, "gui.members.invite.name"))
+                            .lore(LoreBlocks.blockedReason(plugin.getMessages(), player, "gui.members.invite.lore-full", Map.of(),
+                                    LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.members.invite.action")))
+                            .build()
+                    : ItemBuilder.head(ItemBuilder.HEAD_INVITE)
+                            .name(plugin.getMessages().component("gui.members.invite.name", player))
+                            .lore(plugin.getMessages().components("gui.members.invite.lore", player))
+                            .build());
         } else {
             inventory.setItem(SLOT_INVITE, GuiFrames.glassPane());
         }
@@ -289,7 +294,7 @@ public final class ClanMembersMenu {
                     PlayerActivity act = plugin.getActivityManager().getPlayerActivity(entry.id(), period);
                     builder.lore(net.kyori.adventure.text.Component.empty())
                             .lore(plugin.getMessages().component("gui.members.contribution-item.finance",
-                                    Map.of("amount", String.valueOf(entry.contribution())), viewer))
+                                    Map.of("amount", me.lovelace.loveclans.util.CoinFormat.format(entry.contribution())), viewer))
                             .lore(plugin.getMessages().component("gui.members.contribution-item.activity-total",
                                     Map.of("points", String.valueOf(act != null ? act.total() : 0L)), viewer))
                             .lore(plugin.getMessages().component("gui.members.contribution-item.category-war",
@@ -313,7 +318,7 @@ public final class ClanMembersMenu {
 
                 if (clan.hasPermission(viewer.getUniqueId(), ClanPermission.KICK) && !entry.id().equals(viewer.getUniqueId())) {
                     builder.lore(net.kyori.adventure.text.Component.empty());
-                    builder.lore(plugin.getMessages().component("gui.members.item.hint", viewer));
+                    builder.lore(plugin.getMessages().components("gui.members.item.hint", viewer));
                 }
                 builder.mutate(meta -> {
                     if (meta instanceof SkullMeta skull) skull.setOwningPlayer(offline);
@@ -324,7 +329,7 @@ public final class ClanMembersMenu {
                     .name(plugin.getMessages().component("gui.applications.applicant-item.name", Map.of("player", entry.name()), viewer))
                     .lore(plugin.getMessages().component("gui.applications.applicant-item.applied-at",
                             Map.of("date", new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm").format(new java.util.Date(entry.date()))), viewer))
-                    .lore(plugin.getMessages().component("gui.applications.applicant-item.left-click-accept", viewer))
+                    .lore(plugin.getMessages().components("gui.applications.applicant-item.left-click-accept", viewer))
                     .lore(plugin.getMessages().component("gui.applications.applicant-item.right-click-reject", viewer))
                     .mutate(meta -> {
                         if (meta instanceof SkullMeta skull) skull.setOwningPlayer(offline);

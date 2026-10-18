@@ -146,8 +146,8 @@ public final class ClanChestMoneyMenu implements Listener {
         }
         info.lore(net.kyori.adventure.text.Component.empty());
         if (clan.hasPermission(viewer.getUniqueId(), ClanPermission.BANK)) {
-            info.lore(plugin.getMessages().component("gui.chest.money.balance.deposit-hint", viewer));
-            info.lore(plugin.getMessages().component("gui.chest.money.balance.withdraw-hint", viewer));
+            info.lore(plugin.getMessages().components("gui.chest.money.balance.deposit-hint", viewer));
+            info.lore(plugin.getMessages().components("gui.chest.money.balance.withdraw-hint", viewer));
         }
         inventory.setItem(INFO_SLOT, info.build());
     }

@@ -82,7 +82,7 @@ public final class ClanChestMenu implements Listener {
         for (int slot = unlockedSlots; slot < ChestLayout.STORAGE_SLOTS; slot++) {
             inventory.setItem(slot, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.chest.locked.name", player))
-                    .lore(plugin.getMessages().component("gui.chest.locked.lore", player))
+                    .lore(plugin.getMessages().components("gui.chest.locked.lore", player))
                     .build());
         }
     }

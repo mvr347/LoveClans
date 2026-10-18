@@ -54,7 +54,7 @@ public final class CycleButton {
                     Map.of("name", label), player));
         }
         lore.add(Component.empty());
-        lore.add(plugin.getMessages().component("gui.cycle.hint", player));
+        lore.addAll(plugin.getMessages().components("gui.cycle.hint", player));
         return ItemBuilder.head(headTexture)
                 .name(plugin.getMessages().component(nameKey, player))
                 .lore(lore)

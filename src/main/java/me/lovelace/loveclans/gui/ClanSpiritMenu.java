@@ -30,7 +30,6 @@ public final class ClanSpiritMenu implements InventoryHolder {
     private static final int SLOT_BACK = 25;
     private static final int SLOT_CLOSE = 26;
     private static final int MAX_POWER = 10;
-    private static final int BAR_CELLS = 10;
     private static final int AXIS_CELLS = 21;
 
     private final LoveClansPlugin plugin;
@@ -78,15 +77,15 @@ public final class ClanSpiritMenu implements InventoryHolder {
         ph.put("max", String.valueOf(MAX_POWER));
 
         ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_SPIRIT_STAR)
-                .name(messages.component("gui.spirit.power.name", ph, player));
+                .name(messages.component(level >= MAX_POWER ? "gui.spirit.power.name-max" : "gui.spirit.power.name", ph, player));
         if (level >= MAX_POWER) {
-            builder.lore(messages.component("gui.spirit.power.maximum", player));
+            builder.lore(messages.components("gui.spirit.power.maximum", player));
         } else {
             long next = manager().getExpForNextLevel(level);
             ph.put("energy", String.valueOf(spirit.energy()));
             ph.put("next", String.valueOf(next));
-            ph.put("bar", progressBar(spirit.energy(), next));
-            builder.lore(messages.component("gui.spirit.power.progress", ph, player));
+            ph.put("bar", me.lovelace.loveclans.util.LoreBar.bar(spirit.energy(), next));
+            builder.lore(messages.components("gui.spirit.power.progress", ph, player));
         }
         builder.lore(Component.empty());
 
@@ -201,11 +200,6 @@ public final class ClanSpiritMenu implements InventoryHolder {
 
     private static String signed(int value) {
         return value > 0 ? "+" + value : String.valueOf(value);
-    }
-
-    private static String progressBar(long current, long max) {
-        int filled = max <= 0 ? BAR_CELLS : (int) Math.min(BAR_CELLS, Math.round((double) current / max * BAR_CELLS));
-        return "<green>" + "█".repeat(filled) + "</green><dark_gray>" + "█".repeat(BAR_CELLS - filled) + "</dark_gray>";
     }
 
     /** -100 (defence, aqua) on the left, +100 (offence, red) on the right, a white cell where the clan stands. */

@@ -62,8 +62,6 @@ public final class ClanUpgradesMenu {
         long expForCurrent = plugin.getClanManager().experienceForLevel(clan.level());
         long expForNext = plugin.getClanManager().experienceForLevel(clan.level() + 1);
         long required = expForNext - expForCurrent;
-        double percent = required > 0
-                ? Math.max(0.0D, Math.min(100.0D, (double) (currentExp - expForCurrent) / required * 100.0D)) : 100.0D;
 
         inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_LEVEL_INFO)
                 .name(plugin.getMessages().component("gui.upgrades.level-info.name", player))
@@ -71,7 +69,7 @@ public final class ClanUpgradesMenu {
                         "level", String.valueOf(clan.level()),
                         "current_exp", String.valueOf(currentExp),
                         "next_exp", String.valueOf(expForNext),
-                        "percent", String.format("%.1f", percent)
+                        "bar", me.lovelace.loveclans.util.LoreBar.bar(required > 0 ? currentExp - expForCurrent : 1, Math.max(1, required))
                 ), player))
                 .lore(plugin.getMessages().component("gui.upgrades.points-info.lore",
                         Map.of("points", String.valueOf(clan.upgradePoints())), player))
@@ -91,12 +89,14 @@ public final class ClanUpgradesMenu {
     private void renderAvailable(Inventory inventory, Player player, Clan clan) {
         int pending = plugin.getUpgradeOffers().pendingCount(clan);
         ItemBuilder builder = ItemBuilder.head(pending > 0 ? ItemBuilder.HEAD_QUEST : ItemBuilder.HEAD_INACTIVE)
-                .name(plugin.getMessages().component("gui.upgrades.available.name", player));
+                .name(pending > 0 ? plugin.getMessages().component("gui.upgrades.available.name", player)
+                        : LoreBlocks.disabledName(plugin.getMessages(), player, "gui.upgrades.available.name"));
         if (pending > 0) {
             builder.lore(plugin.getMessages().components("gui.upgrades.available.lore",
                     Map.of("count", String.valueOf(pending)), player)).glow(true);
         } else {
-            builder.lore(plugin.getMessages().reason("gui.upgrades.available.none", player));
+            builder.lore(LoreBlocks.blockedReason(plugin.getMessages(), player, "gui.upgrades.available.none", Map.of(),
+                    LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.upgrades.available.action")));
         }
         inventory.setItem(SLOT_AVAILABLE, builder.build());
     }
@@ -127,7 +127,8 @@ public final class ClanUpgradesMenu {
         boolean chosen = clan.direction().isPresent();
         boolean offered = plugin.getUpgradeOffers().pendingDirection(clan).isPresent();
         ItemBuilder builder = ItemBuilder.head(chosen || offered ? ItemBuilder.HEAD_SPIRIT_ABILITIES : ItemBuilder.HEAD_INACTIVE)
-                .name(messages.component("gui.upgrades.direction-button.name", player));
+                .name(chosen || offered ? messages.component("gui.upgrades.direction-button.name", player)
+                        : LoreBlocks.disabledName(messages, player, "gui.upgrades.direction-button.name"));
         if (chosen) {
             int tier = plugin.getClanBonuses().tier(clan);
             Map<String, String> values = new HashMap<>();
@@ -144,8 +145,9 @@ public final class ClanUpgradesMenu {
         } else if (offered) {
             builder.lore(messages.components("gui.upgrades.direction-button.pending", player)).glow(true);
         } else {
-            builder.lore(messages.reason("gui.upgrades.direction-button.locked",
-                    Map.of("level", String.valueOf(first)), player));
+            builder.lore(LoreBlocks.blockedReason(messages, player, "gui.upgrades.direction-button.locked",
+                    Map.of("level", String.valueOf(first)),
+                    LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.upgrades.direction-button.action")));
         }
         inventory.setItem(SLOT_DIRECTION, builder.build());
     }

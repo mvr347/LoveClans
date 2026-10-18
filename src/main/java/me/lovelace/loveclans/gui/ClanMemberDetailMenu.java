@@ -14,6 +14,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.meta.SkullMeta;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -96,9 +97,12 @@ public final class ClanMemberDetailMenu {
     }
 
     private org.bukkit.inventory.ItemStack item(String headTexture, String nameKey, String loreKey, Player player, UUID targetId) {
+        String base = nameKey.substring(0, nameKey.length() - ".name".length());
         ItemBuilder builder = ItemBuilder.head(headTexture)
                 .name(plugin.getMessages().component(nameKey, player))
-                .lore(plugin.getMessages().component(loreKey, player));
+                .lore(plugin.getMessages().component(loreKey, player))
+                .lore(LoreBlocks.clicks(plugin.getMessages(), player,
+                        List.of(LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, base + ".action"))));
         builder.mutate(meta -> meta.getPersistentDataContainer()
                 .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, targetId.toString()));
         return builder.build();
@@ -107,9 +111,13 @@ public final class ClanMemberDetailMenu {
     // Неактивная кнопка: серая голова, без PDC-тэга — клик по ней не обрабатывается
     // (handleInventoryClick игнорирует слоты без распознанного targetId/действия).
     private org.bukkit.inventory.ItemStack inactiveItem(String nameKey, String reasonKey, Player player) {
+        String base = nameKey.substring(0, nameKey.length() - ".name".length());
         return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                .name(plugin.getMessages().component(nameKey, player))
-                .lore(plugin.getMessages().reason(reasonKey, player))
+                .name(LoreBlocks.disabledName(plugin.getMessages(), player, nameKey))
+                .lore(plugin.getMessages().component(base + ".lore", player))
+                .lore(Component.empty())
+                .lore(LoreBlocks.blockedReason(plugin.getMessages(), player, reasonKey, Map.of(),
+                        LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, base + ".action")))
                 .build();
     }
 

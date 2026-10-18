@@ -13,6 +13,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -84,16 +85,18 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         }
         Optional<GuildShieldService.Block> block = shields().check(clan, player.getUniqueId());
         ItemBuilder builder = ItemBuilder.head(block.isPresent() ? ItemBuilder.HEAD_INACTIVE : ItemBuilder.HEAD_RELATION_ALLIED)
-                .name(messages.component("gui.capital.shield.name", player))
+                .name(block.isPresent() ? LoreBlocks.disabledName(messages, player, "gui.capital.shield.name")
+                        : messages.component("gui.capital.shield.name", player))
                 .lore(messages.components("gui.capital.shield.lore", Map.of(
                         "hours", String.valueOf(plugin.getConfig().getLong("diplomacy.guild-shield.duration-hours", 24L)),
                         "days", String.valueOf(plugin.getConfig().getLong("diplomacy.guild-shield.cooldown-days", 7L))), player));
         builder.lore(Component.empty());
+        LoreBlocks.Hint use = LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.capital.shield.action");
         if (block.isPresent()) {
-            builder.lore(messages.component("gui.capital.unavailable", player));
-            builder.lore(messages.denyLore(block.get().key(), block.get().placeholders(), player));
+            builder.lore(LoreBlocks.blocked(messages, player, "gui.style.status.unavailable",
+                    block.get().key(), block.get().placeholders(), use));
         } else {
-            builder.lore(messages.component("gui.capital.shield.action", player));
+            builder.lore(LoreBlocks.clicks(messages, player, List.of(use)));
         }
         return builder.build();
     }
@@ -102,15 +105,17 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         var messages = plugin.getMessages();
         Optional<CapitalRelocationService.Block> block = relocation().check(clan, player.getUniqueId());
         ItemBuilder builder = ItemBuilder.head(block.isPresent() ? ItemBuilder.HEAD_INACTIVE : ItemBuilder.HEAD_RELOCATE_TERRITORY)
-                .name(messages.component("gui.capital.relocate.name", player))
+                .name(block.isPresent() ? LoreBlocks.disabledName(messages, player, "gui.capital.relocate.name")
+                        : messages.component("gui.capital.relocate.name", player))
                 .lore(messages.components("gui.capital.relocate.lore", Map.of(
                         "hours", String.valueOf(plugin.getConfig().getLong("clans.capital.relocate-cooldown-hours", 72L))), player));
         builder.lore(Component.empty());
+        LoreBlocks.Hint use = LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.capital.relocate.action");
         if (block.isPresent()) {
-            builder.lore(messages.component("gui.capital.unavailable", player));
-            builder.lore(messages.denyLore(block.get().key(), block.get().placeholders(), player));
+            builder.lore(LoreBlocks.blocked(messages, player, "gui.style.status.unavailable",
+                    block.get().key(), block.get().placeholders(), use));
         } else {
-            builder.lore(messages.component("gui.capital.relocate.action", player));
+            builder.lore(LoreBlocks.clicks(messages, player, List.of(use)));
         }
         return builder.build();
     }

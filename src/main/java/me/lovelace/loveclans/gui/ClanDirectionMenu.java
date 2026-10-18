@@ -83,7 +83,7 @@ public final class ClanDirectionMenu {
                     .name(plugin.getMessages().component("gui.direction." + key + ".name", player))
                     .lore(plugin.getMessages().components("gui.direction." + key + ".lore", placeholders(direction), player))
                     .lore(net.kyori.adventure.text.Component.empty())
-                    .lore(plugin.getMessages().component("gui.direction.choose", player))
+                    .lore(plugin.getMessages().components("gui.direction.choose", player))
                     .build());
         }
 

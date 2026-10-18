@@ -13,8 +13,14 @@ class MessageServiceDenyLoreTest {
     }
 
     @Test
-    void reasonLineStartsWithARedCrossAndHasNoPrefix() {
+    void reasonLineIsALabelPlusGrayTextWithoutPrefixOrForeignColors() {
         String template = MessageService.reasonTemplate("<prefix><dark_gray>Нужны права");
-        assertEquals("<red>✘</red> <dark_gray>Нужны права", template);
+        assertEquals("<red>Причина:</red> <gray>Нужны права</gray>", template);
+    }
+
+    @Test
+    void customPlaceholderTagsSurviveColorStripping() {
+        String template = MessageService.reasonTemplate("<prefix><red>Сумма больше <max>");
+        assertEquals("<red>Причина:</red> <gray>Сумма больше <max></gray>", template);
     }
 }

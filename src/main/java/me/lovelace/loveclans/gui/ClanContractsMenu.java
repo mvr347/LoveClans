@@ -100,7 +100,7 @@ public final class ClanContractsMenu {
             lore.add(plugin.getMessages().component("gui.contracts.button.current", Map.of("name", definitionName), player));
             if (progress.completed() && !progress.claimed()) {
                 ready = true;
-                lore.add(plugin.getMessages().component("gui.contracts.button.ready", player));
+                lore.addAll(plugin.getMessages().components("gui.contracts.button.ready", player));
             } else if (progress.claimed()) {
                 lore.add(plugin.getMessages().component("gui.contracts.button.done-this-period", player));
             } else {
@@ -111,7 +111,7 @@ public final class ClanContractsMenu {
             lore.add(plugin.getMessages().component("gui.contracts.button.none-available", player));
         } else {
             lore.add(plugin.getMessages().component("gui.contracts.button.not-taken", player));
-            lore.add(plugin.getMessages().component("gui.contracts.button.choose", player));
+            lore.addAll(plugin.getMessages().components("gui.contracts.button.choose", player));
         }
         lore.add(plugin.getMessages().component("gui.contracts.button.refresh",
                 Map.of("time", TimeUtil.formatDuration(manager.periodEnd(type) - System.currentTimeMillis())), player));
@@ -139,7 +139,7 @@ public final class ClanContractsMenu {
                 Map.of("reward", String.valueOf(progress.scaledRewardXp())), player));
         boolean ready = progress.completed() && !progress.claimed();
         if (ready) {
-            lore.add(plugin.getMessages().component("gui.contracts.item.claim-hint", player));
+            lore.addAll(plugin.getMessages().components("gui.contracts.item.claim-hint", player));
         } else if (progress.claimed()) {
             lore.add(plugin.getMessages().component("gui.contracts.info.claimed", player));
         } else {

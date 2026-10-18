@@ -57,7 +57,6 @@ public final class ClanDiplomacyMenu {
 
     private static final int SLOT_BACK = 52;
     private static final int SLOT_CLOSE = 53;
-    private static final int BAR_CELLS = 20;
 
     private final LoveClansPlugin plugin;
     /** Slot -> button of the screen each viewer has open, so a click is resolved against what was drawn. */
@@ -266,10 +265,9 @@ public final class ClanDiplomacyMenu {
         return builder.glow(tier == DiplomacyTier.ALLIED || tier == DiplomacyTier.HOSTILE).build();
     }
 
-    /** Twenty cells from -100 to +100 in the color of the current tier. */
+    /** Standard 16-cell bar from -100 to +100 in the color of the current tier. */
     private String progressBar(int score, DiplomacyTier tier) {
         int span = ClanRelationRecord.MAX_SCORE - ClanRelationRecord.MIN_SCORE;
-        int filled = Math.max(0, Math.min(BAR_CELLS, (int) Math.round((score - ClanRelationRecord.MIN_SCORE) * (double) BAR_CELLS / span)));
         String color = switch (tier) {
             case HOSTILE -> "red";
             case UNFRIENDLY -> "gold";
@@ -278,7 +276,7 @@ public final class ClanDiplomacyMenu {
             case FRIENDLY -> "dark_green";
             case ALLIED -> "aqua";
         };
-        return "<" + color + ">" + "█".repeat(filled) + "</" + color + "><dark_gray>" + "█".repeat(BAR_CELLS - filled) + "</dark_gray>";
+        return me.lovelace.loveclans.util.LoreBar.bar(score - ClanRelationRecord.MIN_SCORE, span, color);
     }
 
     // --- Shared button plumbing ---
@@ -324,19 +322,29 @@ public final class ClanDiplomacyMenu {
         return null;
     }
 
-    /** Active button, or a grey one that keeps the description and states why it is unavailable. */
+    /**
+     * Active button, or a grey one that keeps the description and states why it is unavailable. Buttons that have
+     * an {@code .action} text get the standard click block (or its blocked variant); informational ones do not.
+     */
     private ItemStack actionItem(Player player, String head, String base, Map<String, String> ph, DenyResult deny, boolean glow) {
+        var messages = plugin.getMessages();
         ItemBuilder builder = ItemBuilder.head(deny == null ? head : ItemBuilder.HEAD_INACTIVE)
-                .name(plugin.getMessages().component(base + ".name", ph, player))
-                .lore(plugin.getMessages().components(base + ".lore", ph, player));
+                .name(deny == null ? messages.component(base + ".name", ph, player)
+                        : LoreBlocks.disabledName(messages, player, base + ".name", ph))
+                .lore(messages.components(base + ".lore", ph, player));
+        boolean clickable = messages.has(base + ".action");
+        LoreBlocks.Hint hint = clickable ? LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, base + ".action", ph) : null;
         if (deny != null) {
             Map<String, String> merged = new HashMap<>(ph);
             merged.putAll(deny.placeholders());
             builder.lore(Component.empty());
-            builder.lore(plugin.getMessages().component("gui.diplomacy.unavailable", player));
-            builder.lore(plugin.getMessages().denyLore(deny.key(), merged, player));
-        } else if (glow) {
-            builder.glow(true);
+            builder.lore(LoreBlocks.blocked(messages, player, "gui.style.status.unavailable", deny.key(), merged, hint));
+        } else {
+            if (clickable) {
+                builder.lore(Component.empty());
+                builder.lore(LoreBlocks.clicks(messages, player, List.of(hint)));
+            }
+            if (glow) builder.glow(true);
         }
         return builder.build();
     }
@@ -389,7 +397,7 @@ public final class ClanDiplomacyMenu {
                 cooldownDeny(sourceClan, targetClan, "improve"),
                 sourceClan.chestMoney() < cost ? DenyResult.of("diplomacy.improve.not-enough-money") : null);
         Map<String, String> ph = Map.of(
-                "cost", String.valueOf(cost),
+                "cost", me.lovelace.loveclans.util.CoinFormat.format(cost),
                 "score", String.valueOf(cfgInt("diplomacy.actions.improve-score", 5)),
                 "hours", String.valueOf(plugin.getConfig().getLong("diplomacy.actions.improve-cooldown-hours", 6L)));
         return actionItem(player, ItemBuilder.HEAD_RELATION_CORDIAL, "gui.diplomacy.act.improve", ph, deny, false);
@@ -774,7 +782,7 @@ public final class ClanDiplomacyMenu {
         b.require("online-target", defOnline >= minDefOnline, defPh, "deny.siege.not-enough-defenders", defPh);
         cooldownRequirement(b, "deny.war.cooldown", siege.getCooldownRemaining(sourceClan.id(), targetClan.id()), targetClan);
         long declareFee = plugin.getConfig().getLong("siege.declare-treasury-fee", 500L);
-        Map<String, String> feePh = Map.of("cost", String.valueOf(declareFee), "have", String.valueOf(sourceClan.chestMoney()));
+        Map<String, String> feePh = Map.of("cost", me.lovelace.loveclans.util.CoinFormat.format(declareFee), "have", me.lovelace.loveclans.util.CoinFormat.format(sourceClan.chestMoney()));
         b.require("fee", declareFee <= 0 || sourceClan.chestMoney() >= declareFee, feePh, "deny.siege.not-enough-treasury", feePh);
         return b.build();
     }

@@ -44,7 +44,7 @@ public final class ClanRoleSettingsMenu {
             };
             ItemBuilder builder = ItemBuilder.head(headTexture)
                     .name(plugin.getMessages().component("gui.role-settings.rank.name", Map.of("rank", rank.displayName()), player))
-                    .lore(plugin.getMessages().component("gui.role-settings.rank.lore", player));
+                    .lore(plugin.getMessages().components("gui.role-settings.rank.lore", player));
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, rank.name()));
             inventory.setItem(slots[i], builder.build());

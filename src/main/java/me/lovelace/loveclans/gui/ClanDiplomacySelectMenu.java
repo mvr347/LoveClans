@@ -142,7 +142,7 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
                         Map.of("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(entry.seconds() * 1000L)), player));
             }
 
-            builder.lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.hint", player));
+            builder.lore(plugin.getMessages().components("gui.diplomacy-select.clan-item.hint", player));
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, target.id().toString()));
             inventory.setItem(targetSlot, builder.build());

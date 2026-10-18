@@ -14,7 +14,8 @@ class NoHardcodedColorsTest {
     private static final List<String> CLEAN_FILES = List.of(
             "gui/ClanModifiersMenu.java", "gui/ClanCapitalManagementMenu.java", "gui/ClanSpiritMenu.java",
             "gui/ClanConflictMenu.java", "gui/conflict/ConflictLore.java", "gui/ClanGiftMenu.java",
-            "gui/ClanUpgradesMenu.java", "gui/ClanUpgradeOfferMenu.java", "gui/ClanDirectionMenu.java");
+            "gui/ClanUpgradesMenu.java", "gui/ClanUpgradeOfferMenu.java", "gui/ClanDirectionMenu.java",
+            "gui/CasusBelliMenu.java", "gui/CampFortifyMenu.java", "gui/GuildmasterMenu.java");
 
     @Test
     void convertedMenusHaveNoSectionSigns() throws Exception {
