@@ -203,6 +203,12 @@ public final class ItemBuilder {
         return builder;
     }
 
+    /** Texture id (skin hash) of a head texture constant, comparable with {@link me.lovelace.loveclans.service.GuiSounds#textureId}. */
+    public static String textureIdOf(String base64Texture) {
+        URL url = extractSkinUrl(base64Texture);
+        return url == null ? null : me.lovelace.loveclans.service.GuiSounds.textureId(url.toString());
+    }
+
     private static URL extractSkinUrl(String base64Texture) {
         try {
             String json = new String(Base64.getDecoder().decode(base64Texture), StandardCharsets.UTF_8);

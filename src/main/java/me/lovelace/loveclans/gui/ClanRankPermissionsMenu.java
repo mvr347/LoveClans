@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.service.GuiSounds;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPermission;
@@ -101,7 +102,10 @@ public final class ClanRankPermissionsMenu {
             boolean current = clan.getPermission(rank, permission);
             clan.setPermission(rank, permission, !current);
             plugin.getClanManager().updateClanAsync(clan)
-                    .thenRun(() -> plugin.runSync(() -> open(player, clan, rank)));
+                    .thenRun(() -> plugin.runSync(() -> {
+                        plugin.getSoundService().playGui(player, GuiSounds.Kind.TOGGLE);
+                        open(player, clan, rank);
+                    }));
         } catch (IllegalArgumentException ignored) {}
     }
 

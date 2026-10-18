@@ -49,6 +49,13 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.inventory.InventoryOpenEvent;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.SkullMeta;
+import me.lovelace.loveclans.service.GuiSounds;
+import me.lovelace.loveclans.util.ItemBuilder;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -550,6 +557,107 @@ public class GuiManager implements Listener {
                 }
             }, player::closeInventory);
         }
+    }
+
+
+    // ---- Menu sounds (sounds.gui-*) ----
+
+    /** Tick of each player's last click in a menu; a menu opened in the same tick is navigation, not a fresh open. */
+    private final Map<UUID, Integer> lastClickTick = new ConcurrentHashMap<>();
+
+    private static String backTexture;
+    private static String closeTexture;
+    private static String inactiveTexture;
+
+    /**
+     * Menus made of buttons. Item storages (clan chest, trade item picker, raid loot, trade session, treasury) have
+     * their own holders and are deliberately not listed: their slots hold real items, not buttons.
+     */
+    private static boolean isButtonMenu(InventoryHolder holder) {
+        return holder instanceof ClanMenuHolder
+                || holder instanceof ClanMainMenu
+                || holder instanceof ClanCapitalManagementMenu
+                || holder instanceof ClanSpiritMenu
+                || holder instanceof ClanConflictMenu
+                || holder instanceof ClanGiftMenu
+                || holder instanceof TerritorySettingsMenu
+                || holder instanceof ClanListMenu
+                || holder instanceof ClanDiplomacySelectMenu
+                || holder instanceof ClanCreateMenu
+                || holder instanceof ClanBannerCreationMenu
+                || holder instanceof PlayerApplicationsMenu
+                || holder instanceof ClanInfoMenu;
+    }
+
+    /** True when the player currently looks at one of the button menus (used to voice errors only for GUI actions). */
+    public boolean hasButtonMenuOpen(Player player) {
+        return isButtonMenu(player.getOpenInventory().getTopInventory().getHolder());
+    }
+
+    /** Remembers the click moment before any menu handler runs, so a menu it opens is not announced as a fresh open. */
+    @EventHandler(priority = EventPriority.LOWEST)
+    public void onMenuClickMark(InventoryClickEvent event) {
+        if (event.getWhoClicked() instanceof Player player && isButtonMenu(event.getView().getTopInventory().getHolder())) {
+            lastClickTick.put(player.getUniqueId(), Bukkit.getCurrentTick());
+        }
+    }
+
+    /** Central click feedback: back/close/denied/plain click by what was clicked; glass and empty slots stay silent. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onMenuClickSound(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        var top = event.getView().getTopInventory();
+        if (!isButtonMenu(top.getHolder())) return;
+        int raw = event.getRawSlot();
+        if (raw < 0 || raw >= top.getSize()) return;
+        ItemStack item = event.getCurrentItem();
+        boolean passive = item == null || item.getType().isAir() || item.getType().name().endsWith("GLASS_PANE");
+        GuiSounds.Kind kind = passive ? null : classifyClicked(player, item);
+        if (kind == null) return;
+        if (plugin.getSoundService().guiClickSilenced(player)) return;
+        plugin.getSoundService().playGui(player, kind);
+    }
+
+    private GuiSounds.Kind classifyClicked(Player player, ItemStack item) {
+        if (backTexture == null) {
+            backTexture = ItemBuilder.textureIdOf(ItemBuilder.HEAD_BACK);
+            closeTexture = ItemBuilder.textureIdOf(ItemBuilder.HEAD_CLOSE);
+            inactiveTexture = ItemBuilder.textureIdOf(ItemBuilder.HEAD_INACTIVE);
+        }
+        String texture = null;
+        String name = "";
+        if (item.getItemMeta() instanceof SkullMeta skull) {
+            var profile = skull.getOwnerProfile();
+            if (profile != null && profile.getTextures().getSkin() != null) {
+                texture = GuiSounds.textureId(profile.getTextures().getSkin().toString());
+            }
+        }
+        var display = item.getItemMeta() == null ? null : item.getItemMeta().displayName();
+        if (display != null) name = PlainTextComponentSerializer.plainText().serialize(display);
+        boolean backNamed = name.equals(plainName("gui.back", player));
+        boolean closeNamed = name.equals(plainName("gui.close", player));
+        return GuiSounds.classify(false, texture, backTexture, closeTexture, inactiveTexture, backNamed, closeNamed);
+    }
+
+    private String plainName(String key, Player player) {
+        return PlainTextComponentSerializer.plainText().serialize(plugin.getMessages().component(key, player));
+    }
+
+    /** Opening a menu from a command or an item makes the open sound; menu-to-menu navigation is covered by the click. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onMenuOpenSound(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
+        if (!isButtonMenu(event.getInventory().getHolder())) return;
+        Integer clicked = lastClickTick.get(player.getUniqueId());
+        if (clicked != null && clicked == Bukkit.getCurrentTick()) return;
+        if (plugin.getSoundService().guiOpenSilenced(player)) return;
+        plugin.getSoundService().playGui(player, GuiSounds.Kind.OPEN);
+    }
+
+    @EventHandler
+    public void onSoundStateQuit(PlayerQuitEvent event) {
+        lastClickTick.remove(event.getPlayer().getUniqueId());
+        plugin.getSoundService().forget(event.getPlayer().getUniqueId());
     }
 
     @EventHandler

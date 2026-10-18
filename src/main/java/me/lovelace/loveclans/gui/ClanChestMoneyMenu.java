@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.service.GuiSounds;
 import dev.lovelace.lovecore.api.LoveCore;
 import dev.lovelace.lovecore.api.economy.LoveEconomy;
 import net.kyori.adventure.text.Component;
@@ -226,17 +227,17 @@ public final class ClanChestMoneyMenu implements Listener {
 
     private void depositCursor(Player player, Clan clan, ItemStack cursor) {
         if (!clan.hasPermission(player.getUniqueId(), ClanPermission.BANK)) {
-            plugin.getMessages().send(player, "general.no-permission");
+            plugin.getMessages().sendDeny(player, "general.no-permission", Map.of());
             return;
         }
         LoveEconomy economy = economy().orElse(null);
         if (economy == null) {
-            plugin.getMessages().send(player, "clan.creation-economy-unavailable");
+            plugin.getMessages().sendDeny(player, "clan.creation-economy-unavailable", Map.of());
             return;
         }
         long unit = economy.valueOf(cursor);
         if (unit <= 0) {
-            plugin.getMessages().send(player, "chest.not-coin");
+            plugin.getMessages().sendDeny(player, "chest.not-coin", Map.of());
             return;
         }
         long amount = unit * cursor.getAmount();
@@ -250,17 +251,17 @@ public final class ClanChestMoneyMenu implements Listener {
             return;
         }
         if (!clan.hasPermission(player.getUniqueId(), ClanPermission.BANK)) {
-            plugin.getMessages().send(player, "general.no-permission");
+            plugin.getMessages().sendDeny(player, "general.no-permission", Map.of());
             return;
         }
         LoveEconomy economy = economy().orElse(null);
         if (economy == null) {
-            plugin.getMessages().send(player, "clan.creation-economy-unavailable");
+            plugin.getMessages().sendDeny(player, "clan.creation-economy-unavailable", Map.of());
             return;
         }
         long unit = economy.valueOf(item);
         if (unit <= 0) {
-            plugin.getMessages().send(player, "chest.not-coin");
+            plugin.getMessages().sendDeny(player, "chest.not-coin", Map.of());
             return;
         }
         long amount = unit * item.getAmount();
@@ -270,6 +271,7 @@ public final class ClanChestMoneyMenu implements Listener {
 
     private void credit(Player player, Clan clan, long amount) {
         long balance = plugin.getClanManager().depositTreasuryCoins(clan, amount, player.getUniqueId());
+        plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
         plugin.getMessages().send(player, "chest.deposit-success",
                 Map.of("amount", CoinFormat.format(amount), "balance", CoinFormat.format(balance)));
         refreshAll(clan);
@@ -279,7 +281,7 @@ public final class ClanChestMoneyMenu implements Listener {
     private void withdraw(Player player, Clan clan, TreasuryCoins.Pile pile, boolean toInventory) {
         LoveEconomy economy = economy().orElse(null);
         if (economy == null) {
-            plugin.getMessages().send(player, "clan.creation-economy-unavailable");
+            plugin.getMessages().sendDeny(player, "clan.creation-economy-unavailable", Map.of());
             return;
         }
         Optional<ItemStack> stack = CoinStacks.of(economy, pile.denomination(), pile.count());
@@ -300,18 +302,18 @@ public final class ClanChestMoneyMenu implements Listener {
     private void performWithdraw(Player player, Clan clan, TreasuryCoins.Pile pile, boolean toInventory) {
         LoveEconomy economy = economy().orElse(null);
         if (economy == null) {
-            plugin.getMessages().send(player, "clan.creation-economy-unavailable");
+            plugin.getMessages().sendDeny(player, "clan.creation-economy-unavailable", Map.of());
             return;
         }
         Optional<ItemStack> stack = CoinStacks.of(economy, pile.denomination(), pile.count());
         long amount = stack.map(s -> pile.denomination().value() * s.getAmount()).orElse(pile.value());
         if ((toInventory || stack.isEmpty()) && !economy.canFit(player, amount)) {
-            plugin.getMessages().send(player, "chest.no-space");
+            plugin.getMessages().sendDeny(player, "chest.no-space", Map.of());
             return;
         }
         String refusal = plugin.getClanManager().withdrawTreasuryCoins(clan, player.getUniqueId(), amount);
         if (refusal != null) {
-            plugin.getMessages().send(player, refusal);
+            plugin.getMessages().sendDeny(player, refusal, Map.of());
             return;
         }
         // Debited above - only now hand the coins out.
@@ -324,6 +326,7 @@ public final class ClanChestMoneyMenu implements Listener {
         } else {
             player.setItemOnCursor(stack.get());
         }
+        plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
         plugin.getMessages().send(player, "chest.withdraw-success", Map.of("amount", CoinFormat.format(amount)));
         refreshAll(clan);
         Bukkit.getScheduler().runTask(plugin, player::updateInventory);

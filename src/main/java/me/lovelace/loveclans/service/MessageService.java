@@ -210,7 +210,7 @@ public final class MessageService {
     public void sendDeny(Player player, String key, Map<String, String> placeholders) {
         if (player == null) return;
         send(player, key, placeholders);
-        player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 0.7f, 0.8f);
+        plugin.getSoundService().playGui(player, GuiSounds.Kind.DENIED);
     }
 
     /** Item lore is not a chat line, so the leading {@code <prefix>} chat tag must never reach it. */

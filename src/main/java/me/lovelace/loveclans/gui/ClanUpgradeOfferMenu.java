@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.service.GuiSounds;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.manager.upgrade.UpgradeOfferManager;
 import me.lovelace.loveclans.manager.upgrade.UpgradeOption;
@@ -137,6 +138,7 @@ public final class ClanUpgradeOfferMenu {
             UpgradeOfferManager.Result result = plugin.getUpgradeOffers().choose(clan, player, holder.offerId, option);
             switch (result) {
                 case OK -> {
+                    plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                     plugin.getMessages().send(player, "gui.upgrades.chosen",
                             Map.of("upgrade", option.upgrade().displayName()));
                     // The next accumulated offer, or the hub when this was the last one.

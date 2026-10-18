@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.service.GuiSounds;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.textures.HeadTextures;
@@ -120,6 +121,7 @@ public final class ClanSettingsMenu {
                             plugin.getMessages().component("gui.confirm.rename.title", Map.of("name", newName.trim()), player), Component.empty(),
                             () -> plugin.getClanManager().renameClanAsync(clan, player.getUniqueId(), newName.trim())
                                     .thenAccept(updated -> plugin.runSync(() -> {
+                                        plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                                         plugin.getMessages().send(player, "gui.settings.rename.success", Map.of("name", updated.name()));
                                         open(player, updated);
                                     }))
@@ -149,6 +151,7 @@ public final class ClanSettingsMenu {
                             plugin.getMessages().component("gui.confirm.change-tag.title", Map.of("tag", newTag.trim()), player), Component.empty(),
                             () -> plugin.getClanManager().changeClanTagAsync(clan, player.getUniqueId(), newTag.trim())
                                     .thenAccept(updated -> plugin.runSync(() -> {
+                                        plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                                         plugin.getMessages().send(player, "gui.settings.change-tag.success", Map.of("tag", updated.tag()));
                                         open(player, updated);
                                     }))
@@ -160,12 +163,13 @@ public final class ClanSettingsMenu {
             case 14 -> {
                 org.bukkit.inventory.ItemStack inHand = player.getInventory().getItemInMainHand();
                 if (!inHand.getType().name().endsWith("_BANNER")) {
-                    plugin.getMessages().send(player, "gui.settings.change-banner.no-banner-in-hand");
+                    plugin.getMessages().sendDeny(player, "gui.settings.change-banner.no-banner-in-hand", Map.of());
                     return;
                 }
                 Material bannerMat = inHand.getType();
                 plugin.getClanManager().changeClanEmblemAsync(clan, player.getUniqueId(), bannerMat)
                         .thenAccept(updated -> plugin.runSync(() -> {
+                            plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                             plugin.getMessages().send(player, "gui.settings.change-banner.success");
                             open(player, updated);
                         }))
@@ -179,6 +183,7 @@ public final class ClanSettingsMenu {
                     Component.empty(),
                     () -> plugin.getClanManager().setClanOpenStatusAsync(clan, player.getUniqueId(), !clan.isOpen())
                             .thenAccept(updated -> plugin.runSync(() -> {
+                                plugin.getSoundService().playGui(player, GuiSounds.Kind.TOGGLE);
                                 plugin.getMessages().send(player, updated.isOpen()
                                         ? "gui.settings.status.open.success" : "gui.settings.status.closed.success");
                                 open(player, updated);
@@ -192,7 +197,7 @@ public final class ClanSettingsMenu {
                         .map(m -> m.rank() == me.lovelace.loveclans.model.ClanRank.LEADER)
                         .orElse(false);
                 if (!isLeader) {
-                    plugin.getMessages().send(player, "general.no-permission");
+                    plugin.getMessages().sendDeny(player, "general.no-permission", Map.of());
                     return;
                 }
                 plugin.getGuiManager().openConfirm(player, clan,
