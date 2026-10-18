@@ -692,6 +692,10 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public void sendOperationError(CommandSender sender, Throwable throwable) {
         Throwable root = unwrap(throwable);
+        // A refused menu action is heard only while a menu is open; commands stay silent
+        if (sender instanceof org.bukkit.entity.Player viewer && guiManager != null && guiManager.hasButtonMenuOpen(viewer)) {
+            soundService.playGui(viewer, me.lovelace.loveclans.service.GuiSounds.Kind.ERROR);
+        }
         if (root instanceof me.lovelace.loveclans.manager.WarCooldownException cooldown) {
             messages.send(sender, "war.cooldown-active", Map.of("seconds", String.valueOf(cooldown.remainingSeconds())));
             return;

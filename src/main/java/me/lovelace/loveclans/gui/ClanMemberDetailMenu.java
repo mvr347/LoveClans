@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.service.GuiSounds;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
@@ -154,6 +155,7 @@ public final class ClanMemberDetailMenu {
                         Component.empty(),
                         () -> plugin.getClanManager().transferLeadershipAsync(clan, player.getUniqueId(), targetId)
                                 .thenRun(() -> plugin.runSync(() -> {
+                                    plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                                     plugin.getGuiManager().openMembers(player, clan);
                                     // Если новый лидер сейчас смотрит на главное меню клана (например, с другого
                                     // устройства/окна), его меню нужно перерисовать — иначе кнопка «Покинуть клан»
@@ -171,7 +173,10 @@ public final class ClanMemberDetailMenu {
                 ClanRank newRank = targetRank.nextRank();
                 if (newRank != null && newRank != ClanRank.LEADER) {
                     plugin.getClanManager().setRankAsync(clan, player.getUniqueId(), targetId, newRank)
-                            .thenAccept(updated -> plugin.runSync(() -> open(player, updated, targetId)))
+                            .thenAccept(updated -> plugin.runSync(() -> {
+                                plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
+                                open(player, updated, targetId);
+                            }))
                             .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
                 }
             }
@@ -179,7 +184,10 @@ public final class ClanMemberDetailMenu {
                 ClanRank newRank = targetRank.previousRank();
                 if (newRank != null) {
                     plugin.getClanManager().setRankAsync(clan, player.getUniqueId(), targetId, newRank)
-                            .thenAccept(updated -> plugin.runSync(() -> open(player, updated, targetId)))
+                            .thenAccept(updated -> plugin.runSync(() -> {
+                                plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
+                                open(player, updated, targetId);
+                            }))
                             .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
                 }
             }
@@ -190,6 +198,7 @@ public final class ClanMemberDetailMenu {
                         Component.empty(),
                         () -> plugin.getClanManager().removeMemberAsync(clan, player.getUniqueId(), targetId, true)
                                 .thenRun(() -> plugin.runSync(() -> {
+                                    plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                                     plugin.getMessages().send(player, "clan.kicked", Map.of("player", targetName));
                                     plugin.getGuiManager().openMembers(player, clan);
                                 }))

@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.service.GuiSounds;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.manager.upgrade.UpgradeOfferManager;
 import me.lovelace.loveclans.model.Clan;
@@ -122,6 +123,7 @@ public final class ClanDirectionMenu {
         var messages = plugin.getMessages();
         switch (result) {
             case OK -> {
+                plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                 messages.send(player, "gui.direction.chosen", Map.of("direction", direction.displayName()));
                 plugin.getGuiManager().openUpgrades(player, clan);
             }

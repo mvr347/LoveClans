@@ -38,9 +38,43 @@ public final class SoundService {
         return Registry.SOUNDS.match(name);
     }
 
+    /** Ticks of the last GUI sound per player: lets the click sound step aside for a result sound and keeps "open" quiet. */
+    private final java.util.Map<UUID, Integer> lastAnyTick = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.Map<UUID, Integer> lastSpecificTick = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Plays a GUI sound to the player only (never to others) and remembers it for {@link #guiClickSilenced}. */
+    public void playGui(Player player, GuiSounds.Kind kind) {
+        if (player == null) return;
+        int now = Bukkit.getCurrentTick();
+        lastAnyTick.put(player.getUniqueId(), now);
+        if (GuiSounds.isSpecific(kind)) lastSpecificTick.put(player.getUniqueId(), now);
+        play(player, GuiSounds.keyFor(kind));
+    }
+
+    /** True when a result sound (success/denied/error/toggle) already played for this player in the current tick. */
+    public boolean guiClickSilenced(Player player) {
+        return GuiSounds.suppressClick(lastSpecificTick.get(player.getUniqueId()), Bukkit.getCurrentTick());
+    }
+
+    /** True when the "menu opened" sound should be skipped because another GUI sound just played. */
+    public boolean guiOpenSilenced(Player player) {
+        return GuiSounds.suppressOpen(lastAnyTick.get(player.getUniqueId()), Bukkit.getCurrentTick());
+    }
+
+    public void forget(UUID playerId) {
+        lastAnyTick.remove(playerId);
+        lastSpecificTick.remove(playerId);
+    }
+
     public void play(Player player, String key) {
         if (!plugin.getConfig().getBoolean("sounds.enabled", true)) return;
         ConfigurationSection section = plugin.getConfig().getConfigurationSection("sounds." + key);
+        if (section == null || !section.isString("sound")) {
+            // A config.yml written before this key existed is never merged with the jar: fall back to the bundled default.
+            // To mute one cue an admin sets its "sound" to an empty string.
+            var defaults = plugin.getConfig().getDefaults();
+            section = defaults == null ? null : defaults.getConfigurationSection("sounds." + key);
+        }
         if (section == null) return;
         String name = section.getString("sound", "");
         if (name.isBlank()) return;

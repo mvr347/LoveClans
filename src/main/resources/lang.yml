@@ -9,7 +9,7 @@
 
 # Версия lang.yml (2026-10-12): при росте версии админский файл получает из jar переписанные разделы
 # (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
-lang-version: 11
+lang-version: 12
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -1060,16 +1060,32 @@ gui:
     confirm-cancelled: "<prefix><yellow>Подтверждение сделки отменено - подтвердите заново, когда будете готовы."
     expired: "<prefix><red>Сделка отменена по истечении времени (60 минут) - всё возвращено в сундук клана."
   applications:
+    # 2026-10-18: заявка и приглашение в меню участников раньше показывали кусок UUID вместо ника и неизменную
+    # строку «Ожидает ответа...». Теперь время считается от момента подачи/до истечения при каждой отрисовке
+    # (<ago>, <time>), чтобы игрок видел реальную давность, а не абсолютную дату, которую надо сверять с часами.
     applicant-item:
-      name: "<yellow><player>"
-      applied-at: "<gray>Подана: <white><date>"
-      left-click-accept:
-        - "<dark_gray><st>─────────────────────</st>"
-        - "<green>ЛКМ <dark_gray>— <gray>принять"
-      right-click-reject: "<gold>ПКМ <dark_gray>— <gray>отклонить"
+      name: "<gold><player> <dark_gray>| <yellow>Заявка"
+      lore:
+        - "<dark_gray>Заявка в клан"
+        - ""
+        - "<dark_gray>▪ <gray>Заявка:"
+        - "  <gray>Подана: <white><ago> назад"
+        - "  <gray>Дата: <white><date>"
+        - "  <gray>Статус: <white><status>"
+      accept-action: "принять заявку"
+      reject-action: "отклонить заявку"
     invite-item:
-      name: "<yellow><player>"
-      status: "<gray>Ожидает ответа..."
+      name: "<gold><player> <dark_gray>| <yellow>Приглашение"
+      lore:
+        - "<dark_gray>Приглашение в клан"
+        - ""
+        - "<dark_gray>▪ <gray>Приглашение:"
+        - "  <gray>Пригласил: <white><inviter>"
+        - "  <gray>Истекает через: <white><time>"
+        - "  <gray>Статус: <white><status>"
+      cancel-action: "отменить приглашение"
+    invite-cancelled: "<prefix><yellow>Приглашение игрока <yellow><player></yellow> отменено."
+    invite-withdrawn: "<prefix><yellow>Клан <color><tag></color> отозвал приглашение."
     accepted: "<prefix><green>Заявка игрока <yellow><player></yellow> принята."
     rejected: "<prefix><yellow>Заявка игрока <yellow><player></yellow> отклонена."
   capital:
@@ -1750,6 +1766,8 @@ gui:
       disabled-self: "Нельзя исключить самого себя."
       disabled-leader: "Нельзя исключить главу клана."
   members:
+    # 2026-10-18: имя игрока, которого сервер ни разу не видел, раньше подменялось первыми 8 символами UUID.
+    unknown-player: "Неизвестный игрок"
     contribution: "<gray>Вклад в дух: <white><value>"
     contribution-item:
       finance: "<gray>Взнос в казну: <white><amount>"

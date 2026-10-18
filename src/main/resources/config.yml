@@ -539,6 +539,18 @@ sounds:
   war-declared-attacker: { sound: "minecraft:item.goat_horn.sound.0", volume: 1.0, pitch: 1.0 }
   war-declared-defender: { sound: ENTITY_ENDER_DRAGON_GROWL, volume: 1.0, pitch: 1.4 }
   spirit-power-loss: { sound: BLOCK_BELL_USE, volume: 0.8, pitch: 0.7 }
+  # 2026-10-18: звуки меню клана. Раньше игрок не слышал ничего ни на клик, ни на принятую заявку, ни на отказ,
+  # и не понимал, сработало ли действие. Звук играется только кликнувшему игроку; sounds.enabled: false глушит всё.
+  # Громкость 0.4-0.7, а не 1.0: меню кликают десятки раз за минуту, и полная громкость быстро надоедает.
+  # Высота подобрана так, чтобы звуки различались на слух: клик выше обычного, «назад» ниже, отказ - низкий бас.
+  gui-click: { sound: UI_BUTTON_CLICK, volume: 0.5, pitch: 1.2 }
+  gui-open: { sound: ITEM_BOOK_PAGE_TURN, volume: 0.6, pitch: 1.0 }
+  gui-back: { sound: ITEM_BOOK_PAGE_TURN, volume: 0.6, pitch: 0.8 }
+  gui-close: { sound: BLOCK_CHEST_CLOSE, volume: 0.4, pitch: 1.2 }
+  gui-toggle: { sound: BLOCK_LEVER_CLICK, volume: 0.6, pitch: 1.3 }
+  gui-success: { sound: ENTITY_EXPERIENCE_ORB_PICKUP, volume: 0.7, pitch: 1.2 }
+  gui-denied: { sound: BLOCK_NOTE_BLOCK_BASS, volume: 0.7, pitch: 0.8 }
+  gui-error: { sound: ENTITY_VILLAGER_NO, volume: 0.7, pitch: 1.0 }
 
 mechanics:
   afk:

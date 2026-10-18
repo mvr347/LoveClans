@@ -46,4 +46,30 @@ class LangMigratorTest {
         assertEquals("mine", server.getString("keep"));
         assertEquals(3, server.getInt("lang-version"));
     }
+
+    @Test
+    void version11FileGetsMembersScreenSectionsOnly() {
+        var server = yaml("lang-version: 11\ngui:\n  applications:\n    old: x\n  members:\n    old: y\n  other:\n    kept: mine\nraid:\n  a: mine\n");
+        var bundled = yaml("lang-version: 12\ngui:\n  applications:\n    new: a\n  members:\n    unknown-player: b\n  other:\n    kept: jar\nraid:\n  a: jar\n");
+        assertTrue(LangMigrator.migrate(server, bundled));
+        assertEquals("a", server.getString("gui.applications.new"));
+        assertNull(server.get("gui.applications.old"));
+        assertEquals("b", server.getString("gui.members.unknown-player"));
+        assertNull(server.get("gui.members.old"));
+        // Roots outside gui.applications / gui.members keep the admin's text
+        assertEquals("mine", server.getString("gui.other.kept"));
+        assertEquals("mine", server.getString("raid.a"));
+        assertEquals(12, server.getInt("lang-version"));
+    }
+
+    @Test
+    void latestVersionMatchesBundledLang() throws Exception {
+        var bundled = new YamlConfiguration();
+        try (var in = LangMigratorTest.class.getResourceAsStream("/lang.yml");
+             var reader = new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)) {
+            bundled.load(reader);
+        }
+        assertEquals(LangMigrator.latestVersion(), bundled.getInt(LangMigrator.VERSION_KEY));
+        assertEquals(12, LangMigrator.latestVersion());
+    }
 }

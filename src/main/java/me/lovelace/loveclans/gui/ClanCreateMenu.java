@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.service.GuiSounds;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.textures.HeadTextures;
 import me.lovelace.loveclans.util.ItemBuilder;
@@ -69,7 +70,11 @@ public final class ClanCreateMenu implements InventoryHolder {
         switch (slot) {
             case 10 -> promptName();
             case 12 -> promptTag();
-            case 14 -> { open = !open; open(); }
+            case 14 -> {
+                open = !open;
+                plugin.getSoundService().playGui(player, GuiSounds.Kind.TOGGLE);
+                open();
+            }
             case 16 -> tryCreate();
             case 26 -> player.closeInventory();
             default -> {}
@@ -122,15 +127,21 @@ public final class ClanCreateMenu implements InventoryHolder {
     }
 
     private void tryCreate() {
-        if (name.isEmpty() || tag.isEmpty()) return;
+        if (name.isEmpty() || tag.isEmpty()) {
+            plugin.getSoundService().playGui(player, GuiSounds.Kind.DENIED);
+            return;
+        }
         player.closeInventory();
         plugin.getClanManager().createClanAsync(name, tag, player.getUniqueId(), open)
                 .thenAccept(created -> plugin.runSync(() -> {
+                    plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                     plugin.getMessages().send(player, "gui.create.success", Map.of("tag", created.tag(), "name", created.name(), "color", created.tagColor()));
                     plugin.getGuiManager().openMain(player, created);
                 }))
                 .exceptionally(t -> {
                     plugin.runSync(() -> {
+                        // The menu is closed while the clan is being created, so the generic error sound stays silent
+                        plugin.getSoundService().playGui(player, GuiSounds.Kind.ERROR);
                         plugin.sendOperationError(player, t);
                         open();
                     });

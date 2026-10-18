@@ -13,6 +13,8 @@ import me.lovelace.loveclans.model.ClanInvite;
 import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
+import me.lovelace.loveclans.service.GuiSounds;
+import me.lovelace.loveclans.util.DurationFormat;
 import me.lovelace.loveclans.util.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -115,8 +117,9 @@ public final class ClanMembersMenu {
         return clan.member(playerId).map(m -> m.rank() == ClanRank.LEADER || m.rank() == ClanRank.GUARDIAN).orElse(false);
     }
 
-    private static String nameOf(OfflinePlayer offline, UUID id) {
-        return offline.getName() != null ? offline.getName() : id.toString().substring(0, 8);
+    /** Player name for the list; a player the server has never seen is shown as "unknown", never as a UUID fragment. */
+    private String nameOf(OfflinePlayer offline, UUID id) {
+        return offline.getName() != null ? offline.getName() : plugin.getMessages().raw("gui.members.unknown-player");
     }
 
     private List<Entry> collect(Clan clan, boolean manager, ActivityPeriod period, boolean contributionMode) {
@@ -135,12 +138,12 @@ public final class ClanMembersMenu {
             for (ClanApplication application : plugin.getClanManager().getClanApplications(clan.id())) {
                 OfflinePlayer applicant = Bukkit.getOfflinePlayer(application.applicantId());
                 entries.add(new Entry(Kind.APPLICATION, application.applicantId(), nameOf(applicant, application.applicantId()),
-                        0, 0, application.appliedAt(), false));
+                        0, 0, application.appliedAt(), applicant.isOnline()));
             }
             for (ClanInvite invite : plugin.getClanManager().getClanInvites(clan.id())) {
                 OfflinePlayer invited = Bukkit.getOfflinePlayer(invite.invitedPlayer());
                 entries.add(new Entry(Kind.INVITE, invite.invitedPlayer(), nameOf(invited, invite.invitedPlayer()),
-                        0, 0, invite.expiresAt(), false));
+                        0, 0, invite.expiresAt(), invited.isOnline()));
             }
         }
         return entries;
@@ -325,20 +328,48 @@ public final class ClanMembersMenu {
                 });
                 yield builder.build();
             }
-            case APPLICATION -> ItemBuilder.of(Material.PLAYER_HEAD)
-                    .name(plugin.getMessages().component("gui.applications.applicant-item.name", Map.of("player", entry.name()), viewer))
-                    .lore(plugin.getMessages().component("gui.applications.applicant-item.applied-at",
-                            Map.of("date", new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm").format(new java.util.Date(entry.date()))), viewer))
-                    .lore(plugin.getMessages().components("gui.applications.applicant-item.left-click-accept", viewer))
-                    .lore(plugin.getMessages().component("gui.applications.applicant-item.right-click-reject", viewer))
-                    .mutate(meta -> {
-                        if (meta instanceof SkullMeta skull) skull.setOwningPlayer(offline);
-                    })
-                    .build();
-            case INVITE -> ItemBuilder.head(ItemBuilder.HEAD_INVITE_ITEM)
-                    .name(plugin.getMessages().component("gui.applications.invite-item.name", Map.of("player", entry.name()), viewer))
-                    .lore(plugin.getMessages().component("gui.applications.invite-item.status", viewer))
-                    .build();
+            case APPLICATION -> {
+                var messages = plugin.getMessages();
+                Map<String, String> values = Map.of(
+                        "player", entry.name(),
+                        "ago", DurationFormat.format(Math.max(0L, System.currentTimeMillis() - entry.date())),
+                        "date", new java.text.SimpleDateFormat("dd.MM.yyyy HH:mm").format(new java.util.Date(entry.date())),
+                        "status", messages.raw(entry.online() ? "gui.members.item.status-online" : "gui.members.item.status-offline"));
+                yield ItemBuilder.of(Material.PLAYER_HEAD)
+                        .name(messages.component("gui.applications.applicant-item.name", values, viewer))
+                        .lore(messages.components("gui.applications.applicant-item.lore", values, viewer))
+                        .lore(LoreBlocks.clicks(messages, viewer, List.of(
+                                LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.applications.applicant-item.accept-action"),
+                                LoreBlocks.hint(messages, LoreBlocks.Click.RIGHT, "gui.applications.applicant-item.reject-action"))))
+                        .mutate(meta -> {
+                            if (meta instanceof SkullMeta skull) skull.setOwningPlayer(offline);
+                        })
+                        .build();
+            }
+            case INVITE -> {
+                var messages = plugin.getMessages();
+                // The entry only keeps the expiry; who sent the invitation is read from the live invitation
+                ClanInvite invite = plugin.getClanManager().getClanInvites(clan.id()).stream()
+                        .filter(i -> i.invitedPlayer().equals(entry.id()))
+                        .findFirst().orElse(null);
+                String inviter = invite == null || invite.invitedBy() == null
+                        ? messages.raw("gui.members.unknown-player")
+                        : nameOf(Bukkit.getOfflinePlayer(invite.invitedBy()), invite.invitedBy());
+                Map<String, String> values = Map.of(
+                        "player", entry.name(),
+                        "inviter", inviter,
+                        "time", DurationFormat.format(Math.max(0L, entry.date() - System.currentTimeMillis())),
+                        "status", messages.raw(entry.online() ? "gui.members.item.status-online" : "gui.members.item.status-offline"));
+                yield ItemBuilder.of(Material.PLAYER_HEAD)
+                        .name(messages.component("gui.applications.invite-item.name", values, viewer))
+                        .lore(messages.components("gui.applications.invite-item.lore", values, viewer))
+                        .lore(LoreBlocks.clicks(messages, viewer, List.of(
+                                LoreBlocks.hint(messages, LoreBlocks.Click.RIGHT, "gui.applications.invite-item.cancel-action"))))
+                        .mutate(meta -> {
+                            if (meta instanceof SkullMeta skull) skull.setOwningPlayer(offline);
+                        })
+                        .build();
+            }
         };
     }
 
@@ -363,7 +394,7 @@ public final class ClanMembersMenu {
                     // The period selector is hidden outside contribution mode, so do not keep an invisible period
                     periodByPlayer.remove(player.getUniqueId());
                 }
-                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 0.5f, 1.2f);
+                plugin.getSoundService().playGui(player, GuiSounds.Kind.TOGGLE);
                 render(player, clan, new State(state.filter(), state.sort(), 0));
             }
             case SLOT_ACTIVITY -> {
@@ -386,11 +417,11 @@ public final class ClanMembersMenu {
 
     private void handleInvite(Player player, Clan clan) {
         if (!clan.hasPermission(player.getUniqueId(), ClanPermission.INVITE)) {
-            plugin.getMessages().send(player, "general.no-permission");
+            plugin.getMessages().sendDeny(player, "general.no-permission", Map.of());
             return;
         }
         if (plugin.getClanManager().isClanFull(clan)) {
-            plugin.getMessages().send(player, "clan.member-limit-reached");
+            plugin.getMessages().sendDeny(player, "clan.member-limit-reached", Map.of());
             return;
         }
         player.closeInventory();
@@ -401,8 +432,14 @@ public final class ClanMembersMenu {
                 return;
             }
             plugin.getServer().dispatchCommand(player, "clan invite " + inputName);
-            plugin.getServer().getScheduler().runTaskLater(plugin, () ->
-                    plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(refreshed -> open(player, refreshed)), 10L);
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                // The command replies in chat; the sound tells whether an invitation really exists now
+                Player invitee = Bukkit.getPlayerExact(inputName.trim());
+                boolean sent = invitee != null && plugin.getClanManager().getClanInvites(clan.id()).stream()
+                        .anyMatch(invite -> invite.invitedPlayer().equals(invitee.getUniqueId()));
+                plugin.getSoundService().playGui(player, sent ? GuiSounds.Kind.SUCCESS : GuiSounds.Kind.ERROR);
+                plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(refreshed -> open(player, refreshed));
+            }, 10L);
         });
     }
 
@@ -412,7 +449,7 @@ public final class ClanMembersMenu {
                 if (entry.id().equals(player.getUniqueId())) return;
                 // The detail screen is the kick/promote/demote entry point, so it needs the KICK right.
                 if (!clan.hasPermission(player.getUniqueId(), ClanPermission.KICK)) {
-                    plugin.getMessages().send(player, "general.no-permission");
+                    plugin.getMessages().sendDeny(player, "general.no-permission", Map.of());
                     return;
                 }
                 plugin.getGuiManager().openMemberDetail(player, clan, entry.id());
@@ -421,6 +458,7 @@ public final class ClanMembersMenu {
                 if (event.isLeftClick()) {
                     plugin.getClanManager().acceptApplicationAsync(clan, player.getUniqueId(), entry.id())
                             .thenAccept(updatedClan -> plugin.runSync(() -> {
+                                plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                                 plugin.getMessages().send(player, "gui.applications.accepted", Map.of("player", entry.name()));
                                 Player target = Bukkit.getPlayer(entry.id());
                                 if (target != null) {
@@ -433,13 +471,36 @@ public final class ClanMembersMenu {
                 } else if (event.isRightClick()) {
                     plugin.getClanManager().rejectApplicationAsync(clan, player.getUniqueId(), entry.id())
                             .thenRun(() -> plugin.runSync(() -> {
+                                plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                                 plugin.getMessages().send(player, "gui.applications.rejected", Map.of("player", entry.name()));
                                 open(player, clan);
                             }))
                             .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
                 }
             }
-            case INVITE -> { /* informational: an invitation is answered by the invited player */ }
+            case INVITE -> {
+                // LMB stays informational: an invitation is answered by the invited player; managers withdraw it with RMB
+                if (!event.isRightClick()) return;
+                plugin.getClanManager().cancelInviteAsync(clan, player.getUniqueId(), entry.id())
+                        .thenAccept(invite -> plugin.runSync(() -> {
+                            plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
+                            plugin.getMessages().send(player, "gui.applications.invite-cancelled", Map.of("player", entry.name()));
+                            Player target = Bukkit.getPlayer(entry.id());
+                            if (target != null) {
+                                plugin.getMessages().send(target, "gui.applications.invite-withdrawn",
+                                        Map.of("tag", clan.tag(), "color", clan.tagColor()));
+                            }
+                            open(player, clan);
+                        }))
+                        .exceptionally(t -> {
+                            // The invitation may have been answered or expired meanwhile: report and drop the stale entry
+                            plugin.runSync(() -> {
+                                plugin.sendOperationError(player, t);
+                                open(player, clan);
+                            });
+                            return null;
+                        });
+            }
         }
     }
 }

@@ -304,6 +304,31 @@ public final class ClanManager {
         if (invites != null) invites.removeIf(inv -> inv.clanId().equals(clanId));
     }
 
+    /**
+     * Withdraws a pending invitation of this clan before the invited player answers. Needs the same right as sending
+     * invitations; fails with {@code clan.invite-missing} when it was answered or expired in the meantime.
+     */
+    public CompletableFuture<ClanInvite> cancelInviteAsync(Clan clan, UUID actorId, UUID invitedPlayerId) {
+        if (clan == null || actorId == null || invitedPlayerId == null)
+            return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor and invited player IDs cannot be null."));
+        return plugin.supplySync(() -> {
+            if (!clan.hasPermission(actorId, ClanPermission.INVITE)) {
+                throw new IllegalStateException("general.no-permission");
+            }
+            long now = System.currentTimeMillis();
+            List<ClanInvite> invites = invitesByPlayer.get(invitedPlayerId);
+            ClanInvite invite = invites == null ? null : invites.stream()
+                    .filter(inv -> inv.clanId().equals(clan.id()) && !inv.expired(now))
+                    .findFirst()
+                    .orElse(null);
+            if (invite == null) {
+                throw new IllegalStateException("clan.invite-missing");
+            }
+            invites.remove(invite);
+            return invite;
+        });
+    }
+
     public CompletableFuture<Void> rejectApplicationSelfAsync(UUID clanId, UUID applicantId) {
         if (clanId == null || applicantId == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Clan ID and Applicant ID cannot be null."));

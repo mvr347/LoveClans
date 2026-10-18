@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.service.GuiSounds;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.gui.conflict.ConflictLore;
 import me.lovelace.loveclans.gui.conflict.ConflictReadiness;
@@ -558,21 +559,30 @@ public final class ClanDiplomacyMenu {
 
     /** Re-opens the screen after the action finished (so every button reflects the new score) or reports the failure. */
     private void refresh(Player player, Clan sourceClan, Clan targetClan, java.util.concurrent.CompletableFuture<Void> action) {
-        action.thenRun(() -> plugin.runSync(() -> open(player, sourceClan, targetClan)))
+        refresh(player, sourceClan, targetClan, action, GuiSounds.Kind.SUCCESS);
+    }
+
+    /** {@code doneSound} is what the player hears once the action went through (a switch clicks, anything else rings). */
+    private void refresh(Player player, Clan sourceClan, Clan targetClan, java.util.concurrent.CompletableFuture<Void> action,
+                         GuiSounds.Kind doneSound) {
+        action.thenRun(() -> plugin.runSync(() -> {
+                    plugin.getSoundService().playGui(player, doneSound);
+                    open(player, sourceClan, targetClan);
+                }))
                 .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
     }
 
     private void reject(Player player, DenyResult deny) {
-        plugin.getMessages().send(player, deny.key(), deny.placeholders());
+        plugin.getMessages().sendDeny(player, deny.key(), deny.placeholders());
     }
 
     private void handleTradeClick(Player player, Clan sourceClan, Clan targetClan) {
         if (!sourceClan.isRecognized() || !targetClan.isRecognized()) {
-            plugin.getMessages().send(player, "deny.diplomacy.need-recognized");
+            plugin.getMessages().sendDeny(player, "deny.diplomacy.need-recognized", Map.of());
             return;
         }
         if (!sourceClan.hasPermission(player.getUniqueId(), ClanPermission.TRADE)) {
-            plugin.getMessages().send(player, "general.no-permission");
+            plugin.getMessages().sendDeny(player, "general.no-permission", Map.of());
             return;
         }
         DenyResult deny = matrixDeny(DiplomacyActions.Action.TRADE, sourceClan, targetClan);
@@ -590,15 +600,15 @@ public final class ClanDiplomacyMenu {
 
     private void handleGiftClick(Player player, Clan sourceClan, Clan targetClan) {
         if (!sourceClan.isRecognized()) {
-            plugin.getMessages().send(player, "deny.gift.sender-not-recognized");
+            plugin.getMessages().sendDeny(player, "deny.gift.sender-not-recognized", Map.of());
             return;
         }
         if (!sourceClan.hasPermission(player.getUniqueId(), ClanPermission.DIPLOMACY)) {
-            plugin.getMessages().send(player, "general.no-permission");
+            plugin.getMessages().sendDeny(player, "general.no-permission", Map.of());
             return;
         }
         if (!sourceClan.hasCapital() || !targetClan.hasCapital()) {
-            plugin.getMessages().send(player, "clan.no-territory");
+            plugin.getMessages().sendDeny(player, "clan.no-territory", Map.of());
             return;
         }
         DenyResult deny = matrixDeny(DiplomacyActions.Action.GIFT, sourceClan, targetClan);
@@ -630,7 +640,7 @@ public final class ClanDiplomacyMenu {
             return;
         }
         if (!sourceClan.hasPermission(player.getUniqueId(), ClanPermission.DIPLOMACY)) {
-            plugin.getMessages().send(player, "general.no-permission");
+            plugin.getMessages().sendDeny(player, "general.no-permission", Map.of());
             return;
         }
         String typeKey = type.name().toLowerCase(java.util.Locale.ROOT);
@@ -651,14 +661,16 @@ public final class ClanDiplomacyMenu {
         boolean embargoed = plugin.getDiplomacyManager().isEmbargoed(sourceClan.id(), targetClan.id());
         refresh(player, sourceClan, targetClan, embargoed
                 ? plugin.getDiplomacyManager().cancelEmbargoAsync(sourceClan, player.getUniqueId(), targetClan)
-                : plugin.getDiplomacyManager().declareEmbargoAsync(sourceClan, player.getUniqueId(), targetClan));
+                : plugin.getDiplomacyManager().declareEmbargoAsync(sourceClan, player.getUniqueId(), targetClan),
+                GuiSounds.Kind.TOGGLE);
     }
 
     private void handleBlockadeToggle(Player player, Clan sourceClan, Clan targetClan) {
         boolean blockading = plugin.getDiplomacyManager().isBlockading(sourceClan.id(), targetClan.id());
         refresh(player, sourceClan, targetClan, blockading
                 ? plugin.getDiplomacyManager().cancelBlockadeAsync(sourceClan, player.getUniqueId(), targetClan)
-                : plugin.getDiplomacyManager().declareBlockadeAsync(sourceClan, player.getUniqueId(), targetClan));
+                : plugin.getDiplomacyManager().declareBlockadeAsync(sourceClan, player.getUniqueId(), targetClan),
+                GuiSounds.Kind.TOGGLE);
     }
 
     private void handlePeace(Player player, Clan sourceClan, Clan targetClan) {

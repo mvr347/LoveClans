@@ -1,5 +1,6 @@
 package me.lovelace.loveclans.gui;
 
+import me.lovelace.loveclans.service.GuiSounds;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.util.CoinFormat;
@@ -170,7 +171,10 @@ public final class ClanGiftMenu implements InventoryHolder {
                         Map.of("amount", CoinFormat.format(amount), "tag", targetClan.tag(), "color", targetClan.tagColor()), player),
                 Component.empty(),
                 () -> plugin.getClanGiftManager().sendGiftAsync(sourceClan, targetClan, amount, player.getUniqueId())
-                        .thenRun(() -> plugin.runSync(() -> plugin.getGuiManager().openDiplomacy(player, sourceClan, targetClan)))
+                        .thenRun(() -> plugin.runSync(() -> {
+                            plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
+                            plugin.getGuiManager().openDiplomacy(player, sourceClan, targetClan);
+                        }))
                         .exceptionally(ex -> {
                             plugin.runSync(() -> plugin.sendOperationError(player, ex));
                             return null;
