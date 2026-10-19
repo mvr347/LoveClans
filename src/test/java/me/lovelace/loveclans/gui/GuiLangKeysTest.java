@@ -58,6 +58,27 @@ class GuiLangKeysTest {
         assertTrue(missing.isEmpty(), "keys missing from lang.yml: " + missing);
     }
 
+    /** The physical items (factory banners, seals, casus belli, shield and the three compasses) read item.* / raid.compass.*. */
+    private static final Pattern ITEM_KEY = Pattern.compile("\"((?:item\\.|raid\\.compass\\.)[a-z0-9_.-]*[a-z0-9_])\"");
+    private static final List<String> ITEM_SOURCES = List.of("util/ClanItemFactory.java", "manager/WarManager.java",
+            "manager/SiegeManager.java", "manager/RaidManager.java");
+
+    @Test
+    void everyLiteralItemKeyExistsInLangYml() throws Exception {
+        Map<String, Object> lang = loadLang();
+        List<String> missing = new ArrayList<>();
+        int seen = 0;
+        for (String source : ITEM_SOURCES) {
+            Matcher matcher = ITEM_KEY.matcher(Files.readString(Path.of("src/main/java/me/lovelace/loveclans", source)));
+            while (matcher.find()) {
+                seen++;
+                if (!exists(lang, matcher.group(1))) missing.add(source + " -> " + matcher.group(1));
+            }
+        }
+        assertTrue(seen > 10, "the item key scan found only " + seen + " keys: the pattern or the file list drifted");
+        assertTrue(missing.isEmpty(), "item keys missing from lang.yml: " + missing);
+    }
+
     private static final String SYMBOLS = "💰📦🤝🏛✉✎→⇄🔒🚫📮⚔🎯🏹🕊🌾⛏✦✔✘·▸";
 
     /** Item names and menu titles carry no emoji/arrow symbols (owner request 2026-10-07). */

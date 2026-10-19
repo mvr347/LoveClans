@@ -171,6 +171,7 @@ public final class UpgradeOfferManager {
         }
         values.put("level", String.valueOf(level));
         values.put("max", String.valueOf(maxLevel(option.upgrade())));
+        values.put("bar", me.lovelace.loveclans.util.LoreBar.bar(level, Math.max(1, maxLevel(option.upgrade()))));
         return values;
     }
 

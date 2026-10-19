@@ -101,21 +101,28 @@ public final class ClanContractChoiceMenu {
     }
 
     private ItemStack buildOffer(ContractManager.ScaledOffer offer, ContractType type, Player player) {
+        var messages = plugin.getMessages();
         List<Component> lore = new ArrayList<>();
+        lore.add(messages.component(type == ContractType.MONTHLY ? "gui.contracts.item.subtitle-monthly"
+                : "gui.contracts.item.subtitle-weekly", player));
+        lore.add(Component.empty());
+        lore.add(messages.component("gui.contracts.item.goal-title", player));
         // The objective line is rebuilt from the scaled target: the static config description carries the
         // unscaled numbers, which would be wrong for every clan bigger than one member.
-        lore.add(offer.objective().getDisplayName(player, 0));
-        lore.add(plugin.getMessages().component("gui.contracts.item.reward-scaled", Map.of("reward", String.valueOf(offer.rewardXp())), player));
+        lore.add(Component.text("  ").append(offer.objective().getDisplayName(player, 0)));
+        lore.add(Component.empty());
+        lore.add(messages.component("gui.contracts.item.reward-title", player));
+        lore.add(messages.component("gui.contracts.item.reward-scaled", Map.of("reward", String.valueOf(offer.rewardXp())), player));
         int points = Math.max(0, plugin.getConfig().getInt(
                 "clans.contracts." + (type == ContractType.MONTHLY ? "monthly" : "weekly") + ".reward-upgrade-points",
                 type == ContractType.MONTHLY ? 3 : 1));
         if (points > 0) {
-            lore.add(plugin.getMessages().component("gui.contracts.item.reward-points", Map.of("points", String.valueOf(points)), player));
+            lore.add(messages.component("gui.contracts.item.reward-points", Map.of("points", String.valueOf(points)), player));
         }
-        lore.add(Component.empty());
-        lore.addAll(plugin.getMessages().components("gui.contracts.item.select", player));
+        lore.addAll(LoreBlocks.clicks(messages, player, List.of(
+                LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.contracts.item.select-action"))));
         return ItemBuilder.head(type == ContractType.MONTHLY ? ItemBuilder.HEAD_MONTHLY_QUESTS : ItemBuilder.HEAD_WEEKLY_QUESTS)
-                .name(plugin.getMessages().component("gui.contracts.item.name", Map.of("name", offer.definition().displayName()), player))
+                .name(messages.component("gui.contracts.item.name", Map.of("name", offer.definition().displayName()), player))
                 .lore(lore)
                 .build();
     }

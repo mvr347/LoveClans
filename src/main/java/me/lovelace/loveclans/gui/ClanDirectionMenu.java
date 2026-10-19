@@ -83,7 +83,6 @@ public final class ClanDirectionMenu {
             inventory.setItem(slots[i], ItemBuilder.head(headFor(direction))
                     .name(plugin.getMessages().component("gui.direction." + key + ".name", player))
                     .lore(plugin.getMessages().components("gui.direction." + key + ".lore", placeholders(direction), player))
-                    .lore(net.kyori.adventure.text.Component.empty())
                     .lore(plugin.getMessages().components("gui.direction.choose", player))
                     .build());
         }
@@ -111,7 +110,7 @@ public final class ClanDirectionMenu {
             Map<String, String> values = Map.of("direction", direction.displayName());
             plugin.getGuiManager().openConfirm(player, clan,
                     plugin.getMessages().component("gui.direction.confirm.title", values, player),
-                    plugin.getMessages().component("gui.direction.confirm.lore", player),
+                    plugin.getMessages().components("gui.direction.confirm.effects", values, player),
                     () -> confirm(player, clan, direction),
                     () -> open(player, clan));
             return;

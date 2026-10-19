@@ -92,6 +92,7 @@ public final class ClanDiplomacyMenu {
                         "members", String.valueOf(targetClan.members().size()),
                         "relation", tierTitle(tier)
                 ), player))
+                .lore(Component.empty())
                 .lore(plugin.getMessages().component(recBadgeKey, player))
                 .lore(publicEffects(player, sourceClan, targetClan))
                 .build());
@@ -652,7 +653,7 @@ public final class ClanDiplomacyMenu {
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.break-pact.title", Map.of("type", type.displayName(),
                         "tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                plugin.getMessages().component("gui.confirm.break-pact.lore", Map.of("penalty", String.valueOf(penalty)), player),
+                plugin.getGuiManager().confirmEffects(player, "break-pact", Map.of("penalty", String.valueOf(penalty))),
                 () -> refresh(player, sourceClan, targetClan, manager.cancelOrBreakPactAsync(player, sourceClan, targetClan, type)),
                 () -> plugin.runSync(() -> open(player, sourceClan, targetClan)));
     }
@@ -867,7 +868,7 @@ public final class ClanDiplomacyMenu {
         boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.war", true);
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.war.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                cbRequired ? plugin.getMessages().component("gui.conflict.confirm-casus", Map.of("type", plugin.getMessages().raw("gui.conflict.war.short")), player) : Component.empty(),
+                conflictEffects(player, "war", targetClan, cbRequired, "gui.conflict.war.short"),
                 () -> {
                     if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "WAR")) {
                         plugin.getMessages().sendDeny(player, "deny.war.no-casus", Map.of());
@@ -894,7 +895,7 @@ public final class ClanDiplomacyMenu {
         boolean cbRequired = plugin.getConfig().getBoolean("casus-belli.required-for.siege", true);
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.siege.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                cbRequired ? plugin.getMessages().component("gui.conflict.confirm-casus", Map.of("type", plugin.getMessages().raw("gui.conflict.siege.short")), player) : Component.empty(),
+                conflictEffects(player, "siege", targetClan, cbRequired, "gui.conflict.siege.short"),
                 () -> {
                     if (cbRequired && !plugin.getClanManager().getClanItemFactory().hasCasusBelli(player, targetClan.id(), "SIEGE")) {
                         plugin.getMessages().sendDeny(player, "deny.siege.no-casus", Map.of());
@@ -914,10 +915,21 @@ public final class ClanDiplomacyMenu {
         }
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.raid.title", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                Component.empty(),
+                plugin.getGuiManager().confirmEffects(player, "raid", Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())),
                 () -> plugin.getRaidManager().startRaidAsync(sourceClan, targetClan)
                         .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
                 () -> plugin.runSync(() -> open(player, sourceClan, targetClan)));
+    }
+
+    /** What a war/siege declaration will do: the declaration itself, plus the spent casus belli when one is required. */
+    private List<Component> conflictEffects(Player player, String kind, Clan targetClan, boolean casusRequired, String shortNameKey) {
+        List<Component> effects = new java.util.ArrayList<>(plugin.getGuiManager().confirmEffects(player, kind,
+                Map.of("tag", targetClan.tag(), "color", targetClan.tagColor())));
+        if (casusRequired) {
+            effects.add(plugin.getMessages().component("gui.conflict.confirm-casus",
+                    Map.of("type", plugin.getMessages().raw(shortNameKey)), player));
+        }
+        return effects;
     }
 
     private Optional<TerritoryKey> resolveContestedTerritory(Player player, Clan defender) {

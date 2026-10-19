@@ -65,14 +65,12 @@ public final class ClanMainMenu implements InventoryHolder {
         String statusKey = clan.isRecognized() ? "gui.main.info.status-recognized" : "gui.main.info.status-unrecognized";
         inventory.setItem(0, ItemBuilder.of(clanEmblem)
                 .name(plugin.getMessages().component("gui.main.info.name", Map.of("clan", clan.name(), "color", clan.tagColor()), player))
-                .lore(plugin.getMessages().component("gui.main.info.tag",
-                        Map.of("tag", clan.tag()), player))
-                .lore(plugin.getMessages().component("gui.main.info.level",
-                        Map.of("level", String.valueOf(clan.level())), player))
-                .lore(plugin.getMessages().component("gui.main.info.members",
-                        Map.of("current", String.valueOf(clan.members().size()),
-                               "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player))
-                .lore(plugin.getMessages().component(statusKey, player))
+                .lore(plugin.getMessages().components("gui.main.info.lore", Map.of(
+                        "tag", clan.tag(),
+                        "level", String.valueOf(clan.level()),
+                        "current", String.valueOf(clan.members().size()),
+                        "max", String.valueOf(plugin.getClanManager().maxMembers(clan)),
+                        "status", plugin.getMessages().raw(statusKey)), player))
                 .build());
 
         // Row 2 — main nav buttons. Applications live inside the members screen now; the count rides on this button.
@@ -82,9 +80,9 @@ public final class ClanMainMenu implements InventoryHolder {
         int applicationsCount = canViewApps ? plugin.getClanManager().getClanApplications(clan.id()).size() : 0;
         ItemBuilder membersItem = ItemBuilder.head(ItemBuilder.HEAD_MEMBERS)
                 .name(plugin.getMessages().component("gui.main.members.hub-name", player))
-                .lore(plugin.getMessages().component("gui.main.members.hub-lore", player));
+                .lore(plugin.getMessages().components("gui.main.members.hub-lore", player));
         if (applicationsCount > 0) {
-            membersItem.lore(plugin.getMessages().component("gui.main.members.applications-lore",
+            membersItem.lore(plugin.getMessages().components("gui.main.members.applications-lore",
                     Map.of("count", String.valueOf(applicationsCount)), player));
         }
         inventory.setItem(SLOT_MEMBERS, withOpenHint(membersItem).build());
@@ -102,7 +100,7 @@ public final class ClanMainMenu implements InventoryHolder {
         if (diplomacyActive) {
             inventory.setItem(SLOT_DIPLOMACY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_DIPLOMACY)
                     .name(plugin.getMessages().component("gui.main.diplomacy.name", player))
-                    .lore(plugin.getMessages().component("gui.main.diplomacy.lore", player))).build());
+                    .lore(plugin.getMessages().components("gui.main.diplomacy.lore", player))).build());
         } else {
             inventory.setItem(SLOT_DIPLOMACY, disabledItem("gui.main.diplomacy.name", "gui.main.diplomacy.lore",
                     List.of(plugin.getMessages().reason(!canManageDiplomacy
@@ -116,7 +114,7 @@ public final class ClanMainMenu implements InventoryHolder {
         } else {
             inventory.setItem(SLOT_UPGRADES, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
                     .name(plugin.getMessages().component("gui.main.upgrades.name", player))
-                    .lore(plugin.getMessages().component("gui.main.upgrades.lore", player))).build());
+                    .lore(plugin.getMessages().components("gui.main.upgrades.lore", player))).build());
         }
 
         // Row 3 — clan storage and the spirit
@@ -126,31 +124,31 @@ public final class ClanMainMenu implements InventoryHolder {
         inventory.setItem(SLOT_TREASURY, treasuryItem(hasCapital));
         inventory.setItem(SLOT_SPIRIT, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_SPIRIT)
                 .name(plugin.getMessages().component("gui.main.spirit.name", player))
-                .lore(plugin.getMessages().component("gui.main.spirit.lore", player)))
+                .lore(plugin.getMessages().components("gui.main.spirit.lore", player)))
                 .build());
 
         // Row 4 — trade and settings
         inventory.setItem(SLOT_TRADE, hasTerritory
                 ? withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_TRADE)
                         .name(plugin.getMessages().component("gui.main.trade.name", player))
-                        .lore(plugin.getMessages().component("gui.main.trade.description", player)))
+                        .lore(plugin.getMessages().components("gui.main.trade.description", player)))
                         .build()
                 : disabledItem("gui.main.trade.name", "gui.main.trade.description",
                         List.of(plugin.getMessages().reason("gui.main.no-territory-lore", player))));
 
         inventory.setItem(SLOT_HISTORY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_MAP)
                 .name(plugin.getMessages().component("gui.main.history.name", player))
-                .lore(plugin.getMessages().component("gui.main.history.description", player))).build());
+                .lore(plugin.getMessages().components("gui.main.history.description", player))).build());
 
         // Header: modifiers, then settings (both are header buttons now, not work-zone items)
         inventory.setItem(SLOT_MODIFIERS, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_QUEST)
                 .name(plugin.getMessages().component("gui.main.modifiers.name", player))
-                .lore(plugin.getMessages().component("gui.main.modifiers.description", player))).build());
+                .lore(plugin.getMessages().components("gui.main.modifiers.description", player))).build());
 
         inventory.setItem(SLOT_SETTINGS, canManageSettings
                 ? withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_MAIN_SETTINGS)
                         .name(plugin.getMessages().component("gui.main.settings.name", player))
-                        .lore(plugin.getMessages().component("gui.main.settings.lore", player))).build()
+                        .lore(plugin.getMessages().components("gui.main.settings.lore", player))).build()
                 : disabledItem("gui.main.settings.name", "gui.main.settings.lore",
                         List.of(plugin.getMessages().reason("gui.main.settings.no-permission-lore", player))));
 
@@ -176,7 +174,7 @@ public final class ClanMainMenu implements InventoryHolder {
     private ItemStack disabledItem(String nameKey, String descriptionKey, List<Component> reasonLines) {
         ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                 .name(LoreBlocks.disabledName(plugin.getMessages(), player, nameKey))
-                .lore(plugin.getMessages().component(descriptionKey, player))
+                .lore(plugin.getMessages().components(descriptionKey, player))
                 .lore(Component.empty());
         builder.lore(LoreBlocks.blockedLines(plugin.getMessages(), player, "gui.style.status.unavailable", reasonLines,
                 LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.style.action.open")));
@@ -194,14 +192,19 @@ public final class ClanMainMenu implements InventoryHolder {
                     List.of(plugin.getMessages().reason("gui.capital.no-house-lore", player)));
         }
         if (taxLocked) {
+            var messages = plugin.getMessages();
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.chest.locked-warning.name", player))
-                    .lore(plugin.getMessages().components("gui.chest.locked-warning.lore", Map.of(), player))
+                    .name(messages.component("gui.chest.locked-warning.name", player))
+                    .lore(messages.components("gui.chest.locked-warning.lore", Map.of(), player))
+                    .lore(Component.empty())
+                    .lore(LoreBlocks.blockedLines(messages, player, "gui.style.status.locked",
+                            List.of(messages.reason("gui.chest.locked-warning.reason", player)),
+                            LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.chest.locked-warning.action")))
                     .build();
         }
         return withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_CHEST)
                 .name(plugin.getMessages().component("gui.chest.items-button.name", player))
-                .lore(plugin.getMessages().component("gui.chest.items-button.lore", player))).build();
+                .lore(plugin.getMessages().components("gui.chest.items-button.lore", player))).build();
     }
 
     /** Treasury button: coins of the clan. */
@@ -213,7 +216,7 @@ public final class ClanMainMenu implements InventoryHolder {
         // Name plus one description line like every other main menu button: balance and tax live in the treasury itself
         return withOpenHint(ItemBuilder.head(clan.isChestTaxLocked() ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.chest.money-button.name", player))
-                .lore(plugin.getMessages().component("gui.chest.money-button.description", player))).build();
+                .lore(plugin.getMessages().components("gui.chest.money-button.description", player))).build();
     }
 
     public void handleInventoryClick(Player clicker, int slot) {
@@ -264,8 +267,8 @@ public final class ClanMainMenu implements InventoryHolder {
                 if (isLeader) return;
 
                 plugin.getGuiManager().openConfirm(clicker, clan, 
-                        plugin.getMessages().component("gui.confirm.leave.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), clicker), 
-                        Component.empty(),
+                        plugin.getMessages().component("gui.confirm.leave.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), clicker),
+                        plugin.getGuiManager().confirmEffects(clicker, "leave", Map.of("tag", clan.tag(), "color", clan.tagColor())),
                         () -> plugin.getClanManager().removeMemberAsync(clan, clicker.getUniqueId(), clicker.getUniqueId(), false)
                                 .thenRun(() -> plugin.runSync(() -> {
                                     plugin.getMessages().send(clicker, "clan.left");

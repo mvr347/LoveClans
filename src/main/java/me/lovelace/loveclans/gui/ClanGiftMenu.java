@@ -67,7 +67,7 @@ public final class ClanGiftMenu implements InventoryHolder {
         inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.diplomacy.gift.name", player))
                 .lore(plugin.getMessages().component("gui.diplomacy.gift.lore", player))
-                .lore(plugin.getMessages().component("gui.chest.money.balance.lore", Map.of("amount", CoinFormat.format(sourceClan.chestMoney())), player))
+                .lore(plugin.getMessages().components("gui.diplomacy.gift.balance", Map.of("amount", CoinFormat.format(sourceClan.chestMoney())), player))
                 .lore(plugin.getMessages().components("gui.diplomacy.gift.limits", Map.of(
                         "max", CoinFormat.format(maxAmount()),
                         "cooldown", me.lovelace.loveclans.util.TimeUtil.formatDuration(
@@ -83,7 +83,7 @@ public final class ClanGiftMenu implements InventoryHolder {
             ItemBuilder b = ItemBuilder.head(deny == null ? ItemBuilder.HEAD_CHEST_MONEY : ItemBuilder.HEAD_INACTIVE)
                     .name(deny == null ? plugin.getMessages().component("gui.diplomacy.gift.preset-name", amountPh, player)
                             : LoreBlocks.disabledName(plugin.getMessages(), player, "gui.diplomacy.gift.preset-name", amountPh))
-                    .lore(plugin.getMessages().component("gui.diplomacy.gift.preset-lore", amountPh, player));
+                    .lore(plugin.getMessages().components("gui.diplomacy.gift.preset-lore", amountPh, player));
             LoreBlocks.Hint send = LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.diplomacy.gift.preset-action");
             b.lore(Component.empty());
             if (deny != null) {
@@ -96,7 +96,7 @@ public final class ClanGiftMenu implements InventoryHolder {
 
         inventory.setItem(SLOT_CUSTOM, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
                 .name(plugin.getMessages().component("gui.diplomacy.gift.custom-name", player))
-                .lore(plugin.getMessages().component("gui.diplomacy.gift.custom-lore", player))
+                .lore(plugin.getMessages().components("gui.diplomacy.gift.custom-lore", player))
                 .lore(LoreBlocks.clicks(plugin.getMessages(), player, List.of(
                         LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.diplomacy.gift.custom-action"))))
                 .build());
@@ -169,7 +169,8 @@ public final class ClanGiftMenu implements InventoryHolder {
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.gift.title",
                         Map.of("amount", CoinFormat.format(amount), "tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                Component.empty(),
+                plugin.getGuiManager().confirmEffects(player, "gift",
+                        Map.of("amount", CoinFormat.format(amount), "tag", targetClan.tag(), "color", targetClan.tagColor())),
                 () -> plugin.getClanGiftManager().sendGiftAsync(sourceClan, targetClan, amount, player.getUniqueId())
                         .thenRun(() -> plugin.runSync(() -> {
                             plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);

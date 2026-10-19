@@ -93,12 +93,17 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         builder.lore(Component.empty());
         LoreBlocks.Hint use = LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.capital.shield.action");
         if (block.isPresent()) {
-            builder.lore(LoreBlocks.blocked(messages, player, "gui.style.status.unavailable",
+            builder.lore(LoreBlocks.blocked(messages, player, statusFor(block.get().key()),
                     block.get().key(), block.get().placeholders(), use));
         } else {
             builder.lore(LoreBlocks.clicks(messages, player, List.of(use)));
         }
         return builder.build();
+    }
+
+    /** A pause gets the cooldown status of the standard, every other refusal the generic "unavailable". */
+    private static String statusFor(String denyKey) {
+        return denyKey.endsWith(".cooldown") ? "gui.style.status.cooldown" : "gui.style.status.unavailable";
     }
 
     private ItemStack relocateItem() {
@@ -112,7 +117,7 @@ public class ClanCapitalManagementMenu implements InventoryHolder {
         builder.lore(Component.empty());
         LoreBlocks.Hint use = LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.capital.relocate.action");
         if (block.isPresent()) {
-            builder.lore(LoreBlocks.blocked(messages, player, "gui.style.status.unavailable",
+            builder.lore(LoreBlocks.blocked(messages, player, statusFor(block.get().key()),
                     block.get().key(), block.get().placeholders(), use));
         } else {
             builder.lore(LoreBlocks.clicks(messages, player, List.of(use)));

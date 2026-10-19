@@ -13,6 +13,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,9 +55,16 @@ public final class ClanRankPermissionsMenu {
             boolean enabled = clan.getPermission(rank, permission);
             // Одна и та же пара голов (вкл/выкл) для всех прав — список читается как единый
             // тумблер, а не набор разнородных тематических иконок.
+            var messages = plugin.getMessages();
+            String permissionName = messages.raw("gui.rank-permissions.permission." + permission.name().toLowerCase());
             ItemBuilder builder = ItemBuilder.head(enabled ? ItemBuilder.HEAD_PERMISSION_ON : ItemBuilder.HEAD_PERMISSION_OFF)
-                    .name(plugin.getMessages().component("gui.rank-permissions.permission." + permission.name().toLowerCase(), player))
-                    .lore(plugin.getMessages().components(enabled ? "gui.rank-permissions.enabled" : "gui.rank-permissions.disabled", player));
+                    .name(messages.component(enabled ? "gui.rank-permissions.name-on" : "gui.rank-permissions.name-off",
+                            Map.of("permission", permissionName), player))
+                    .lore(messages.components("gui.rank-permissions.lore", Map.of(
+                            "now", messages.raw(enabled ? "gui.rank-permissions.state-on" : "gui.rank-permissions.state-off"),
+                            "next", messages.raw(enabled ? "gui.rank-permissions.state-off" : "gui.rank-permissions.state-on")), player))
+                    .lore(LoreBlocks.clicks(messages, player, List.of(LoreBlocks.hint(messages, LoreBlocks.Click.LEFT,
+                            enabled ? "gui.rank-permissions.action-disable" : "gui.rank-permissions.action-enable"))));
             if (enabled) builder.glow(true);
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, permission.name()));

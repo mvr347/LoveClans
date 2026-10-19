@@ -38,7 +38,11 @@ public final class LangMigrator {
             // v12: members screen - invitation/application items show names, relative times and the cancel hint
             List.of("gui.applications", "gui.members"),
             // v13: member heads and profile menu in the lore standard, diplomacy descriptions rewritten
-            List.of("gui.members", "gui.member-detail", "gui.diplomacy")
+            List.of("gui.members", "gui.member-detail", "gui.diplomacy"),
+            // v14: the lore standard reaches every menu and item: toggles/inputs/lists/empty states/confirm dialogs in gui,
+            // physical items (item.*: seals, banners, casus belli, guild shield), the raid compass and the
+            // foundation-banner purchase screen texts (clan.banner)
+            List.of("gui", "item", "raid.compass", "clan.banner")
     );
 
     private LangMigrator() {

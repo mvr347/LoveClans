@@ -15,6 +15,7 @@ import me.lovelace.loveclans.model.siege.SiegeCamp;
 import me.lovelace.loveclans.model.siege.SiegeResult;
 import me.lovelace.loveclans.model.siege.SiegeState;
 import me.lovelace.loveclans.util.ClanItemFactory;
+import me.lovelace.loveclans.util.ItemBuilder;
 import me.lovelace.loveclans.util.CoinFormat;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
@@ -1094,8 +1095,8 @@ public final class SiegeManager {
         ItemMeta meta = compass.getItemMeta();
         if (meta != null) {
             meta.getPersistentDataContainer().set(ClanItemFactory.SIEGE_COMPASS_KEY, PersistentDataType.STRING, siege.id().toString());
-            meta.displayName(plugin.getMessages().component("item.siege-compass.name", Map.of("tag", enemyClan.tag())));
-            meta.lore(List.of(plugin.getMessages().component("item.siege-compass.lore")));
+            meta.displayName(ItemBuilder.upright(plugin.getMessages().component("item.siege-compass.name", Map.of("tag", enemyClan.tag()))));
+            meta.lore(plugin.getMessages().components("item.siege-compass.lore", Map.of(), null).stream().map(ItemBuilder::upright).toList());
             compass.setItemMeta(meta);
         }
         player.setCompassTarget(targetLocation);

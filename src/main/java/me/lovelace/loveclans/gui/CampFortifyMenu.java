@@ -97,6 +97,7 @@ public final class CampFortifyMenu {
                 .name(plugin.getMessages().component("gui.camp-fortify.info.name", Map.of("number", String.valueOf(campIndex + 1)), player))
                 .lore(plugin.getMessages().components("gui.camp-fortify.info.lore", Map.of(
                         "level", String.valueOf(currentLevel), "max", String.valueOf(maxLevel),
+                        "bar", me.lovelace.loveclans.util.LoreBar.bar(currentLevel, maxLevel),
                         "hits", String.valueOf(hitsRequired)), player))
                 .build());
 
@@ -113,9 +114,13 @@ public final class CampFortifyMenu {
                     "level", String.valueOf(currentLevel + 1), "max", String.valueOf(maxLevel),
                     "hits", String.valueOf(hitsRequired), "next", String.valueOf(nextHits),
                     "per", String.valueOf(hitsPerLevel), "cost", CoinFormat.format(cost));
+            // Paid from the clan treasury when the player may use it and it covers the price, otherwise from the wallet.
+            long wallet = economy().map(eco -> eco.balance(player)).orElse(0L);
+            long treasury = clan.hasPermission(player.getUniqueId(), ClanPermission.BANK) ? clan.chestMoney() : 0L;
             inventory.setItem(SLOT_UPGRADE, ItemBuilder.of(Material.ANVIL)
                     .name(plugin.getMessages().component("gui.camp-fortify.upgrade.name", ph, player))
                     .lore(plugin.getMessages().components("gui.camp-fortify.upgrade.lore", ph, player))
+                    .lore(LoreBlocks.funds(plugin.getMessages(), player, cost, Math.max(wallet, treasury)))
                     .lore(LoreBlocks.clicks(plugin.getMessages(), player, List.of(
                             LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.camp-fortify.upgrade.action"))))
                     .build());

@@ -145,6 +145,7 @@ public final class ClanListMenu implements InventoryHolder {
             // handleInventoryClick: SLOT_MY_CLAN там уже no-op без клана).
             inventory.setItem(SLOT_MY_CLAN, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                     .name(plugin.getMessages().component("gui.clan-list.no-clan.name", player))
+                    .lore(plugin.getMessages().components("gui.clan-list.no-clan.lore", player))
                     .lore(LoreBlocks.blockedReason(plugin.getMessages(), player, "gui.clan-list.no-clan.hint", Map.of(), null))
                     .build());
         }
@@ -158,7 +159,7 @@ public final class ClanListMenu implements InventoryHolder {
         if (visibleClans.isEmpty()) {
             inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.clan-list.empty.name", player))
-                    .lore(plugin.getMessages().component("gui.clan-list.empty.lore", player))
+                    .lore(plugin.getMessages().components("gui.clan-list.empty.lore", player))
                     .build());
         }
 
@@ -179,7 +180,7 @@ public final class ClanListMenu implements InventoryHolder {
             int appCount = countPlayerApplicationsAndInvites();
             inventory.setItem(SLOT_MY_APPLICATIONS, ItemBuilder.head(ItemBuilder.HEAD_MSG)
                     .name(plugin.getMessages().component("gui.clan-list.my-applications.name", player))
-                    .lore(plugin.getMessages().component("gui.clan-list.my-applications.lore",
+                    .lore(plugin.getMessages().components("gui.clan-list.my-applications.lore",
                             Map.of("count", String.valueOf(appCount)), player))
                     .build());
         }
@@ -213,55 +214,38 @@ public final class ClanListMenu implements InventoryHolder {
                 .name(plugin.getMessages().component("gui.clan-list.clan-item.name",
                         Map.of("tag", clan.tag(), "color", clan.tagColor(), "name", clan.name()), player));
 
-        // Признанность клана не зависит от наличия главы, поэтому строка ставится
-        // отдельно от блока leaderId.ifPresent ниже - иначе безглавый клан (edge case)
-        // остался бы вовсе без этого статуса.
-        builder.lore(plugin.getMessages().component(clan.isRecognized()
-                ? "gui.clan-list.clan-item.status-recognized"
-                : "gui.clan-list.clan-item.status-unrecognized", player));
+        var messages = plugin.getMessages();
+        // Recognition does not depend on the leader being known, so it stays in the profile section, not in the leader one.
+        builder.lore(messages.components("gui.clan-list.clan-item.profile", Map.of(
+                "recognition", messages.raw(clan.isRecognized() ? "gui.clan-list.clan-item.recognized" : "gui.clan-list.clan-item.unrecognized"),
+                "date", dateFormat.format(clan.createdAt())), player));
 
-        // Leader information
         clan.leaderId().ifPresent(leaderId -> {
             OfflinePlayer leader = Bukkit.getOfflinePlayer(leaderId);
             String leaderName = leader.getName() != null ? leader.getName() : leaderId.toString().substring(0, 8);
-            builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.leader",
-                    Map.of("player", leaderName), player));
-
-            builder.lore(plugin.getMessages().component(closed
-                    ? "gui.clan-list.clan-item.status.closed"
-                    : "gui.clan-list.clan-item.status.open", player));
-
-            if (leader.isOnline()) {
-                builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.leader-status.online", player));
-            } else {
-                builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.leader-status.offline", player));
-                if (leader.getLastPlayed() > 0) {
-                    builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.leader-last-seen",
-                            Map.of("date", dateTimeFormat.format(new Date(leader.getLastPlayed()))), player));
-                }
+            builder.lore(messages.components("gui.clan-list.clan-item.leader", Map.of(
+                    "player", leaderName,
+                    "leader-state", messages.raw(leader.isOnline() ? "gui.clan-list.clan-item.leader-online"
+                            : "gui.clan-list.clan-item.leader-offline")), player));
+            if (!leader.isOnline() && leader.getLastPlayed() > 0) {
+                builder.lore(messages.component("gui.clan-list.clan-item.leader-last-seen",
+                        Map.of("date", dateTimeFormat.format(new Date(leader.getLastPlayed()))), player));
             }
         });
 
-        builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.level",
-                        Map.of("level", String.valueOf(clan.level())), player))
-                .lore(plugin.getMessages().component("gui.clan-list.clan-item.influence",
-                        Map.of("influence", String.valueOf(clan.influence())), player))
-                .lore(plugin.getMessages().component("gui.clan-list.clan-item.members",
-                        Map.of("current", String.valueOf(clan.members().size()),
-                                "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player))
-                .lore(plugin.getMessages().component("gui.clan-list.clan-item.created-at",
-                        Map.of("date", dateFormat.format(clan.createdAt())), player));
+        builder.lore(messages.components("gui.clan-list.clan-item.stats", Map.of(
+                "level", String.valueOf(clan.level()),
+                "influence", String.valueOf(clan.influence()),
+                "current", String.valueOf(clan.members().size()),
+                "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player));
 
-        // Apply/Status button logic
-        if (isMember) {
-            builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.already-member", player));
-        } else if (closed) {
-            builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.apply-closed", player));
-        } else { // Open clan
-            builder.lore(plugin.getMessages().component("gui.clan-list.clan-item.apply-open", player));
-        }
+        // Join status as a check-list line: a member, a closed clan or an open one
+        builder.lore(Component.empty()).lore(messages.component("gui.clan-list.clan-item.join-title", player));
+        builder.lore(messages.component(isMember ? "gui.clan-list.clan-item.already-member"
+                : closed ? "gui.clan-list.clan-item.apply-closed" : "gui.clan-list.clan-item.apply-open", player));
 
-        builder.lore(plugin.getMessages().components("gui.clan-list.clan-item.click-info", player));
+        builder.lore(LoreBlocks.clicks(messages, player, List.of(
+                LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.clan-list.clan-item.action"))));
 
         return builder.build();
     }

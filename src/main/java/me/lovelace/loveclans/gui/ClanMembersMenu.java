@@ -198,7 +198,7 @@ public final class ClanMembersMenu {
                     .name(plugin.getMessages().component("gui.close", player)).build());
         }
 
-        String leaderName = clan.leaderId().map(id -> nameOf(Bukkit.getOfflinePlayer(id), id)).orElse("—");
+        String leaderName = clan.leaderId().map(id -> nameOf(Bukkit.getOfflinePlayer(id), id)).orElse(plugin.getMessages().raw("gui.style.none"));
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_MEMBERS)
                 .name(plugin.getMessages().component("gui.members.info.name",
                         Map.of("name", clan.name(), "tag", clan.tag(), "color", clan.tagColor()), player))
@@ -211,23 +211,18 @@ public final class ClanMembersMenu {
 
         if (contributionMode) {
             inventory.setItem(SLOT_FILTER, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.members-hub.filter-disabled.name", player))
+                    .name(LoreBlocks.disabledName(plugin.getMessages(), player, "gui.members-hub.filter-title"))
                     .lore(plugin.getMessages().components("gui.members-hub.filter-disabled.lore", player))
+                    .lore(LoreBlocks.blockedReason(plugin.getMessages(), player, "gui.members-hub.filter-disabled.reason", Map.of(),
+                            LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.members-hub.filter-disabled.action")))
                     .build());
-            inventory.setItem(SLOT_CONTRIBUTION, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
-                    .name(plugin.getMessages().component("gui.members-hub.contribution-mode.name", player))
-                    .lore(plugin.getMessages().components("gui.members-hub.contribution-mode.lore-on", player))
-                    .glow(true)
-                    .build());
+            inventory.setItem(SLOT_CONTRIBUTION, contributionButton(player, true).glow(true).build());
             inventory.setItem(4, GuiFrames.glassPane());
             inventory.setItem(SLOT_ACTIVITY, CycleButton.build(plugin, player, ItemBuilder.HEAD_EXPERIENCE,
                     "gui.activity.period.name", "gui.activity.period.", ActivityPeriod.values(), period));
         } else {
             inventory.setItem(SLOT_FILTER, cycleButton("filter", Filter.values(), filter, manager, player));
-            inventory.setItem(SLOT_CONTRIBUTION, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
-                    .name(plugin.getMessages().component("gui.members-hub.contribution-mode.name", player))
-                    .lore(plugin.getMessages().components("gui.members-hub.contribution-mode.lore-off", player))
-                    .build());
+            inventory.setItem(SLOT_CONTRIBUTION, contributionButton(player, false).build());
             inventory.setItem(4, GuiFrames.glassPane());
             inventory.setItem(SLOT_ACTIVITY, GuiFrames.glassPane());
         }
@@ -237,7 +232,7 @@ public final class ClanMembersMenu {
         if (shown.isEmpty()) {
             inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.members-hub.empty.name", player))
-                    .lore(plugin.getMessages().component("gui.members-hub.empty.lore", player))
+                    .lore(plugin.getMessages().components("gui.members-hub.empty.lore", player))
                     .build());
         }
         for (int i = 0; i < pageEntries.size(); i++) {
@@ -277,6 +272,19 @@ public final class ClanMembersMenu {
         }
     }
 
+    /** Contribution-mode switch: the state is in the name, the lore shows what one click changes. */
+    private ItemBuilder contributionButton(Player player, boolean on) {
+        var messages = plugin.getMessages();
+        String group = "gui.members-hub.contribution-mode.";
+        return ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
+                .name(messages.component(group + (on ? "name-on" : "name-off"), player))
+                .lore(messages.components(group + "lore", Map.of(
+                        "now", messages.raw(group + (on ? "state-on" : "state-off")),
+                        "next", messages.raw(group + (on ? "state-off" : "state-on"))), player))
+                .lore(LoreBlocks.clicks(messages, player, List.of(
+                        LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, group + (on ? "action-on" : "action-off")))));
+    }
+
     /** A control button listing every option with the current one marked; LMB steps forward, RMB back. */
     private <E extends Enum<E>> ItemStack cycleButton(String group, E[] options, E current, boolean manager, Player player) {
         return CycleButton.build(plugin, player, group.equals("filter") ? ItemBuilder.HEAD_FILTER : ItemBuilder.HEAD_SORT,
@@ -293,10 +301,10 @@ public final class ClanMembersMenu {
                 boolean self = entry.id().equals(viewer.getUniqueId());
                 Map<String, String> values = Map.of(
                         "player", entry.name(),
-                        "rank", member != null ? member.rank().displayName() : "—",
+                        "rank", member != null ? member.rank().displayName() : messages.raw("gui.style.none"),
                         "status", messages.raw(entry.online() ? "gui.members.item.status-online" : "gui.members.item.status-offline"),
                         "since", member != null ? messages.raw("gui.members.entry.since-value").replace("<ago>",
-                                DurationFormat.format(Math.max(0L, System.currentTimeMillis() - member.joinedAt()))) : "—",
+                                DurationFormat.format(Math.max(0L, System.currentTimeMillis() - member.joinedAt()))) : messages.raw("gui.style.none"),
                         "amount", CoinFormat.format(entry.contribution()),
                         "points", String.valueOf(entry.activity()));
                 ItemBuilder builder = ItemBuilder.of(Material.PLAYER_HEAD)

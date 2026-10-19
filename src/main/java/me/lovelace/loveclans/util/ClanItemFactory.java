@@ -1,6 +1,7 @@
 package me.lovelace.loveclans.util;
 
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.gui.LoreBlocks;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -41,6 +42,15 @@ public final class ClanItemFactory {
         this.plugin = plugin;
     }
 
+    /** Custom item names and lore are italic by default in the client; the style standard wants them upright. */
+    private static Component upright(Component component) {
+        return ItemBuilder.upright(component);
+    }
+
+    private static List<Component> uprightAll(List<Component> lines) {
+        return lines.stream().map(ClanItemFactory::upright).toList();
+    }
+
     /**
      * Creates a Capital Banner ItemStack with specific NBT tags.
      *
@@ -57,12 +67,8 @@ public final class ClanItemFactory {
             pdc.set(BANNER_TYPE_KEY, PersistentDataType.STRING, "CAPITAL");
             pdc.set(CLAN_ID_KEY, PersistentDataType.STRING, clanId.toString());
 
-            meta.displayName(plugin.getMessages().component("item.capital-banner.name", Map.of("clan", clanName), null));
-            meta.lore(List.of(
-                    plugin.getMessages().component("item.capital-banner.lore.type", Map.of(), null),
-                    plugin.getMessages().component("item.capital-banner.lore.clan", Map.of("clan", clanName), null),
-                    plugin.getMessages().component("item.capital-banner.lore.info", Map.of(), null)
-            ));
+            meta.displayName(upright(plugin.getMessages().component("item.capital-banner.name", Map.of("clan", clanName), null)));
+            meta.lore(uprightAll(plugin.getMessages().components("item.capital-banner.lore", Map.of("clan", clanName), null)));
             banner.setItemMeta(meta);
         }
         return banner;
@@ -83,12 +89,8 @@ public final class ClanItemFactory {
             pdc.set(BANNER_TYPE_KEY, PersistentDataType.STRING, "TERRITORY");
             pdc.set(CLAN_ID_KEY, PersistentDataType.STRING, clanId.toString());
 
-            meta.displayName(plugin.getMessages().component("item.territory-banner.name", Map.of("clan", clanName), null));
-            meta.lore(List.of(
-                    plugin.getMessages().component("item.territory-banner.lore.type", Map.of(), null),
-                    plugin.getMessages().component("item.territory-banner.lore.clan", Map.of("clan", clanName), null),
-                    plugin.getMessages().component("item.territory-banner.lore.info", Map.of(), null)
-            ));
+            meta.displayName(upright(plugin.getMessages().component("item.territory-banner.name", Map.of("clan", clanName), null)));
+            meta.lore(uprightAll(plugin.getMessages().components("item.territory-banner.lore", Map.of("clan", clanName), null)));
 
             banner.setItemMeta(meta);
         }
@@ -114,8 +116,8 @@ public final class ClanItemFactory {
             pdc.set(CLAN_ID_KEY, PersistentDataType.STRING, defenderClanId.toString());
             pdc.set(CAPTURED_BANNER_WAR_KEY, PersistentDataType.STRING, warId.toString());
 
-            meta.displayName(plugin.getMessages().component("item.captured-banner.name", Map.of("clan", defenderClanName), null));
-            meta.lore(plugin.getMessages().components("item.captured-banner.lore", null));
+            meta.displayName(upright(plugin.getMessages().component("item.captured-banner.name", Map.of("clan", defenderClanName), null)));
+            meta.lore(uprightAll(plugin.getMessages().components("item.captured-banner.lore", Map.of("clan", defenderClanName), null)));
             banner.setItemMeta(meta);
         }
         return banner;
@@ -202,8 +204,8 @@ public final class ClanItemFactory {
             PersistentDataContainer pdc = meta.getPersistentDataContainer();
             pdc.set(CLAN_CREATION_BANNER_KEY, PersistentDataType.INTEGER, 1);
 
-            meta.displayName(plugin.getMessages().component("item.clan-creation-banner.name", Map.of(), null));
-            meta.lore(plugin.getMessages().components("item.clan-creation-banner.lore", null));
+            meta.displayName(upright(plugin.getMessages().component("item.clan-creation-banner.name", Map.of(), null)));
+            meta.lore(uprightAll(plugin.getMessages().components("item.clan-creation-banner.lore", null)));
             banner.setItemMeta(meta);
         }
         return banner;
@@ -251,30 +253,22 @@ public final class ClanItemFactory {
             pdc.set(CASUS_REASON_ID_KEY, PersistentDataType.STRING, reasonId.toLowerCase());
             pdc.set(CASUS_EXPIRES_AT_KEY, PersistentDataType.LONG, expiresAt);
 
-            String conflictTitle = conflictType.equalsIgnoreCase("WAR") ? "Война" : "Осада";
-            String title = (isJust ? "§cКазус белли: §e" : "§6Казус белли: §f") + reasonTitle;
-            meta.displayName(Component.text(title));
+            var messages = plugin.getMessages();
+            String conflictTitle = messages.raw(conflictType.equalsIgnoreCase("WAR")
+                    ? "item.casus-belli.type-war" : "item.casus-belli.type-siege");
+            String timeLeft = expiresAt > 0
+                    ? TimeUtil.formatDuration(Math.max(0, expiresAt - System.currentTimeMillis()))
+                    : messages.raw("item.casus-belli.forever");
+            Map<String, String> values = Map.of("reason", reasonTitle, "target", targetClanName,
+                    "type", conflictTitle, "time", timeLeft);
+            meta.displayName(upright(messages.component(isJust ? "item.casus-belli.name-just" : "item.casus-belli.name-frivolous",
+                    values, null)));
 
-            List<Component> lore = new java.util.ArrayList<>();
-            lore.add(Component.text("§8────────────────────────"));
-            lore.add(Component.text("§7Цель:  §c[" + targetClanName + "]"));
-            lore.add(Component.text("§7Тип:   §f" + conflictTitle));
-            lore.add(Component.text("§7Повод: §a" + reasonTitle));
-            if (expiresAt > 0) {
-                long remaining = Math.max(0, expiresAt - System.currentTimeMillis());
-                lore.add(Component.text("§7Годен: §e" + TimeUtil.formatDuration(remaining)));
-            } else {
-                lore.add(Component.text("§7Годен: §eБессрочно"));
-            }
-            lore.add(Component.text("§8────────────────────────"));
+            List<Component> lore = new java.util.ArrayList<>(uprightAll(messages.components("item.casus-belli.lore", values, null)));
+            lore.addAll(uprightAll(messages.components(isJust ? "item.casus-belli.just" : "item.casus-belli.frivolous", values, null)));
             if (isJust) {
-                lore.add(Component.text("§aСправедливое право на объявление"));
-                lore.add(Component.text("§aоформлено у Гильдмастера."));
                 meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 1, true);
                 meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
-            } else {
-                lore.add(Component.text("§7Повод сомнительный, но оплачен"));
-                lore.add(Component.text("§7звонкой монетой."));
             }
             meta.lore(lore);
             item.setItemMeta(meta);
@@ -376,18 +370,15 @@ public final class ClanItemFactory {
             PersistentDataContainer pdc = meta.getPersistentDataContainer();
             pdc.set(GUILD_SHIELD_KEY, PersistentDataType.INTEGER, 1);
 
-            meta.displayName(Component.text("§bГильдейский щит"));
-            List<Component> lore = new java.util.ArrayList<>();
-            lore.add(Component.text("§8────────────────────────"));
-            lore.add(Component.text("§7Защитный эдикт гильдий."));
-            lore.add(Component.text("§7При активации дарует клану"));
-            lore.add(Component.text("§bполную защиту на 24 часа§7:"));
-            lore.add(Component.text("§f• Запрет объявления войн"));
-            lore.add(Component.text("§f• Запрет осад и набегов"));
-            lore.add(Component.text("§f• Запрет блокад на ваш клан"));
-            lore.add(Component.text("§8────────────────────────"));
-            lore.add(Component.text("§eПКМ §7для активации на свой клан"));
-            lore.add(Component.text("§8Кулдаун на клан: 7 дней."));
+            var messages = plugin.getMessages();
+            Map<String, String> values = Map.of(
+                    "hours", String.valueOf(plugin.getConfig().getLong("diplomacy.guild-shield.duration-hours", 24L)),
+                    "days", String.valueOf(plugin.getConfig().getLong("diplomacy.guild-shield.cooldown-days", 7L)));
+            meta.displayName(upright(messages.component("item.guild-shield.name", values, null)));
+            List<Component> lore = new java.util.ArrayList<>(uprightAll(messages.components("item.guild-shield.lore", values, null)));
+            lore.add(Component.empty());
+            lore.addAll(uprightAll(LoreBlocks.clicks(messages, null, List.of(
+                    LoreBlocks.hint(messages, LoreBlocks.Click.RIGHT, "item.guild-shield.action")))));
             meta.lore(lore);
             meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 1, true);
             meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
@@ -415,8 +406,8 @@ public final class ClanItemFactory {
         if (meta != null) {
             meta.getPersistentDataContainer().set(RELOCATION_SEAL_KEY, PersistentDataType.INTEGER, 1);
             var messages = plugin.getMessages();
-            meta.displayName(messages.component("item.relocation-seal.name"));
-            meta.lore(messages.components("item.relocation-seal.lore", Map.of(), null));
+            meta.displayName(upright(messages.component("item.relocation-seal.name")));
+            meta.lore(uprightAll(messages.components("item.relocation-seal.lore", Map.of(), null)));
             meta.addEnchant(org.bukkit.enchantments.Enchantment.UNBREAKING, 1, true);
             meta.addItemFlags(org.bukkit.inventory.ItemFlag.HIDE_ENCHANTS);
             item.setItemMeta(meta);

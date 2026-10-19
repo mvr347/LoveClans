@@ -5,6 +5,7 @@ import me.lovelace.loveclans.gui.LoreBlocks;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.war.ClanWar;
 import me.lovelace.loveclans.util.ItemBuilder;
+import me.lovelace.loveclans.util.LoreBar;
 import me.lovelace.loveclans.util.TimeUtil;
 import me.lovelace.loveclans.util.TrendFormat;
 import net.kyori.adventure.text.Component;
@@ -50,7 +51,7 @@ public final class ConflictLore {
                 .name(messages.component(base + (ready ? ".name" : ".name-blocked"), ph, player))
                 .lore(messages.components(base + ".desc", ph, player))
                 .lore(Component.empty())
-                .lore(messages.component(base + ".timing", ph, player))
+                .lore(messages.components(base + ".timing", ph, player))
                 .lore(Component.empty())
                 .lore(messages.components(base + ".stakes", ph, player))
                 .lore(Component.empty());
@@ -93,6 +94,7 @@ public final class ConflictLore {
                 ph.put("exp", String.valueOf(Math.round(warExp * cfg.getDouble("siege.win-exp-multiplier", 0.75))));
                 ph.put("loot", trimmed(cfg.getDouble("siege.instant-loot.money-percent-base", 20.0)));
                 ph.put("loot_cap", trimmed(cfg.getDouble("siege.instant-loot.money-percent-cap", 35.0)));
+                ph.put("bar_loot", LoreBar.bar(Math.round(cfg.getDouble("siege.instant-loot.money-percent-base", 20.0)), 100));
                 ph.put("daily", String.valueOf(cfg.getLong("siege.reparations.daily-amount", 300L)));
                 ph.put("fee", me.lovelace.loveclans.util.CoinFormat.format(cfg.getLong("siege.declare-treasury-fee", 500L)));
             }
@@ -101,6 +103,8 @@ public final class ConflictLore {
                 ph.put("duration", String.valueOf(cfg.getInt("raid.duration-minutes", 12)));
                 ph.put("money", trimmed(cfg.getDouble("raid.loot-money-percent", 40)));
                 ph.put("items", trimmed(cfg.getDouble("raid.loot-item-slot-percent", 40)));
+                ph.put("bar_money", LoreBar.bar(Math.round(cfg.getDouble("raid.loot-money-percent", 40)), 100));
+                ph.put("bar_items", LoreBar.bar(Math.round(cfg.getDouble("raid.loot-item-slot-percent", 40)), 100));
                 ph.put("shield", String.valueOf(cfg.getInt("raid.post-raid-shield-hours", 12)));
             }
         }
@@ -205,6 +209,7 @@ public final class ConflictLore {
                 Map<String, String> scorePh = Map.of("our", String.valueOf(ours), "their", String.valueOf(theirs),
                         "trend", TrendFormat.delta(ours - theirs));
                 builder.lore(Component.empty());
+                builder.lore(messages.component("gui.conflict.summary.active-title", player));
                 builder.lore(messages.component("gui.conflict.summary.active-score", scorePh, player));
                 long left = war.endsAt() - System.currentTimeMillis();
                 if (left > 0) {

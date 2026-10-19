@@ -12,8 +12,8 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 /**
- * The filter/sort switch shared by every list screen ("members menu" style): a head whose lore lists all options,
- * the current one marked {@code ▶}, followed by the LMB/RMB hint. LMB steps forward, RMB steps back.
+ * The filter/sort switch shared by every list screen ("members menu" style): a head named {@code Name | Current} whose
+ * lore lists all options, the current one marked {@code ▶}, followed by the LMB/RMB hint. LMB steps forward, RMB back.
  */
 public final class CycleButton {
     private CycleButton() {}
@@ -46,17 +46,26 @@ public final class CycleButton {
     public static <E extends Enum<E>> ItemStack build(LoveClansPlugin plugin, Player player, String headTexture,
                                                       String nameKey, String labelPrefix, E[] options, E current,
                                                       Predicate<E> shown) {
+        var messages = plugin.getMessages();
         List<Component> lore = new ArrayList<>();
+        lore.add(messages.component("gui.cycle.subtitle", player));
+        lore.add(Component.empty());
+        lore.add(messages.component("gui.cycle.options-title", player));
         for (E option : options) {
             if (!shown.test(option)) continue;
-            String label = plugin.getMessages().raw(labelPrefix + option.name().toLowerCase(java.util.Locale.ROOT));
-            lore.add(plugin.getMessages().component(option == current ? "gui.cycle.option-current" : "gui.cycle.option-other",
+            String label = messages.raw(labelPrefix + option.name().toLowerCase(java.util.Locale.ROOT));
+            lore.add(messages.component(option == current ? "gui.cycle.option-current" : "gui.cycle.option-other",
                     Map.of("name", label), player));
         }
         lore.add(Component.empty());
-        lore.addAll(plugin.getMessages().components("gui.cycle.hint", player));
+        lore.addAll(LoreBlocks.clicks(messages, player, List.of(
+                LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.cycle.next"),
+                LoreBlocks.hint(messages, LoreBlocks.Click.RIGHT, "gui.cycle.previous"))));
+        // The current option rides in the name, so the state is readable without opening the lore.
+        Component name = messages.component("gui.cycle.name", Map.of("name", messages.raw(nameKey),
+                "current", messages.raw(labelPrefix + current.name().toLowerCase(java.util.Locale.ROOT))), player);
         return ItemBuilder.head(headTexture)
-                .name(plugin.getMessages().component(nameKey, player))
+                .name(name)
                 .lore(lore)
                 .build();
     }

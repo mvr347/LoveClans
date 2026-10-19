@@ -58,7 +58,7 @@ class DiplomacyLangTest {
         keys.addAll(List.of("gui.diplomacy.state.name", "gui.diplomacy.state.lore", "gui.diplomacy.state.next",
                 "gui.diplomacy.state.next-allied", "gui.diplomacy.state.prev", "gui.diplomacy.state.none",
                 "gui.diplomacy.state.embargo", "gui.diplomacy.state.blockade", "gui.diplomacy.unavailable",
-                "gui.confirm.break-pact.title", "gui.confirm.break-pact.lore", "diplomacy.tier-improved",
+                "gui.confirm.break-pact.title", "gui.confirm.break-pact.effects", "diplomacy.tier-improved",
                 "diplomacy.tier-worsened", "diplomacy.pact.auto-broken", "diplomacy.pact.score-too-low",
                 "diplomacy.improve.sent", "diplomacy.improve.received", "diplomacy.improve.cooldown",
                 "diplomacy.improve.not-enough-money", "diplomacy.insult.sent", "diplomacy.insult.received",

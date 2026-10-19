@@ -83,9 +83,9 @@ public final class ClanRecognitionConfirmMenu {
 
         Map<String, String> placeholders = Map.of("cost", CoinFormat.format(cost), "tag", clan.tag(), "color", clan.tagColor());
         List<Component> lore = new ArrayList<>(plugin.getMessages().components("gui.recognition.info-lore", placeholders, player));
-        if (!affordable) {
-            lore.add(Component.empty());
-            lore.add(plugin.getMessages().component("gui.recognition.not-enough", placeholders, player));
+        if (cost > 0) {
+            long have = LoveCore.service(LoveEconomy.class).map(eco -> eco.balance(player)).orElse(0L);
+            lore.add(LoreBlocks.funds(plugin.getMessages(), player, cost, have));
         }
         inventory.setItem(SLOT_INFO, ItemBuilder.of(Material.WHITE_BANNER)
                 .name(plugin.getMessages().component("gui.recognition.info-name", placeholders, player))

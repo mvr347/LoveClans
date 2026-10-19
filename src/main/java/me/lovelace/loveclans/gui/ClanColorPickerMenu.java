@@ -74,9 +74,18 @@ public final class ClanColorPickerMenu {
         for (int i = 0; i < Math.min(options.size(), COLOR_SLOTS.length); i++) {
             ColorOption opt = options.get(i);
             boolean current = opt.tag().equals(clan.tagColor());
+            var messages = plugin.getMessages();
             ItemBuilder builder = ItemBuilder.head(opt.headTexture())
-                    .name(plugin.getMessages().component("gui.color-picker.preview",
-                            Map.of("preview", opt.tag() + opt.name() + (current ? " ✔" : "")), player));
+                    .name(messages.component(current ? "gui.color-picker.preview-current" : "gui.color-picker.preview",
+                            Map.of("preview", opt.tag() + opt.name()), player))
+                    .lore(messages.components("gui.color-picker.lore",
+                            Map.of("sample", opt.tag() + clan.tag()), player));
+            if (current) {
+                builder.lore(Component.empty()).lore(messages.components("gui.color-picker.current-lore", player));
+            } else {
+                builder.lore(LoreBlocks.clicks(messages, player, List.of(
+                        LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.color-picker.action"))));
+            }
             if (current) builder.glow(true);
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, opt.tag()));

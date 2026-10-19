@@ -57,6 +57,19 @@ public final class LoreBlocks {
         return blockedLines(messages, player, statusKey, messages.denyLore(denyKey, placeholders, player), blockedHint);
     }
 
+    /**
+     * The "price + funds" line of a price block: a green check when {@code have} covers {@code cost}, otherwise a red
+     * cross with the exact missing amount. Money is passed through {@link me.lovelace.loveclans.util.CoinFormat}.
+     */
+    public static Component funds(MessageService messages, Player player, long cost, long have) {
+        if (have >= cost) {
+            return messages.component("gui.style.funds.ok", player);
+        }
+        return messages.component("gui.style.funds.missing", Map.of(
+                "missing", me.lovelace.loveclans.util.CoinFormat.format(cost - have),
+                "have", me.lovelace.loveclans.util.CoinFormat.format(Math.max(0, have))), player);
+    }
+
     /** Click hint whose action text comes from a lang key; {@code <placeholders>} inside it are filled in here. */
     public static Hint hint(MessageService messages, Click click, String actionKey, Map<String, String> placeholders) {
         String text = messages.raw(actionKey);

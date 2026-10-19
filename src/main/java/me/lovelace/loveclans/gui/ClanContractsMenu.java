@@ -8,6 +8,7 @@ import me.lovelace.loveclans.model.quest.ClanContractDefinition;
 import me.lovelace.loveclans.model.quest.ClanQuestProgress;
 import me.lovelace.loveclans.model.quest.ContractType;
 import me.lovelace.loveclans.util.ItemBuilder;
+import me.lovelace.loveclans.util.LoreBar;
 import me.lovelace.loveclans.util.TimeUtil;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -86,70 +87,72 @@ public final class ClanContractsMenu {
         return buildDetail(type, clan, player).orElseGet(() -> buildButton(type, clan, player));
     }
 
+    /** "Take a vow" button of a period that has no running vow; greyed out with a reason when nothing can be offered. */
     private ItemStack buildButton(ContractType type, Clan clan, Player player) {
         ContractManager manager = plugin.getContractManager();
-        String period = periodKey(type);
-        Optional<ClanQuestProgress> active = manager.active(clan.id(), type);
-        List<Component> lore = new ArrayList<>();
-        boolean ready = false;
-        boolean available = true;
-
-        if (active.isPresent()) {
-            ClanQuestProgress progress = active.get();
-            String definitionName = manager.definition(type, progress.questId()).map(ClanContractDefinition::displayName).orElse(progress.questId());
-            lore.add(plugin.getMessages().component("gui.contracts.button.current", Map.of("name", definitionName), player));
-            if (progress.completed() && !progress.claimed()) {
-                ready = true;
-                lore.addAll(plugin.getMessages().components("gui.contracts.button.ready", player));
-            } else if (progress.claimed()) {
-                lore.add(plugin.getMessages().component("gui.contracts.button.done-this-period", player));
-            } else {
-                lore.add(plugin.getMessages().component("gui.contracts.button.in-progress", player));
-            }
-        } else if (manager.offers(clan, type).isEmpty()) {
-            available = false;
-            lore.add(plugin.getMessages().component("gui.contracts.button.none-available", player));
-        } else {
-            lore.add(plugin.getMessages().component("gui.contracts.button.not-taken", player));
-            lore.addAll(plugin.getMessages().components("gui.contracts.button.choose", player));
-        }
-        lore.add(plugin.getMessages().component("gui.contracts.button.refresh",
-                Map.of("time", TimeUtil.formatDuration(manager.periodEnd(type) - System.currentTimeMillis())), player));
+        var messages = plugin.getMessages();
+        String nameKey = "gui.contracts.button." + periodKey(type) + "-name";
+        boolean available = !manager.offers(clan, type).isEmpty();
+        Map<String, String> values = Map.of("time", TimeUtil.formatDuration(manager.periodEnd(type) - System.currentTimeMillis()));
+        LoreBlocks.Hint choose = LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.contracts.button.choose-action");
 
         ItemBuilder builder = ItemBuilder.head(available ? headFor(type) : ItemBuilder.HEAD_INACTIVE)
-                .name(plugin.getMessages().component("gui.contracts.button." + period + "-name", player))
-                .lore(lore);
-        if (ready) builder.glow(true);
+                .name(available ? messages.component("gui.contracts.button.name-not-taken", Map.of("name", messages.raw(nameKey)), player)
+                        : LoreBlocks.disabledName(messages, player, nameKey))
+                .lore(messages.components("gui.contracts.button.lore", values, player));
+        if (available) {
+            builder.lore(LoreBlocks.clicks(messages, player, List.of(choose)));
+        } else {
+            builder.lore(LoreBlocks.blockedReason(messages, player, "gui.contracts.button.none-available", Map.of(), choose));
+        }
         return builder.build();
     }
 
+    /** The running vow: name with its state, goal with a progress bar, reward, term and the claim click when it is done. */
     private Optional<ItemStack> buildDetail(ContractType type, Clan clan, Player player) {
         ContractManager manager = plugin.getContractManager();
+        var messages = plugin.getMessages();
         Optional<ClanQuestProgress> activeOpt = manager.active(clan.id(), type);
         if (activeOpt.isEmpty()) return Optional.empty();
         ClanQuestProgress progress = activeOpt.get();
         Optional<ClanContractDefinition> definitionOpt = manager.definition(type, progress.questId());
-        if (definitionOpt.isEmpty()) return Optional.empty();
-        ClanContractDefinition definition = definitionOpt.get();
+        // A vow whose definition left the config still shows up (and can be claimed), just without its objective text.
+        String questName = definitionOpt.map(ClanContractDefinition::displayName).orElse(progress.questId());
 
-        List<Component> lore = new ArrayList<>();
-        lore.add(plugin.getMessages().component("gui.contracts.button." + periodKey(type) + "-name", player));
-        lore.add(manager.displayObjective(definition, progress).getDisplayName(player, progress.progress()));
-        lore.add(plugin.getMessages().component("gui.contracts.item.reward-scaled",
-                Map.of("reward", String.valueOf(progress.scaledRewardXp())), player));
         boolean ready = progress.completed() && !progress.claimed();
-        if (ready) {
-            lore.addAll(plugin.getMessages().components("gui.contracts.item.claim-hint", player));
-        } else if (progress.claimed()) {
-            lore.add(plugin.getMessages().component("gui.contracts.info.claimed", player));
-        } else {
-            lore.add(plugin.getMessages().component("gui.contracts.item.expires",
+        boolean claimed = progress.claimed();
+        List<Component> lore = new ArrayList<>();
+        lore.add(messages.component("gui.contracts.item.subtitle-" + periodKey(type), player));
+        lore.add(Component.empty());
+        lore.add(messages.component("gui.contracts.item.goal-title", player));
+        definitionOpt.ifPresent(definition -> lore.add(Component.text("  ")
+                .append(manager.displayObjective(definition, progress).getDisplayName(player, progress.progress()))));
+        lore.add(messages.component("gui.contracts.item.progress-bar", Map.of(
+                "bar", LoreBar.bar(progress.progress(), Math.max(1, progress.scaledTarget()))), player));
+        lore.add(Component.empty());
+        lore.add(messages.component("gui.contracts.item.reward-title", player));
+        lore.add(messages.component("gui.contracts.item.reward-scaled",
+                Map.of("reward", String.valueOf(progress.scaledRewardXp())), player));
+        lore.add(Component.empty());
+        lore.add(messages.component("gui.contracts.item.time-title", player));
+        if (!claimed && !ready) {
+            lore.add(messages.component("gui.contracts.item.expires",
                     Map.of("time", TimeUtil.formatDuration(progress.expiresAt() - System.currentTimeMillis())), player));
         }
-        lore.add(plugin.getMessages().component("gui.contracts.button.refresh",
+        lore.add(messages.component("gui.contracts.item.refresh",
                 Map.of("time", TimeUtil.formatDuration(manager.periodEnd(type) - System.currentTimeMillis())), player));
+        if (ready) {
+            lore.add(Component.empty());
+            lore.add(messages.component("gui.contracts.item.ready", player));
+            lore.addAll(LoreBlocks.clicks(messages, player, List.of(
+                    LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.contracts.item.claim-action"))));
+        } else if (claimed) {
+            lore.add(Component.empty());
+            lore.add(messages.component("gui.contracts.item.claimed", player));
+        }
+        String nameKey = ready ? "gui.contracts.item.name-ready" : claimed ? "gui.contracts.item.name-claimed" : "gui.contracts.item.name-progress";
         ItemBuilder builder = ItemBuilder.head(ready ? ItemBuilder.HEAD_COMPLETED_QUESTS : headFor(type))
-                .name(plugin.getMessages().component("gui.contracts.item.name", Map.of("name", definition.displayName()), player))
+                .name(messages.component(nameKey, Map.of("name", questName), player))
                 .lore(lore);
         if (ready) builder.glow(true);
         return Optional.of(builder.build());
