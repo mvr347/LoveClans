@@ -8,6 +8,7 @@ import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.trade.ClanTrade;
 import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.util.ItemBuilder;
+import me.lovelace.loveclans.util.LoreBar;
 import me.lovelace.loveclans.util.TimeUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -136,8 +137,7 @@ public final class ClanTradeMenu {
 
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_TRADE)
                 .name(plugin.getMessages().component("gui.trade.info.name", player))
-                .lore(plugin.getMessages().component("gui.trade.info.description", player))
-                .lore(plugin.getMessages().component("gui.trade.info.treasury",
+                .lore(plugin.getMessages().components("gui.trade.info.lore",
                         Map.of("amount", CoinFormat.format(clan.chestMoney())), player))
                 .build());
 
@@ -174,13 +174,20 @@ public final class ClanTradeMenu {
             case REQUESTS -> ItemBuilder.HEAD_LETTERS;
             case STATE -> ItemBuilder.HEAD_CHEST_MONEY;
         };
-        return ItemBuilder.head(texture)
-                .name(plugin.getMessages().component("gui.trade.tab." + key + ".name", player))
-                .lore(plugin.getMessages().component("gui.trade.tab." + key + ".description", player))
-                .lore(net.kyori.adventure.text.Component.empty())
-                .lore(plugin.getMessages().component(selected ? "gui.trade.tab.selected" : "gui.trade.tab.open", player))
-                .glow(selected)
-                .build();
+        var messages = plugin.getMessages();
+        String nameKey = "gui.trade.tab." + key + ".name";
+        ItemBuilder builder = ItemBuilder.head(texture)
+                .name(selected ? messages.component("gui.trade.tab.name-selected", Map.of("name", messages.raw(nameKey)), player)
+                        : messages.component(nameKey, player))
+                .lore(messages.components("gui.trade.tab." + key + ".lore", player))
+                .glow(selected);
+        if (selected) {
+            builder.lore(net.kyori.adventure.text.Component.empty()).lore(messages.component("gui.trade.tab.selected", player));
+        } else {
+            builder.lore(LoreBlocks.clicks(messages, player, List.of(
+                    LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.style.action.open"))));
+        }
+        return builder.build();
     }
 
     /** Places the page navigation and returns the clamped page. */
@@ -201,7 +208,7 @@ public final class ClanTradeMenu {
     private void empty(Inventory inventory, Player player, String key) {
         inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                 .name(plugin.getMessages().component(key + ".name", player))
-                .lore(plugin.getMessages().component(key + ".lore", player))
+                .lore(plugin.getMessages().components(key + ".lore", player))
                 .build());
     }
 
@@ -252,23 +259,23 @@ public final class ClanTradeMenu {
     }
 
     private ItemStack clanItem(Clan source, Clan target, Player player) {
+        var messages = plugin.getMessages();
         String reason = blockReason(source, target);
         Map<String, String> names = Map.of("tag", target.tag(), "color", target.tagColor(), "name", target.name());
         // The clan's banner stands for the clan; a blocked clan is shown as a gray one
         ItemBuilder builder = ItemBuilder.of(reason == null ? me.lovelace.loveclans.util.ClanIcons.emblem(target) : Material.GRAY_BANNER);
-        builder.name(plugin.getMessages().component("gui.trade.clan.name", names, player))
-                .lore(plugin.getMessages().component("gui.trade.clan.relation",
-                        Map.of("relation", plugin.getMessages().relationName(source.relationTo(target.id()))), player))
-                .lore(plugin.getMessages().component("gui.trade.clan.members",
-                        Map.of("count", String.valueOf(target.members().size())), player))
-                .lore(plugin.getMessages().component("gui.trade.clan.influence",
-                        Map.of("influence", String.valueOf(target.influence())), player))
-                .lore(net.kyori.adventure.text.Component.empty());
+        builder.name(reason == null ? messages.component("gui.trade.clan.name", names, player)
+                        : LoreBlocks.disabledName(messages, player, "gui.trade.clan.name", names))
+                .lore(messages.components("gui.trade.clan.lore", Map.of(
+                        "relation", messages.relationName(source.relationTo(target.id())),
+                        "count", String.valueOf(target.members().size()),
+                        "influence", String.valueOf(target.influence())), player));
+        LoreBlocks.Hint propose = LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.trade.clan.action");
         if (reason != null) {
-            builder.lore(plugin.getMessages().components("gui.trade.clan.blocked",
-                    Map.of("reason", plugin.getMessages().raw(reason)), player));
+            builder.lore(LoreBlocks.blockedLines(messages, player, "gui.style.status.unavailable",
+                    List.of(messages.component("gui.style.reason", Map.of("reason", messages.raw(reason)), player)), propose));
         } else {
-            builder.lore(plugin.getMessages().components("gui.trade.clan.hint", player));
+            builder.lore(LoreBlocks.clicks(messages, player, List.of(propose)));
         }
         return builder.build();
     }
@@ -310,10 +317,8 @@ public final class ClanTradeMenu {
             String kind = sent ? "sent" : "received";
             ItemStack item = ItemBuilder.head(sent ? ItemBuilder.HEAD_LETTER_SENT : ItemBuilder.HEAD_LETTER_UNREAD)
                     .name(plugin.getMessages().component("gui.trade.request." + kind + ".name", names, player))
-                    .lore(plugin.getMessages().component("gui.trade.request.date",
+                    .lore(plugin.getMessages().components("gui.trade.request." + kind + ".lore",
                             Map.of("date", plugin.getMessages().formatDate(trade.createdAt())), player))
-                    .lore(net.kyori.adventure.text.Component.empty())
-                    .lore(plugin.getMessages().components("gui.trade.request." + kind + ".lore", player))
                     .build();
             slotMap.put(CONTENT_SLOTS[i], new Entry(null, trade.id(), null));
             inventory.setItem(CONTENT_SLOTS[i], item);
@@ -354,38 +359,44 @@ public final class ClanTradeMenu {
         int cap = manager.perClanCap();
         int allowance = manager.allowance(order, clan.id());
         // The order summary rides on the theme head of the tab (slot 0), like the treasury/chest heads do.
+        var messages = plugin.getMessages();
         ItemBuilder info = ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
-                .name(plugin.getMessages().component("gui.trade.state.info.name", Map.of("category", category), player))
-                .lore(plugin.getMessages().component("gui.trade.state.info.description", player))
-                .lore(plugin.getMessages().component("gui.trade.state.info.progress",
-                        Map.of("filled", String.valueOf(order.filled()), "total", String.valueOf(order.total())), player))
-                .lore(plugin.getMessages().component("gui.trade.state.info.clan",
-                        Map.of("amount", String.valueOf(order.contributionOf(clan.id()))), player));
+                .name(messages.component("gui.trade.state.info.name", Map.of("category", category), player))
+                .lore(messages.components("gui.trade.state.info.head", Map.of(
+                        "filled", String.valueOf(order.filled()), "total", String.valueOf(order.total()),
+                        "bar", LoreBar.bar(order.filled(), Math.max(1, order.total())),
+                        "amount", String.valueOf(order.contributionOf(clan.id()))), player));
         if (cap > 0) {
-            info.lore(plugin.getMessages().component("gui.trade.state.info.cap", Map.of("cap", String.valueOf(cap)), player));
+            info.lore(messages.component("gui.trade.state.info.cap", Map.of("cap", String.valueOf(cap)), player));
         }
-        info.lore(plugin.getMessages().component(order.isFull() ? "gui.trade.state.info.full" : "gui.trade.state.info.ends",
-                Map.of("time", TimeUtil.formatDuration(left)), player));
+        info.lore(net.kyori.adventure.text.Component.empty())
+                .lore(messages.component("gui.trade.state.info.time-title", player))
+                .lore(messages.component(order.isFull() ? "gui.trade.state.info.full" : "gui.trade.state.info.ends",
+                        Map.of("time", TimeUtil.formatDuration(left)), player));
         inventory.setItem(SLOT_INFO, info.build());
 
         List<Material> materials = order.materials();
         int[] slots = materialSlots(materials.size());
+        boolean closed = order.isFull() || allowance <= 0;
         for (int i = 0; i < slots.length; i++) {
             Material material = materials.get(i);
             OptionalLong unit = manager.unitPayout(material);
             int have = ServerTradeManager.countPlain(player.getInventory(), material);
+            String priceLine = messages.raw(unit.isPresent() ? "gui.trade.state.item.price" : "gui.trade.state.item.no-price")
+                    .replace("<price>", unit.isPresent() ? CoinFormat.format(unit.getAsLong()) : "");
             ItemBuilder builder = ItemBuilder.of(material)
-                    .name(plugin.getMessages().component("gui.trade.state.item.name",
-                            Map.of("item", ServerTradeManager.itemName(material)), player))
-                    .lore(plugin.getMessages().component(unit.isPresent() ? "gui.trade.state.item.price" : "gui.trade.state.item.no-price",
-                            Map.of("price", unit.isPresent() ? CoinFormat.format(unit.getAsLong()) : ""), player))
-                    .lore(plugin.getMessages().component("gui.trade.state.item.have", Map.of("amount", String.valueOf(have)), player))
-                    .lore(net.kyori.adventure.text.Component.empty());
-            if (order.isFull() || allowance <= 0) {
-                builder.lore(plugin.getMessages().components("gui.trade.state.item.closed", player));
+                    .name(messages.component("gui.trade.state.item.name", Map.of("item", ServerTradeManager.itemName(material),
+                            "state", messages.raw(closed ? "gui.trade.state.item.state-closed" : "gui.trade.state.item.state-open")), player))
+                    .lore(messages.components("gui.trade.state.item.lore", Map.of("price-line", priceLine,
+                            "amount", String.valueOf(have)), player));
+            LoreBlocks.Hint stack = LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.trade.state.item.stack-action");
+            LoreBlocks.Hint all = LoreBlocks.hint(messages, LoreBlocks.Click.SHIFT_LEFT, "gui.trade.state.item.all-action");
+            if (closed) {
+                builder.lore(LoreBlocks.blockedLines(messages, player, "gui.trade.state.item.closed",
+                        List.of(messages.reason(order.isFull() ? "gui.trade.state.item.reason-full"
+                                : "gui.trade.state.item.reason-cap", player)), stack));
             } else {
-                builder.lore(plugin.getMessages().components("gui.trade.state.item.hint-stack", player))
-                        .lore(plugin.getMessages().component("gui.trade.state.item.hint-all", player));
+                builder.lore(LoreBlocks.clicks(messages, player, List.of(stack, all)));
             }
             slotMap.put(slots[i], new Entry(null, null, material));
             inventory.setItem(slots[i], builder.build());

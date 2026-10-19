@@ -197,7 +197,7 @@ public final class ClanTradeSessionMenu implements Listener {
                     .build();
         }
         boolean review = stage == Stage.REVIEW;
-        String nameKey = review ? "gui.trade-session.confirm.name" : "gui.trade-session.side.name";
+        String nameKey = (review ? "gui.trade-session.confirm" : "gui.trade-session.side") + (ready ? ".name-ready" : ".name-not-ready");
         String loreKey = review
                 ? (ready ? "gui.trade-session.confirm.ready" : "gui.trade-session.confirm.not-ready")
                 : (ready ? "gui.trade-session.side.ready" : "gui.trade-session.side.not-ready");
@@ -217,7 +217,8 @@ public final class ClanTradeSessionMenu implements Listener {
     private ItemStack moneyButton(long amount) {
         return ItemBuilder.head(ItemBuilder.HEAD_CHEST_MONEY)
                 .name(plugin.getMessages().component("gui.trade-session.money.name"))
-                .lore(plugin.getMessages().components("gui.trade-session.money.lore", Map.of("amount", CoinFormat.format(amount)), null))
+                .lore(plugin.getMessages().components("gui.trade-session.money.lore", Map.of("amount",
+                        amount > 0 ? CoinFormat.format(amount) : plugin.getMessages().raw("gui.style.none")), null))
                 .build();
     }
 
@@ -226,6 +227,9 @@ public final class ClanTradeSessionMenu implements Listener {
             long untilExecuteMs = Math.max(0, confirmExecutesAt - System.currentTimeMillis());
             return ItemBuilder.head(ItemBuilder.HEAD_INFO)
                     .name(plugin.getMessages().component("gui.trade-session.status.confirmed"))
+                    .lore(plugin.getMessages().component("gui.trade-session.status.lore-title"))
+                    .lore(net.kyori.adventure.text.Component.empty())
+                    .lore(plugin.getMessages().component("gui.trade-session.status.time-title"))
                     .lore(plugin.getMessages().component("gui.trade-session.status.executes-in",
                             Map.of("time", TimeUtil.formatDurationSeconds(untilExecuteMs))))
                     .build();
@@ -234,6 +238,9 @@ public final class ClanTradeSessionMenu implements Listener {
         String stageKey = stage == Stage.REVIEW ? "gui.trade-session.status.review" : "gui.trade-session.status.editing";
         return ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(plugin.getMessages().component(stageKey))
+                .lore(plugin.getMessages().component("gui.trade-session.status.lore-title"))
+                .lore(net.kyori.adventure.text.Component.empty())
+                .lore(plugin.getMessages().component("gui.trade-session.status.time-title"))
                 .lore(plugin.getMessages().component("gui.trade-session.status.expires", Map.of("time", TimeUtil.formatDuration(remainingMs))))
                 .build();
     }

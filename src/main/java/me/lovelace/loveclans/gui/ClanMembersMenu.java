@@ -211,23 +211,18 @@ public final class ClanMembersMenu {
 
         if (contributionMode) {
             inventory.setItem(SLOT_FILTER, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.members-hub.filter-disabled.name", player))
+                    .name(LoreBlocks.disabledName(plugin.getMessages(), player, "gui.members-hub.filter-title"))
                     .lore(plugin.getMessages().components("gui.members-hub.filter-disabled.lore", player))
+                    .lore(LoreBlocks.blockedReason(plugin.getMessages(), player, "gui.members-hub.filter-disabled.reason", Map.of(),
+                            LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.members-hub.filter-disabled.action")))
                     .build());
-            inventory.setItem(SLOT_CONTRIBUTION, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
-                    .name(plugin.getMessages().component("gui.members-hub.contribution-mode.name", player))
-                    .lore(plugin.getMessages().components("gui.members-hub.contribution-mode.lore-on", player))
-                    .glow(true)
-                    .build());
+            inventory.setItem(SLOT_CONTRIBUTION, contributionButton(player, true).glow(true).build());
             inventory.setItem(4, GuiFrames.glassPane());
             inventory.setItem(SLOT_ACTIVITY, CycleButton.build(plugin, player, ItemBuilder.HEAD_EXPERIENCE,
                     "gui.activity.period.name", "gui.activity.period.", ActivityPeriod.values(), period));
         } else {
             inventory.setItem(SLOT_FILTER, cycleButton("filter", Filter.values(), filter, manager, player));
-            inventory.setItem(SLOT_CONTRIBUTION, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
-                    .name(plugin.getMessages().component("gui.members-hub.contribution-mode.name", player))
-                    .lore(plugin.getMessages().components("gui.members-hub.contribution-mode.lore-off", player))
-                    .build());
+            inventory.setItem(SLOT_CONTRIBUTION, contributionButton(player, false).build());
             inventory.setItem(4, GuiFrames.glassPane());
             inventory.setItem(SLOT_ACTIVITY, GuiFrames.glassPane());
         }
@@ -275,6 +270,19 @@ public final class ClanMembersMenu {
         if (!inPlace) {
             player.openInventory(inventory);
         }
+    }
+
+    /** Contribution-mode switch: the state is in the name, the lore shows what one click changes. */
+    private ItemBuilder contributionButton(Player player, boolean on) {
+        var messages = plugin.getMessages();
+        String group = "gui.members-hub.contribution-mode.";
+        return ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
+                .name(messages.component(group + (on ? "name-on" : "name-off"), player))
+                .lore(messages.components(group + "lore", Map.of(
+                        "now", messages.raw(group + (on ? "state-on" : "state-off")),
+                        "next", messages.raw(group + (on ? "state-off" : "state-on"))), player))
+                .lore(LoreBlocks.clicks(messages, player, List.of(
+                        LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, group + (on ? "action-on" : "action-off")))));
     }
 
     /** A control button listing every option with the current one marked; LMB steps forward, RMB back. */

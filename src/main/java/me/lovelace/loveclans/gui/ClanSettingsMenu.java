@@ -34,12 +34,16 @@ public final class ClanSettingsMenu {
 
         inventory.setItem(10, ItemBuilder.head(HeadTextures.HEAD_NAME)
                 .name(plugin.getMessages().component("gui.settings.rename.name", player))
-                .lore(plugin.getMessages().components("gui.settings.rename.lore", player))
+                .lore(plugin.getMessages().components("gui.settings.rename.lore", Map.of("current", clan.name(),
+                        "min", String.valueOf(plugin.getConfig().getInt("clans.name.min-length", 4)),
+                        "max", String.valueOf(plugin.getConfig().getInt("clans.name.max-length", 10))), player))
                 .build());
 
         inventory.setItem(12, ItemBuilder.head(HeadTextures.HEAD_TAG)
                 .name(plugin.getMessages().component("gui.settings.change-tag.name", player))
-                .lore(plugin.getMessages().components("gui.settings.change-tag.lore", player))
+                .lore(plugin.getMessages().components("gui.settings.change-tag.lore", Map.of("current", clan.tag(),
+                        "min", String.valueOf(plugin.getConfig().getInt("clans.tag.min-length", 3)),
+                        "max", String.valueOf(plugin.getConfig().getInt("clans.tag.max-length", 6))), player))
                 .build());
 
         Material emblemMaterial = clan.emblem().name().endsWith("_BANNER") ? clan.emblem() : Material.WHITE_BANNER;

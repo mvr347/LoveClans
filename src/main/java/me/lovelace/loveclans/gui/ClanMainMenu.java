@@ -194,9 +194,14 @@ public final class ClanMainMenu implements InventoryHolder {
                     List.of(plugin.getMessages().reason("gui.capital.no-house-lore", player)));
         }
         if (taxLocked) {
+            var messages = plugin.getMessages();
             return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
-                    .name(plugin.getMessages().component("gui.chest.locked-warning.name", player))
-                    .lore(plugin.getMessages().components("gui.chest.locked-warning.lore", Map.of(), player))
+                    .name(messages.component("gui.chest.locked-warning.name", player))
+                    .lore(messages.components("gui.chest.locked-warning.lore", Map.of(), player))
+                    .lore(Component.empty())
+                    .lore(LoreBlocks.blockedLines(messages, player, "gui.style.status.locked",
+                            List.of(messages.reason("gui.chest.locked-warning.reason", player)),
+                            LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.chest.locked-warning.action")))
                     .build();
         }
         return withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_CHEST)

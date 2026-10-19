@@ -49,28 +49,10 @@ public final class ClanBannerCreationMenu implements InventoryHolder {
                 .lore(plugin.getMessages().components("gui.banner-create.info.lore", player))
                 .build());
 
-        String nameDisplay = name.isEmpty() ? plugin.getMessages().raw("gui.create.name.not-set") : name;
-        inventory.setItem(10, ItemBuilder.head(HeadTextures.HEAD_NAME)
-                .name(plugin.getMessages().component("gui.create.name.button", player))
-                .lore(plugin.getMessages().components("gui.create.name.lore", Map.of("value", nameDisplay), player))
-                .build());
-
-        String tagDisplay = tag.isEmpty() ? plugin.getMessages().raw("gui.create.tag.not-set") : tag;
-        inventory.setItem(12, ItemBuilder.head(HeadTextures.HEAD_TAG)
-                .name(plugin.getMessages().component("gui.create.tag.button", player))
-                .lore(plugin.getMessages().components("gui.create.tag.lore", Map.of("value", tagDisplay), player))
-                .build());
-
-        inventory.setItem(14, ItemBuilder.head(open ? HeadTextures.HEAD_OPEN : HeadTextures.HEAD_CLOSED)
-                .name(plugin.getMessages().component(open ? "gui.create.type.open" : "gui.create.type.closed", player))
-                .lore(plugin.getMessages().components("gui.create.type.lore", player))
-                .build());
-
-        boolean ready = !name.isEmpty() && !tag.isEmpty();
-        inventory.setItem(16, ItemBuilder.head(ready ? ItemBuilder.HEAD_DELETE_YES : ItemBuilder.HEAD_INACTIVE)
-                .name(plugin.getMessages().component(ready ? "gui.banner-create.ready" : "gui.create.create.not-ready", player))
-                .lore(ready ? List.of() : plugin.getMessages().components("gui.create.create.not-ready-lore", player))
-                .build());
+        inventory.setItem(10, ClanCreateMenu.nameButton(plugin, player, name));
+        inventory.setItem(12, ClanCreateMenu.tagButton(plugin, player, tag));
+        inventory.setItem(14, ClanCreateMenu.typeButton(plugin, player, open));
+        inventory.setItem(16, ClanCreateMenu.createButton(plugin, player, name, tag, "gui.banner-create.ready", "gui.banner-create.action"));
 
         inventory.setItem(26, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
