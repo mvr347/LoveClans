@@ -63,6 +63,27 @@ class LangMigratorTest {
     }
 
     @Test
+    void version13FileGetsTheStandardRootsOnly() {
+        var server = yaml("lang-version: 13\ngui:\n  old: x\nitem:\n  seal:\n    old: y\nraid:\n  compass:\n    lore: old\n  loot:\n    prompt: mine\n"
+                + "clan:\n  banner:\n    old: z\n  help: mine\nwar:\n  keep: mine\n");
+        var bundled = yaml("lang-version: 14\ngui:\n  fresh: a\nitem:\n  seal:\n    fresh: b\nraid:\n  compass:\n    lore: fresh\n  loot:\n    prompt: jar\n"
+                + "clan:\n  banner:\n    fresh: c\n  help: jar\nwar:\n  keep: jar\n");
+        assertTrue(LangMigrator.migrate(server, bundled));
+        assertEquals("a", server.getString("gui.fresh"));
+        assertNull(server.get("gui.old"));
+        assertEquals("b", server.getString("item.seal.fresh"));
+        assertNull(server.get("item.seal.old"));
+        assertEquals("fresh", server.getString("raid.compass.lore"));
+        assertEquals("c", server.getString("clan.banner.fresh"));
+        assertNull(server.get("clan.banner.old"));
+        // Texts outside the migrated roots keep the admin's version
+        assertEquals("mine", server.getString("raid.loot.prompt"));
+        assertEquals("mine", server.getString("clan.help"));
+        assertEquals("mine", server.getString("war.keep"));
+        assertEquals(14, server.getInt("lang-version"));
+    }
+
+    @Test
     void latestVersionMatchesBundledLang() throws Exception {
         var bundled = new YamlConfiguration();
         try (var in = LangMigratorTest.class.getResourceAsStream("/lang.yml");
@@ -70,6 +91,6 @@ class LangMigratorTest {
             bundled.load(reader);
         }
         assertEquals(LangMigrator.latestVersion(), bundled.getInt(LangMigrator.VERSION_KEY));
-        assertEquals(13, LangMigrator.latestVersion());
+        assertEquals(14, LangMigrator.latestVersion());
     }
 }

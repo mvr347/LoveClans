@@ -92,6 +92,7 @@ public final class ClanDiplomacyMenu {
                         "members", String.valueOf(targetClan.members().size()),
                         "relation", tierTitle(tier)
                 ), player))
+                .lore(Component.empty())
                 .lore(plugin.getMessages().component(recBadgeKey, player))
                 .lore(publicEffects(player, sourceClan, targetClan))
                 .build());

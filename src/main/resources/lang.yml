@@ -7,9 +7,10 @@
 # (see MessageService#parse). The special <prefix> tag is replaced with the value of
 # the top-level "prefix" key below.
 
-# Версия lang.yml (2026-10-12): при росте версии админский файл получает из jar переписанные разделы
-# (gui, war, trade и др.), потому что copyDefaults не обновляет уже существующие строки. Не меняйте вручную.
-lang-version: 13
+# Версия lang.yml (2026-10-19): при росте версии админский файл получает из jar переписанные разделы
+# (gui, item, raid.compass, clan.banner и др. - список в LangMigrator), потому что copyDefaults не обновляет уже
+# существующие строки. Версия 14: стандарт лора gui-gen-6 во всех меню и предметах. Не меняйте вручную.
+lang-version: 14
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
