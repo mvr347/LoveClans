@@ -223,7 +223,7 @@ public final class ItemBuilder {
     }
 
     /** The client renders custom names and lore in italics unless told otherwise; an explicit italic in the text still wins. */
-    static Component upright(Component component) {
+    public static Component upright(Component component) {
         return component.decorationIfAbsent(TextDecoration.ITALIC, TextDecoration.State.FALSE);
     }
 

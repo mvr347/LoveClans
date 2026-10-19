@@ -198,7 +198,7 @@ public final class ClanMembersMenu {
                     .name(plugin.getMessages().component("gui.close", player)).build());
         }
 
-        String leaderName = clan.leaderId().map(id -> nameOf(Bukkit.getOfflinePlayer(id), id)).orElse("—");
+        String leaderName = clan.leaderId().map(id -> nameOf(Bukkit.getOfflinePlayer(id), id)).orElse(plugin.getMessages().raw("gui.style.none"));
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_MEMBERS)
                 .name(plugin.getMessages().component("gui.members.info.name",
                         Map.of("name", clan.name(), "tag", clan.tag(), "color", clan.tagColor()), player))
@@ -293,10 +293,10 @@ public final class ClanMembersMenu {
                 boolean self = entry.id().equals(viewer.getUniqueId());
                 Map<String, String> values = Map.of(
                         "player", entry.name(),
-                        "rank", member != null ? member.rank().displayName() : "—",
+                        "rank", member != null ? member.rank().displayName() : messages.raw("gui.style.none"),
                         "status", messages.raw(entry.online() ? "gui.members.item.status-online" : "gui.members.item.status-offline"),
                         "since", member != null ? messages.raw("gui.members.entry.since-value").replace("<ago>",
-                                DurationFormat.format(Math.max(0L, System.currentTimeMillis() - member.joinedAt()))) : "—",
+                                DurationFormat.format(Math.max(0L, System.currentTimeMillis() - member.joinedAt()))) : messages.raw("gui.style.none"),
                         "amount", CoinFormat.format(entry.contribution()),
                         "points", String.valueOf(entry.activity()));
                 ItemBuilder builder = ItemBuilder.of(Material.PLAYER_HEAD)
