@@ -94,8 +94,7 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
                     ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_INVITE)
                             .name(plugin.getMessages().component("gui.player-applications.invite-item.name",
                                     Map.of("tag", targetClan.tag(), "color", targetClan.tagColor(), "name", targetClan.name()), player))
-                            .lore(plugin.getMessages().components("gui.player-applications.invite-item.left-click-accept", player))
-                            .lore(plugin.getMessages().component("gui.player-applications.invite-item.right-click-decline", player));
+                            .lore(plugin.getMessages().components("gui.player-applications.invite-item.lore", player));
                     builder.mutate(meta -> meta.getPersistentDataContainer()
                             .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING,
                                     INVITE_TAG + invite.clanId()));
@@ -107,7 +106,7 @@ public final class PlayerApplicationsMenu implements InventoryHolder {
         if (combined.isEmpty()) {
             inventory.setItem(22, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.player-applications.empty.name", player))
-                    .lore(plugin.getMessages().component("gui.player-applications.empty.lore", player))
+                    .lore(plugin.getMessages().components("gui.player-applications.empty.lore", player))
                     .build());
         }
 

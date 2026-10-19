@@ -83,7 +83,6 @@ public final class ClanDirectionMenu {
             inventory.setItem(slots[i], ItemBuilder.head(headFor(direction))
                     .name(plugin.getMessages().component("gui.direction." + key + ".name", player))
                     .lore(plugin.getMessages().components("gui.direction." + key + ".lore", placeholders(direction), player))
-                    .lore(net.kyori.adventure.text.Component.empty())
                     .lore(plugin.getMessages().components("gui.direction.choose", player))
                     .build());
         }

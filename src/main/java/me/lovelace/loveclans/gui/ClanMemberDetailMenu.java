@@ -113,7 +113,7 @@ public final class ClanMemberDetailMenu {
         String base = nameKey.substring(0, nameKey.length() - ".name".length());
         ItemBuilder builder = ItemBuilder.head(headTexture)
                 .name(plugin.getMessages().component(nameKey, player))
-                .lore(plugin.getMessages().component(loreKey, player))
+                .lore(plugin.getMessages().components(loreKey, player))
                 .lore(LoreBlocks.clicks(plugin.getMessages(), player,
                         List.of(LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, base + ".action"))));
         builder.mutate(meta -> meta.getPersistentDataContainer()
@@ -127,7 +127,7 @@ public final class ClanMemberDetailMenu {
         String base = nameKey.substring(0, nameKey.length() - ".name".length());
         return ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                 .name(LoreBlocks.disabledName(plugin.getMessages(), player, nameKey))
-                .lore(plugin.getMessages().component(base + ".lore", player))
+                .lore(plugin.getMessages().components(base + ".lore", player))
                 .lore(Component.empty())
                 .lore(LoreBlocks.blockedReason(plugin.getMessages(), player, reasonKey, Map.of(),
                         LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, base + ".action")))

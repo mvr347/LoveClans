@@ -125,30 +125,35 @@ public final class ClanChestMoneyMenu implements Listener {
             }
         }
 
+        var messages = plugin.getMessages();
         ItemBuilder info = ItemBuilder.head(clan.isChestTaxLocked() ? ItemBuilder.HEAD_CHEST_LOCKED : ItemBuilder.HEAD_CHEST_MONEY)
-                .name(plugin.getMessages().component("gui.chest.money.balance.name", viewer))
-                .lore(plugin.getMessages().component("gui.chest.money.balance.description", viewer))
-                .lore(plugin.getMessages().component("gui.chest.money.balance.lore",
+                .name(messages.component("gui.chest.money.balance.name", viewer))
+                .lore(messages.components("gui.chest.money.balance.head",
                         Map.of("amount", CoinFormat.format(clan.chestMoney())), viewer));
         long hidden = clan.chestMoney() - shown;
         if (hidden > 0) {
-            info.lore(plugin.getMessages().component("gui.chest.money.balance.hidden",
+            info.lore(messages.component("gui.chest.money.balance.hidden",
                     Map.of("amount", CoinFormat.format(hidden)), viewer));
         }
+        info.lore(net.kyori.adventure.text.Component.empty());
+        info.lore(messages.component("gui.chest.info.tax-title", viewer));
         if (!plugin.getClanManager().isTaxApplicable(clan)) {
-            info.lore(plugin.getMessages().component("gui.chest.info.tax-none", viewer));
+            info.lore(messages.component("gui.chest.info.tax-none", viewer));
         } else if (clan.isChestTaxLocked()) {
-            info.lore(plugin.getMessages().component("gui.chest.info.tax-locked", viewer));
+            info.lore(messages.component("gui.chest.info.tax-locked", viewer));
         } else {
-            info.lore(plugin.getMessages().component("gui.chest.info.tax-ok", viewer));
+            info.lore(messages.component("gui.chest.info.tax-ok", viewer));
             long remaining = clan.lastTaxAt() + java.time.Duration.ofDays(7).toMillis() - System.currentTimeMillis();
-            info.lore(plugin.getMessages().component("gui.chest.info.next-tax",
+            info.lore(messages.component("gui.chest.info.next-tax",
                     Map.of("time", TimeUtil.formatDuration(Math.max(0, remaining))), viewer));
         }
-        info.lore(net.kyori.adventure.text.Component.empty());
         if (clan.hasPermission(viewer.getUniqueId(), ClanPermission.BANK)) {
-            info.lore(plugin.getMessages().components("gui.chest.money.balance.deposit-hint", viewer));
-            info.lore(plugin.getMessages().components("gui.chest.money.balance.withdraw-hint", viewer));
+            // All four gestures of the treasury share one separator; the click type decides the line color.
+            info.lore(LoreBlocks.clicks(messages, viewer, List.of(
+                    LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.chest.money.balance.deposit-cursor"),
+                    LoreBlocks.hint(messages, LoreBlocks.Click.SHIFT_LEFT, "gui.chest.money.balance.deposit-inventory"),
+                    LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.chest.money.balance.withdraw-stack"),
+                    LoreBlocks.hint(messages, LoreBlocks.Click.SHIFT_LEFT, "gui.chest.money.balance.withdraw-inventory"))));
         }
         inventory.setItem(INFO_SLOT, info.build());
     }

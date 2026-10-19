@@ -78,6 +78,7 @@ public final class ClanSpiritMenu implements InventoryHolder {
 
         ItemBuilder builder = ItemBuilder.head(ItemBuilder.HEAD_SPIRIT_STAR)
                 .name(messages.component(level >= MAX_POWER ? "gui.spirit.power.name-max" : "gui.spirit.power.name", ph, player));
+        builder.lore(messages.components("gui.spirit.power.head", player));
         if (level >= MAX_POWER) {
             builder.lore(messages.components("gui.spirit.power.maximum", player));
         } else {

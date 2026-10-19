@@ -232,7 +232,7 @@ public final class ClanMembersMenu {
         if (shown.isEmpty()) {
             inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.members-hub.empty.name", player))
-                    .lore(plugin.getMessages().component("gui.members-hub.empty.lore", player))
+                    .lore(plugin.getMessages().components("gui.members-hub.empty.lore", player))
                     .build());
         }
         for (int i = 0; i < pageEntries.size(); i++) {

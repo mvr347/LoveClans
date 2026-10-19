@@ -134,15 +134,23 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
             ItemBuilder builder = ItemBuilder.of(emblemMaterial)
                     .name(plugin.getMessages().component("gui.diplomacy-select.clan-item.name",
                             Map.of("tag", target.tag(), "color", target.tagColor(), "name", target.name()), player))
-                    .lore(plugin.getMessages().component("gui.diplomacy-select.clan-item.relation",
+                    .lore(plugin.getMessages().components("gui.diplomacy-select.clan-item.lore",
                             Map.of("relation", relationText(sourceClan, target)), player));
 
-            for (PublicModifiers.Entry entry : PublicModifiers.of(modifiersOf(target))) {
-                builder.lore(plugin.getMessages().component(entry.kind().langKey(),
-                        Map.of("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(entry.seconds() * 1000L)), player));
+            var publicEffects = PublicModifiers.of(modifiersOf(target));
+            if (!publicEffects.isEmpty()) {
+                builder.lore(net.kyori.adventure.text.Component.empty());
+                builder.lore(plugin.getMessages().component("gui.diplomacy.public.title", player));
+                for (PublicModifiers.Entry entry : publicEffects) {
+                    builder.lore(plugin.getMessages().component(entry.kind().langKey(),
+                            Map.of("time", me.lovelace.loveclans.util.TimeUtil.formatDuration(entry.seconds() * 1000L)), player));
+                }
             }
 
-            builder.lore(plugin.getMessages().components("gui.diplomacy-select.clan-item.hint", player));
+            // Two destinations from one entry: left opens the relations, right opens the trade (both through gui.style.click)
+            builder.lore(LoreBlocks.clicks(plugin.getMessages(), player, java.util.List.of(
+                    LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.diplomacy-select.clan-item.relations-action"),
+                    LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.RIGHT, "gui.diplomacy-select.clan-item.trade-action"))));
             builder.mutate(meta -> meta.getPersistentDataContainer()
                     .set(plugin.getGuiManager().memberKey(), PersistentDataType.STRING, target.id().toString()));
             inventory.setItem(targetSlot, builder.build());
@@ -150,7 +158,8 @@ public final class ClanDiplomacySelectMenu implements InventoryHolder {
 
         if (visibleClans.isEmpty()) {
             inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
-                    .name(plugin.getMessages().component("gui.diplomacy-select.empty", player))
+                    .name(plugin.getMessages().component("gui.diplomacy-select.empty.name", player))
+                    .lore(plugin.getMessages().components("gui.diplomacy-select.empty.lore", player))
                     .build());
         }
 

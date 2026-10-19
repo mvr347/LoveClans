@@ -6,6 +6,7 @@ import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanDirection;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.util.ItemBuilder;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -71,7 +72,7 @@ public final class ClanUpgradesMenu {
                         "next_exp", String.valueOf(expForNext),
                         "bar", me.lovelace.loveclans.util.LoreBar.bar(required > 0 ? currentExp - expForCurrent : 1, Math.max(1, required))
                 ), player))
-                .lore(plugin.getMessages().component("gui.upgrades.points-info.lore",
+                .lore(plugin.getMessages().components("gui.upgrades.points-info.lore",
                         Map.of("points", String.valueOf(clan.upgradePoints())), player))
                 .build());
 
@@ -95,6 +96,7 @@ public final class ClanUpgradesMenu {
             builder.lore(plugin.getMessages().components("gui.upgrades.available.lore",
                     Map.of("count", String.valueOf(pending)), player)).glow(true);
         } else {
+            builder.lore(plugin.getMessages().components("gui.upgrades.available.head", player));
             builder.lore(LoreBlocks.blockedReason(plugin.getMessages(), player, "gui.upgrades.available.none", Map.of(),
                     LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.upgrades.available.action")));
         }
@@ -109,13 +111,20 @@ public final class ClanUpgradesMenu {
             String key = langKey(option);
             Map<String, String> values = plugin.getUpgradeOffers().describe(clan, option);
             boolean maxed = clan.upgradeLevel(option.upgrade()) >= plugin.getUpgradeOffers().maxLevel(option.upgrade());
+            var messages = plugin.getMessages();
+            String nameKey = "gui.upgrades.option." + key + ".name";
             ItemBuilder builder = ItemBuilder.head(maxed ? ItemBuilder.HEAD_INACTIVE : headFor(option))
-                    .name(plugin.getMessages().component("gui.upgrades.option." + key + ".name", player))
-                    .lore(plugin.getMessages().component("gui.upgrades.option." + key + ".desc", player))
-                    .lore(plugin.getMessages().component("gui.upgrades.option." + key + ".now", values, player))
-                    .lore(plugin.getMessages().component("gui.upgrades.option.level", values, player));
+                    .name(maxed ? messages.component("gui.upgrades.item.maxed-name", Map.of("name", messages.raw(nameKey)), player)
+                            : messages.component(nameKey, player))
+                    .lore(messages.component("gui.upgrades.option.subtitle", player))
+                    .lore(Component.empty())
+                    .lore(messages.component("gui.upgrades.option." + key + ".desc", player))
+                    .lore(Component.empty())
+                    .lore(messages.component("gui.upgrades.option.now-title", player))
+                    .lore(messages.component("gui.upgrades.option." + key + ".now", values, player))
+                    .lore(messages.components("gui.upgrades.option.level", values, player));
             if (maxed) {
-                builder.lore(plugin.getMessages().component("gui.upgrades.item.maxed", player));
+                builder.lore(Component.empty()).lore(messages.component("gui.style.status.max", player));
             }
             inventory.setItem(slots[i], builder.build());
         }
@@ -134,17 +143,19 @@ public final class ClanUpgradesMenu {
             Map<String, String> values = new HashMap<>();
             values.put("direction", clan.direction().map(ClanDirection::displayName).orElse("?"));
             values.put("tier", String.valueOf(tier));
+            values.put("bar", me.lovelace.loveclans.util.LoreBar.bar(tier, 3));
             builder.lore(messages.components("gui.upgrades.direction-button.chosen", values, player)).glow(true);
             if (tier < 3) {
                 int next = plugin.getConfig().getInt(tier == 1 ? "direction.tiers.second" : "direction.tiers.third", tier == 1 ? 10 : 15);
                 builder.lore(messages.component("gui.upgrades.direction-button.next-tier",
                         Map.of("level", String.valueOf(next)), player));
             } else {
-                builder.lore(messages.component("gui.upgrades.direction-button.max-tier", player));
+                builder.lore(Component.empty()).lore(messages.component("gui.style.status.max", player));
             }
         } else if (offered) {
             builder.lore(messages.components("gui.upgrades.direction-button.pending", player)).glow(true);
         } else {
+            builder.lore(messages.components("gui.upgrades.direction-button.head", player));
             builder.lore(LoreBlocks.blockedReason(messages, player, "gui.upgrades.direction-button.locked",
                     Map.of("level", String.valueOf(first)),
                     LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.upgrades.direction-button.action")));

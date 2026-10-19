@@ -100,23 +100,27 @@ public final class ClanInfoMenu implements InventoryHolder {
         // теперь ещё и с датой основания клана и описанием клана, которые раньше нигде в этой
         // панели не показывались. Раньше эта карточка занимала слот 4 — его теперь отдали голове
         // лидера.
+        var messages = plugin.getMessages();
         String description = clan.description();
         Material emblemMaterial = clan.emblem().name().endsWith("_BANNER") ? clan.emblem() : Material.WHITE_BANNER;
+        var parts = plugin.getClanManager().influenceBreakdown(clan);
         ItemBuilder info = ItemBuilder.of(emblemMaterial)
-                .name(plugin.getMessages().component("gui.info.name",
+                .name(messages.component("gui.info.name",
                         Map.of("tag", clan.tag(), "color", clan.tagColor(), "name", clan.name()), player))
-                .lore(plugin.getMessages().component("gui.info.level", Map.of("level", String.valueOf(clan.level())), player))
-                .lore(plugin.getMessages().component("gui.info.influence", Map.of("influence", String.valueOf(clan.influence())), player))
-                .lore(influenceBreakdown(player))
-                .lore(plugin.getMessages().component("gui.info.members",
-                        Map.of("current", String.valueOf(totalMemberCount),
-                                "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player))
-                .lore(plugin.getMessages().component(clan.isOpen() ? "gui.info.status.open" : "gui.info.status.closed", player))
-                .lore(plugin.getMessages().component("gui.info.created-at",
-                        Map.of("date", dateFormat.format(new java.util.Date(clan.createdAt()))), player))
-                .lore(description == null || description.isBlank()
-                        ? plugin.getMessages().component("gui.info.description-empty", player)
-                        : plugin.getMessages().component("gui.info.description", Map.of("description", description), player));
+                .lore(messages.components("gui.info.lore", Map.of(
+                        "status", messages.raw(clan.isOpen() ? "gui.info.status.open" : "gui.info.status.closed"),
+                        "date", dateFormat.format(new java.util.Date(clan.createdAt())),
+                        "description", description == null || description.isBlank()
+                                ? messages.raw("gui.info.description-empty") : description,
+                        "level", String.valueOf(clan.level()),
+                        "influence", String.valueOf(clan.influence()),
+                        "breakdown", messages.raw("gui.info.influence-breakdown")
+                                .replace("<base>", String.valueOf(parts.base()))
+                                .replace("<battle>", String.valueOf(parts.battle()))
+                                .replace("<form>", String.format(java.util.Locale.ROOT, "%.2f", parts.form()))
+                                .replace("<share>", String.format(java.util.Locale.ROOT, "%.2f", parts.activeShare())),
+                        "current", String.valueOf(totalMemberCount),
+                        "max", String.valueOf(plugin.getClanManager().maxMembers(clan))), player));
         inventory.setItem(SLOT_ICON, info.build());
 
         // "Подать заявку" виден только если смотрящий ещё не в клане (ни в этом, ни в другом)
@@ -133,7 +137,7 @@ public final class ClanInfoMenu implements InventoryHolder {
             // Defensive: a clan always has at least its leader, so this is only a corrupted-data fallback.
             inventory.setItem(contentStartSlot + 4, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
                     .name(plugin.getMessages().component("gui.info.no-members.name", player))
-                    .lore(plugin.getMessages().component("gui.info.no-members.lore", player))
+                    .lore(plugin.getMessages().components("gui.info.no-members.lore", player))
                     .build());
         } else {
             int start = currentPage * perPage;
@@ -186,6 +190,7 @@ public final class ClanInfoMenu implements InventoryHolder {
             } else {
                 inventory.setItem(applySlot, ItemBuilder.head(ItemBuilder.HEAD_INACTIVE)
                         .name(plugin.getMessages().component("gui.info.apply-closed.name", player))
+                        .lore(plugin.getMessages().components("gui.info.apply-closed.head", player))
                         .lore(LoreBlocks.blockedReason(plugin.getMessages(), player, "gui.info.apply-closed.lore", Map.of(),
                                 LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.info.apply-closed.action")))
                         .build());
@@ -211,23 +216,22 @@ public final class ClanInfoMenu implements InventoryHolder {
                 ? plugin.getMessages().raw("gui.members.item.status-online")
                 : plugin.getMessages().raw("gui.members.item.status-offline");
 
+        var messages = plugin.getMessages();
         ItemBuilder builder = ItemBuilder.of(Material.PLAYER_HEAD)
-                .name(plugin.getMessages().component("gui.members.item.name", Map.of("player", name), player))
-                .lore(plugin.getMessages().component("gui.members.item.rank", Map.of("rank", member.rank().displayName()), player))
-                .lore(plugin.getMessages().component("gui.members.item.status", Map.of("status", status), player));
+                .name(messages.component("gui.info.member.name", Map.of("player", name, "rank", member.rank().displayName()), player))
+                .lore(messages.components("gui.info.member.lore", Map.of("status", status), player));
 
         if (member.rank() == ClanRank.LEADER) {
             // A bit more about the leader: join date, contribution and, when offline, the last visit - "offline"
             // alone does not say for how long. The join date is not labelled "leader since": leadership moves
             // by transfer or succession and neither touches joinedAt.
-            builder.lore(plugin.getMessages().component("gui.info.leader-member-since",
-                    Map.of("date", dateFormat.format(new java.util.Date(member.joinedAt()))), player));
-            builder.lore(plugin.getMessages().component("gui.members.item.contribution",
-                    Map.of("amount", String.valueOf(member.contribution())), player));
+            builder.lore(messages.components("gui.info.member.leader", Map.of(
+                    "date", dateFormat.format(new java.util.Date(member.joinedAt())),
+                    "amount", me.lovelace.loveclans.util.CoinFormat.format(member.contribution())), player));
             if (!offline.isOnline()) {
                 long lastSeen = Math.max(offline.getLastPlayed(), member.lastSeen());
                 if (lastSeen > 0L) {
-                    builder.lore(plugin.getMessages().component("gui.info.leader-last-seen",
+                    builder.lore(messages.component("gui.info.member.last-seen",
                             Map.of("date", dateFormat.format(new java.util.Date(lastSeen))), player));
                 }
             }
@@ -286,15 +290,5 @@ public final class ClanInfoMenu implements InventoryHolder {
     @Override
     public Inventory getInventory() {
         return inventory;
-    }
-
-    /** What the power consists of: the base, the battle record, the recent-form and active-share multipliers. */
-    private net.kyori.adventure.text.Component influenceBreakdown(Player player) {
-        var parts = plugin.getClanManager().influenceBreakdown(clan);
-        return plugin.getMessages().component("gui.info.influence-breakdown", Map.of(
-                "base", String.valueOf(parts.base()),
-                "battle", String.valueOf(parts.battle()),
-                "form", String.format(java.util.Locale.ROOT, "%.2f", parts.form()),
-                "share", String.format(java.util.Locale.ROOT, "%.2f", parts.activeShare())), player);
     }
 }
