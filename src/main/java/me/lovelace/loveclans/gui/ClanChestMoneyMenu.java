@@ -290,7 +290,7 @@ public final class ClanChestMoneyMenu implements Listener {
         if (threshold > 0 && amount >= threshold) {
             plugin.getGuiManager().openConfirm(player, clan,
                     plugin.getMessages().component("gui.confirm.withdraw.title", Map.of("amount", CoinFormat.format(amount)), player),
-                    Component.empty(),
+                    plugin.getGuiManager().confirmEffects(player, "withdraw", Map.of("amount", CoinFormat.format(amount))),
                     () -> performWithdraw(player, clan, pile, true),
                     () -> plugin.runSync(() -> open(player, clan))
             );

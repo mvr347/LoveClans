@@ -51,7 +51,7 @@ public final class ClanActivityMenu {
 
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(plugin.getMessages().component("gui.activity.info.name", Map.of("clan", clan.name()), player))
-                .lore(plugin.getMessages().component("gui.activity.info.lore", player))
+                .lore(plugin.getMessages().components("gui.activity.info.lore", player))
                 .build());
         inventory.setItem(SLOT_PERIOD, CycleButton.build(plugin, player, ItemBuilder.HEAD_FILTER,
                 "gui.activity.period.name", "gui.activity.period.", ActivityPeriod.values(), period));
@@ -64,12 +64,12 @@ public final class ClanActivityMenu {
             String key = categories[i].name().toLowerCase(java.util.Locale.ROOT);
             inventory.setItem(CATEGORY_SLOTS[i], ItemBuilder.of(icons[i])
                     .name(plugin.getMessages().component("gui.activity.category." + key, Map.of("points", format(values[i])), player))
-                    .lore(plugin.getMessages().component("gui.activity.category-lore", Map.of("points", format(values[i])), player))
+                    .lore(plugin.getMessages().components("gui.activity.category-lore", Map.of("points", format(values[i])), player))
                     .build());
         }
         inventory.setItem(SLOT_TOTAL, ItemBuilder.head(ItemBuilder.HEAD_EXPERIENCE)
                 .name(plugin.getMessages().component("gui.activity.total", Map.of("points", format(activity.total())), player))
-                .lore(plugin.getMessages().component("gui.activity.total-lore", player))
+                .lore(plugin.getMessages().components("gui.activity.total-lore", player))
                 .build());
 
         inventory.setItem(SLOT_BACK, ItemBuilder.head(ItemBuilder.HEAD_BACK)

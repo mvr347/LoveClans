@@ -97,9 +97,15 @@ public final class BannerPurchaseConfirmMenu {
                 : Map.of("cost", CoinFormat.format(cost));
         java.util.List<Component> infoLore = new java.util.ArrayList<>(plugin.getMessages().components(
                 replacement ? "clan.banner.replacement-lore" : "clan.banner.confirm-item-lore", placeholders, player));
-        if (!affordable) {
-            infoLore.add(Component.empty());
-            infoLore.add(plugin.getMessages().component("clan.banner.confirm-not-enough", placeholders, player));
+        if (cost > 0) {
+            long have;
+            try {
+                have = dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.economy.LoveEconomy.class)
+                        .map(eco -> eco.balance(player)).orElse(0L);
+            } catch (NoClassDefFoundError missingLoveCore) {
+                have = 0L;
+            }
+            infoLore.add(LoreBlocks.funds(plugin.getMessages(), player, cost, affordable ? Math.max(have, cost) : have));
         }
         ItemStack info = ItemBuilder.of(Material.WHITE_BANNER)
                 .name(plugin.getMessages().component(replacement ? "clan.banner.replacement-item-name" : "clan.banner.confirm-item-name", placeholders, player))

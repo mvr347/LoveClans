@@ -64,6 +64,7 @@ import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.InventoryHolder;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -292,6 +293,18 @@ public class GuiManager implements Listener {
         confirmYes.put(player.getUniqueId(), onYes);
         confirmNo.put(player.getUniqueId(), onNo);
         confirmMenu.open(player, clan, title, lore);
+    }
+
+    /** Confirm dialog whose "confirm" button lists what will happen ({@link ClanConfirmMenu#effects}). */
+    public void openConfirm(Player player, Clan clan, Component title, List<Component> effects, Runnable onYes, Runnable onNo) {
+        confirmYes.put(player.getUniqueId(), onYes);
+        confirmNo.put(player.getUniqueId(), onNo);
+        confirmMenu.open(player, clan, title, effects);
+    }
+
+    /** Convenience: the effects of confirm kind {@code kind} straight from lang. */
+    public List<Component> confirmEffects(Player player, String kind, Map<String, String> placeholders) {
+        return ClanConfirmMenu.effects(plugin, player, kind, placeholders);
     }
 
     // ── Member management ──────────────────────────────────────────────────────

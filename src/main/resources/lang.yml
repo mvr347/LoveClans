@@ -259,14 +259,17 @@ clan:
     replacement-confirm-title: "<gold>Новое знамя клана"
     replacement-item-name: "<white>Знамя территории"
     replacement-lore:
+      - "<dark_gray>Замена знамени"
       - ""
       - "<gray>Клан потерял знамя и остался без территории."
-      - "<gray>Новое знамя стоит дешевле, но не бесплатно:"
+      - "<gray>Новое знамя стоит дешевле, но не бесплатно."
+      - ""
       - "<dark_gray>▪ <gray>Штраф клана:"
       - "  <red>− <gray>Дух клана: <white>-<spirit> ур."
       - "  <red>− <gray>Опыт текущего уровня: <white>-<exp>%"
       - ""
-      - "<gray>Цена: <white><cost>"
+      - "<dark_gray>▪ <gray>Цена:"
+      - "  <gray>Знамя: <white><cost>"
     replacement-bought: "<prefix><green>Вы купили новое знамя территории за <cost>. Установите его, чтобы вернуть территорию."
     replacement-penalty: "<prefix><yellow>Клан потерял знамя: дух -<spirit> ур., опыт -<exp>."
     replacement-has-banner: "<prefix><red>Знамя вашего клана уже у вас в инвентаре или эндер-сундуке."
@@ -280,13 +283,15 @@ clan:
     confirm-title: "<gold>Покупка Знамени основания"
     confirm-item-name: "<white>Знамя основания клана"
     confirm-item-lore:
+      - "<dark_gray>Основание клана"
       - ""
-      - "<gray>Устанавливается на свободной земле,"
-      - "<gray>чтобы основать собственный клан."
+      - "<dark_gray>▪ <gray>Что даёт:"
+      - "  <gray>Устанавливается на свободной земле,"
+      - "  <gray>чтобы основать собственный клан."
       - ""
-      - "<gray>Цена: <white><cost>"
-    # Строка в описании знамени, когда монет не хватает: меню открывается, но без кнопки «Подтвердить».
-    confirm-not-enough: "<red>✕ Недостаточно монет для покупки."
+      - "<dark_gray>▪ <gray>Цена:"
+      - "  <gray>Знамя: <white><cost>"
+    # 2026-10-19: строки «не хватает монет» больше нет: блок цены сам показывает ✓/✕ и точную нехватку (gui.style.funds.*).
     # <cost> и %img_gold_coin% (2026-09-23): у NPC-продавца знамени раньше был код, ссылавшийся
     # на несуществующие ключи clan.banner.insufficient-funds/purchase-success — вместо этого
     # сообщения игрок видел сырой ключ. Код указывает сюда, ключ добавляет сумму и монетку.
@@ -525,6 +530,11 @@ gui:
       locked: "<red>✕ Действие заблокировано"
       cooldown: "<yellow>⌛ Перезарядка"
       max: "<green>✔ Достигнут предел"
+    # 2026-10-19: строки «цена + средства» блока цены. Раньше цена шла голой строкой «Цена: …», и игрок узнавал о нехватке
+    # монет только кликом. Теперь рядом ✓/✕ и точное «не хватает N» (число и глиф монет - в <white>).
+    funds:
+      ok: "  <green>✓ <gray>Средств хватает <dark_gray>(<green>готово<dark_gray>)"
+      missing: "  <red>✕ <gray>Не хватает: <white><missing> <dark_gray>(<gray>есть <white><have><dark_gray>)"
     # 2026-10-19: общее «значения нет». Раньше в меню участников стоял литерал "—" прямо в Java, и цвет/символ
     # нельзя было поменять из lang.yml; тире по стандарту тёмно-серое (роль «разделитель/тире»).
     none: "<dark_gray>—"
@@ -532,7 +542,12 @@ gui:
     title: "<dark_gray>Активность: <clan>"
     info:
       name: "<gold>Активность клана"
-      lore: "<gray>Очки за участие в войнах, набегах, осадах, казну и дипломатию."
+      lore:
+        - "<dark_gray>Справка"
+        - ""
+        - "<dark_gray>▪ <gray>За что идут очки:"
+        - "  <gray>Войны, набеги и осады"
+        - "  <gray>Территории, казна и дипломатия"
     period:
       name: "<gold>Период"
       lifetime: "Всё время"
@@ -545,14 +560,26 @@ gui:
       territory: "<green>Территории"
       economy: "<yellow>Экономика"
       diplomacy: "<aqua>Дипломатия"
-    category-lore: "<gray>Очки: <white><points>"
+    category-lore:
+      - "<dark_gray>Категория активности"
+      - ""
+      - "<dark_gray>▪ <gray>Очки:"
+      - "  <gray>Набрано: <white><points>"
     total: "<gold>Всего <dark_gray>| <yellow><points>"
-    total-lore: "<gray>Очки не тратятся: это мера участия клана в жизни сервера."
+    total-lore:
+      - "<dark_gray>Итог по категориям"
+      - ""
+      - "<gray>Очки не тратятся: это мера участия клана в жизни сервера."
   history:
     title: "<dark_gray>Летопись: <clan> (<page>)"
     info:
       name: "<gold>Летопись клана"
-      lore: "<gray>Важные события: войны, набеги, осады, участники и союзы."
+      lore:
+        - "<dark_gray>Справка"
+        - ""
+        - "<dark_gray>▪ <gray>Что записывается:"
+        - "  <gray>Войны, набеги и осады"
+        - "  <gray>Участники, территории и союзы"
     filter:
       name: "<gold>Фильтр событий"
       all: "Все"
@@ -562,8 +589,22 @@ gui:
       territories: "Территории"
       diplomacy: "Дипломатия"
       members: "Участники"
-    empty: "<gray>Здесь пока ничего не произошло."
-    entry-date: "<dark_gray><date> (<ago> назад)"
+    # 2026-10-19: пустое состояние теперь по стандарту: название + подзаголовок + «Что делать», а не одна строка
+    # в названии. Игрок с пустой страницей должен понимать, что менять (фильтр) и когда появятся записи.
+    empty:
+      name: "<gray>Записей нет"
+      lore:
+        - "<dark_gray>Пусто"
+        - ""
+        - "<dark_gray>▪ <gray>Что делать:"
+        - "  <gray>Смените фильтр событий."
+        - "  <gray>Новые записи появятся сами."
+    entry-lore:
+      - "<dark_gray>Событие клана"
+      - ""
+      - "<dark_gray>▪ <gray>Когда:"
+      - "  <gray>Дата: <white><date>"
+      - "  <gray>Прошло: <white><ago>"
     entry:
       CLAN_CREATED: "<gold>Клан основан"
       CLAN_LEVEL_UP: "<green>Клан достиг уровня <white><level>"
@@ -592,115 +633,206 @@ gui:
   modifiers:
     title: "<gray>Модификаторы: <gold><clan>"
     forever: "бессрочно"
-    reward-state: "<green>Гильдейская награда <dark_gray>| <yellow><date>"
+    # 2026-10-19: гильдейская награда в списке модификаторов - тоже запись списка: `Награда | Получено`, эффект и дата.
+    # Название награды берётся из gui.rewards.entry.*.name (его же использует летопись), поэтому состояние добавляется здесь.
+    reward-name: "<reward> <dark_gray>| <green>Получено"
+    reward-lore:
+      - "<dark_gray>Гильдейская награда"
+      - ""
+      - "<dark_gray>▪ <gray>Эффект:"
+      - "  <bonus>"
+      - ""
+      - "<dark_gray>▪ <gray>Получена:"
+      - "  <gray>Дата: <white><date>"
+    debt:
+      clean: "<green>✓ <gray>Долга нет"
+      arrears: "<red>✕ <gray>Неуплат подряд: <red><count>"
     unknown-clan: "неизвестно"
     info:
       name: "<gold>Модификаторы клана <white><clan>"
       lore:
-        - "<gray>Список активных эффектов, репараций,"
-        - "<gray>щитов, пактов и доступных поводов к войне."
+        - "<dark_gray>Справка"
+        - ""
+        - "<dark_gray>▪ <gray>Что здесь показано:"
+        - "  <gray>Активные эффекты, репарации и щиты"
+        - "  <gray>Пакты, блокады и поводы к войне"
     empty:
       name: "<gray>Нет активных эффектов и пактов"
       lore:
-        - "<gray>У клана сейчас нет выплат дани, щитов,"
-        - "<gray>пактов или блокад."
+        - "<dark_gray>Пусто"
+        - ""
+        - "<dark_gray>▪ <gray>Что делать:"
+        - "  <gray>Пакты, эмбарго и блокады оформляются"
+        - "  <gray>в меню дипломатии, Гильдейский щит — в столице."
+    # 2026-10-19: записи модификаторов по стандарту: название `Имя | Состояние`, подзаголовок, секции «Срок» (⌛) и
+    # «Эффект»; у долга по дани красный ✕ при неуплатах (строка debt.* подставляется из Java), паузы щита и переноса
+    # столицы показывают блок отказа со статусом gui.style.status.cooldown и причиной (<reason> берётся из ключа reason).
     entry:
       embargo:
-        name: "<red>Исходящее эмбарго: <white><tag>"
+        name: "<white>Эмбарго <dark_gray>| <red>Введено"
         lore:
-          - "<gray>Статус: <red>активно"
-          - "<gray>Блокирует прямую торговлю между кланами."
+          - "<dark_gray>Торговая санкция"
           - ""
-          - "<dark_gray>Снять можно в меню дипломатии."
+          - "<dark_gray>▪ <gray>Условия:"
+          - "  <gray>Против клана: <white><tag>"
+          - "  <red>✕ <gray>Прямая торговля между кланами запрещена"
+          - ""
+          - "<dark_gray>▪ <gray>Как снять:"
+          - "  <gray>В меню дипломатии."
       blockade-out:
-        name: "<dark_red>Блокада цели: <white><tag>"
+        name: "<white>Блокада <dark_gray>| <red>Вы блокируете"
         lore:
-          - "<gray>Статус: <red>вы держите блокаду"
-          - "<gray>Вы блокируете торговлю и экспансию цели."
+          - "<dark_gray>Жёсткая торговая санкция"
           - ""
-          - "<dark_gray>Снять можно в меню дипломатии."
+          - "<dark_gray>▪ <gray>Условия:"
+          - "  <gray>Против клана: <white><tag>"
+          - "  <red>✕ <gray>Торговля и экспансия цели заблокированы"
+          - ""
+          - "<dark_gray>▪ <gray>Как снять:"
+          - "  <gray>В меню дипломатии."
       blockade-in:
-        name: "<red>Под блокадой клана: <white><tag>"
+        name: "<white>Блокада <dark_gray>| <red>Вас блокируют"
         lore:
-          - "<gray>Статус: <dark_red>блокирован"
-          - "<red>Караваны и торговля остановлены."
+          - "<dark_gray>Жёсткая торговая санкция"
           - ""
-          - "<dark_gray>Победите агрессора в войне или снимите блокаду."
+          - "<dark_gray>▪ <gray>Условия:"
+          - "  <gray>Блокирует клан: <white><tag>"
+          - "  <red>✕ <gray>Караваны и торговля остановлены"
+          - ""
+          - "<dark_gray>▪ <gray>Как снять:"
+          - "  <gray>Победите агрессора в войне или дождитесь снятия блокады."
       pact-nap:
-        name: "<white>Пакт о ненападении: <yellow><tag>"
+        name: "<white>Пакт о ненападении <dark_gray>| <green>Действует"
         lore:
-          - "<gray>Осталось времени: <white><time>"
+          - "<dark_gray>Соглашение о мире"
           - ""
-          - "<dark_gray>Запрещает взаимные войны, осады и набеги."
+          - "<dark_gray>▪ <gray>Условия:"
+          - "  <gray>Партнёр: <white><tag>"
+          - "  <green>+ <gray>Взаимные войны, осады и набеги запрещены"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Осталось: <white><time>"
       pact-trade:
-        name: "<gold>Торговое соглашение: <yellow><tag>"
+        name: "<white>Торговое соглашение <dark_gray>| <green>Действует"
         lore:
-          - "<gray>Осталось времени: <white><time>"
+          - "<dark_gray>Соглашение о торговле"
           - ""
-          - "<dark_gray>Снижает кулдаун торговли и ускоряет сближение."
+          - "<dark_gray>▪ <gray>Условия:"
+          - "  <gray>Партнёр: <white><tag>"
+          - "  <green>+ <gray>Кулдаун торговли ниже, отношения растут быстрее"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Осталось: <white><time>"
       pact-alliance:
-        name: "<aqua>Военный союз: <yellow><tag>"
+        name: "<white>Военный союз <dark_gray>| <aqua>Заключён"
         lore:
-          - "<gray>Осталось времени: <white><time>"
+          - "<dark_gray>Военно-политический союз"
           - ""
-          - "<dark_gray>Полный пакт о взаимопомощи и ненападении."
+          - "<dark_gray>▪ <gray>Условия:"
+          - "  <gray>Союзник: <white><tag>"
+          - "  <green>+ <gray>Полный пакт о взаимопомощи и ненападении"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Осталось: <white><time>"
       reparations-debt:
-        name: "<red>Выплата дани: <white><tag>"
+        name: "<white>Выплата дани <dark_gray>| <red>Исходящая"
         lore:
-          - "<gray>Ежедневная выплата: <white><amount>"
-          - "<gray>Осталось дней: <white><days>"
-          - "<gray>Неуплат подряд: <arrears>"
+          - "<dark_gray>Репарации"
           - ""
-          - "<dark_gray>Списывается автоматически раз в сутки."
+          - "<dark_gray>▪ <gray>Условия:"
+          - "  <gray>Получатель: <white><tag>"
+          - "  <red>− <gray>Ежедневно: <white><amount>"
+          - "  <gray>Списывается автоматически раз в сутки"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Осталось дней: <white><days>"
+          - ""
+          - "<dark_gray>▪ <gray>Долг:"
+          - "  <debt>"
       reparations-income:
-        name: "<green>Получение дани: <white><tag>"
+        name: "<white>Получение дани <dark_gray>| <green>Входящая"
         lore:
-          - "<gray>Ежедневное поступление: <white><amount>"
-          - "<gray>Осталось дней: <white><days>"
+          - "<dark_gray>Репарации"
           - ""
-          - "<dark_gray>Поступает в казну раз в сутки."
+          - "<dark_gray>▪ <gray>Условия:"
+          - "  <gray>Плательщик: <white><tag>"
+          - "  <green>+ <gray>Ежедневно: <white><amount>"
+          - "  <gray>Поступает в казну раз в сутки"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Осталось дней: <white><days>"
       post-raid-shield:
-        name: "<aqua>Щит после набега"
+        name: "<white>Щит после набега <dark_gray>| <aqua>Действует"
         lore:
-          - "<gray>Осталось времени: <white><time>"
+          - "<dark_gray>Защита клана"
           - ""
-          - "<dark_gray>Защищает клан от новых набегов."
+          - "<dark_gray>▪ <gray>Эффект:"
+          - "  <green>+ <gray>Защищает клан от новых набегов"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Осталось: <white><time>"
       siege-pressure:
-        name: "<dark_red>Осадное давление"
+        name: "<white>Осадное давление <dark_gray>| <red>Штраф"
         lore:
-          - "<gray>Осталось времени: <white><time>"
-          - "<red>Штраф после поражения в осаде."
+          - "<dark_gray>Последствия осады"
+          - ""
+          - "<dark_gray>▪ <gray>Эффект:"
+          - "  <red>− <gray>Штраф после поражения в осаде"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Осталось: <white><time>"
       siege-repelled:
-        name: "<gold>Отражение осады"
+        name: "<white>Отражение осады <dark_gray>| <green>Бонус"
         lore:
-          - "<gray>Осталось времени: <white><time>"
-          - "<green>Боевой дух клана укреплён."
+          - "<dark_gray>Последствия осады"
+          - ""
+          - "<dark_gray>▪ <gray>Эффект:"
+          - "  <green>+ <gray>Боевой дух клана укреплён"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Осталось: <white><time>"
       just-casus:
-        name: "<yellow>Повод к войне: <white><type>"
+        name: "<white>Повод к войне <dark_gray>| <yellow><type>"
         lore:
-          - "<gray>Цель: <white><tag>"
-          - "<gray>Причина: <green><reason>"
-          - "<gray>Срок действия: <white><time>"
+          - "<dark_gray>Справедливый повод"
           - ""
-          - "<dark_gray>Справедливый повод для конфликта."
+          - "<dark_gray>▪ <gray>Повод:"
+          - "  <gray>Цель: <white><tag>"
+          - "  <gray>Причина: <green><reason>"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Действует: <white><time>"
       guild-shield:
-        name: "<aqua>Гильдейский щит"
+        name: "<white>Гильдейский щит <dark_gray>| <aqua>Действует"
         lore:
-          - "<gray>Осталось времени: <white><time>"
+          - "<dark_gray>Защита клана"
           - ""
-          - "<dark_gray>Защищает клан от новых войн, осад, набегов"
-          - "<dark_gray>и блокад. Идущие конфликты не отменяет."
+          - "<dark_gray>▪ <gray>Эффект:"
+          - "  <green>+ <gray>Защита от новых войн, осад, набегов и блокад"
+          - "  <gray>Идущие конфликты щит не отменяет"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Осталось: <white><time>"
       guild-shield-cooldown:
-        name: "<gray>Пауза Гильдейского щита"
+        name: "<white>Гильдейский щит <dark_gray>| <yellow>Пауза"
+        reason: "Гильдейский щит недавно действовал: повторно его можно использовать позже."
         lore:
-          - "<yellow>⌛ <gray>Снова можно через <white><time>"
+          - "<dark_gray>Перезарядка"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Снова можно через <white><time>"
       relocate-cooldown:
-        name: "<gray>Пауза переноса столицы"
+        name: "<white>Перенос столицы <dark_gray>| <yellow>Пауза"
+        reason: "Столицу недавно переносили: повторный перенос возможен позже."
         lore:
-          - "<yellow>⌛ <gray>Снова можно через <white><time>"
+          - "<dark_gray>Перезарядка"
+          - ""
+          - "<dark_gray>▪ <gray>Срок:"
+          - "  <yellow>⌛ <gray>Снова можно через <white><time>"
       unknown:
-        name: "<gray>Модификатор: <type>"
-        lore: []
+        name: "<gray>Модификатор <dark_gray>| <white><type>"
+        lore:
+          - "<dark_gray>Неизвестный эффект"
   # 2026-10-18: лор приведён к стандарту (RULE 10). Подсказки кликов - списком [разделитель, ЛКМ - действие],
   # недоступное - статус + «Причина:» из Java (ссылки на ключи reason), а не свой текст с иконкой.
   # Меню «Торговля» (2026-10-07): вкладки Кланы / Запросы / Скупки.
@@ -810,14 +942,17 @@ gui:
         closed:
           - "<dark_gray><st>─────────────────────</st>"
           - "<red>✕ Сдача закрыта"
-  # Общий переключатель фильтра/сортировки (CycleButton): все варианты в лоре, текущий отмечен.
+  # Общий переключатель фильтра/сортировки (CycleButton). 2026-10-19: текущий вариант вынесен в название
+  # (`Фильтр | Все`), чтобы состояние было видно без чтения лора; варианты идут секцией, а клики строятся через
+  # gui.style.click.* (раньше ЛКМ/ПКМ были вшиты в этот список текстом).
   cycle:
-    option-current: "<green>▶ <name>"
-    option-other: "<gray>  <name>"
-    hint:
-      - "<dark_gray><st>─────────────────────</st>"
-      - "<green>ЛКМ <dark_gray>— <gray>следующий вариант"
-      - "<gold>ПКМ <dark_gray>— <gray>предыдущий вариант"
+    name: "<name> <dark_gray>| <yellow><current>"
+    subtitle: "<dark_gray>Переключатель"
+    options-title: "<dark_gray>▪ <gray>Варианты:"
+    option-current: "  <green>▶ <name>"
+    option-other: "    <gray><name>"
+    next: "следующий вариант"
+    previous: "предыдущий вариант"
   accept: "<green>[Принять]"
   reject: "<red>[Отклонить]"
   cancel: "<red>[Отменить]"
@@ -912,95 +1047,123 @@ gui:
           - "<green>ЛКМ <dark_gray>— <gray>взять стопку монет"
           - "<yellow>Shift+ЛКМ <dark_gray>— <gray>взять монеты сразу в инвентарь"
   contracts-title: "<gray>Обеты клана <color><tag>"
+  # 2026-10-19: обеты по стандарту. Карточка обета стала записью со состоянием в названии (`Имя | В процессе / Выполнен`),
+  # секциями «Цель» (с шкалой <bar> вместо голого x/y), «Награда» и «Срок» (⌛); недоступный обет - блок отказа с
+  # причиной; клики строятся в Java через gui.style.click.*. Прежние ключи button.current/ready/claimed и item.claim-hint
+  # удалены: их тексты теперь собираются из секций ниже.
   contracts:
     board:
       title: "<gold>Обеты клана"
       lore:
-        - "<gray>Клан берёт по одному обету"
-        - "<gray>на неделю и на месяц."
-        - "<gray>Прогресс идёт в оба обета сразу."
+        - "<dark_gray>Справка"
+        - ""
+        - "<dark_gray>▪ <gray>Как это работает:"
+        - "  <gray>Клан берёт по одному обету на неделю и на месяц"
+        - "  <gray>Прогресс идёт в оба обета сразу"
     button:
       weekly-name: "<gold>Недельный обет"
       monthly-name: "<gold>Месячный обет"
-      current: "<gray>Обет: <white><name>"
-      in-progress: "<gray>Статус: <yellow>в процессе <dark_gray>(прогресс ниже)"
-      ready:
-        - "<green>✓ Выполнен"
-        - "<dark_gray><st>─────────────────────</st>"
-        - "<green>ЛКМ <dark_gray>— <gray>забрать награду"
-      claimed: "<gray>Награда уже получена"
-      done-this-period: "<green>✓ Выполнен: <gray>награда получена, следующий обет в новом периоде"
-      not-taken: "<gray>Статус: <yellow>ещё не взят"
-      choose:
-        - "<dark_gray><st>─────────────────────</st>"
-        - "<green>ЛКМ <dark_gray>— <gray>выбрать один из трёх обетов"
-      none-available: "<red>✕ Нет доступных обетов"
-      refresh: "<gray>Обновится через: <white><time>"
+      name-not-taken: "<name> <dark_gray>| <yellow>Не взят"
+      lore:
+        - "<dark_gray>Задание клана"
+        - ""
+        - "<dark_gray>▪ <gray>Срок:"
+        - "  <yellow>⌛ <gray>Набор обновится через: <white><time>"
+      choose-action: "выбрать обет"
+      none-available: "Сейчас нет доступных обетов этого типа."
     choice:
       weekly-title: "<gray>Недельный обет <color><tag>"
       monthly-title: "<gray>Месячный обет <color><tag>"
       info-title: "<gold>Выберите обет"
       info-lore:
-        - "<gray>Эти обеты доступны вашему клану"
-        - "<gray>до конца периода (<white><time></white>)."
-        - "<gray>Набор не меняется при перезаходе."
-    info:
-      claimed: "<gray>Награда уже получена."
+        - "<dark_gray>Справка"
+        - ""
+        - "<dark_gray>▪ <gray>Выбор обета:"
+        - "  <gray>Эти обеты доступны до конца периода"
+        - "  <yellow>⌛ <gray>Осталось: <white><time>"
+        - "  <gray>Набор не меняется при перезаходе"
     item:
       name: "<gold><name>"
+      name-progress: "<gold><name> <dark_gray>| <yellow>В процессе"
+      name-ready: "<gold><name> <dark_gray>| <green>Выполнен"
+      name-claimed: "<gold><name> <dark_gray>| <gray>Награда получена"
+      subtitle-weekly: "<dark_gray>Недельный обет"
+      subtitle-monthly: "<dark_gray>Месячный обет"
+      goal-title: "<dark_gray>▪ <gray>Цель:"
+      progress-bar: "  <bar>"
+      reward-title: "<dark_gray>▪ <gray>Награда:"
       reward-scaled: "  <green>+ <gray>Опыт клана: <white><reward>"
       reward-points: "  <green>+ <gray>Очки улучшений: <white><points>"
-      expires: "<gray>Осталось: <white><time>"
-      claim-hint:
-        - "<green>✓ Выполнен"
-        - "<dark_gray><st>─────────────────────</st>"
-        - "<green>ЛКМ <dark_gray>— <gray>забрать награду"
-      select:
-        - "<dark_gray><st>─────────────────────</st>"
-        - "<green>ЛКМ <dark_gray>— <gray>выбрать этот обет"
+      time-title: "<dark_gray>▪ <gray>Срок:"
+      expires: "  <yellow>⌛ <gray>Обет истекает через: <white><time>"
+      refresh: "  <yellow>⌛ <gray>Период обновится через: <white><time>"
+      ready: "<green>✓ <gray>Цель выполнена, награду можно забрать"
+      claimed: "<gray>Награда уже получена: следующий обет в новом периоде."
+      claim-action: "забрать награду"
+      select-action: "выбрать этот обет"
   guildmaster:
     title: "<gray>Гильдмастер <color><tag>"
     info:
       title: "<gold>Гильдмастер"
       lore:
-        - "<gray>Здесь клан берёт обеты,"
-        - "<gray>а владелец добивается признания."
+        - "<dark_gray>Справка"
+        - ""
+        - "<dark_gray>▪ <gray>Что здесь делают:"
+        - "  <gray>Клан берёт обеты"
+        - "  <gray>Владелец добивается признания"
+        - "  <gray>Оформляют поводы к войне"
     button:
       vows:
         name: "<gold>Обеты"
         lore:
-          - "<gray>Недельный и месячный обеты клана"
+          - "<dark_gray>Задания клана"
+          - ""
+          - "<dark_gray>▪ <gray>Что это:"
+          - "  <gray>Недельный и месячный обеты клана"
           - "<dark_gray><st>─────────────────────</st>"
           - "<green>ЛКМ <dark_gray>— <gray>открыть обеты"
       recognition:
         name: "<gold>Признание клана"
         lore:
-          - "<gray>Платно и сразу, только для владельца."
-          - "<gray>Цена: <white><cost>"
+          - "<dark_gray>Статус клана"
+          - ""
+          - "<dark_gray>▪ <gray>Условия:"
+          - "  <gray>Платно и сразу, только для владельца"
+          - "  <gray>Цена: <white><cost>"
           - "<dark_gray><st>─────────────────────</st>"
           - "<green>ЛКМ <dark_gray>— <gray>открыть признание клана"
       clans:
         name: "<gold>Список кланов"
         lore:
-          - "<gray>Все кланы сервера"
+          - "<dark_gray>Справочник"
+          - ""
+          - "<dark_gray>▪ <gray>Что это:"
+          - "  <gray>Все кланы сервера"
           - "<dark_gray><st>─────────────────────</st>"
           - "<green>ЛКМ <dark_gray>— <gray>открыть список кланов"
       casus:
         name: "<gold>Оформить повод к войне"
         lore:
-          - "<gray>Получение казус белли для объявления"
-          - "<gray>войны или осады вражескому клану."
+          - "<dark_gray>Повод к конфликту"
+          - ""
+          - "<dark_gray>▪ <gray>Что даёт:"
+          - "  <gray>Казус белли для объявления войны"
+          - "  <gray>или осады вражескому клану"
           - "<dark_gray><st>─────────────────────</st>"
           - "<green>ЛКМ <dark_gray>— <gray>оформить повод"
   recognition:
     title: "<gray>Признание клана"
     info-name: "<gold>Признать клан <color><tag>"
     info-lore:
-      - "<gray>Цена: <white><cost>"
-      - "<gray>Признанный клан получает больше мест,"
-      - "<gray>территории и торговлю с сервером,"
-      - "<gray>но платит налог сундука."
-    not-enough: "<red>✕ Не хватает монет на признание"
+      - "<dark_gray>Статус клана"
+      - ""
+      - "<dark_gray>▪ <gray>Что даёт:"
+      - "  <green>+ <gray>Больше мест в клане и территорий"
+      - "  <green>+ <gray>Торговля с сервером"
+      - "  <red>− <gray>Налог сундука"
+      - ""
+      - "<dark_gray>▪ <gray>Цена:"
+      - "  <gray>Признание: <white><cost>"
   trade-session:
     title: "<gray>Сделка: <white><tagA> <gray>и <white><tagB>"
     icon:
@@ -1199,41 +1362,84 @@ gui:
     current-lore:
       - "<green>✓ <gray>Сейчас используется"
     action: "выбрать цвет"
+  # 2026-10-19: диалоги подтверждения по стандарту. Кнопки без скобок (скобки - вид кликабельных кнопок в чате), на
+  # «Подтвердить» теперь секция последствий (`effects` каждого вида) и строка клика через gui.style.click.left, на «Отмена» -
+  # «Ничего не изменится». Раньше игрок видел только заголовок вопроса и не знал, что именно произойдёт после клика.
   confirm:
-    "yes": "<green>[Подтвердить]"
-    "no": "<red>[Отмена]"
+    "yes": "<green>Подтвердить"
+    "no": "<red>Отмена"
+    subtitle: "<dark_gray>Подтверждение"
+    effects-title: "<dark_gray>▪ <gray>Что произойдёт:"
+    yes-action: "подтвердить"
+    no-lore:
+      - "<dark_gray>Отмена"
+      - ""
+      - "<gray>Ничего не изменится."
+    no-action: "отменить"
     chat-yes: "<green>[ПОДТВЕРДИТЬ]"
     chat-no: "<red>[ОТМЕНИТЬ]"
     invalid-input: "<prefix><red>Напишите <green>подтвердить</green> или <red>отменить</red> в чат."
     change-tag:
       title: "<gold>Подтвердите смену тега"
+      effects:
+        - "  <gray>Новый тег клана: <white><tag>"
     close-clan:
       title: "<gold>Подтвердите закрытие клана"
+      effects:
+        - "  <red>− <gray>Заявки на вступление будут закрыты"
+        - "  <gray>Вступить можно будет только по приглашению"
     open-clan:
       title: "<gold>Подтвердите открытие клана"
+      effects:
+        - "  <green>+ <gray>Любой игрок сможет подать заявку на вступление"
     disband:
       title: "<red>Распустить клан <color><tag></color>?"
+      effects:
+        - "  <red>− <gray>Клан будет распущен безвозвратно"
+        - "  <red>− <gray>Все участники покинут клан"
     break-pact:
       title: "<red>Расторгнуть «<type>» с кланом <color><tag></color>?"
-      lore: "<gray>Отношения упадут на <red>−<penalty>"
+      effects:
+        - "  <red>− <gray>Отношения упадут: <white>−<penalty>"
+        - "  <gray>Соглашение перестанет действовать"
     leave:
       title: "<gold>Покинуть клан <color><tag></color>?"
+      effects:
+        - "  <red>− <gray>Вы покинете клан <color><tag></color>"
+        - "  <gray>Вернуться в него можно будет не сразу"
     rename:
       title: "<gold>Сменить название на <white><name></white>?"
+      effects:
+        - "  <gray>Новое название клана: <white><name>"
     transfer:
       title: "<red>Передать лидерство <white><player></white>?"
+      effects:
+        - "  <gray>Новый глава клана: <white><player>"
     kick:
       title: "<red>Исключить <white><player></white>?"
+      effects:
+        - "  <red>− <gray>Игрок <white><player> <gray>будет исключён из клана"
     withdraw:
       title: "<gold>Снять <white><amount></white> из казны?"
+      effects:
+        - "  <red>− <gray>Из казны клана будет снято: <white><amount>"
     gift:
       title: "<white>Отправить дар <white><amount></white> клану <color><tag>?"
+      effects:
+        - "  <red>− <gray>Из казны клана уйдёт: <white><amount>"
+        - "  <gray>Получатель: клан <color><tag></color>"
     war:
       title: "<white>Объявить войну клану <color><tag></color>?"
+      effects:
+        - "  <red>− <gray>Клану <color><tag></color> будет объявлена война"
     siege:
       title: "<white>Объявить осаду клана <color><tag></color>?"
+      effects:
+        - "  <red>− <gray>Клану <color><tag></color> будет объявлена осада"
     raid:
       title: "<white>Начать набег на клан <color><tag></color>?"
+      effects:
+        - "  <red>− <gray>На клан <color><tag></color> начнётся набег"
   create:
     title: "<gold>Создание клана"
     success: "<prefix><green>Клан <color><tag></color> (<name>) успешно создан!"
@@ -1287,7 +1493,7 @@ gui:
         poorer: "у врага больше"
         equal: "примерно поровну"
     req-title: "<dark_gray>▪ <gray>Условия:"
-    confirm-casus: "<gray>Будет израсходован Casus Belli: <white><type>"
+    confirm-casus: "  <red>− <gray>Будет израсходован Casus Belli: <white><type>"
     war:
       short: "Война"
       name: "<red>Война"
@@ -1931,9 +2137,12 @@ gui:
     info:
       name: "<color><name> <white>[<tag>]"
       lore:
-        - "<gray>Уровень: <white><level>"
-        - "<gray>Участников: <white><current></white>/<max>"
-        - "<gray>Глава: <white><leader>"
+        - "<dark_gray>Состав клана"
+        - ""
+        - "<dark_gray>▪ <gray>Клан:"
+        - "  <gray>Уровень: <white><level>"
+        - "  <gray>Участников: <white><current></white>/<max>"
+        - "  <gray>Глава: <white><leader>"
     invite:
       name: "<green>Пригласить игрока"
       lore:
@@ -2334,7 +2543,9 @@ gui:
       - "<green>ЛКМ <dark_gray>— <gray>выбрать это направление"
     confirm:
       title: "<gold>Выбрать «<direction>»?"
-      lore: "<gray>Направление выбирается один раз и навсегда."
+      effects:
+        - "  <gray>Направление: <dark_gray>не выбрано <dark_gray>→ <green><direction>"
+        - "  <gray>Выбирается один раз и навсегда"
     chosen: "<prefix><green>Клан выбрал направление <gold><direction></gold>!"
     locked: "<prefix><red>Направление открывается на <level> уровне клана."
     already: "<prefix><gray>Направление уже выбрано."
@@ -2343,31 +2554,31 @@ gui:
     entry:
       pioneer:
         name: "<gold>Первопроходец"
-        bonus: "<gray>Бонус: <white>+2% ко всему получаемому опыту"
+        bonus: "<green>+ <white>+2% <gray>ко всему получаемому опыту"
       first-blood:
         name: "<gold>Первая кровь"
-        bonus: "<gray>Бонус: <white>+3% урона на своей территории"
+        bonus: "<green>+ <white>+3% <gray>урона на своей территории"
       merchant:
         name: "<gold>Торговец"
-        bonus: "<gray>Бонус: <white>-2% к налогу на сундук"
+        bonus: "<green>+ <white>−2% <gray>к налогу на сундук"
       defender:
         name: "<gold>Защитник"
-        bonus: "<gray>Бонус: <white>+3% сопротивления на своей территории"
+        bonus: "<green>+ <white>+3% <gray>сопротивления на своей территории"
       diplomat:
         name: "<gold>Дипломат"
-        bonus: "<gray>Бонус: <white>+2% к влиянию клана"
+        bonus: "<green>+ <white>+2% <gray>к влиянию клана"
       rich:
         name: "<gold>Богач"
-        bonus: "<gray>Бонус: <white>+2% ко всем доходам казны"
+        bonus: "<green>+ <white>+2% <gray>ко всем доходам казны"
       legion:
         name: "<gold>Легион"
-        bonus: "<gray>Бонус: <white>+1% ко всему получаемому опыту"
+        bonus: "<green>+ <white>+1% <gray>ко всему получаемому опыту"
       veteran:
         name: "<gold>Ветеран"
-        bonus: "<gray>Бонус: <white>+2% сопротивления"
+        bonus: "<green>+ <white>+2% <gray>сопротивления"
       conqueror:
         name: "<gold>Завоеватель"
-        bonus: "<gray>Бонус: <white>+3% урона в нападении"
+        bonus: "<green>+ <white>+3% <gray>урона в нападении"
   banner-create:
     title: "<gray>Основание нового клана"
     # Добавлено 2026-09-23: ClanBannerCreationMenu ссылался на эти 4 ключа, которых не было
@@ -2375,8 +2586,11 @@ gui:
     info:
       name: "<gold>Знамя Основания клана"
       lore:
-        - "<gray>Задайте название и тег ниже,"
-        - "<gray>затем подтвердите основание клана."
+        - "<dark_gray>Справка"
+        - ""
+        - "<dark_gray>▪ <gray>Как основать клан:"
+        - "  <gray>Задайте название и тег ниже,"
+        - "  <gray>затем подтвердите основание клана."
     ready: "<green>Основать клан"
     success: "<prefix><green>Клан <color><tag></color> <white><name></white> основан!"
 
@@ -2391,43 +2605,62 @@ gui:
     info:
       name: "<gold>Оформление повода"
       lore:
-        - "<gray>Выберите тип конфликта и клан-цель,"
-        - "<gray>чтобы перейти к выбору поводов."
+        - "<dark_gray>Справка"
+        - ""
+        - "<dark_gray>▪ <gray>Как это работает:"
+        - "  <gray>Выберите тип конфликта и клан-цель,"
+        - "  <gray>затем повод и оформите казус белли."
+    # 2026-10-19: вкладки типа конфликта - паттерн «выбор»: у выбранной `Имя | Выбрано` + строка «Выбран сейчас»,
+    # у другой клик «переключить». Подзаголовок и условия вынесены в секции.
     tab:
+      selected: "<green>✓ <gray>Выбран сейчас"
       war:
         name: "<gold>Война"
         name-selected: "<gold>Война <dark_gray>| <green>Выбрано"
         lore:
+          - "<dark_gray>Тип конфликта"
+          - ""
           - "<gray>Открытый конфликт за честь и репарации."
         action: "переключить на войну"
       siege:
         name: "<gold>Осада"
         name-selected: "<gold>Осада <dark_gray>| <green>Выбрано"
         lore:
+          - "<dark_gray>Тип конфликта"
+          - ""
           - "<gray>Штурм периметра с лагерями и трофеями."
-          - "<gray>Требует <white><level> <gray>ур. клана атакующего."
+          - ""
+          - "<dark_gray>▪ <gray>Условия:"
+          - "  <gray>Уровень клана атакующего: от <white><level>"
         action: "переключить на осаду"
     target:
-      name: "<yellow>Клан <white><name> <dark_gray>[<gray><tag><dark_gray>]"
+      name: "<yellow><name> <dark_gray>| <gray>[<tag>]"
       lore:
-        - "<gray>Уровень клана: <white><level>"
-        - "<gray>Участников: <white><members>"
+        - "<dark_gray>Клан-цель"
+        - ""
+        - "<dark_gray>▪ <gray>Профиль:"
+        - "  <gray>Уровень: <white><level>"
+        - "  <gray>Участников: <white><members>"
       action: "выбрать повод"
     back-guildmaster: "<gray>Назад к Гильдмастеру"
     back-target: "<gray>Назад к выбору цели"
     reason-info:
       name: "<gold>Цель <dark_gray>| <white><name> <dark_gray>[<gray><tag><dark_gray>]"
       lore:
-        - "<gray>Тип: <yellow><type>"
-        - "<gray>Уровень атакующего: <white><attacker>"
-        - "<gray>Уровень цели: <white><target>"
+        - "<dark_gray>Клан-цель"
+        - ""
+        - "<dark_gray>▪ <gray>Конфликт:"
+        - "  <gray>Тип: <yellow><type>"
+        - "  <gray>Уровень атакующего: <white><attacker>"
+        - "  <gray>Уровень цели: <white><target>"
     reason-item:
-      name-just: "<green><title>"
-      name-frivolous: "<gold><title>"
+      name-just: "<green><title> <dark_gray>| <white>Справедливый"
+      name-frivolous: "<gold><title> <dark_gray>| <white>Шуточный"
       name-unavailable: "<gray><title> <dark_gray>| <red>Недоступно"
-      category-just: "<gray>Категория: <green>Справедливый повод"
-      category-frivolous: "<gray>Категория: <gold>Шуточный/ничтожный"
-      cost: "<gray>Цена оформления: <white><cost>"
+      category-just: "<dark_gray>Справедливый повод"
+      category-frivolous: "<dark_gray>Шуточный повод"
+      price-title: "<dark_gray>▪ <gray>Цена:"
+      cost: "  <gray>Оформление: <white><cost>"
       action: "оформить повод"
     siege-error:
       attacker-level: "Клан слишком слаб для осады (требуется ур. <min>)"

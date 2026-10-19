@@ -118,7 +118,8 @@ public final class ClanSettingsMenu {
                         return;
                     }
                     plugin.getGuiManager().openConfirm(player, clan,
-                            plugin.getMessages().component("gui.confirm.rename.title", Map.of("name", newName.trim()), player), Component.empty(),
+                            plugin.getMessages().component("gui.confirm.rename.title", Map.of("name", newName.trim()), player),
+                            plugin.getGuiManager().confirmEffects(player, "rename", Map.of("name", newName.trim())),
                             () -> plugin.getClanManager().renameClanAsync(clan, player.getUniqueId(), newName.trim())
                                     .thenAccept(updated -> plugin.runSync(() -> {
                                         plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
@@ -148,7 +149,8 @@ public final class ClanSettingsMenu {
                         return;
                     }
                     plugin.getGuiManager().openConfirm(player, clan,
-                            plugin.getMessages().component("gui.confirm.change-tag.title", Map.of("tag", newTag.trim()), player), Component.empty(),
+                            plugin.getMessages().component("gui.confirm.change-tag.title", Map.of("tag", newTag.trim()), player),
+                            plugin.getGuiManager().confirmEffects(player, "change-tag", Map.of("tag", newTag.trim())),
                             () -> plugin.getClanManager().changeClanTagAsync(clan, player.getUniqueId(), newTag.trim())
                                     .thenAccept(updated -> plugin.runSync(() -> {
                                         plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
@@ -180,7 +182,7 @@ public final class ClanSettingsMenu {
                     clan.isOpen()
                             ? plugin.getMessages().component("gui.confirm.close-clan.title", player)
                             : plugin.getMessages().component("gui.confirm.open-clan.title", player),
-                    Component.empty(),
+                    plugin.getGuiManager().confirmEffects(player, clan.isOpen() ? "close-clan" : "open-clan", Map.of()),
                     () -> plugin.getClanManager().setClanOpenStatusAsync(clan, player.getUniqueId(), !clan.isOpen())
                             .thenAccept(updated -> plugin.runSync(() -> {
                                 plugin.getSoundService().playGui(player, GuiSounds.Kind.TOGGLE);
@@ -201,7 +203,8 @@ public final class ClanSettingsMenu {
                     return;
                 }
                 plugin.getGuiManager().openConfirm(player, clan,
-                        plugin.getMessages().component("gui.confirm.disband.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player), Component.empty(),
+                        plugin.getMessages().component("gui.confirm.disband.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player),
+                        plugin.getGuiManager().confirmEffects(player, "disband", Map.of("tag", clan.tag(), "color", clan.tagColor())),
                         () -> {
                             player.closeInventory();
                             plugin.getClanManager().disbandClanAsync(clan, player.getUniqueId())

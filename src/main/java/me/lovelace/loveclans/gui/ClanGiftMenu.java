@@ -169,7 +169,8 @@ public final class ClanGiftMenu implements InventoryHolder {
         plugin.getGuiManager().openConfirm(player, sourceClan,
                 plugin.getMessages().component("gui.confirm.gift.title",
                         Map.of("amount", CoinFormat.format(amount), "tag", targetClan.tag(), "color", targetClan.tagColor()), player),
-                Component.empty(),
+                plugin.getGuiManager().confirmEffects(player, "gift",
+                        Map.of("amount", CoinFormat.format(amount), "tag", targetClan.tag(), "color", targetClan.tagColor())),
                 () -> plugin.getClanGiftManager().sendGiftAsync(sourceClan, targetClan, amount, player.getUniqueId())
                         .thenRun(() -> plugin.runSync(() -> {
                             plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);

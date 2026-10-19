@@ -164,7 +164,7 @@ public final class ClanMemberDetailMenu {
                 String targetName = nameOf(targetId);
                 plugin.getGuiManager().openConfirm(player, clan,
                         plugin.getMessages().component("gui.confirm.transfer.title", Map.of("player", targetName), player),
-                        Component.empty(),
+                        plugin.getGuiManager().confirmEffects(player, "transfer", Map.of("player", targetName)),
                         () -> plugin.getClanManager().transferLeadershipAsync(clan, player.getUniqueId(), targetId)
                                 .thenRun(() -> plugin.runSync(() -> {
                                     plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
@@ -207,7 +207,7 @@ public final class ClanMemberDetailMenu {
                 String targetName = nameOf(targetId);
                 plugin.getGuiManager().openConfirm(player, clan,
                         plugin.getMessages().component("gui.confirm.kick.title", Map.of("player", targetName), player),
-                        Component.empty(),
+                        plugin.getGuiManager().confirmEffects(player, "kick", Map.of("player", targetName)),
                         () -> plugin.getClanManager().removeMemberAsync(clan, player.getUniqueId(), targetId, true)
                                 .thenRun(() -> plugin.runSync(() -> {
                                     plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);

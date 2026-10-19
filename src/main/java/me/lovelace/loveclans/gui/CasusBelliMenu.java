@@ -88,7 +88,9 @@ public final class CasusBelliMenu {
                 .name(messages().component(base + (selected ? ".name-selected" : ".name"), player))
                 .lore(messages().components(base + ".lore", Map.of("level",
                         String.valueOf(plugin.getConfig().getInt("siege.min-attacker-clan-level", 5))), player));
-        if (!selected) {
+        if (selected) {
+            builder.lore(Component.empty()).lore(messages().component("gui.casus-belli.tab.selected", player));
+        } else {
             builder.lore(LoreBlocks.clicks(messages(), player,
                     List.of(LoreBlocks.hint(messages(), LoreBlocks.Click.LEFT, base + ".action"))));
         }
@@ -225,7 +227,7 @@ public final class CasusBelliMenu {
             ReasonEntry entry = justReasons.get(i);
             int slot = justSlots[i];
             holder.reasonSlots.put(slot, entry);
-            inventory.setItem(slot, renderReasonItem(entry, player));
+            inventory.setItem(slot, renderReasonItem(entry, player, clan));
         }
 
         // Раскладка Frivolous (справа: 23, 24, 32, 33, 41, 42)
@@ -234,7 +236,7 @@ public final class CasusBelliMenu {
             ReasonEntry entry = frivolousReasons.get(i);
             int slot = frivSlots[i];
             holder.reasonSlots.put(slot, entry);
-            inventory.setItem(slot, renderReasonItem(entry, player));
+            inventory.setItem(slot, renderReasonItem(entry, player, clan));
         }
 
         // Footer
@@ -422,29 +424,32 @@ public final class CasusBelliMenu {
         return messages().raw("gui.casus-belli.reason." + reasonId + ".unavailable");
     }
 
-    private ItemStack renderReasonItem(ReasonEntry entry, Player player) {
+    private ItemStack renderReasonItem(ReasonEntry entry, Player player, Clan clan) {
         Map<String, String> ph = Map.of("title", entry.title(), "cost", CoinFormat.format(entry.cost()));
         LoreBlocks.Hint issue = LoreBlocks.hint(messages(), LoreBlocks.Click.LEFT, "gui.casus-belli.reason-item.action");
+        String category = entry.isJust ? "gui.casus-belli.reason-item.category-just" : "gui.casus-belli.reason-item.category-frivolous";
+        // The price is paid from the player's wallet, or from the clan treasury when there is no economy (see purchaseCasusBelli).
+        long have = economy().map(eco -> eco.balance(player)).orElse(clan.chestMoney());
+        ItemBuilder builder;
         if (!entry.available) {
-            return ItemBuilder.of(Material.GRAY_DYE)
-                    .name(messages().component("gui.casus-belli.reason-item.name-unavailable", ph, player))
-                    .lore(messages().component("gui.casus-belli.reason-item.cost", ph, player))
-                    .lore(Component.empty())
-                    .lore(LoreBlocks.blockedLines(messages(), player, "gui.style.status.unavailable",
-                            List.of(messages().component("gui.style.reason", Map.of("reason", String.valueOf(entry.unavailableReason())), player)),
-                            issue))
-                    .build();
+            builder = ItemBuilder.of(Material.GRAY_DYE)
+                    .name(messages().component("gui.casus-belli.reason-item.name-unavailable", ph, player));
+        } else {
+            builder = ItemBuilder.of(entry.isJust ? Material.LIME_BANNER : Material.ORANGE_BANNER)
+                    .name(messages().component(entry.isJust ? "gui.casus-belli.reason-item.name-just"
+                            : "gui.casus-belli.reason-item.name-frivolous", ph, player));
         }
-
-        Material mat = entry.isJust ? Material.LIME_BANNER : Material.ORANGE_BANNER;
-        return ItemBuilder.of(mat)
-                .name(messages().component(entry.isJust ? "gui.casus-belli.reason-item.name-just"
-                        : "gui.casus-belli.reason-item.name-frivolous", ph, player))
-                .lore(messages().component(entry.isJust ? "gui.casus-belli.reason-item.category-just"
-                        : "gui.casus-belli.reason-item.category-frivolous", player))
+        builder.lore(messages().component(category, player))
+                .lore(Component.empty())
+                .lore(messages().component("gui.casus-belli.reason-item.price-title", player))
                 .lore(messages().component("gui.casus-belli.reason-item.cost", ph, player))
-                .lore(LoreBlocks.clicks(messages(), player, List.of(issue)))
-                .build();
+                .lore(LoreBlocks.funds(messages(), player, entry.cost(), have));
+        if (!entry.available) {
+            return builder.lore(LoreBlocks.blockedLines(messages(), player, "gui.style.status.unavailable",
+                    List.of(messages().component("gui.style.reason", Map.of("reason", String.valueOf(entry.unavailableReason())), player)),
+                    issue)).build();
+        }
+        return builder.lore(LoreBlocks.clicks(messages(), player, List.of(issue))).build();
     }
 
     private static Optional<LoveEconomy> economy() {

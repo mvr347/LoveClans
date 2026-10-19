@@ -6,7 +6,6 @@ import me.lovelace.loveclans.model.modifier.ClanModifier;
 import me.lovelace.loveclans.model.upgrade.GuildReward;
 import me.lovelace.loveclans.util.ItemBuilder;
 import me.lovelace.loveclans.util.TimeUtil;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -142,7 +141,9 @@ public final class ClanModifiersMenu {
             case ClanModifier.TYPE_REPARATIONS_DEBT -> entry(player, Material.RED_BANNER, "reparations-debt", Map.of(
                     "tag", resolveClanTag(mod.targetClanId()), "amount", String.valueOf(mod.dailyAmount()),
                     "days", String.valueOf(mod.daysLeft()),
-                    "arrears", mod.arrears() > 0 ? "<red>" + mod.arrears() + "</red>" : "<green>0</green>"));
+                    "debt", mod.arrears() > 0
+                            ? plugin.getMessages().raw("gui.modifiers.debt.arrears").replace("<count>", String.valueOf(mod.arrears()))
+                            : plugin.getMessages().raw("gui.modifiers.debt.clean")));
             case ClanModifier.TYPE_REPARATIONS_INCOME -> entry(player, Material.LIME_BANNER, "reparations-income", Map.of(
                     "tag", resolveClanTag(mod.targetClanId()), "amount", String.valueOf(mod.dailyAmount()),
                     "days", String.valueOf(mod.daysLeft())));
@@ -154,13 +155,14 @@ public final class ClanModifiersMenu {
                     "reason", String.valueOf(mod.reasonId()),
                     "time", mod.endsAt() > 0 ? timeLeft : plugin.getMessages().raw("gui.modifiers.forever")));
             case ClanModifier.TYPE_GUILD_SHIELD -> entry(player, Material.GOLDEN_APPLE, "guild-shield", Map.of("time", timeLeft));
-            case ClanModifier.TYPE_GUILD_SHIELD_COOLDOWN -> entry(player, Material.CLOCK, "guild-shield-cooldown", Map.of("time", timeLeft));
-            case ClanModifier.TYPE_CAPITAL_RELOCATE_COOLDOWN -> entry(player, Material.CLOCK, "relocate-cooldown", Map.of("time", timeLeft));
+            case ClanModifier.TYPE_GUILD_SHIELD_COOLDOWN -> cooldownEntry(player, "guild-shield-cooldown", Map.of("time", timeLeft));
+            case ClanModifier.TYPE_CAPITAL_RELOCATE_COOLDOWN -> cooldownEntry(player, "relocate-cooldown", Map.of("time", timeLeft));
             default -> entry(player, Material.PAPER, "unknown", Map.of("type", mod.type()));
         };
     }
 
     private ItemStack rewardEntry(Player player, Clan clan, GuildReward reward) {
+        var messages = plugin.getMessages();
         String base = "gui.rewards.entry." + reward.langKey();
         long at = plugin.getGuildRewards().unlockedAt(clan, reward);
         Material icon = switch (reward.bonus()) {
@@ -170,11 +172,12 @@ public final class ClanModifiersMenu {
             case TAX_DISCOUNT, INCOME -> Material.GOLD_INGOT;
             case INFLUENCE -> Material.NETHER_STAR;
         };
+        // The reward name is shared with the chronicle, so the state suffix is added here; its color tags are parsed.
+        Map<String, String> values = Map.of("reward", messages.raw(base + ".name"), "bonus", messages.raw(base + ".bonus"),
+                "date", at > 0 ? messages.formatDate(at) : messages.raw("gui.style.none"));
         return ItemBuilder.of(icon)
-                .name(plugin.getMessages().component(base + ".name", player))
-                .lore(plugin.getMessages().component(base + ".bonus", player))
-                .lore(plugin.getMessages().component("gui.modifiers.reward-state",
-                        Map.of("date", at > 0 ? plugin.getMessages().formatDate(at) : "-"), player))
+                .name(messages.component("gui.modifiers.reward-name", values, player))
+                .lore(messages.components("gui.modifiers.reward-lore", values, player))
                 .flags(org.bukkit.inventory.ItemFlag.HIDE_ATTRIBUTES)
                 .build();
     }
@@ -185,6 +188,18 @@ public final class ClanModifiersMenu {
         return ItemBuilder.of(icon)
                 .name(plugin.getMessages().component(base + ".name", placeholders, player))
                 .lore(plugin.getMessages().components(base + ".lore", placeholders, player))
+                .build();
+    }
+
+    /** A pause (shield, capital move): the entry ends with the cooldown status and the reason block of the standard. */
+    private ItemStack cooldownEntry(Player player, String id, Map<String, String> placeholders) {
+        var messages = plugin.getMessages();
+        String base = "gui.modifiers.entry." + id;
+        return ItemBuilder.of(Material.CLOCK)
+                .name(messages.component(base + ".name", placeholders, player))
+                .lore(messages.components(base + ".lore", placeholders, player))
+                .lore(LoreBlocks.blockedLines(messages, player, "gui.style.status.cooldown",
+                        List.of(messages.reason(base + ".reason", player)), null))
                 .build();
     }
 

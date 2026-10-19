@@ -77,14 +77,16 @@ public final class ClanHistoryMenu {
 
         inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(plugin.getMessages().component("gui.history.info.name", Map.of("clan", clan.name()), player))
-                .lore(plugin.getMessages().component("gui.history.info.lore", player))
+                .lore(plugin.getMessages().components("gui.history.info.lore", player))
                 .build());
         inventory.setItem(SLOT_FILTER, CycleButton.build(plugin, player, ItemBuilder.HEAD_FILTER,
                 "gui.history.filter.name", "gui.history.filter.", HistoryFilter.values(), state.filter()));
 
         if (entries.isEmpty()) {
             inventory.setItem(31, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
-                    .name(plugin.getMessages().component("gui.history.empty", player)).build());
+                    .name(plugin.getMessages().component("gui.history.empty.name", player))
+                    .lore(plugin.getMessages().components("gui.history.empty.lore", player))
+                    .build());
         }
         long now = System.currentTimeMillis();
         SimpleDateFormat format = new SimpleDateFormat("dd.MM.yyyy HH:mm");
@@ -92,7 +94,7 @@ public final class ClanHistoryMenu {
             ClanHistoryEntry entry = entries.get(i);
             inventory.setItem(CONTENT_SLOTS[i], ItemBuilder.of(iconOf(entry))
                     .name(plugin.getMessages().component("gui.history.entry." + entry.type().name(), placeholders(entry), player))
-                    .lore(plugin.getMessages().component("gui.history.entry-date", Map.of(
+                    .lore(plugin.getMessages().components("gui.history.entry-lore", Map.of(
                             "date", format.format(new Date(entry.timestamp())),
                             "ago", TimeUtil.formatDuration(Math.max(0L, now - entry.timestamp()))), player))
                     .build());
