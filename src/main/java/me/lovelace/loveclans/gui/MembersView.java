@@ -62,12 +62,31 @@ public final class MembersView {
 
     /** Entries the filter lets through, in display order. */
     public static List<Entry> apply(List<Entry> entries, Filter filter, Sort sort, boolean manager) {
+        return apply(entries, filter, sort, manager, null);
+    }
+
+    /**
+     * Same as {@link #apply(List, Filter, Sort, boolean)}, but the viewer's own member entry is pinned to the very
+     * first place so they always see themselves, whatever the sort is. The request filters (applications,
+     * invitations) never contain members, so nothing is pinned there.
+     */
+    public static List<Entry> apply(List<Entry> entries, Filter filter, Sort sort, boolean manager, UUID viewerId) {
         List<Entry> result = new ArrayList<>();
         for (Entry entry : entries) {
             if (matches(entry, filter, manager)) result.add(entry);
         }
         // Whatever needs an answer comes first: applications, then invitations, then the members themselves.
         result.sort(Comparator.comparingInt((Entry e) -> e.kind().ordinal()).thenComparing(comparatorFor(sort)));
+        if (viewerId != null) {
+            for (int i = 0; i < result.size(); i++) {
+                Entry entry = result.get(i);
+                if (entry.kind() == Kind.MEMBER && entry.id().equals(viewerId)) {
+                    result.remove(i);
+                    result.add(0, entry);
+                    break;
+                }
+            }
+        }
         return result;
     }
 

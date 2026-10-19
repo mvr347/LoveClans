@@ -109,4 +109,17 @@ class MembersViewTest {
         assertEquals(21, MembersView.page(numbers, -4).size(), "a negative page falls back to the first one");
         assertEquals(0, MembersView.clampPage(5, 0));
     }
+
+    @Test
+    void viewerIsPinnedFirstWhateverTheSort() {
+        UUID viewer = UUID.nameUUIDFromBytes("amy".getBytes());
+        List<Entry> shown = MembersView.apply(all, Filter.MEMBERS, Sort.RANK, true, viewer);
+        assertEquals(List.of("amy", "Zed", "Bob"), names(shown));
+    }
+
+    @Test
+    void viewerIsNotAddedToRequestFilters() {
+        UUID viewer = UUID.nameUUIDFromBytes("amy".getBytes());
+        assertEquals(List.of("Dan", "Cat"), names(MembersView.apply(all, Filter.APPLICATIONS, Sort.DATE, true, viewer)));
+    }
 }

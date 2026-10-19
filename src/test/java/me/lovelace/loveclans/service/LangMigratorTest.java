@@ -70,6 +70,6 @@ class LangMigratorTest {
             bundled.load(reader);
         }
         assertEquals(LangMigrator.latestVersion(), bundled.getInt(LangMigrator.VERSION_KEY));
-        assertEquals(12, LangMigrator.latestVersion());
+        assertEquals(13, LangMigrator.latestVersion());
     }
 }
