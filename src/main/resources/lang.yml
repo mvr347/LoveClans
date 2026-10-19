@@ -1352,6 +1352,8 @@ gui:
     invite-withdrawn: "<prefix><yellow>Клан <color><tag></color> отозвал приглашение."
     accepted: "<prefix><green>Заявка игрока <yellow><player></yellow> принята."
     rejected: "<prefix><yellow>Заявка игрока <yellow><player></yellow> отклонена."
+  # 2026-10-19: кнопки столицы получили подзаголовок и секции «Эффект / Ограничения»; пауза щита и переноса показывает
+  # статус gui.style.status.cooldown (выбирает ClanCapitalManagementMenu по ключу отказа *.cooldown).
   capital:
     title: "<white>Территория <dark_gray>| <color><tag>"
     no-permission: "<prefix><white>У вас нет прав для управления территорией."
@@ -1647,6 +1649,8 @@ gui:
         - "  <green>✓ <gray>Тег: <white><tag>"
       not-ready-reason: "Сначала введите название и тег клана."
       action: "купить знамя"
+  # 2026-10-19: экран военных действий по стандарту: подзаголовок типа конфликта, время секцией с ⌛, а доля добычи в
+  # ставках осады и набега - шкалой <bar_*> (LoreBar) вместо голых процентов, чтобы масштаб ставки читался с одного взгляда.
   conflict:
     title: "<white>Военные действия <dark_gray>| <color><tag>"
     compare:
@@ -2459,6 +2463,8 @@ gui:
       # (название, ранг, вклад) в 2026-10-19 переехало в gui.members.entry / gui.info.member.
       status-online: "<green>В сети</green>"
       status-offline: "<red>Оффлайн</red>"
+  # 2026-10-19: заявки и приглашения игрока - записи списка с состоянием в названии (`Клан | Заявка / Приглашение`),
+  # секцией «Статус» и пустым состоянием с «Что делать».
   player-applications:
     title: "<gold>Мои заявки и приглашения"
     application-item:
