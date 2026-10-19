@@ -11,6 +11,7 @@ import me.lovelace.loveclans.model.raid.RaidPhase;
 import me.lovelace.loveclans.model.raid.RaidResult;
 import me.lovelace.loveclans.model.raid.RaidState;
 import me.lovelace.loveclans.util.ClanItemFactory;
+import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -505,8 +506,8 @@ public final class RaidManager {
         ItemMeta meta = compass.getItemMeta();
         if (meta != null) {
             meta.getPersistentDataContainer().set(ClanItemFactory.RAID_COMPASS_KEY, PersistentDataType.STRING, raid.id().toString());
-            meta.displayName(plugin.getMessages().component("raid.compass.name", Map.of("tag", enemyClan.tag())));
-            meta.lore(List.of(plugin.getMessages().component("raid.compass.lore")));
+            meta.displayName(ItemBuilder.upright(plugin.getMessages().component("raid.compass.name", Map.of("tag", enemyClan.tag()))));
+            meta.lore(plugin.getMessages().components("raid.compass.lore", Map.of(), null).stream().map(ItemBuilder::upright).toList());
             if (meta instanceof org.bukkit.inventory.meta.CompassMeta compassMeta && targetLocation.getWorld() != null) {
                 compassMeta.setLodestone(targetLocation);
                 compassMeta.setLodestoneTracked(false);

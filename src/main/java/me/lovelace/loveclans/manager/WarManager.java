@@ -15,6 +15,7 @@ import me.lovelace.loveclans.model.history.ConflictKind;
 import me.lovelace.loveclans.model.war.WarResult;
 import me.lovelace.loveclans.model.war.WarState;
 import me.lovelace.loveclans.util.ClanItemFactory;
+import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -1096,8 +1097,8 @@ public final class WarManager {
         ItemMeta meta = compass.getItemMeta();
         if (meta != null) {
             meta.getPersistentDataContainer().set(ClanItemFactory.WAR_COMPASS_KEY, PersistentDataType.STRING, war.id().toString());
-            meta.displayName(plugin.getMessages().component("item.war-compass.name", Map.of("tag", enemyClan.tag())));
-            meta.lore(List.of(plugin.getMessages().component("item.war-compass.lore")));
+            meta.displayName(ItemBuilder.upright(plugin.getMessages().component("item.war-compass.name", Map.of("tag", enemyClan.tag()))));
+            meta.lore(plugin.getMessages().components("item.war-compass.lore", Map.of(), null).stream().map(ItemBuilder::upright).toList());
             compass.setItemMeta(meta);
         }
 

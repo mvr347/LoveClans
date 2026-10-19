@@ -68,11 +68,7 @@ public final class ClanItemFactory {
             pdc.set(CLAN_ID_KEY, PersistentDataType.STRING, clanId.toString());
 
             meta.displayName(upright(plugin.getMessages().component("item.capital-banner.name", Map.of("clan", clanName), null)));
-            meta.lore(uprightAll(List.of(
-                    plugin.getMessages().component("item.capital-banner.lore.type", Map.of(), null),
-                    plugin.getMessages().component("item.capital-banner.lore.clan", Map.of("clan", clanName), null),
-                    plugin.getMessages().component("item.capital-banner.lore.info", Map.of(), null)
-            )));
+            meta.lore(uprightAll(plugin.getMessages().components("item.capital-banner.lore", Map.of("clan", clanName), null)));
             banner.setItemMeta(meta);
         }
         return banner;
@@ -94,11 +90,7 @@ public final class ClanItemFactory {
             pdc.set(CLAN_ID_KEY, PersistentDataType.STRING, clanId.toString());
 
             meta.displayName(upright(plugin.getMessages().component("item.territory-banner.name", Map.of("clan", clanName), null)));
-            meta.lore(uprightAll(List.of(
-                    plugin.getMessages().component("item.territory-banner.lore.type", Map.of(), null),
-                    plugin.getMessages().component("item.territory-banner.lore.clan", Map.of("clan", clanName), null),
-                    plugin.getMessages().component("item.territory-banner.lore.info", Map.of(), null)
-            )));
+            meta.lore(uprightAll(plugin.getMessages().components("item.territory-banner.lore", Map.of("clan", clanName), null)));
 
             banner.setItemMeta(meta);
         }
