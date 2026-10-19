@@ -36,7 +36,9 @@ public final class LangMigrator {
             // v11: GUI lore style standard - click hints, status/reason lines, progress bars, white coin values
             List.of("gui", "clan.banner", "raid.loot"),
             // v12: members screen - invitation/application items show names, relative times and the cancel hint
-            List.of("gui.applications", "gui.members")
+            List.of("gui.applications", "gui.members"),
+            // v13: member heads and profile menu in the lore standard, diplomacy descriptions rewritten
+            List.of("gui.members", "gui.member-detail", "gui.diplomacy")
     );
 
     private LangMigrator() {

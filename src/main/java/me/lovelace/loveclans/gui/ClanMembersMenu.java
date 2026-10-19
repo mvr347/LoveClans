@@ -14,7 +14,9 @@ import me.lovelace.loveclans.model.ClanMember;
 import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.service.GuiSounds;
+import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.util.DurationFormat;
+import net.kyori.adventure.text.Component;
 import me.lovelace.loveclans.util.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -156,7 +158,8 @@ public final class ClanMembersMenu {
         // In contribution mode, filtering is locked to MEMBERS
         Filter filter = contributionMode ? Filter.MEMBERS : (requested.filter().needsManager() && !manager ? Filter.ALL : requested.filter());
         ActivityPeriod period = periodByPlayer.getOrDefault(player.getUniqueId(), ActivityPeriod.LIFETIME);
-        List<Entry> shown = MembersView.apply(collect(clan, manager, period, contributionMode), filter, requested.sort(), manager);
+        List<Entry> shown = MembersView.apply(collect(clan, manager, period, contributionMode), filter, requested.sort(), manager,
+                player.getUniqueId());
         int page = MembersView.clampPage(requested.page(), shown.size());
         int pages = MembersView.pageCount(shown.size());
         // The forced MEMBERS filter of contribution mode is not remembered, the player's own filter is restored after it
@@ -286,43 +289,44 @@ public final class ClanMembersMenu {
         return switch (entry.kind()) {
             case MEMBER -> {
                 ClanMember member = clan.member(entry.id()).orElse(null);
-                String status = plugin.getMessages().raw(entry.online() ? "gui.members.item.status-online" : "gui.members.item.status-offline");
+                var messages = plugin.getMessages();
+                boolean self = entry.id().equals(viewer.getUniqueId());
+                Map<String, String> values = Map.of(
+                        "player", entry.name(),
+                        "rank", member != null ? member.rank().displayName() : "—",
+                        "status", messages.raw(entry.online() ? "gui.members.item.status-online" : "gui.members.item.status-offline"),
+                        "since", member != null ? messages.raw("gui.members.entry.since-value").replace("<ago>",
+                                DurationFormat.format(Math.max(0L, System.currentTimeMillis() - member.joinedAt()))) : "—",
+                        "amount", CoinFormat.format(entry.contribution()),
+                        "points", String.valueOf(entry.activity()));
                 ItemBuilder builder = ItemBuilder.of(Material.PLAYER_HEAD)
-                        .name(plugin.getMessages().component("gui.members.item.name", Map.of("player", entry.name()), viewer))
-                        .lore(plugin.getMessages().component("gui.members.item.rank",
-                                Map.of("rank", member != null ? member.rank().displayName() : "—"), viewer))
-                        .lore(plugin.getMessages().component("gui.members.item.status", Map.of("status", status), viewer));
+                        .name(messages.component(self ? "gui.members.entry.name-self" : "gui.members.entry.name", values, viewer))
+                        .lore(messages.components("gui.members.entry.profile", values, viewer))
+                        .lore(Component.empty());
 
                 if (contributionMode) {
                     PlayerActivity act = plugin.getActivityManager().getPlayerActivity(entry.id(), period);
-                    builder.lore(net.kyori.adventure.text.Component.empty())
-                            .lore(plugin.getMessages().component("gui.members.contribution-item.finance",
-                                    Map.of("amount", me.lovelace.loveclans.util.CoinFormat.format(entry.contribution())), viewer))
-                            .lore(plugin.getMessages().component("gui.members.contribution-item.activity-total",
-                                    Map.of("points", String.valueOf(act != null ? act.total() : 0L)), viewer))
-                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-war",
-                                    Map.of("val", String.valueOf(act != null ? act.war() : 0L)), viewer))
-                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-raid",
-                                    Map.of("val", String.valueOf(act != null ? act.raid() : 0L)), viewer))
-                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-siege",
-                                    Map.of("val", String.valueOf(act != null ? act.siege() : 0L)), viewer))
-                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-economy",
-                                    Map.of("val", String.valueOf(act != null ? act.economy() : 0L)), viewer))
-                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-diplomacy",
-                                    Map.of("val", String.valueOf(act != null ? act.diplomacy() : 0L)), viewer))
-                            .lore(plugin.getMessages().component("gui.members.contribution-item.category-territory",
-                                    Map.of("val", String.valueOf(act != null ? act.territory() : 0L)), viewer));
+                    builder.lore(messages.component("gui.members.contribution-item.header", viewer))
+                            .lore(messages.component("gui.members.contribution-item.finance", Map.of("amount", values.get("amount")), viewer))
+                            .lore(messages.component("gui.members.contribution-item.activity-total",
+                                    Map.of("points", String.valueOf(act != null ? act.total() : 0L)), viewer));
+                    for (String category : List.of("war", "raid", "siege", "economy", "diplomacy", "territory")) {
+                        long value = act == null ? 0L : switch (category) {
+                            case "war" -> act.war();
+                            case "raid" -> act.raid();
+                            case "siege" -> act.siege();
+                            case "economy" -> act.economy();
+                            case "diplomacy" -> act.diplomacy();
+                            default -> act.territory();
+                        };
+                        builder.lore(messages.component("gui.members.contribution-item.category-" + category,
+                                Map.of("val", String.valueOf(value)), viewer));
+                    }
                 } else {
-                    builder.lore(plugin.getMessages().component("gui.members.item.contribution",
-                                    Map.of("amount", String.valueOf(entry.contribution())), viewer))
-                            .lore(plugin.getMessages().component("gui.members.item.activity",
-                                    Map.of("points", String.valueOf(entry.activity())), viewer));
+                    builder.lore(messages.components("gui.members.entry.contribution", values, viewer));
                 }
-
-                if (clan.hasPermission(viewer.getUniqueId(), ClanPermission.KICK) && !entry.id().equals(viewer.getUniqueId())) {
-                    builder.lore(net.kyori.adventure.text.Component.empty());
-                    builder.lore(plugin.getMessages().components("gui.members.item.hint", viewer));
-                }
+                builder.lore(LoreBlocks.clicks(messages, viewer, List.of(
+                        LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.members.entry.open-action"))));
                 builder.mutate(meta -> {
                     if (meta instanceof SkullMeta skull) skull.setOwningPlayer(offline);
                 });
@@ -446,12 +450,7 @@ public final class ClanMembersMenu {
     private void handleEntry(InventoryClickEvent event, Player player, Clan clan, Entry entry) {
         switch (entry.kind()) {
             case MEMBER -> {
-                if (entry.id().equals(player.getUniqueId())) return;
-                // The detail screen is the kick/promote/demote entry point, so it needs the KICK right.
-                if (!clan.hasPermission(player.getUniqueId(), ClanPermission.KICK)) {
-                    plugin.getMessages().sendDeny(player, "general.no-permission", Map.of());
-                    return;
-                }
+                // Anyone may look at a profile; the management buttons there check the rights themselves.
                 plugin.getGuiManager().openMemberDetail(player, clan, entry.id());
             }
             case APPLICATION -> {

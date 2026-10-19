@@ -4,6 +4,7 @@ import me.lovelace.loveclans.service.GuiSounds;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
+import me.lovelace.loveclans.model.ClanPermission;
 import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
@@ -35,7 +36,7 @@ public final class ClanMemberDetailMenu {
         }
         ClanMember member = memberOpt.get();
         OfflinePlayer offline = Bukkit.getOfflinePlayer(targetId);
-        String name = offline.getName() != null ? offline.getName() : targetId.toString().substring(0, 8);
+        String name = offline.getName() != null ? offline.getName() : plugin.getMessages().raw("gui.members.unknown-player");
 
         ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.MEMBER_DETAIL, clan.id());
         Inventory inventory = Bukkit.createInventory(
@@ -47,10 +48,15 @@ public final class ClanMemberDetailMenu {
 
         // Слот 0: голова изучаемого участника — "профиль косвенно" (это не сам игрок,
         // открывающий меню, а третье лицо, которым он управляет).
+        Map<String, String> headValues = Map.of(
+                "player", name,
+                "rank", member.rank().displayName(),
+                "amount", me.lovelace.loveclans.util.CoinFormat.format(member.contribution()),
+                "since", me.lovelace.loveclans.util.DurationFormat.format(Math.max(0L, System.currentTimeMillis() - member.joinedAt())),
+                "status", plugin.getMessages().raw(offline.isOnline() ? "gui.members.item.status-online" : "gui.members.item.status-offline"));
         ItemBuilder head = ItemBuilder.of(Material.PLAYER_HEAD)
-                .name(plugin.getMessages().component("gui.member-detail.name", Map.of("player", name), player))
-                .lore(plugin.getMessages().component("gui.member-detail.rank", Map.of("rank", member.rank().displayName()), player))
-                .lore(plugin.getMessages().component("gui.members.contribution", Map.of("value", String.valueOf(member.contribution()), "amount", String.valueOf(member.contribution())), player));
+                .name(plugin.getMessages().component(isSelfView(member, player) ? "gui.member-detail.name-self" : "gui.member-detail.name", headValues, player))
+                .lore(plugin.getMessages().components("gui.member-detail.lore", headValues, player));
         head.mutate(meta -> {
             if (meta instanceof SkullMeta skullMeta) skullMeta.setOwningPlayer(offline);
         });
@@ -60,6 +66,8 @@ public final class ClanMemberDetailMenu {
                 .map(m -> m.rank() == ClanRank.LEADER)
                 .orElse(false);
         boolean isSelf = member.playerId().equals(player.getUniqueId());
+        // Viewing a profile is open to everyone; changing someone's rank or removing them needs the KICK right.
+        boolean canManage = clan.hasPermission(player.getUniqueId(), ClanPermission.KICK);
 
         // Слоты 10, 12, 14, 16 (четыре кнопки по центру рабочей строки, GuiFrames.workRowSlots(4)) — передача лидерства,
         // повышение, понижение, кик. Кнопки отображаются всегда (не пропадают), но становятся
@@ -71,21 +79,21 @@ public final class ClanMemberDetailMenu {
                 : inactiveItem("gui.member-detail.transfer.name",
                         isSelf ? "gui.member-detail.transfer.disabled-self" : "gui.member-detail.transfer.disabled-not-leader", player));
 
-        boolean canPromote = !isSelf && member.rank().nextRank() != null && member.rank().nextRank() != ClanRank.LEADER;
+        boolean canPromote = canManage && !isSelf && member.rank().nextRank() != null && member.rank().nextRank() != ClanRank.LEADER;
         inventory.setItem(12, canPromote
                 ? item(ItemBuilder.HEAD_INFO, "gui.member-detail.promote.name", "gui.member-detail.promote.lore", player, targetId)
-                : inactiveItem("gui.member-detail.promote.name", "gui.member-detail.promote.disabled-max-rank", player));
+                : inactiveItem("gui.member-detail.promote.name", !canManage ? "gui.member-detail.disabled-no-permission" : isSelf ? "gui.member-detail.promote.disabled-self" : "gui.member-detail.promote.disabled-max-rank", player));
 
-        boolean canDemote = !isSelf && member.rank().previousRank() != null;
+        boolean canDemote = canManage && !isSelf && member.rank().previousRank() != null;
         inventory.setItem(14, canDemote
                 ? item(ItemBuilder.HEAD_BACK, "gui.member-detail.demote.name", "gui.member-detail.demote.lore", player, targetId)
-                : inactiveItem("gui.member-detail.demote.name", "gui.member-detail.demote.disabled-min-rank", player));
+                : inactiveItem("gui.member-detail.demote.name", !canManage ? "gui.member-detail.disabled-no-permission" : isSelf ? "gui.member-detail.demote.disabled-self" : "gui.member-detail.demote.disabled-min-rank", player));
 
-        boolean canKick = !isSelf && member.rank() != ClanRank.LEADER;
+        boolean canKick = canManage && !isSelf && member.rank() != ClanRank.LEADER;
         inventory.setItem(16, canKick
                 ? item(ItemBuilder.HEAD_BARRIER, "gui.member-detail.kick.name", "gui.member-detail.kick.lore", player, targetId)
                 : inactiveItem("gui.member-detail.kick.name",
-                        isSelf ? "gui.member-detail.kick.disabled-self" : "gui.member-detail.kick.disabled-leader", player));
+                        !canManage ? "gui.member-detail.disabled-no-permission" : isSelf ? "gui.member-detail.kick.disabled-self" : "gui.member-detail.kick.disabled-leader", player));
 
         inventory.setItem(25, ItemBuilder.head(ItemBuilder.HEAD_BACK)
                 .name(plugin.getMessages().component("gui.back", player))
@@ -95,6 +103,10 @@ public final class ClanMemberDetailMenu {
                 .build());
 
         player.openInventory(inventory);
+    }
+
+    private static boolean isSelfView(ClanMember member, Player viewer) {
+        return member.playerId().equals(viewer.getUniqueId());
     }
 
     private org.bukkit.inventory.ItemStack item(String headTexture, String nameKey, String loreKey, Player player, UUID targetId) {
