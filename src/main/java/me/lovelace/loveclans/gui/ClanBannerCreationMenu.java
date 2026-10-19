@@ -5,7 +5,6 @@ import dev.lovelace.lovecore.api.economy.LoveEconomy;
 import dev.lovelace.lovecore.api.economy.MoneyConfig;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
-import me.lovelace.loveclans.textures.HeadTextures;
 import me.lovelace.loveclans.util.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -16,7 +15,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
