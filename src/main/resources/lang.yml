@@ -318,6 +318,8 @@ clan:
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
   already-applied: "<prefix><red>Вы уже подали заявку в этот клан."
   application-not-found: "<prefix><red>Заявка не найдена."
+  # 2026-10-20: заявка осталась от игрока, который уже вступил в клан другим путём; она удаляется при попытке принять.
+  application-stale: "<prefix><red>Игрок уже состоит в клане. Заявка удалена."
   application-rejected: "<prefix><red>Ваша заявка в клан <color><tag></color> была отклонена."
   applied: "<prefix><green>Вы подали заявку на вступление в клан <color><tag></color>."
   creation-blocked-politeness: "<prefix><red>Слишком низкая вежливость, чтобы создать клан."
