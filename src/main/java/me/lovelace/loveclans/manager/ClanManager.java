@@ -610,6 +610,13 @@ public final class ClanManager {
                     .filter(app -> app.applicantId().equals(applicantId))
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("clan.application-not-found"));
+            if (getPlayerClan(applicantId).isPresent()) {
+                // 2026-10-20: the applicant joined a clan some other way while the application was pending. Such a
+                // leftover can never be accepted, so drop it (memory and DB) instead of keeping it in the list forever.
+                applications.remove(application);
+                storage.deleteApplicationAsync(clan.id(), applicantId);
+                throw new IllegalStateException("clan.application-stale");
+            }
             applications.remove(application);
             return clan;
         }).thenCompose(c -> addMemberAsync(c, applicantId, ClanRank.RECRUIT)
@@ -650,6 +657,14 @@ public final class ClanManager {
             clan.addMember(playerId, rank);
             ClanMember member = clan.member(playerId).orElseThrow();
             clanByPlayer.put(playerId, clan.id());
+            // A member has no use for pending applications or invitations; left behind they only fail later with
+            // "already in a clan" when someone tries to accept them.
+            invitesByPlayer.remove(playerId);
+            for (var entry : applicationsByClan.entrySet()) {
+                if (entry.getValue().removeIf(app -> app.applicantId().equals(playerId))) {
+                    storage.deleteApplicationAsync(entry.getKey(), playerId);
+                }
+            }
             Bukkit.getPluginManager().callEvent(new ClanMemberJoinEvent(clan, member));
 
             OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(playerId);
