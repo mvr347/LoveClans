@@ -5,7 +5,10 @@ import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.gui.BannerPurchaseConfirmMenu;
 import me.lovelace.loveclans.gui.ClanBannerCreationMenu;
-import me.lovelace.loveclans.integration.CitizensIntegration;
+import dev.lovelace.lovecore.api.npc.NpcClick;
+import dev.lovelace.lovecore.api.npc.NpcClickEvent;
+import me.lovelace.loveclans.integration.NpcBindings;
+import me.lovelace.loveclans.integration.NpcService;
 import me.lovelace.loveclans.model.Clan;
 import dev.lovelace.lovecore.api.LoveCore;
 import dev.lovelace.lovecore.api.economy.LoveEconomy;
@@ -16,8 +19,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Map;
@@ -36,11 +37,11 @@ import org.bukkit.util.BoundingBox;
 public final class ClanBannerListener implements Listener {
 
     private final LoveClansPlugin plugin;
-    private final CitizensIntegration citizens;
+    private final NpcService npcs;
 
-    public ClanBannerListener(LoveClansPlugin plugin, CitizensIntegration citizens) {
+    public ClanBannerListener(LoveClansPlugin plugin, NpcService npcs) {
         this.plugin = plugin;
-        this.citizens = citizens;
+        this.npcs = npcs;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -203,22 +204,12 @@ public final class ClanBannerListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGH)
-    public void onNpcInteract(PlayerInteractEntityEvent event) {
-        int boundNpcId = plugin.getConfig().getInt("clans.banner.npc-id", -1);
-        if (boundNpcId < 0 || !citizens.isAvailable()) {
-            return;
-        }
-
-        Integer npcId = citizens.npcId(event.getRightClicked());
-        if (npcId == null || npcId != boundNpcId) {
+    public void onNpcClick(NpcClickEvent event) {
+        if (event.click() != NpcClick.RIGHT || !npcs.isBound(event.npc(), NpcBindings.Slot.BANNER)) {
             return;
         }
 
         event.setCancelled(true);
-        // One right click fires the event for both hands; react only to the main one or the menu opens twice.
-        if (event.getHand() != EquipmentSlot.HAND) {
-            return;
-        }
         Player player = event.getPlayer();
 
         // A clan that lost its territory and its banner: the leader buys a replacement for part of the price.

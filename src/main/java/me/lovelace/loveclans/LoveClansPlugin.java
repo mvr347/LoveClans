@@ -5,7 +5,8 @@ import me.lovelace.loveclans.command.ClanCommand;
 import me.lovelace.loveclans.command.ClansAdminCommand;
 import me.lovelace.loveclans.manager.GuiManager;
 import me.lovelace.loveclans.integration.AdvancedClaimsHook;
-import me.lovelace.loveclans.integration.CitizensIntegration;
+import me.lovelace.loveclans.integration.NpcBindings;
+import me.lovelace.loveclans.integration.NpcService;
 import me.lovelace.loveclans.integration.LoveHuntBountyBridge;
 import me.lovelace.loveclans.integration.PlaceholderAPIHook;
 import me.lovelace.loveclans.listener.ArtifactListener;
@@ -114,7 +115,7 @@ public final class LoveClansPlugin extends JavaPlugin {
     private ClanTradeSessionManager clanTradeSessionManager;
     private ClanTradeDeliveryManager clanTradeDeliveryManager;
     private ServerTradeManager serverTradeManager;
-    private CitizensIntegration citizensIntegration;
+    private NpcService npcService;
     private ClanProtectionListener clanProtectionListener;
     private me.lovelace.loveclans.integration.VesuvioAntiCheatHook vesuvioHook;
     private BukkitTask heartbeatTask;
@@ -157,7 +158,8 @@ public final class LoveClansPlugin extends JavaPlugin {
         guiManager = new GuiManager(this);
         shieldColorManager = new ShieldColorManager(this);
         advancedClaimsHook = new AdvancedClaimsHook(this);
-        citizensIntegration = new CitizensIntegration();
+        npcService = new NpcService(this::getConfig, message -> getLogger().warning(message));
+        migrateNpcBindings();
         contractManager = new ContractManager(this, storage);
         recognitionService = new ClanRecognitionService(this);
         bannerReplacementService = new ClanBannerReplacementService(this);
@@ -656,8 +658,34 @@ public final class LoveClansPlugin extends JavaPlugin {
         return clanTradeDeliveryManager;
     }
 
-    public CitizensIntegration getCitizensIntegration() {
-        return citizensIntegration;
+    public NpcService getNpcService() {
+        return npcService;
+    }
+
+    /** Moves legacy numeric {@code npc-id} bindings to {@code npc-key}; also run by /loveclansadmin reload. */
+    public void migrateNpcBindings() {
+        if (NpcBindings.migrate(getConfig())) {
+            saveConfig();
+            getLogger().info("Привязки NPC перенесены из npc-id в npc-key (строковые ключи).");
+        }
+    }
+
+    /**
+     * NpcClickEvent lives in the LoveCore API: without LoveCore the NPC listeners cannot even be registered, so the
+     * NPC feature is skipped with one warning instead of failing the whole plugin.
+     */
+    private void registerNpcListeners(PluginManager pluginManager) {
+        try {
+            if (pluginManager.getPlugin("LoveCore") == null) {
+                throw new NoClassDefFoundError("LoveCore is not installed");
+            }
+            pluginManager.registerEvents(new GuildmasterListener(this, npcService), this);
+            pluginManager.registerEvents(new ClanBannerListener(this, npcService), this);
+            // Providers register late: look at them once every plugin has finished enabling.
+            Bukkit.getScheduler().runTask(this, npcService::checkAtStartup);
+        } catch (LinkageError error) {
+            getLogger().warning("LoveCore недоступен (" + error.getMessage() + "): NPC Гильдмастера и Основателя отключены.");
+        }
     }
 
     public me.lovelace.loveclans.command.ClanCommand getClanCommand() {
@@ -775,8 +803,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(spiritManager, this);
         pluginManager.registerEvents(afkManager, this);
         pluginManager.registerEvents(new ContractListener(this), this);
-        pluginManager.registerEvents(new GuildmasterListener(this, citizensIntegration), this);
-        pluginManager.registerEvents(new ClanBannerListener(this, citizensIntegration), this);
+        registerNpcListeners(pluginManager);
         pluginManager.registerEvents(new DirectionEffectListener(this), this);
         pluginManager.registerEvents(new UpgradeListener(this), this);
         pluginManager.registerEvents(new SiegeCampListener(this), this);

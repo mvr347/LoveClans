@@ -10,7 +10,7 @@
 # Версия lang.yml (2026-10-19): при росте версии админский файл получает из jar переписанные разделы
 # (gui, item, raid.compass, clan.banner и др. - список в LangMigrator), потому что copyDefaults не обновляет уже
 # существующие строки. Версия 14: стандарт лора gui-gen-6 во всех меню и предметах. Не меняйте вручную.
-lang-version: 14
+lang-version: 15
 prefix: "<gray>[<gold>LoveClans<gray>] "
 
 general:
@@ -148,10 +148,11 @@ admin:
     success: "<prefix><green>Знамя основания клана выдано игроку <white><player></white>."
   npc:
     unknown-type: "<prefix><red>Неизвестный тип NPC. Доступно: 'guildmaster', 'banner'."
-    not-looking-at-npc: "<prefix><red>Посмотрите на NPC Citizens, которого нужно привязать, и повторите команду."
-    bound: "<prefix><green>NPC привязан (ID <white><id></white>, тип <yellow><type></yellow>)."
-    not-bound: "<prefix><red>NPC не привязан к этому ID."
-    unbound: "<prefix><green>NPC (ID <white><id></white>) отвязан."
+    not-looking-at-npc: "<prefix><red>Посмотрите на NPC, которого нужно привязать, и повторите команду."
+    provider-missing: "<prefix><red>NPC-провайдер <white><provider></white> (integrations.npc-provider) не зарегистрирован в LoveCore - привязать NPC нельзя."
+    bound: "<prefix><green>NPC привязан (ключ <white><id></white>, тип <yellow><type></yellow>)."
+    not-bound: "<prefix><red>NPC не привязан к этому ключу."
+    unbound: "<prefix><green>NPC (ключ <white><id></white>) отвязан."
 
 chest:
   coins-returned: "<prefix><yellow>Монеты из склада предметов возвращены вам: деньги хранятся в казне клана."
@@ -279,7 +280,7 @@ clan:
     replacement-failed-refunded: "<prefix><red>Не удалось сохранить покупку, монеты возвращены."
     already-in-clan: "<prefix><red>Вы уже состоите в клане или владеете им. Вы не можете приобрести или установить знамя."
     # 2026-09-26: раньше Плотник (NPC-продавец) списывал деньги сразу по клику, без какого-либо
-    # подтверждения - см. ClanBannerListener#onNpcInteract. Теперь между кликом и списанием стоит
+    # подтверждения - см. ClanBannerListener#onNpcClick. Теперь между кликом и списанием стоит
     # 9-слотовое GUI (BannerPurchaseConfirmMenu) с ценой на виду и кнопками подтвердить/отменить.
     confirm-title: "<gold>Покупка Знамени основания"
     confirm-item-name: "<white>Знамя основания клана"
@@ -411,7 +412,7 @@ clan:
     admin-footer: "<dark_gray>=========================================</dark_gray>"
     admin-reload: "<aqua>/loveclansadmin reload</aqua> <gray>- перезагрузить конфигурацию и язык плагина</gray>"
     admin-npc: "<aqua>/loveclansadmin createnpc <guildmaster|banner></aqua> <gray>- привязать NPC Гильдмастера или NPC-основателя (смотрите на него)</gray>"
-    admin-npc-remove: "<aqua>/loveclansadmin removenpc <guildmaster|banner> <id></aqua> <gray>- отвязать NPC</gray>"
+    admin-npc-remove: "<aqua>/loveclansadmin removenpc <guildmaster|banner|ключ></aqua> <gray>- отвязать NPC</gray>"
     admin-disband: "<aqua>/loveclansadmin disband <tag></aqua> <gray>- распустить клан</gray>"
     admin-war: "<aqua>/loveclansadmin war <start|forcestart|skip|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, skip - пропустить таймер подготовки)</gray>"
     admin-siege: "<aqua>/loveclansadmin siege forcestart <clan1> <clan2></aqua> <gray>- принудительно начать осаду без проверок готовности (для тестов)</gray>"
