@@ -1,6 +1,9 @@
 package me.lovelace.loveclans.command;
 
+import dev.lovelace.lovecore.api.npc.NpcHandle;
+import dev.lovelace.lovecore.api.npc.NpcProvider;
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.integration.NpcBindings;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.artifact.ArtifactType;
@@ -96,6 +99,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     private void reload(CommandSender sender) {
         plugin.reloadConfig();
+        plugin.migrateNpcBindings();
         plugin.getMessages().reload();
         plugin.getMessages().send(sender, "general.reloaded");
     }
@@ -109,31 +113,30 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(sender, "admin.npc.unknown-type");
             return;
         }
-        String type = args[1].toLowerCase(Locale.ROOT);
-        String configKey = npcConfigKey(type);
-        if (configKey == null) {
+        NpcBindings.Slot slot = NpcBindings.Slot.byType(args[1]);
+        if (slot == null) {
             plugin.getMessages().send(sender, "admin.npc.unknown-type");
             return;
         }
-        double distance = plugin.getConfig().getDouble("clans.guildmaster.npc-bind-distance", 6.0);
-        var npc = plugin.getCitizensIntegration().lookedAtNpc(player, distance);
-        Integer npcId = npc == null ? null : plugin.getCitizensIntegration().npcId(npc);
-        if (npcId == null) {
+        Optional<NpcProvider> provider = plugin.getNpcService().provider();
+        if (provider.isEmpty()) {
+            plugin.getMessages().send(player, "admin.npc.provider-missing",
+                    Map.of("provider", plugin.getNpcService().providerId()));
+            return;
+        }
+        Optional<NpcHandle> npc = provider.get().targeted(player);
+        if (npc.isEmpty()) {
             plugin.getMessages().send(player, "admin.npc.not-looking-at-npc");
             return;
         }
-        plugin.getConfig().set(configKey, npcId);
+        String key = NpcBindings.normalize(npc.get().key());
+        if (key == null) {
+            plugin.getMessages().send(player, "admin.npc.not-looking-at-npc");
+            return;
+        }
+        NpcBindings.write(plugin.getConfig(), slot, key);
         plugin.saveConfig();
-        plugin.getMessages().send(player, "admin.npc.bound", Map.of("id", String.valueOf(npcId), "type", type));
-    }
-
-    /** Config key holding the Citizens id of the NPC of this type, or null for an unknown type. */
-    private static String npcConfigKey(String type) {
-        return switch (type) {
-            case "guildmaster" -> "clans.guildmaster.npc-id";
-            case "banner" -> "clans.banner.npc-id";
-            default -> null;
-        };
+        plugin.getMessages().send(player, "admin.npc.bound", Map.of("id", key, "type", slot.type()));
     }
 
     private void removeNpc(CommandSender sender, String[] args) {
@@ -141,29 +144,24 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(sender, "clan.help.admin-npc");
             return;
         }
-        String arg = args[1].toLowerCase(Locale.ROOT);
-        String typeKey = npcConfigKey(arg);
-        if (typeKey != null) {
-            int id = plugin.getConfig().getInt(typeKey, -1);
-            plugin.getConfig().set(typeKey, -1);
+        NpcBindings.Slot slot = NpcBindings.Slot.byType(args[1]);
+        if (slot != null) {
+            String key = NpcBindings.read(plugin.getConfig(), slot);
+            NpcBindings.clear(plugin.getConfig(), slot);
             plugin.saveConfig();
-            plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", String.valueOf(id)));
+            plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", key == null ? "-" : key));
             return;
         }
-        int targetId;
-        try {
-            targetId = Integer.parseInt(args[1]);
-        } catch (NumberFormatException exception) {
-            plugin.getMessages().send(sender, "general.invalid-number");
-            return;
-        }
-        for (String type : List.of("guildmaster", "banner")) {
-            String key = npcConfigKey(type);
-            if (plugin.getConfig().getInt(key, -1) == targetId) {
-                plugin.getConfig().set(key, -1);
-                plugin.saveConfig();
-                plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", String.valueOf(targetId)));
-                return;
+        // Not a type: treat the argument as an NPC key (a Citizens id or a LoveEssential ext-... id).
+        String targetKey = NpcBindings.normalize(args[1]);
+        if (targetKey != null) {
+            for (NpcBindings.Slot candidate : NpcBindings.Slot.values()) {
+                if (NpcBindings.sameKey(NpcBindings.read(plugin.getConfig(), candidate), targetKey)) {
+                    NpcBindings.clear(plugin.getConfig(), candidate);
+                    plugin.saveConfig();
+                    plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", targetKey));
+                    return;
+                }
             }
         }
         plugin.getMessages().send(sender, "admin.npc.not-bound");

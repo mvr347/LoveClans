@@ -15,7 +15,7 @@ import java.util.Map;
 
 /**
  * Подтверждение покупки Знамени основания клана у Плотника (NPC), см.
- * {@link me.lovelace.loveclans.listener.ClanBannerListener#onNpcInteract}. 9-слотовое GUI по
+ * {@link me.lovelace.loveclans.listener.ClanBannerListener#onNpcClick}. 9-слотовое GUI по
  * стандарту gui_gen v2.1, Исключение 1 (hopper-подтверждение): стекло по краям, подтвердить в
  * слоте 1, инфо о цене по центру, отменить в слоте 7. Не переиспользует {@link ClanConfirmMenu}/
  * {@link me.lovelace.loveclans.manager.GuiManager}, потому что та плоскость целиком завязана на

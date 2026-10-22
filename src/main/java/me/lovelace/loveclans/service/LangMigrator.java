@@ -42,7 +42,9 @@ public final class LangMigrator {
             // v14: the lore standard reaches every menu and item: toggles/inputs/lists/empty states/confirm dialogs in gui,
             // physical items (item.*: seals, banners, casus belli, guild shield), the raid compass and the
             // foundation-banner purchase screen texts (clan.banner)
-            List.of("gui", "item", "raid.compass", "clan.banner")
+            List.of("gui", "item", "raid.compass", "clan.banner"),
+            // v15: NPC bindings by provider key (Citizens id or LoveEssential id) - admin.npc.* texts reworded
+            List.of("admin.npc", "clan.help")
     );
 
     private LangMigrator() {

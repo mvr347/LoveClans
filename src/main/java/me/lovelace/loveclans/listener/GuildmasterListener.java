@@ -2,48 +2,40 @@ package me.lovelace.loveclans.listener;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.gui.GuildmasterMenu;
-import me.lovelace.loveclans.integration.CitizensIntegration;
+import dev.lovelace.lovecore.api.npc.NpcClick;
+import dev.lovelace.lovecore.api.npc.NpcClickEvent;
+import me.lovelace.loveclans.integration.NpcBindings;
+import me.lovelace.loveclans.integration.NpcService;
 import me.lovelace.loveclans.model.Clan;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.inventory.EquipmentSlot;
 
 import java.util.Optional;
 
 /**
- * Right click on the Guildmaster NPC (Citizens NPC bound by id: {@code /loveclansadmin createnpc guildmaster}).
+ * Right click on the Guildmaster NPC (NPC of the configured provider bound by key: {@code /loveclansadmin createnpc guildmaster}).
  * Without a clan, or in a clan without the vows permission and without anything to recognize, the player simply
  * gets the clan list ({@code /clans}); otherwise {@link GuildmasterMenu} with the buttons that apply to them.
  */
 public final class GuildmasterListener implements Listener {
 
     private final LoveClansPlugin plugin;
-    private final CitizensIntegration citizens;
+    private final NpcService npcs;
 
-    public GuildmasterListener(LoveClansPlugin plugin, CitizensIntegration citizens) {
+    public GuildmasterListener(LoveClansPlugin plugin, NpcService npcs) {
         this.plugin = plugin;
-        this.citizens = citizens;
+        this.npcs = npcs;
     }
 
     @EventHandler(priority = EventPriority.HIGH)
-    public void onNpcInteract(PlayerInteractEntityEvent event) {
-        // Cheapest checks first: this fires for every entity right click on the server.
-        int boundNpcId = plugin.getConfig().getInt("clans.guildmaster.npc-id", -1);
-        if (boundNpcId < 0 || !citizens.isAvailable()) {
-            return;
-        }
-        Integer npcId = citizens.npcId(event.getRightClicked());
-        if (npcId == null || npcId != boundNpcId) {
+    public void onNpcClick(NpcClickEvent event) {
+        // Cheapest checks first: NpcClickEvent is fired for every NPC of every provider.
+        if (event.click() != NpcClick.RIGHT || !npcs.isBound(event.npc(), NpcBindings.Slot.GUILDMASTER)) {
             return;
         }
         event.setCancelled(true);
-        // One right click fires the event for both hands; react only to the main one or the menu opens twice.
-        if (event.getHand() != EquipmentSlot.HAND) {
-            return;
-        }
 
         Player player = event.getPlayer();
         Optional<Clan> clan = plugin.getClanManager().getPlayerClan(player.getUniqueId());

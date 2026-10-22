@@ -52,7 +52,8 @@ class VowsConfigTest {
         Map<String, Object> config = load("/config.yml");
         assertEquals(null, path(config, "clans.contracts.npc-id"));
         assertEquals(null, path(config, "clans.contracts.daily"));
-        assertEquals(-1, path(config, "clans.guildmaster.npc-id"));
+        assertEquals(null, path(config, "clans.guildmaster.npc-id"), "numeric npc-id was replaced by the string npc-key");
+        assertEquals("", path(config, "clans.guildmaster.npc-key"));
     }
 
     @Test
