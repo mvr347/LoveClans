@@ -3,6 +3,7 @@ package me.lovelace.loveclans.integration;
 import dev.lovelace.lovecore.api.LoveCore;
 import dev.lovelace.lovecore.api.npc.NpcHandle;
 import dev.lovelace.lovecore.api.npc.NpcProvider;
+import dev.lovelace.lovecore.api.provider.ProviderKind;
 import org.bukkit.configuration.ConfigurationSection;
 
 import java.util.Locale;
@@ -12,14 +13,18 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * Resolves the NPC provider chosen by {@code integrations.npc-provider} ({@code citizens} or {@code loveessential}).
+ * Resolves the NPC provider chosen by {@code integrations.npc-provider} ({@code global}, {@code citizens} or
+ * {@code loveessential}).
  * The provider is looked up on every use because providers register late and the config can be reloaded. When the
  * chosen provider is missing the NPC feature is simply off: one warning per distinct problem, never an exception.
  */
 public final class NpcService {
 
     public static final String CONFIG_PATH = "integrations.npc-provider";
+    /** Provider used when LoveCore cannot answer: what the plugin did before the option existed. */
     public static final String DEFAULT_PROVIDER = "citizens";
+    /** Config value that follows {@code integrations.provider} of LoveCore. */
+    public static final String FOLLOW_GLOBAL = "global";
 
     private final Supplier<? extends ConfigurationSection> config;
     private final Function<String, Optional<NpcProvider>> lookup;
@@ -37,13 +42,20 @@ public final class NpcService {
         this.warn = warn;
     }
 
-    /** Provider id from the config: trimmed, lower-case, {@code citizens} when absent or blank. */
+    /**
+     * Provider id from the config: trimmed, lower-case. {@code global} (the default), absent or blank follows
+     * {@code integrations.provider} of LoveCore; an explicit id wins. Without LoveCore it is {@code citizens}.
+     */
     public static String providerId(ConfigurationSection config) {
-        String raw = config.getString(CONFIG_PATH, DEFAULT_PROVIDER);
-        if (raw == null || raw.isBlank()) {
-            return DEFAULT_PROVIDER;
+        String raw = config.getString(CONFIG_PATH, FOLLOW_GLOBAL);
+        try {
+            return LoveCore.providerId(ProviderKind.NPC, raw);
+        } catch (LinkageError coreMissingOrOld) {
+            if (raw == null || raw.isBlank() || raw.trim().equalsIgnoreCase(FOLLOW_GLOBAL)) {
+                return DEFAULT_PROVIDER;
+            }
+            return raw.trim().toLowerCase(Locale.ROOT);
         }
-        return raw.trim().toLowerCase(Locale.ROOT);
     }
 
     public String providerId() {
