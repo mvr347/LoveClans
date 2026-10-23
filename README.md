@@ -212,7 +212,7 @@ LoveClans использует единую валюту LoveCore (`LoveEconomy`
 
 - **LoveClaims** — система территорий (если отсутствует, захват территорий отключен)
 - **LoveTrades** — торговля между кланами
-- **Citizens** — NPC «Гильдмастер» и NPC-основатель
+- **Citizens** — NPC «Гильдмастер» и NPC-основатель; провайдер задаётся `integrations.npc-provider` (`global` по умолчанию - как решено в `integrations.provider` LoveCore, или явно `citizens` / `loveessential`)
 - **PlaceholderAPI** — интеграция плейсхолдеров
 - **ItemsAdder** — кастомные предметы (щиты, эмблемы)
 - **LoveHunt** — интеграция с охотничьей системой

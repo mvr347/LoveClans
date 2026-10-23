@@ -44,6 +44,14 @@ class NpcServiceTest {
     }
 
     @Test
+    void globalAndAbsentFollowTheCoreAndWithoutItMeanCitizens() throws Exception {
+        assertEquals("citizens", NpcService.providerId(config("integrations:\n  npc-provider: global\n")));
+        assertEquals("citizens", NpcService.providerId(config("integrations:\n  npc-provider: ' GLOBAL '\n")));
+        // An explicit id is never replaced by the global choice.
+        assertEquals("citizens", NpcService.providerId(config("integrations:\n  npc-provider: citizens\n")));
+    }
+
+    @Test
     void selectsTheConfiguredProviderAndNothingElse() throws Exception {
         var config = config("integrations:\n  npc-provider: loveessential\n");
         List<String> asked = new ArrayList<>();

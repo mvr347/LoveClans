@@ -885,13 +885,16 @@ raid:
 
   bonus-items: []
 
-# 2026-10-22: чьим API пользоваться для NPC Гильдмастера и Основателя знамён: citizens (по умолчанию -
-# так плагин работал раньше, поведение не меняется) или loveessential. Выбор идёт через LoveCore
+# 2026-10-22: чьим API пользоваться для NPC Гильдмастера и Основателя знамён. Выбор идёт через LoveCore
 # (NpcProvider); если выбранный провайдер не зарегистрирован, в лог пишется одно предупреждение и
 # NPC-функции отключаются, остальной плагин работает. Ключи привязок (clans.*.npc-key) относятся к
 # выбранному провайдеру: при смене провайдера NPC нужно привязать заново.
+# 2026-10-23: значение global (по умолчанию) следует общему переключателю integrations.provider в config.yml
+# LoveCore: external - Citizens, loveessential - LoveEssential, один выбор сразу для всех плагинов. Пока в
+# ядре стоит external, поведение прежнее (citizens). Явное citizens или loveessential перекрывает общий
+# выбор. Уже сохранённое на сервере `citizens` остаётся явным: чтобы следовать ядру, замените его на `global`.
 integrations:
-  npc-provider: citizens
+  npc-provider: global
 
 integration:
   advanced-claims:
