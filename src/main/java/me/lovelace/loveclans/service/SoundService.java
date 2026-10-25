@@ -35,7 +35,16 @@ public final class SoundService {
             org.bukkit.NamespacedKey key = org.bukkit.NamespacedKey.fromString(name.contains(":") ? name : "minecraft:" + name);
             return key == null ? null : Registry.SOUNDS.get(key);
         }
-        return Registry.SOUNDS.match(name);
+        Sound matched = Registry.SOUNDS.match(name);
+        if (matched != null) return matched;
+        // Registry.match can miss a name that is still a constant of Sound (BLOCK_BELL_USE was reported unknown on 26.2),
+        // so fall back to the constant itself before giving up.
+        try {
+            Object constant = Sound.class.getField(name.trim().toUpperCase(java.util.Locale.ROOT)).get(null);
+            return constant instanceof Sound sound ? sound : null;
+        } catch (ReflectiveOperationException | RuntimeException notAConstant) {
+            return null;
+        }
     }
 
     /** Ticks of the last GUI sound per player: lets the click sound step aside for a result sound and keeps "open" quiet. */

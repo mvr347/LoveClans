@@ -4,15 +4,8 @@ main: me.lovelace.loveclans.LoveClansPlugin
 api-version: '26.2'
 authors: [ lovelace ]
 description: Full-featured clans, guild wars, territories and LoveClaims integration.
-softdepend:
-  - LoveClaims
-  - LoveTrades
-  - PlaceholderAPI
-  - LoveCore
-  - ItemsAdder
-  - Citizens
-  - LoveHunt
-  - Vesuvio
+depend: [LoveCore, LoveEssential]
+softdepend: [LoveClaims, LoveTrades, PlaceholderAPI, ItemsAdder, Citizens, LoveHunt, Vesuvio]
 
 commands:
   loveclan:
