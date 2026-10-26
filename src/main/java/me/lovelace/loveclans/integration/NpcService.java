@@ -30,16 +30,30 @@ public final class NpcService {
     private final Function<String, Optional<NpcProvider>> lookup;
     private final Consumer<String> warn;
     private volatile String lastWarning;
+    private final java.util.function.BooleanSupplier warningsReady;
+    private volatile boolean seenReady;
 
     public NpcService(Supplier<? extends ConfigurationSection> config, Consumer<String> warn) {
-        this(config, id -> LoveCore.provider(NpcProvider.class, id), warn);
+        this(config, id -> LoveCore.provider(NpcProvider.class, id), warn, startupGrace());
     }
 
     public NpcService(Supplier<? extends ConfigurationSection> config,
                       Function<String, Optional<NpcProvider>> lookup, Consumer<String> warn) {
+        this(config, lookup, warn, () -> true);
+    }
+
+    public NpcService(Supplier<? extends ConfigurationSection> config,
+                      Function<String, Optional<NpcProvider>> lookup, Consumer<String> warn,
+                      java.util.function.BooleanSupplier warningsReady) {
+        this.warningsReady = warningsReady;
         this.config = config;
         this.lookup = lookup;
         this.warn = warn;
+    }
+
+    private static java.util.function.BooleanSupplier startupGrace() {
+        int started = org.bukkit.Bukkit.getServer() == null ? 0 : org.bukkit.Bukkit.getCurrentTick();
+        return () -> org.bukkit.Bukkit.getServer() == null || org.bukkit.Bukkit.getCurrentTick() - started >= 200;
     }
 
     /**
@@ -73,11 +87,13 @@ public final class NpcService {
             return Optional.empty();
         }
         if (found.isEmpty()) {
+            if (!seenReady && !warningsReady.getAsBoolean()) return Optional.empty();
             warnOnce(id + "/missing", "NPC-провайдер '" + id + "' (integrations.npc-provider) не зарегистрирован в LoveCore: "
                     + "NPC Гильдмастера и Основателя отключены. Установите/включите нужный плагин или смените провайдера.");
             return Optional.empty();
         }
         lastWarning = null;
+        seenReady = true;
         return found;
     }
 
