@@ -682,7 +682,7 @@ public final class LoveClansPlugin extends JavaPlugin {
             pluginManager.registerEvents(new GuildmasterListener(this, npcService), this);
             pluginManager.registerEvents(new ClanBannerListener(this, npcService), this);
             // Providers register late: look at them once every plugin has finished enabling.
-            Bukkit.getScheduler().runTask(this, npcService::checkAtStartup);
+            Bukkit.getScheduler().runTaskLater(this, npcService::checkAtStartup, 200L);
         } catch (LinkageError error) {
             getLogger().warning("LoveCore недоступен (" + error.getMessage() + "): NPC Гильдмастера и Основателя отключены.");
         }

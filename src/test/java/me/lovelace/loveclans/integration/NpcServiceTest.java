@@ -18,7 +18,7 @@ class NpcServiceTest {
 
     private static NpcProvider fakeProvider() {
         return (NpcProvider) Proxy.newProxyInstance(NpcProvider.class.getClassLoader(),
-                new Class<?>[]{NpcProvider.class}, (proxy, method, args) -> null);
+                new Class<?>[]{NpcProvider.class}, (proxy, method, args) -> method.getName().equals("byKey") ? Optional.empty() : null);
     }
 
     private static NpcHandle handle(String providerId, String key) {
@@ -34,6 +34,25 @@ class NpcServiceTest {
         YamlConfiguration config = new YamlConfiguration();
         config.loadFromString(text);
         return config;
+    }
+
+    @Test
+    void startupGraceDoesNotHideALaterProviderLoss() throws Exception {
+        var c = config("integrations:\n  npc-provider: loveessential\n");
+        boolean[] graceDone = {false}, present = {false};
+        List<String> warnings = new ArrayList<>();
+        var service = new NpcService(() -> c, id -> present[0] ? Optional.of(fakeProvider()) : Optional.empty(),
+                warnings::add, () -> graceDone[0]);
+        assertTrue(service.provider().isEmpty());
+        assertTrue(warnings.isEmpty());
+        present[0] = true;
+        assertTrue(service.provider().isPresent());
+        present[0] = false;
+        service.provider();
+        assertEquals(1, warnings.size());
+        graceDone[0] = true;
+        service.provider();
+        assertEquals(1, warnings.size());
     }
 
     @Test
