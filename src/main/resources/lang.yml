@@ -364,6 +364,7 @@ clan:
   left-broadcast: "<prefix><gold><rank></gold> <yellow><player></yellow> вышел из игры!"
   list:
     empty: "<prefix><gray>Список кланов пуст."
+    console: "<prefix><gray>Кланы (<white><count></white>): <white><clans></white>"
   member-limit-reached: "<prefix><red>Достигнут лимит участников клана."
   not-found: "<prefix><red>Клан не найден."
   not-in-clan: "<prefix><red>Вы не состоите в клане."
@@ -386,7 +387,7 @@ clan:
     # у кого есть loveclans.admin, полный список её подкоманд смотрите в /loveclansadmin help.
     admin: "<aqua>/loveclansadmin</aqua> <gray>- административные команды (см. /loveclansadmin help)</gray>"
     artifact: "<aqua>/loveclansadmin artifact <type></aqua> <gray>- выдать себе клановый артефакт</gray>"
-    console: "<gray>Эта команда доступна только в игре.</gray>"
+    console: "<gray>Команды клана доступны в игре. Для консоли: <aqua>/loveclansadmin help</aqua></gray>"
     found: "<gray>Купите Знамя Основания у</gray> <aqua>NPC Основателя</aqua> <gray>и установите его, чтобы создать клан</gray>"
     diplomacy: "<aqua>/diplo [tag]</aqua> <gray>- открыть меню дипломатии клана</gray>"
     info: "<aqua>/clan info [tag]</aqua> <gray>- информация о клане</gray>"

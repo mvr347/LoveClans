@@ -59,8 +59,8 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        // Silent on purpose: a command the sender cannot use is simply not theirs.
         if (!Permissions.has(sender, Permissions.ADMIN)) {
-            plugin.getMessages().send(sender, "general.no-permission");
             return true;
         }
 

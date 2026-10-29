@@ -61,8 +61,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        // Silent on purpose: a command the sender cannot use is simply not theirs.
         if (!Permissions.has(sender, Permissions.COMMAND)) {
-            plugin.getMessages().send(sender, "general.no-permission");
             return true;
         }
 
@@ -77,7 +77,15 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                     openClanList(player);
                 }
             } else {
-                plugin.getMessages().send(sender, "general.players-only");
+                // Console has no GUI, so it gets the plain list of clans.
+                var clans = plugin.getClanManager().getAllClans();
+                if (clans.isEmpty()) {
+                    plugin.getMessages().send(sender, "clan.list.empty");
+                } else {
+                    String names = clans.stream().map(c -> c.name() + " [" + c.tag() + "]")
+                            .collect(java.util.stream.Collectors.joining(", "));
+                    plugin.getMessages().send(sender, "clan.list.console", Map.of("count", String.valueOf(clans.size()), "clans", names));
+                }
             }
             return true;
         }
@@ -1199,7 +1207,6 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
      */
     private void redirectToAdmin(CommandSender sender, String suggestedArgs) {
         if (!Permissions.has(sender, Permissions.ADMIN)) {
-            plugin.getMessages().send(sender, "general.no-permission");
             return;
         }
         plugin.getMessages().send(sender, "general.command-moved", Map.of("command", "/loveclansadmin " + suggestedArgs));

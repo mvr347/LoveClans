@@ -737,6 +737,10 @@ public final class LoveClansPlugin extends JavaPlugin {
             return;
         }
         String key = root.getMessage();
+        // A command the sender may not use stays silent (menu denials play their sound above).
+        if ("general.no-permission".equals(key)) {
+            return;
+        }
         if (key != null && key.contains(".")) {
             Map<String, String> placeholders = new HashMap<>();
             placeholders.put("reason", key);
