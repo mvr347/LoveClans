@@ -168,19 +168,41 @@ public final class LoveClansAPI {
 
     /**
      * Кладёт предметы в клановый сундук (только в открытые ряды), складывая на уже лежащие стопки.
-     * Возвращает то, что не поместилось. Пока сундук открыт у кого-то в меню, запись затёрлась бы
-     * при закрытии меню, поэтому тогда ничего не кладётся и возвращаются все предметы: вызывающий
-     * решает, что с ними делать (например, отдать игроку).
+     * Возвращает то, что не поместилось. Сундук занимается на всё время записи (как у меню), поэтому пока он
+     * открыт у кого-то в меню или идёт другая запись, ничего не кладётся и возвращаются все предметы:
+     * вызывающий решает, что с ними делать (например, отдать игроку).
      */
     public CompletableFuture<java.util.List<ItemStack>> depositItemsToChestAsync(Clan clan, java.util.List<ItemStack> items) {
         if (clan == null || items == null || items.isEmpty()) {
             return CompletableFuture.completedFuture(java.util.List.of());
         }
-        return plugin.supplySync(() -> plugin.getClanManager().isItemChestLocked(clan.id()))
-                .thenCompose(locked -> locked
-                        ? CompletableFuture.completedFuture(
-                                items.stream().filter(item -> item != null && !item.getType().isAir()).toList())
-                        : plugin.getClanManager().depositItemsToChestAsync(clan, items));
+        var manager = plugin.getClanManager();
+        // The chest is reserved for the whole deposit, not just checked once: a menu opened while the deposit still waits
+        // for the database would load the old contents and wipe the deposit when it is closed.
+        return plugin.supplySync(() -> manager.tryLockItemChest(clan.id())).thenCompose(acquired -> {
+            if (!acquired) {
+                return CompletableFuture.completedFuture(
+                        items.stream().filter(item -> item != null && !item.getType().isAir()).toList());
+            }
+            var result = new CompletableFuture<java.util.List<ItemStack>>();
+            CompletableFuture<java.util.List<ItemStack>> deposit;
+            try {
+                deposit = manager.depositItemsToChestAsync(clan, items);
+            } catch (RuntimeException failure) {
+                deposit = CompletableFuture.failedFuture(failure);
+            }
+            deposit.whenComplete((left, error) -> plugin.supplySync(() -> {
+                manager.unlockItemChest(clan.id());
+                return null;
+            }).whenComplete((ignored, unlockFailure) -> {
+                if (error != null) {
+                    result.completeExceptionally(error);
+                } else {
+                    result.complete(left);
+                }
+            }));
+            return result;
+        });
     }
 
     /**
