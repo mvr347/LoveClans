@@ -386,7 +386,7 @@ clan:
     # Разовая ссылка на новую единую админ-команду - выводится в /clan help только тем,
     # у кого есть loveclans.admin, полный список её подкоманд смотрите в /loveclansadmin help.
     admin: "<aqua>/loveclansadmin</aqua> <gray>- административные команды (см. /loveclansadmin help)</gray>"
-    artifact: "<aqua>/loveclansadmin artifact <type></aqua> <gray>- выдать себе клановый артефакт</gray>"
+    artifact: "<aqua>/loveclansadmin artifact <type> [игрок]</aqua> <gray>- выдать клановый артефакт себе или игроку (из консоли укажите игрока)</gray>"
     console: "<gray>Команды клана доступны в игре. Для консоли: <aqua>/loveclansadmin help</aqua></gray>"
     found: "<gray>Купите Знамя Основания у</gray> <aqua>NPC Основателя</aqua> <gray>и установите его, чтобы создать клан</gray>"
     diplomacy: "<aqua>/diplo [tag]</aqua> <gray>- открыть меню дипломатии клана</gray>"
