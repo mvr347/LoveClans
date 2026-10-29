@@ -496,11 +496,21 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
     }
 
     private void artifact(CommandSender sender, String[] args) {
-        if (!(sender instanceof Player player)) {
-            plugin.getMessages().send(sender, "general.players-only");
+        if (args.length < 2) {
+            plugin.getMessages().send(sender, "clan.help.artifact");
             return;
         }
-        if (args.length < 2) {
+        // Without a name the artifact goes to the sender; the console has no inventory, so it must name a player.
+        Player target;
+        if (args.length >= 3) {
+            target = org.bukkit.Bukkit.getPlayer(args[2]);
+            if (target == null) {
+                plugin.getMessages().send(sender, "general.player-not-found");
+                return;
+            }
+        } else if (sender instanceof Player self) {
+            target = self;
+        } else {
             plugin.getMessages().send(sender, "clan.help.artifact");
             return;
         }
@@ -510,7 +520,10 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
         } catch (IllegalArgumentException exception) {
             throw new IllegalStateException("general.error", exception);
         }
-        player.getInventory().addItem(plugin.getArtifactManager().createArtifact(type));
+        target.getInventory().addItem(plugin.getArtifactManager().createArtifact(type));
+        if (target != sender) {
+            sender.sendMessage("§aАртефакт §e" + type.name() + " §aвыдан игроку §e" + target.getName());
+        }
     }
 
     private void shield(CommandSender sender, String[] args) {
@@ -624,7 +637,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
             List<String> completions = switch (action) {
                 case "diplo", "war", "siege", "raid", "givecapitalbanner" -> clanTags;
                 case "exp", "points" -> clanTags;
-                case "casus", "seal" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
+                case "casus", "seal", "artifact" -> org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList());
                 case "shield" -> args[1].equalsIgnoreCase("give")
                         ? org.bukkit.Bukkit.getOnlinePlayers().stream().map(Player::getName).collect(Collectors.toList())
                         : clanTags;
