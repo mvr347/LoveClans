@@ -364,7 +364,7 @@ clan:
   left-broadcast: "<prefix><gold><rank></gold> <yellow><player></yellow> вышел из игры!"
   list:
     empty: "<prefix><gray>Список кланов пуст."
-    console: "<prefix><gray>Кланы (<white>{count}</white>): <white>{clans}</white>"
+    console: "<prefix><gray>Кланы (<white><count></white>): <white><clans></white>"
   member-limit-reached: "<prefix><red>Достигнут лимит участников клана."
   not-found: "<prefix><red>Клан не найден."
   not-in-clan: "<prefix><red>Вы не состоите в клане."
