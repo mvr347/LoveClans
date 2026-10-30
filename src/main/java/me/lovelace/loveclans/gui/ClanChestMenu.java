@@ -177,8 +177,24 @@ public final class ClanChestMenu implements Listener {
         ItemStack[] toPersist = new ItemStack[full.length];
         System.arraycopy(full, 0, toPersist, 0, unlockedSlots); // footer/locked heads are never persisted
         returnStrayCoins(toPersist);
+        checkPerfectOrder(toPersist);
         plugin.getClanManager().saveChestContentsAsync(clan.id(), toPersist);
         plugin.getClanManager().unlockItemChest(clan.id());
+    }
+
+    /** Easter egg: a chest closed with one kind of item in full stacks earns the clan a badge. */
+    private void checkPerfectOrder(ItemStack[] contents) {
+        if (!plugin.getConfig().getBoolean("easter-eggs.perfectionists.enabled", true)) return;
+        java.util.List<ChestOrder.Slot<ItemStack>> occupied = new java.util.ArrayList<>();
+        for (ItemStack stack : contents) {
+            if (stack != null && !stack.getType().isAir()) {
+                occupied.add(new ChestOrder.Slot<>(stack.asOne(), stack.getAmount()));
+            }
+        }
+        int minSlots = plugin.getConfig().getInt("easter-eggs.perfectionists.min-slots", 18);
+        if (!ChestOrder.perfect(occupied, minSlots)) return;
+        plugin.getGuildRewards().grant(clan, me.lovelace.loveclans.model.upgrade.GuildReward.PERFECTIONISTS);
+        me.lovelace.loveclans.integration.SecretsHook.discover(player.getUniqueId(), "perfectionists");
     }
 
     /**

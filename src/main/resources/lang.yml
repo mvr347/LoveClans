@@ -3016,6 +3016,9 @@ gui:
       conqueror:
         name: "<gold>Завоеватель"
         bonus: "<green>+ <white>+3% <gray>урона в нападении"
+      perfectionists:
+        name: "<gold>Перфекционисты"
+        bonus: "<gray>Значок клана: сундук в идеальном порядке"
   banner-create:
     title: "<gray>Основание нового клана"
     # Добавлено 2026-09-23: ClanBannerCreationMenu ссылался на эти 4 ключа, которых не было
