@@ -61,12 +61,23 @@ public final class ClanBannerCreationMenu implements InventoryHolder {
 
     public void handleInventoryClick(int slot) {
         switch (slot) {
-            case 10 -> promptName();
-            case 12 -> promptTag();
+            case 10, 12 -> askNameAndTag(slot == 10);
             case 14 -> { open = !open; open(); }
             case 16 -> tryCreate();
             case 26 -> player.closeInventory();
             default -> {}
+        }
+    }
+
+    /** Name and tag are typed in one dialog; the chat prompts remain as the fallback for clients without dialogs. */
+    private void askNameAndTag(boolean nameClicked) {
+        boolean shown = plugin.getClanDialogs().askNameAndTag(player, name, tag, (typedName, typedTag) -> {
+            this.name = typedName;
+            this.tag = typedTag;
+            open();
+        }, this::open);
+        if (!shown) {
+            if (nameClicked) promptName(); else promptTag();
         }
     }
 
@@ -78,12 +89,11 @@ public final class ClanBannerCreationMenu implements InventoryHolder {
                 plugin.runSync(this::open);
                 return;
             }
-            String trimmed = input.trim();
-            int min = plugin.getConfig().getInt("clans.name.min-length", 4);
-            int max = plugin.getConfig().getInt("clans.name.max-length", 10);
-            if (trimmed.length() < min || trimmed.length() > max) {
-                plugin.getMessages().send(player, "clan.invalid-name",
-                        Map.of("min", String.valueOf(min), "max", String.valueOf(max)));
+            String trimmed = me.lovelace.loveclans.util.ClanNameRules.clean(input);
+            var problem = plugin.inputValidator().firstProblem(
+                    me.lovelace.loveclans.util.ClanInputValidator.Field.NAME, trimmed, t -> false);
+            if (problem.isPresent()) {
+                plugin.getClanDialogs().sendProblem(player, problem.get());
                 plugin.runSync(this::open);
                 return;
             }
@@ -100,13 +110,12 @@ public final class ClanBannerCreationMenu implements InventoryHolder {
                 plugin.runSync(this::open);
                 return;
             }
-            String trimmed = input.trim();
-            int min = plugin.getConfig().getInt("clans.tag.min-length", 3);
-            int max = plugin.getConfig().getInt("clans.tag.max-length", 6);
-            String pattern = plugin.getConfig().getString("clans.tag.pattern", "^[A-Za-z0-9_]+$");
-            if (trimmed.length() < min || trimmed.length() > max || !trimmed.matches(pattern)) {
-                plugin.getMessages().send(player, "clan.invalid-tag",
-                        Map.of("min", String.valueOf(min), "max", String.valueOf(max)));
+            String trimmed = me.lovelace.loveclans.util.ClanNameRules.clean(input);
+            var problem = plugin.inputValidator().firstProblem(
+                    me.lovelace.loveclans.util.ClanInputValidator.Field.TAG, trimmed,
+                    tag -> plugin.getClanManager().getClanByTag(tag).isPresent());
+            if (problem.isPresent()) {
+                plugin.getClanDialogs().sendProblem(player, problem.get());
                 plugin.runSync(this::open);
                 return;
             }
