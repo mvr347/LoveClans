@@ -346,6 +346,11 @@ clan:
     type-open: "Открытый"
     type-closed: "Закрытый"
   invalid-name: "<prefix><red>Название клана должно содержать от <min> до <max> символов."
+  # 2026-10-30: название и тег клана проходят проверки LoveChatFilter (мат, реклама), если плагин установлен.
+  name-profane: "<prefix><red>Такое название клана недопустимо: в нём нецензурные слова."
+  name-ad: "<prefix><red>Такое название клана недопустимо: в нём реклама или адрес сайта."
+  tag-profane: "<prefix><red>Такой тег клана недопустим: в нём нецензурные слова."
+  tag-ad: "<prefix><red>Такой тег клана недопустим: в нём реклама или адрес сайта."
   invalid-tag: "<prefix><red>Тег клана должен содержать от <min> до <max> символов и состоять из букв, цифр и подчёркивания."
   invite-declined: "<prefix><yellow>Вы отклонили приглашение в клан <color><tag></color>."
   invite-missing: "<prefix><red>Приглашение не найдено."
@@ -507,6 +512,37 @@ diplomacy:
   guild-shield:
     expired: "<prefix><gray>Гильдейский щит вашего клана спал. Нападения и блокады снова возможны."
     activated: "<prefix><aqua><player></aqua> <green>активировал <aqua>Гильдейский щит</aqua>! Клан защищён от нападений на <hours> ч."
+
+# 2026-10-30: название и тег вводятся в окне-диалоге (нативный диалог Paper) вместо чата. Зачем: ввод в чат
+# приходилось отменять словом «отмена», сообщение мог увидеть чат, а ошибку игрок узнавал уже после закрытия меню.
+# Окно при ошибке открывается снова с введёнными значениями и причиной сверху. Без поддержки диалогов у клиента
+# (или при clans.input.mode: chat) работают старые чат-подсказки (gui.create.*.prompt, gui.settings.*.prompt).
+dialog:
+  cancel: "<red>Отмена"
+  create:
+    title: "<gold>Создание клана"
+    name-label: "<white>Название клана"
+    tag-label: "<white>Тег клана"
+    confirm: "<green>Готово"
+  rename:
+    title: "<gold>Переименование клана"
+    label: "<white>Новое название (сейчас: <current>)"
+    confirm: "<green>Далее"
+  tag:
+    title: "<gold>Смена тега клана"
+    label: "<white>Новый тег (сейчас: <current>)"
+    confirm: "<green>Далее"
+  rules:
+    name: "<gray>Название: <white><min>–<max> <gray>символов; буквы, цифры, пробел, _ и -."
+    tag: "<gray>Тег: <white><min>–<max> <gray>символов; только A-Z, 0-9 и _."
+  error:
+    invalid-name: "<red>Название должно содержать от <white><min></white> до <white><max></white> символов: буквы, цифры, пробел, _ и -."
+    invalid-tag: "<red>Тег должен содержать от <white><min></white> до <white><max></white> символов: только A-Z, 0-9 и _."
+    name-profane: "<red>В названии нецензурные слова. Придумайте другое."
+    name-ad: "<red>В названии реклама или адрес сайта. Придумайте другое."
+    tag-profane: "<red>В теге нецензурные слова. Придумайте другой."
+    tag-ad: "<red>В теге реклама или адрес сайта. Придумайте другой."
+    tag-exists: "<red>Клан с таким тегом уже есть. Выберите другой."
 
 gui:
   # Стандарт оформления предметов GUI (2026-10-18, RULE 10 gui-gen-6, см. docs/GUI_LORE_STYLE.md).
@@ -1593,7 +1629,7 @@ gui:
     name:
       button: "<gold>Название клана"
       lore:
-        - "<dark_gray>Ввод в чат"
+        - "<dark_gray>Ввод в окне"
         - ""
         - "<dark_gray>▪ <gray>Сейчас:"
         - "  <white><value>"
@@ -1607,7 +1643,7 @@ gui:
     tag:
       button: "<gold>Тег клана"
       lore:
-        - "<dark_gray>Ввод в чат"
+        - "<dark_gray>Ввод в окне"
         - ""
         - "<dark_gray>▪ <gray>Сейчас:"
         - "  <white><value>"
@@ -2544,7 +2580,7 @@ gui:
     rename:
       name: "<gold>Переименовать клан"
       lore:
-        - "<dark_gray>Ввод в чат"
+        - "<dark_gray>Ввод в окне"
         - ""
         - "<dark_gray>▪ <gray>Сейчас:"
         - "  <gray>Название: <white><current>"
@@ -2558,7 +2594,7 @@ gui:
     change-tag:
       name: "<gold>Изменить тег"
       lore:
-        - "<dark_gray>Ввод в чат"
+        - "<dark_gray>Ввод в окне"
         - ""
         - "<dark_gray>▪ <gray>Сейчас:"
         - "  <gray>Тег: <white><current>"

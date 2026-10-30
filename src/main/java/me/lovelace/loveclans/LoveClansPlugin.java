@@ -76,6 +76,8 @@ public final class LoveClansPlugin extends JavaPlugin {
     private static final long LOVECLAIMS_INIT_RETRY_DELAY_TICKS = 20L * 5L;
 
     private DatabaseManager databaseManager;
+    private me.lovelace.loveclans.dialog.ClanDialogs clanDialogs;
+    private me.lovelace.loveclans.integration.NameCheck nameCheck;
     private ClanStorage storage;
     private ConflictArchive conflictArchive;
     private MessageService messages;
@@ -135,6 +137,10 @@ public final class LoveClansPlugin extends JavaPlugin {
         storage = new SqlClanStorage(databaseManager);
         conflictCooldownStore = new me.lovelace.loveclans.storage.ConflictCooldownStore(this, databaseManager.dataSource());
 
+        nameCheck = new me.lovelace.loveclans.integration.NameCheck(
+                new me.lovelace.loveclans.integration.ChatFilterBridge(),
+                () -> getConfig().getBoolean("clans.name-check.enabled", true));
+        clanDialogs = new me.lovelace.loveclans.dialog.ClanDialogs(this);
         clanManager = new ClanManager(this, storage);
         conflictArchive = new ConflictArchive(this);
         warManager = new WarManager(this);
@@ -487,6 +493,30 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     public MessageService getMessages() {
         return messages;
+    }
+
+    public me.lovelace.loveclans.dialog.ClanDialogs getClanDialogs() {
+        return clanDialogs;
+    }
+
+    /** Limits are read on every call so a /reload of config.yml applies at once. */
+    public me.lovelace.loveclans.util.ClanNameRules.Limits nameLimits() {
+        return new me.lovelace.loveclans.util.ClanNameRules.Limits(
+                getConfig().getInt("clans.name.min-length", 4),
+                getConfig().getInt("clans.name.max-length", 10),
+                getConfig().getString("clans.name.pattern", "^[\\p{L}\\p{N} _-]+$"));
+    }
+
+    public me.lovelace.loveclans.util.ClanNameRules.Limits tagLimits() {
+        return new me.lovelace.loveclans.util.ClanNameRules.Limits(
+                getConfig().getInt("clans.tag.min-length", 3),
+                getConfig().getInt("clans.tag.max-length", 6),
+                getConfig().getString("clans.tag.pattern", "^[A-Za-z0-9_]+$"));
+    }
+
+    /** Length, characters, swearing and advertising of a clan name or tag, in one place. */
+    public me.lovelace.loveclans.util.ClanInputValidator inputValidator() {
+        return new me.lovelace.loveclans.util.ClanInputValidator(nameLimits(), tagLimits(), nameCheck);
     }
 
     public ClanStorage getStorage() {

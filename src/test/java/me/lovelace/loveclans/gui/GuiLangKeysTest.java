@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * (Bukkit's YAML silently lets the last duplicate win).
  */
 class GuiLangKeysTest {
-    private static final Pattern KEY = Pattern.compile("\"((?:gui|clan|chest|trade|recognition)\\.[a-z0-9_.-]*[a-z0-9_])\"");
+    private static final Pattern KEY = Pattern.compile("\"((?:gui|clan|chest|trade|recognition|dialog)\\.[a-z0-9_.-]*[a-z0-9_])\"");
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> loadLang() throws Exception {
@@ -46,12 +46,14 @@ class GuiLangKeysTest {
     void everyLiteralGuiKeyExistsInLangYml() throws Exception {
         Map<String, Object> lang = loadLang();
         List<String> missing = new ArrayList<>();
-        try (Stream<Path> files = Files.walk(Path.of("src/main/java/me/lovelace/loveclans/gui"))) {
-            for (Path file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
-                Matcher matcher = KEY.matcher(Files.readString(file));
-                while (matcher.find()) {
-                    String key = matcher.group(1);
-                    if (!exists(lang, key)) missing.add(file.getFileName() + " -> " + key);
+        for (String directory : List.of("gui", "dialog")) {
+            try (Stream<Path> files = Files.walk(Path.of("src/main/java/me/lovelace/loveclans/" + directory))) {
+                for (Path file : files.filter(f -> f.toString().endsWith(".java")).toList()) {
+                    Matcher matcher = KEY.matcher(Files.readString(file));
+                    while (matcher.find()) {
+                        String key = matcher.group(1);
+                        if (!exists(lang, key)) missing.add(file.getFileName() + " -> " + key);
+                    }
                 }
             }
         }
@@ -107,5 +109,21 @@ class GuiLangKeysTest {
             }
             i += Character.charCount(cp);
         }
+    }
+
+    /**
+     * The dialog builds its keys at runtime ("dialog.error." + problem, "clan." + problem), so the literal scan
+     * cannot see them: every problem the validator can return needs its dialog text and its chat text.
+     */
+    @Test
+    void everyValidatorProblemHasItsDialogAndChatText() throws Exception {
+        Map<String, Object> lang = loadLang();
+        List<String> missing = new ArrayList<>();
+        for (String problem : List.of("invalid-name", "invalid-tag", "name-profane", "name-ad", "tag-profane", "tag-ad")) {
+            if (!exists(lang, "dialog.error." + problem)) missing.add("dialog.error." + problem);
+            if (!exists(lang, "clan." + problem)) missing.add("clan." + problem);
+        }
+        if (!exists(lang, "dialog.error.tag-exists")) missing.add("dialog.error.tag-exists");
+        assertTrue(missing.isEmpty(), "keys missing from lang.yml: " + missing);
     }
 }

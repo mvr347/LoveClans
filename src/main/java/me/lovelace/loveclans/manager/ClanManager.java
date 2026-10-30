@@ -2614,13 +2614,11 @@ public final class ClanManager {
         }
     }
 
+    // Тег и название проходят одну и ту же проверку, что и диалог (длина, символы, мат, реклама), поэтому
+    // ответ API, знамени основания и диалога совпадают. Тег занят или нет, проверяют сами вызывающие места.
     private void validateTag(String tag) {
-        int min = plugin.getConfig().getInt("clans.tag.min-length", 3);
-        int max = plugin.getConfig().getInt("clans.tag.max-length", 6);
-        String pattern = plugin.getConfig().getString("clans.tag.pattern", "^[A-Za-z0-9_]+$");
-        if (tag == null || tag.length() < min || tag.length() > max || !Pattern.compile(pattern).matcher(tag).matches()) {
-            throw new IllegalStateException("clan.invalid-tag");
-        }
+        plugin.inputValidator().firstProblem(me.lovelace.loveclans.util.ClanInputValidator.Field.TAG, tag, t -> false)
+                .ifPresent(problem -> { throw new IllegalStateException("clan." + problem); });
     }
 
     // Название клана рендерится напрямую (без экранирования) через PlaceholderAPIHook для других
@@ -2628,12 +2626,8 @@ public final class ClanManager {
     // иначе игрок сможет внедрить MiniMessage/легаси цветовые коды или управляющие последовательности
     // в чужой чат/скорборд через placeholder clans_name.
     private void validateName(String name) {
-        int min = plugin.getConfig().getInt("clans.name.min-length", 4);
-        int max = plugin.getConfig().getInt("clans.name.max-length", 10);
-        String pattern = plugin.getConfig().getString("clans.name.pattern", "^[\\p{L}\\p{N} _-]+$");
-        if (name == null || name.length() < min || name.length() > max || !Pattern.compile(pattern).matcher(name).matches()) {
-            throw new IllegalStateException("clan.invalid-name");
-        }
+        plugin.inputValidator().firstProblem(me.lovelace.loveclans.util.ClanInputValidator.Field.NAME, name, t -> false)
+                .ifPresent(problem -> { throw new IllegalStateException("clan." + problem); });
     }
 
     private String normalizeTag(String tag) {

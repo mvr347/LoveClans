@@ -105,67 +105,8 @@ public final class ClanSettingsMenu {
             return;
         }
         switch (slot) {
-            case 10 -> {
-                player.closeInventory();
-                plugin.getMessages().send(player, "gui.settings.rename.prompt");
-                plugin.expectChatInput(player.getUniqueId(), (newName, isCancelled) -> {
-                    if (isCancelled) {
-                        plugin.runSync(() -> open(player, clan));
-                        return;
-                    }
-                    int min = plugin.getConfig().getInt("clans.name.min-length", 4);
-                    int max = plugin.getConfig().getInt("clans.name.max-length", 10);
-                    if (newName.trim().length() < min || newName.trim().length() > max) {
-                        plugin.getMessages().send(player, "clan.invalid-name",
-                                Map.of("min", String.valueOf(min), "max", String.valueOf(max)));
-                        plugin.runSync(() -> open(player, clan));
-                        return;
-                    }
-                    plugin.getGuiManager().openConfirm(player, clan,
-                            plugin.getMessages().component("gui.confirm.rename.title", Map.of("name", newName.trim()), player),
-                            plugin.getGuiManager().confirmEffects(player, "rename", Map.of("name", newName.trim())),
-                            () -> plugin.getClanManager().renameClanAsync(clan, player.getUniqueId(), newName.trim())
-                                    .thenAccept(updated -> plugin.runSync(() -> {
-                                        plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
-                                        plugin.getMessages().send(player, "gui.settings.rename.success", Map.of("name", updated.name()));
-                                        open(player, updated);
-                                    }))
-                                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
-                            () -> plugin.runSync(() -> open(player, clan))
-                    );
-                });
-            }
-            case 12 -> {
-                player.closeInventory();
-                plugin.getMessages().send(player, "gui.settings.change-tag.prompt");
-                plugin.expectChatInput(player.getUniqueId(), (newTag, isCancelled) -> {
-                    if (isCancelled) {
-                        plugin.runSync(() -> open(player, clan));
-                        return;
-                    }
-                    int min = plugin.getConfig().getInt("clans.tag.min-length", 3);
-                    int max = plugin.getConfig().getInt("clans.tag.max-length", 6);
-                    String pattern = plugin.getConfig().getString("clans.tag.pattern", "^[A-Za-z0-9_]+$");
-                    if (newTag.trim().length() < min || newTag.trim().length() > max || !newTag.trim().matches(pattern)) {
-                        plugin.getMessages().send(player, "clan.invalid-tag",
-                                Map.of("min", String.valueOf(min), "max", String.valueOf(max)));
-                        plugin.runSync(() -> open(player, clan));
-                        return;
-                    }
-                    plugin.getGuiManager().openConfirm(player, clan,
-                            plugin.getMessages().component("gui.confirm.change-tag.title", Map.of("tag", newTag.trim()), player),
-                            plugin.getGuiManager().confirmEffects(player, "change-tag", Map.of("tag", newTag.trim())),
-                            () -> plugin.getClanManager().changeClanTagAsync(clan, player.getUniqueId(), newTag.trim())
-                                    .thenAccept(updated -> plugin.runSync(() -> {
-                                        plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
-                                        plugin.getMessages().send(player, "gui.settings.change-tag.success", Map.of("tag", updated.tag()));
-                                        open(player, updated);
-                                    }))
-                                    .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
-                            () -> plugin.runSync(() -> open(player, clan))
-                    );
-                });
-            }
+            case 10 -> askRename(player, clan);
+            case 12 -> askTag(player, clan);
             case 14 -> {
                 org.bukkit.inventory.ItemStack inHand = player.getInventory().getItemInMainHand();
                 if (!inHand.getType().name().endsWith("_BANNER")) {
@@ -231,5 +172,85 @@ public final class ClanSettingsMenu {
         for (int slot = 27; slot <= 35; slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
         }
+    }
+
+    /** The new name comes from a dialog; the chat prompt is the fallback. Either way it ends at the same confirm screen. */
+    private void askRename(Player player, Clan clan) {
+        boolean shown = plugin.getClanDialogs().askName(player, clan,
+                newName -> confirmRename(player, clan, newName),
+                () -> open(player, clan));
+        if (shown) return;
+        player.closeInventory();
+        plugin.getMessages().send(player, "gui.settings.rename.prompt");
+        plugin.expectChatInput(player.getUniqueId(), (typed, isCancelled) -> {
+            if (isCancelled) {
+                plugin.runSync(() -> open(player, clan));
+                return;
+            }
+            String newName = me.lovelace.loveclans.util.ClanNameRules.clean(typed);
+            var problem = plugin.inputValidator().firstProblem(
+                    me.lovelace.loveclans.util.ClanInputValidator.Field.NAME, newName, t -> false);
+            if (problem.isPresent()) {
+                plugin.getClanDialogs().sendProblem(player, problem.get());
+                plugin.runSync(() -> open(player, clan));
+                return;
+            }
+            confirmRename(player, clan, newName);
+        });
+    }
+
+    private void confirmRename(Player player, Clan clan, String newName) {
+        plugin.getGuiManager().openConfirm(player, clan,
+                plugin.getMessages().component("gui.confirm.rename.title", Map.of("name", newName), player),
+                plugin.getGuiManager().confirmEffects(player, "rename", Map.of("name", newName)),
+                () -> plugin.getClanManager().renameClanAsync(clan, player.getUniqueId(), newName)
+                        .thenAccept(updated -> plugin.runSync(() -> {
+                            plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
+                            plugin.getMessages().send(player, "gui.settings.rename.success", Map.of("name", updated.name()));
+                            open(player, updated);
+                        }))
+                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
+                () -> plugin.runSync(() -> open(player, clan))
+        );
+    }
+
+    private void askTag(Player player, Clan clan) {
+        boolean shown = plugin.getClanDialogs().askTag(player, clan,
+                newTag -> confirmTag(player, clan, newTag),
+                () -> open(player, clan));
+        if (shown) return;
+        player.closeInventory();
+        plugin.getMessages().send(player, "gui.settings.change-tag.prompt");
+        plugin.expectChatInput(player.getUniqueId(), (typed, isCancelled) -> {
+            if (isCancelled) {
+                plugin.runSync(() -> open(player, clan));
+                return;
+            }
+            String newTag = me.lovelace.loveclans.util.ClanNameRules.clean(typed);
+            var problem = plugin.inputValidator().firstProblem(
+                    me.lovelace.loveclans.util.ClanInputValidator.Field.TAG, newTag,
+                    tag -> plugin.getClanManager().getClanByTag(tag).filter(other -> !other.id().equals(clan.id())).isPresent());
+            if (problem.isPresent()) {
+                plugin.getClanDialogs().sendProblem(player, problem.get());
+                plugin.runSync(() -> open(player, clan));
+                return;
+            }
+            confirmTag(player, clan, newTag);
+        });
+    }
+
+    private void confirmTag(Player player, Clan clan, String newTag) {
+        plugin.getGuiManager().openConfirm(player, clan,
+                plugin.getMessages().component("gui.confirm.change-tag.title", Map.of("tag", newTag), player),
+                plugin.getGuiManager().confirmEffects(player, "change-tag", Map.of("tag", newTag)),
+                () -> plugin.getClanManager().changeClanTagAsync(clan, player.getUniqueId(), newTag)
+                        .thenAccept(updated -> plugin.runSync(() -> {
+                            plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
+                            plugin.getMessages().send(player, "gui.settings.change-tag.success", Map.of("tag", updated.tag()));
+                            open(player, updated);
+                        }))
+                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; }),
+                () -> plugin.runSync(() -> open(player, clan))
+        );
     }
 }
