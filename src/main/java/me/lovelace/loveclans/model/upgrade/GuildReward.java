@@ -13,7 +13,9 @@ public enum GuildReward {
     RICH(Bonus.INCOME, 2.0D),
     LEGION(Bonus.EXPERIENCE, 1.0D),
     VETERAN(Bonus.RESISTANCE, 2.0D),
-    CONQUEROR(Bonus.DAMAGE_OFFENSE, 3.0D);
+    CONQUEROR(Bonus.DAMAGE_OFFENSE, 3.0D),
+    /** Easter egg: the clan chest closed in perfect order. A badge only, it improves nothing. */
+    PERFECTIONISTS(Bonus.COSMETIC, 0.0D);
 
     public enum Bonus {
         /** Share added to all clan experience gained. */
@@ -31,7 +33,9 @@ public enum GuildReward {
         /** Added to the final influence value. */
         INFLUENCE,
         /** Added to treasury income from state purchases and conflict rewards. */
-        INCOME
+        INCOME,
+        /** No gameplay effect: a badge for the clan. */
+        COSMETIC
     }
 
     private final Bonus bonus;

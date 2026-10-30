@@ -171,6 +171,7 @@ public final class ClanModifiersMenu {
             case RESISTANCE_OWN_LAND, RESISTANCE -> Material.SHIELD;
             case TAX_DISCOUNT, INCOME -> Material.GOLD_INGOT;
             case INFLUENCE -> Material.NETHER_STAR;
+            case COSMETIC -> Material.CHEST;
         };
         // The reward name is shared with the chronicle, so the state suffix is added here; its color tags are parsed.
         Map<String, String> values = Map.of("reward", messages.raw(base + ".name"), "bonus", messages.raw(base + ".bonus"),
