@@ -812,6 +812,29 @@ casus-belli:
 
 # Новая осада (newsieges.md & siege-justify-rewards.md)
 siege:
+  # Модели устанавливаются отдельно в ItemsAdder. Плагин получает их по ID из models.states; ресурспак не входит в сборку.
+  # false возвращает отображение обычных лагерей кострами. Уже построенная башня сохраняет физические блоки.
+  models:
+    enabled: true
+    # toward-target — фронт к центру территории; также допустимы north/east/south/west.
+    direction: toward-target
+    # Коррекция отображения предмета при иной геометрии. Координаты костра и физических блоков не меняются.
+    model-offset: {x: 0.0, y: 0.0, z: 0.0}
+    yaw-offset: 0.0
+    # Физические схемы блоков находятся в siege-layouts.yml; меняйте их вместе с геометрией модели.
+    states:
+      siege_camp: loveclans:siege_camp
+      siege_camp_fortified_1: loveclans:siege_camp_fortified_1
+      siege_camp_fortified_2: loveclans:siege_camp_fortified_2
+      siege_camp_fortified_3: loveclans:siege_camp_fortified_3
+      siege_camp_destroyed: loveclans:siege_camp_destroyed
+      siege_tower: loveclans:siege_tower
+  # IV уровень после укрепления III. Стоимость = fortification.cost-per-level × 4, прочность = 1 + 4 × hits-per-level.
+  # Для новых башен обязательна доступная модель ItemsAdder; отключение не разрушает существующие башни.
+  tower:
+    enabled: true
+  # Осады сохраняются в БД раз в секунду и при переходах. Все боевые таймеры стоят на паузе без сервера/мира/чанков.
+  # Бочки — защищённый декор без доступа к инвентарю. Артефакты и возвраты поступают в клановое хранилище.
   pre-start-minutes: 15
   duration-minutes: 22
   camp-hold-minutes: 10

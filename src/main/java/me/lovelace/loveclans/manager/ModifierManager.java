@@ -50,6 +50,16 @@ public final class ModifierManager {
         return list.stream().filter(m -> !m.isExpired(now)).toList();
     }
 
+  public void acceptSiegeModifiers(List<UUID> removed, List<ClanModifier> added) {
+    modifiers.values().forEach(list -> list.removeIf(m -> removed.contains(m.id())));
+    for (ClanModifier modifier : added) {
+      List<ClanModifier> list =
+          modifiers.computeIfAbsent(modifier.clanId(), k -> new CopyOnWriteArrayList<>());
+      list.removeIf(m -> m.id().equals(modifier.id()));
+      list.add(modifier);
+    }
+  }
+
     public void addModifier(ClanModifier modifier) {
         modifiers.computeIfAbsent(modifier.clanId(), k -> new CopyOnWriteArrayList<>()).add(modifier);
         storage.saveModifierAsync(modifier);

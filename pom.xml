@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>me.lovelace</groupId>
-    <artifactId>LoveClans</artifactId> <version>1.5</version>
+    <artifactId>LoveClans</artifactId> <version>1.6.0</version>
     <packaging>jar</packaging>
 
     <name>LoveClans</name> <properties>

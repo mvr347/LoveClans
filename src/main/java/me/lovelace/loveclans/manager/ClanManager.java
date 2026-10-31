@@ -9,7 +9,6 @@ import dev.lovelace.lovecore.api.economy.TaxOracle;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.api.events.ClanClaimEvent;
 import me.lovelace.loveclans.api.events.ClanCreateEvent;
-import me.lovelace.loveclans.api.events.ClanDiplomacyChangeEvent;
 import me.lovelace.loveclans.api.events.ClanDisbandEvent;
 import me.lovelace.loveclans.api.events.ClanLevelUpEvent;
 import me.lovelace.loveclans.api.events.ClanMemberJoinEvent;
@@ -33,7 +32,6 @@ import me.lovelace.loveclans.util.BukkitBlockView;
 import me.lovelace.loveclans.util.ClanItemFactory;
 import me.lovelace.loveclans.util.InventorySerialization;
 import net.kyori.adventure.bossbar.BossBar;
-import net.kyori.adventure.title.Title;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -58,7 +56,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 
 public final class ClanManager {
     private final LoveClansPlugin plugin;
@@ -2027,29 +2024,39 @@ public final class ClanManager {
     public CompletableFuture<Long> depositChestMoneyAsync(Clan clan, UUID actorId, Player player, long amount) {
         if (clan == null || actorId == null || player == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor and player cannot be null."));
-        return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
+    return plugin
+        .supplySync(
+            () -> {
+              if (plugin.getSiegeManager().isSettling(clan.id()))
+                throw new IllegalStateException("siege.models.settling");
+              if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
                 throw new IllegalStateException("general.no-permission");
-            }
-            if (amount <= 0) {
+              }
+              if (amount <= 0) {
                 throw new IllegalStateException("chest.invalid-amount");
-            }
-            LoveEconomy economy = LoveCore.service(LoveEconomy.class)
-                    .orElseThrow(() -> new IllegalStateException("clan.creation-economy-unavailable"));
-            if (!economy.has(player, amount)) {
+              }
+              LoveEconomy economy =
+                  LoveCore.service(LoveEconomy.class)
+                      .orElseThrow(
+                          () -> new IllegalStateException("clan.creation-economy-unavailable"));
+              if (!economy.has(player, amount)) {
                 throw new IllegalStateException("chest.insufficient-items");
-            }
-            // The clan is credited below, so a failed charge must abort here instead of minting clan money.
-            if (!economy.charge(player, amount)) {
+              }
+              // The clan is credited below, so a failed charge must abort here instead of minting
+              // clan money.
+              if (!economy.charge(player, amount)) {
                 throw new IllegalStateException("chest.insufficient-items");
-            }
-            return null;
-        }).thenCompose(ignored -> {
-            long newBalance = clan.addChestMoney(amount);
-            return storage.updateClanChestMoney(clan.id(), newBalance)
-                    .thenCompose(v -> maybeUnlockChestAsync(clan))
-                    .thenApply(v -> newBalance);
-        });
+              }
+              return null;
+            })
+        .thenCompose(
+            ignored -> {
+              long newBalance = clan.addChestMoney(amount);
+              return storage
+                  .updateClanChestMoney(clan.id(), newBalance)
+                  .thenCompose(v -> maybeUnlockChestAsync(clan))
+                  .thenApply(v -> newBalance);
+            });
     }
 
     /**
@@ -2059,28 +2066,35 @@ public final class ClanManager {
     public CompletableFuture<Void> withdrawChestMoneyAsync(Clan clan, UUID actorId, Player player, long amount) {
         if (clan == null || actorId == null || player == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor and player cannot be null."));
-        return plugin.supplySync(() -> {
-            if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
+    return plugin
+        .supplySync(
+            () -> {
+              if (!clan.hasPermission(actorId, ClanPermission.BANK)) {
                 throw new IllegalStateException("general.no-permission");
-            }
-            if (clan.isChestTaxLocked()) {
+              }
+              if (clan.isChestTaxLocked()) {
                 throw new IllegalStateException("chest.tax-locked");
-            }
-            if (plugin.getRaidManager().isRaidDefender(clan.id())) {
+              }
+              if (plugin.getSiegeManager().isSettling(clan.id()))
+                throw new IllegalStateException("siege.models.settling");
+              if (plugin.getRaidManager().isRaidDefender(clan.id())) {
                 throw new IllegalStateException("raid.treasury-frozen");
-            }
-            if (amount <= 0) {
+              }
+              if (amount <= 0) {
                 throw new IllegalStateException("chest.invalid-amount");
-            }
-            if (clan.chestMoney() < amount) {
+              }
+              if (clan.chestMoney() < amount) {
                 throw new IllegalStateException("chest.insufficient-items");
-            }
-            LoveEconomy economy = LoveCore.service(LoveEconomy.class)
-                    .orElseThrow(() -> new IllegalStateException("clan.creation-economy-unavailable"));
-            clan.addChestMoney(-amount);
-            economy.give(player, amount);
-            return null;
-        }).thenCompose(ignored -> storage.updateClanChestMoney(clan.id(), clan.chestMoney()));
+              }
+              LoveEconomy economy =
+                  LoveCore.service(LoveEconomy.class)
+                      .orElseThrow(
+                          () -> new IllegalStateException("clan.creation-economy-unavailable"));
+              clan.addChestMoney(-amount);
+              economy.give(player, amount);
+              return null;
+            })
+        .thenCompose(ignored -> storage.updateClanChestMoney(clan.id(), clan.chestMoney()));
     }
 
     /**
@@ -2125,6 +2139,7 @@ public final class ClanManager {
         if (clan.isChestTaxLocked()) {
             return "chest.tax-locked";
         }
+    if (plugin.getSiegeManager().isSettling(clan.id())) return "siege.models.settling";
         if (plugin.getRaidManager().isRaidDefender(clan.id())) {
             return "raid.treasury-frozen";
         }
@@ -2249,6 +2264,7 @@ public final class ClanManager {
         long gracePeriodMs = Duration.ofDays(plugin.getConfig().getLong("clans.chest.tax.grace-period-days", 3L)).toMillis();
 
         for (Clan clan : new ArrayList<>(clansById.values())) {
+      if (plugin.getSiegeManager().isSettling(clan.id())) continue;
             if (!isTaxApplicable(clan)) {
                 continue;
             }
@@ -2319,16 +2335,29 @@ public final class ClanManager {
             return CompletableFuture.completedFuture(cached);
         }
         long versionAtStart = chestCacheVersion.getOrDefault(clan.id(), 0L);
-        return storage.loadChestContentsAsync(clan.id()).thenApply(bytes -> {
-            ItemStack[] contents = InventorySerialization.deserialize(bytes, CHEST_MAX_SIZE);
-            if (chestCacheVersion.getOrDefault(clan.id(), 0L) == versionAtStart) {
-                chestCache.put(clan.id(), contents);
-            }
-            return contents;
-        });
+    return storage
+        .loadChestContentsAsync(clan.id())
+        .thenCompose(
+            bytes ->
+                plugin.supplySync(
+                    () -> {
+                      ItemStack[] contents =
+                          InventorySerialization.deserialize(bytes, CHEST_MAX_SIZE);
+                      if (chestCacheVersion.getOrDefault(clan.id(), 0L) == versionAtStart) {
+                        chestCache.put(clan.id(), contents);
+                      }
+                      return contents;
+                    }));
+  }
+
+  public void invalidateSiegeChest(UUID clanId) {
+    chestCacheVersion.merge(clanId, 1L, Long::sum);
+    chestCache.remove(clanId);
     }
 
     public CompletableFuture<Void> saveChestContentsAsync(UUID clanId, ItemStack[] contents) {
+    if (!Bukkit.isPrimaryThread())
+      return plugin.supplySync(() -> saveChestContentsAsync(clanId, contents)).thenCompose(f -> f);
         chestCacheVersion.merge(clanId, 1L, Long::sum);
         chestCache.put(clanId, contents);
         Inventory temp = Bukkit.createInventory(null, CHEST_MAX_SIZE);

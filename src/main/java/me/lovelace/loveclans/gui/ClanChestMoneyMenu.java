@@ -3,7 +3,6 @@ package me.lovelace.loveclans.gui;
 import me.lovelace.loveclans.service.GuiSounds;
 import dev.lovelace.lovecore.api.LoveCore;
 import dev.lovelace.lovecore.api.economy.LoveEconomy;
-import net.kyori.adventure.text.Component;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanPermission;
@@ -227,6 +226,10 @@ public final class ClanChestMoneyMenu implements Listener {
             Bukkit.getScheduler().runTask(plugin, () -> player.closeInventory());
             return;
         }
+    if (plugin.getSiegeManager().isSettling(clan.id())) {
+      plugin.getMessages().send(player, "siege.models.settling");
+      return;
+    }
         action.accept(clan);
     }
 

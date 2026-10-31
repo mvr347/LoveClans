@@ -20,13 +20,35 @@ jobs:
           cache: maven
 
       - name: Build with Maven
-        run: mvn -B -DskipTests package
+        run: mvn -B verify
+
+      - name: Package siege release
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, shutil, zipfile
+          root = Path("target/release/LoveClans-1.6.0-Siege")
+          if root.exists():
+              shutil.rmtree(root)
+          root.mkdir(parents=True)
+          shutil.copy2("target/LoveClans.jar", root / "LoveClans.jar")
+          for name in ("config.yml", "siege-layouts.yml", "lang.yml"):
+              shutil.copy2(Path("src/main/resources") / name, root / name)
+          shutil.copy2("docs/SIEGE_ITEMSADDER_RU.md", root / "INSTALL_RU.md")
+          hashes = []
+          for path in sorted(root.rglob("*")):
+              if path.is_file():
+                  hashes.append(hashlib.sha256(path.read_bytes()).hexdigest() + "  " + path.relative_to(root).as_posix())
+          (root / "SHA256SUMS.txt").write_text("\n".join(hashes) + "\n", encoding="utf-8")
+          with zipfile.ZipFile("target/release/LoveClans-1.6.0-Siege.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+              for path in sorted(root.rglob("*")):
+                  if path.is_file():
+                      archive.write(path, path.relative_to(root).as_posix())
+          PY
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ github.event.repository.name }}
-          path: |
-            target/*.jar
-            !target/original-*.jar
+          path: target/release/LoveClans-1.6.0-Siege.zip
           if-no-files-found: error

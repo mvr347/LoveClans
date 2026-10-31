@@ -10,10 +10,7 @@ import me.lovelace.loveclans.model.siege.SiegeCamp;
 import me.lovelace.loveclans.model.siege.SiegeState;
 import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.util.ItemBuilder;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 
@@ -88,7 +85,7 @@ public final class CampFortifyMenu {
         inventory.setItem(25, GuiFrames.glassPane());
 
         int currentLevel = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
-        int maxLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.max-level", 3));
+    int maxLevel = plugin.getSiegeManager().maxFortificationLevel();
         int hitsRequired = plugin.getSiegeManager().hitsRequired(siegeId, campIndex);
         int hitsPerLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.hits-per-level", 1));
 
@@ -117,20 +114,32 @@ public final class CampFortifyMenu {
             // Paid from the clan treasury when the player may use it and it covers the price, otherwise from the wallet.
             long wallet = economy().map(eco -> eco.balance(player)).orElse(0L);
             long treasury = clan.hasPermission(player.getUniqueId(), ClanPermission.BANK) ? clan.chestMoney() : 0L;
-            inventory.setItem(SLOT_UPGRADE, ItemBuilder.of(Material.ANVIL)
-                    .name(plugin.getMessages().component("gui.camp-fortify.upgrade.name", ph, player))
-                    .lore(plugin.getMessages().components("gui.camp-fortify.upgrade.lore", ph, player))
-                    .lore(LoreBlocks.funds(plugin.getMessages(), player, cost, Math.max(wallet, treasury)))
-                    .lore(LoreBlocks.clicks(plugin.getMessages(), player, List.of(
-                            LoreBlocks.hint(plugin.getMessages(), LoreBlocks.Click.LEFT, "gui.camp-fortify.upgrade.action"))))
-                    .build());
+            ItemBuilder upgrade=ItemBuilder.head(ItemBuilder.HEAD_INFO)
+                    .name(plugin.getMessages().component("gui.camp-fortify.upgrade.name",ph,player))
+                    .lore(plugin.getMessages().components("gui.camp-fortify.upgrade.lore",ph,player))
+                    .lore(LoreBlocks.funds(plugin.getMessages(),player,cost,Math.max(wallet,treasury)));
+            if(currentLevel==3) {
+                upgrade.lore(plugin.getMessages().components("gui.camp-fortify.tower.lore",player));
+                if(!plugin.getSiegeManager().scenery().towerAvailable()) {
+                    upgrade.lore(LoreBlocks.blockedLines(plugin.getMessages(),player,"gui.style.status.unavailable",plugin.getMessages().components("gui.camp-fortify.tower.reason",player),LoreBlocks.hint(plugin.getMessages(),LoreBlocks.Click.LEFT,"gui.camp-fortify.upgrade.action")));
+                }else upgrade.lore(LoreBlocks.clicks(plugin.getMessages(),player,List.of(LoreBlocks.hint(plugin.getMessages(),LoreBlocks.Click.LEFT,"gui.camp-fortify.upgrade.action"))));
+            }else upgrade.lore(LoreBlocks.clicks(plugin.getMessages(),player,List.of(LoreBlocks.hint(plugin.getMessages(),LoreBlocks.Click.LEFT,"gui.camp-fortify.upgrade.action"))));
+            inventory.setItem(SLOT_UPGRADE,upgrade.build());
         } else {
-            inventory.setItem(SLOT_UPGRADE, ItemBuilder.of(Material.BARRIER)
-                    .name(plugin.getMessages().component("gui.camp-fortify.max.name", player))
-                    .lore(plugin.getMessages().components("gui.camp-fortify.max.lore", Map.of("max", String.valueOf(maxLevel)), player))
-                    .lore(LoreBlocks.separator(plugin.getMessages(), player))
-                    .lore(plugin.getMessages().component("gui.style.status.max", player))
-                    .build());
+      inventory.setItem(
+          SLOT_UPGRADE,
+          ItemBuilder.head(ItemBuilder.HEAD_INFO)
+              .name(plugin.getMessages().component("gui.camp-fortify.max.name", player))
+              .lore(
+                  plugin
+                      .getMessages()
+                      .components(
+                          "gui.camp-fortify.max.lore",
+                          Map.of("max", String.valueOf(maxLevel)),
+                          player))
+              .lore(LoreBlocks.separator(plugin.getMessages(), player))
+              .lore(plugin.getMessages().component("gui.style.status.max", player))
+              .build());
         }
 
         // Слот 26: Закрыть
@@ -174,57 +183,19 @@ public final class CampFortifyMenu {
                 return;
             }
 
-            int currentLevel = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
-            int maxLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.max-level", 3));
-            if (currentLevel >= maxLevel) {
-                plugin.getMessages().send(player, "gui.camp-fortify.message.maxed");
-                return;
-            }
-
-            long baseCost = plugin.getConfig().getLong("siege.fortification.cost-per-level", 200L);
-            long cost = baseCost * (currentLevel + 1);
-
-            boolean paid = false;
-            // Списываем сначала из казны клана, если есть права BANK
-            if (clan.hasPermission(player.getUniqueId(), ClanPermission.BANK) && clan.chestMoney() >= cost) {
-                clan.addChestMoney(-cost);
-                plugin.getStorage().updateClanChestMoney(clan.id(), clan.chestMoney());
-                paid = true;
-            } else {
-                // Иначе проверяем карман игрока
-                Optional<LoveEconomy> econ = economy();
-                if (econ.isPresent() && econ.get().has(player, cost)) {
-                    paid = econ.get().charge(player, cost);
-                }
-            }
-
-            if (!paid) {
-                plugin.getMessages().send(player, "gui.camp-fortify.message.not-enough-money", Map.of("cost", CoinFormat.format(cost)));
-                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
-                return;
-            }
-
-            if (plugin.getSiegeManager().fortifyCamp(siegeId, campIndex)) {
-                player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1f, 1f);
-                int newLevel = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
-                int hitsReq = plugin.getSiegeManager().hitsRequired(siegeId, campIndex);
-                plugin.getMessages().send(player, "gui.camp-fortify.message.fortified", Map.of("number", String.valueOf(campIndex + 1),
-                        "level", String.valueOf(newLevel), "hits", String.valueOf(hitsReq)));
-                open(player, siegeId, campIndex);
-            } else {
-                // The siege ended or the camp fell between the check and now: give the money back
-                econRefund(player, clan, cost);
-                plugin.getMessages().send(player, "siege.fortify.unavailable");
-            }
-        }
-    }
-
-    private void econRefund(Player player, Clan clan, long cost) {
-        if (clan.hasPermission(player.getUniqueId(), ClanPermission.BANK)) {
-            clan.addChestMoney(cost);
-            plugin.getStorage().updateClanChestMoney(clan.id(), clan.chestMoney());
-        } else {
-            economy().ifPresent(e -> e.give(player, cost));
+      plugin
+          .getSiegeManager()
+          .upgradeCamp(player, siegeId, campIndex, false)
+          .whenComplete(
+              (ok, error) ->
+                  plugin.runSync(
+                      () -> {
+                        if (error != null) plugin.sendOperationError(player, error);
+                        else if (Boolean.TRUE.equals(ok)
+                            && player.isOnline()
+                            && player.getOpenInventory().getTopInventory().getHolder() == holder)
+                          open(player, siegeId, campIndex);
+                      }));
         }
     }
 

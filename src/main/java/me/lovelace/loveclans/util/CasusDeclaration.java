@@ -33,17 +33,37 @@ public final class CasusDeclaration {
             }
         }
         Optional<ItemStack> scroll = taken;
-        start.get().whenComplete((result, failure) -> plugin.runSync(() -> {
-            if (failure == null) {
-                if (scroll.isPresent()) player.playSound(player.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 1.0f, 0.8f);
-                return;
-            }
-            scroll.ifPresent(item -> {
-                // A full inventory must not eat the scroll: whatever does not fit falls at the player's feet
-                Map<Integer, ItemStack> overflow = player.getInventory().addItem(item);
-                overflow.values().forEach(rest -> player.getWorld().dropItemNaturally(player.getLocation(), rest));
-            });
-            plugin.sendOperationError(player, failure);
-        }));
+    start
+        .get()
+        .whenComplete(
+            (result, failure) ->
+                plugin.runSync(
+                    () -> {
+                      if (failure == null) {
+                        if (result instanceof me.lovelace.loveclans.model.siege.ClanSiege siege
+                            && scroll.isPresent())
+                          plugin
+                              .getSiegeManager()
+                              .rememberDeclarationScroll(siege.id(), scroll.get());
+                        if (scroll.isPresent())
+                          player.playSound(
+                              player.getLocation(), Sound.ITEM_BOOK_PAGE_TURN, 1.0f, 0.8f);
+                        return;
+                      }
+                      scroll.ifPresent(
+                          item -> {
+                            // A full inventory must not eat the scroll: whatever does not fit falls
+                            // at the player's feet
+                            Map<Integer, ItemStack> overflow = player.getInventory().addItem(item);
+                            overflow
+                                .values()
+                                .forEach(
+                                    rest ->
+                                        player
+                                            .getWorld()
+                                            .dropItemNaturally(player.getLocation(), rest));
+                          });
+                      plugin.sendOperationError(player, failure);
+                    }));
     }
 }

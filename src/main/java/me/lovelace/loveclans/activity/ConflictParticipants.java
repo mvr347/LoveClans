@@ -24,6 +24,11 @@ public final class ConflictParticipants {
         return taken == null ? Map.of() : new HashMap<>(taken);
     }
 
+  public Map<UUID, UUID> snapshot(UUID conflictId) {
+    Map<UUID, UUID> current = byConflict.get(conflictId);
+    return current == null ? Map.of() : Map.copyOf(current);
+  }
+
     public void forget(UUID conflictId) {
         byConflict.remove(conflictId);
     }
