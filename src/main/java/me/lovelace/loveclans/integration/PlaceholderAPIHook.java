@@ -71,6 +71,16 @@ public final class PlaceholderAPIHook extends PlaceholderExpansion {
             case "influence" -> String.valueOf(clan.influence());
             case "rank" -> clan.member(player.getUniqueId()).map(ClanMember::rank).map(Enum::name).orElse("");
             case "rank_display" -> clan.member(player.getUniqueId()).map(ClanMember::rank).map(rank -> rank.displayName()).orElse("");
+            // Profile statistics (LoveEssential): the member's own numbers and the clan's war record.
+            case "joined" -> clan.member(player.getUniqueId()).map(member -> ClanStatValues.date(member.joinedAt())).orElse("");
+            case "contribution" -> clan.member(player.getUniqueId()).map(member -> String.valueOf(member.contribution())).orElse("");
+            case "upgrade_points" -> String.valueOf(clan.upgradePoints());
+            case "wars_won" -> String.valueOf(clan.warsWon());
+            case "wars_lost" -> String.valueOf(clan.warsLost());
+            case "sieges_won" -> String.valueOf(clan.siegesWon());
+            case "sieges_lost" -> String.valueOf(clan.siegesLost());
+            case "raids_won" -> String.valueOf(clan.raidsWon());
+            case "raids_lost" -> String.valueOf(clan.raidsLost());
             default -> "";
         };
     }
