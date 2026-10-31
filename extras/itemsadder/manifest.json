@@ -1,0 +1,119 @@
+{
+  "namespace": "loveclans",
+  "native_textures": true,
+  "custom_png_files": 0,
+  "models": [
+    {
+      "id": "loveclans:siege_camp",
+      "name": "Осадный лагерь",
+      "cubes": 64,
+      "textures": [
+        "minecraft:block/brown_wool",
+        "minecraft:block/cobblestone",
+        "minecraft:block/iron_block",
+        "minecraft:block/mossy_cobblestone",
+        "minecraft:block/red_wool",
+        "minecraft:block/spruce_log",
+        "minecraft:block/spruce_log_top",
+        "minecraft:block/white_wool"
+      ],
+      "texture_resolution": "16x16",
+      "model": "contents/loveclans/models/siege/siege_camp.json",
+      "source": "blockbench/siege_camp.bbmodel",
+      "original_sha256": "be1095c049a5da67ebbaec41901425407fd0ed2a743d4c62179935b60a174b88"
+    },
+    {
+      "id": "loveclans:siege_camp_fortified_1",
+      "name": "Укрепление I",
+      "cubes": 72,
+      "textures": [
+        "minecraft:block/brown_wool",
+        "minecraft:block/cobblestone",
+        "minecraft:block/iron_block",
+        "minecraft:block/mossy_cobblestone",
+        "minecraft:block/red_wool",
+        "minecraft:block/spruce_log",
+        "minecraft:block/spruce_log_top",
+        "minecraft:block/white_wool"
+      ],
+      "texture_resolution": "16x16",
+      "model": "contents/loveclans/models/siege/siege_camp_fortified_1.json",
+      "source": "blockbench/siege_camp_fortified_1.bbmodel",
+      "original_sha256": "a4681743feeb134872bf8a26e801a36928c8ec3c4d0c41790a058a50d28e637c"
+    },
+    {
+      "id": "loveclans:siege_camp_fortified_2",
+      "name": "Укрепление II",
+      "cubes": 157,
+      "textures": [
+        "minecraft:block/brown_wool",
+        "minecraft:block/cobblestone",
+        "minecraft:block/dark_oak_planks",
+        "minecraft:block/iron_block",
+        "minecraft:block/mossy_cobblestone",
+        "minecraft:block/red_wool",
+        "minecraft:block/spruce_log",
+        "minecraft:block/spruce_log_top",
+        "minecraft:block/white_wool"
+      ],
+      "texture_resolution": "16x16",
+      "model": "contents/loveclans/models/siege/siege_camp_fortified_2.json",
+      "source": "blockbench/siege_camp_fortified_2.bbmodel",
+      "original_sha256": "177240ce3845804dff8e2e3ac421e94135a46b5677396ffd555517bc75b4fa9f"
+    },
+    {
+      "id": "loveclans:siege_camp_fortified_3",
+      "name": "Укрепление III",
+      "cubes": 151,
+      "textures": [
+        "minecraft:block/cobblestone",
+        "minecraft:block/dark_oak_planks",
+        "minecraft:block/iron_block",
+        "minecraft:block/mossy_cobblestone",
+        "minecraft:block/red_wool",
+        "minecraft:block/spruce_log",
+        "minecraft:block/spruce_log_top",
+        "minecraft:block/spruce_planks"
+      ],
+      "texture_resolution": "16x16",
+      "model": "contents/loveclans/models/siege/siege_camp_fortified_3.json",
+      "source": "blockbench/siege_camp_fortified_3.bbmodel",
+      "original_sha256": "bd672421adf895ff00e95c075d970c17af9eec00f55c21eb5179a63f23b6ba3e"
+    },
+    {
+      "id": "loveclans:siege_camp_destroyed",
+      "name": "Разрушенный лагерь",
+      "cubes": 88,
+      "textures": [
+        "minecraft:block/black_wool",
+        "minecraft:block/coal_block",
+        "minecraft:block/cobblestone",
+        "minecraft:block/dark_oak_planks",
+        "minecraft:block/gray_wool",
+        "minecraft:block/mossy_cobblestone",
+        "minecraft:block/red_wool"
+      ],
+      "texture_resolution": "16x16",
+      "model": "contents/loveclans/models/siege/siege_camp_destroyed.json",
+      "source": "blockbench/siege_camp_destroyed.bbmodel",
+      "original_sha256": "e58714211f904d69a54709cdc3d595c59a9cf2a65c8b0e396f8c6d4a7149b152"
+    },
+    {
+      "id": "loveclans:siege_tower",
+      "name": "Осадная башня",
+      "cubes": 336,
+      "textures": [
+        "minecraft:block/dark_oak_planks",
+        "minecraft:block/iron_block",
+        "minecraft:block/netherite_block",
+        "minecraft:block/spruce_log",
+        "minecraft:block/spruce_log_top",
+        "minecraft:block/spruce_planks"
+      ],
+      "texture_resolution": "16x16",
+      "model": "contents/loveclans/models/siege/siege_tower.json",
+      "source": "blockbench/siege_tower.bbmodel",
+      "integration": "Walkable level IV; head/fixed scale 4; floor surfaces 1.5/4/6.5 blocks"
+    }
+  ]
+}

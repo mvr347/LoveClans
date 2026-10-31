@@ -202,8 +202,9 @@ public final class LoveClansPlugin extends JavaPlugin {
         clanManager.loadAsync()
                 .thenCompose(v -> diplomacyManager.loadAsync())
                 .thenCompose(v -> modifierManager.loadAsync())
-                .thenRunAsync(() -> {
-            // Conflicts are not persisted, but their pair cooldowns are: a restart must not reset them.
+                .thenCompose(v -> siegeManager.loadAsync())
+                .thenAcceptAsync(savedSieges -> {
+            // Sieges are restored below; the pair cooldowns of all conflict types survive restart.
             warManager.loadCooldowns();
             siegeManager.loadCooldowns();
             raidManager.loadCooldowns();
@@ -221,6 +222,7 @@ public final class LoveClansPlugin extends JavaPlugin {
                         }
                     }
                 }
+                siegeManager.restore(savedSieges);
                 LoveClansAPI.init(this);
 
                 registerCommands();
@@ -427,6 +429,7 @@ public final class LoveClansPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        mainCalls.close();
         HandlerList.unregisterAll(this);
         // Drop the cross-plugin callback so LoveTrades doesn't keep calling into a disabled
         // plugin's ClanManager/WarManager if LoveClans is reloaded without a full server restart.
@@ -458,9 +461,8 @@ public final class LoveClansPlugin extends JavaPlugin {
         if (diplomacyDriftService != null) {
             diplomacyDriftService.stop();
         }
-        // Конфликты живут только в памяти и нигде не сохраняются, поэтому их состояние в мире
-        // нужно свернуть здесь: иначе осадные костры остаются стоять навсегда, а выставленный
-        // войной флаг is_under_siege (он персистится уже на стороне LoveClaims) снять будет некому.
+        // Войны и набеги завершаются. Осады сохраняют остатки времени и журнал местности,
+        // чтобы возобновиться после запуска без дубликатов моделей и наград.
         if (warManager != null) {
             warManager.shutdown();
         }
@@ -722,31 +724,13 @@ public final class LoveClansPlugin extends JavaPlugin {
         return clanCommand;
     }
 
-    public CompletableFuture<Void> runSync(Runnable runnable) {
-        return supplySync(() -> {
-            runnable.run();
-            return null;
-        });
-    }
+    private final me.lovelace.loveclans.lifecycle.MainThreadGate mainCalls = new me.lovelace.loveclans.lifecycle.MainThreadGate(
+            Bukkit::isPrimaryThread, this::isEnabled, action -> Bukkit.getScheduler().runTask(this,action));
 
-    public <T> CompletableFuture<T> supplySync(Supplier<T> supplier) {
-        if (Bukkit.isPrimaryThread()) {
-            try {
-                return CompletableFuture.completedFuture(supplier.get());
-            } catch (Throwable throwable) {
-                return CompletableFuture.failedFuture(throwable);
-            }
-        }
-        CompletableFuture<T> future = new CompletableFuture<>();
-        Bukkit.getScheduler().runTask(this, () -> {
-            try {
-                future.complete(supplier.get());
-            } catch (Throwable throwable) {
-                future.completeExceptionally(throwable);
-            }
-        });
-        return future;
+    public CompletableFuture<Void> runSync(Runnable runnable) {
+        return supplySync(() -> { runnable.run(); return null; });
     }
+    public <T> CompletableFuture<T> supplySync(Supplier<T> supplier) { return mainCalls.call(supplier); }
 
     public void sendOperationError(CommandSender sender, Throwable throwable) {
         Throwable root = unwrap(throwable);
@@ -840,7 +824,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         registerNpcListeners(pluginManager);
         pluginManager.registerEvents(new DirectionEffectListener(this), this);
         pluginManager.registerEvents(new UpgradeListener(this), this);
-        pluginManager.registerEvents(new SiegeCampListener(this), this);
+        pluginManager.registerEvents(new me.lovelace.loveclans.siege.SiegeSceneryListener(this), this);
         pluginManager.registerEvents(new me.lovelace.loveclans.listener.GuildShieldListener(this), this);
     }
 

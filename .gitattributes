@@ -9,3 +9,7 @@
 
 # Binary files should be left untouched
 *.jar           binary
+
+# Preserve supplied model exports byte-for-byte on Windows and Linux.
+/extras/itemsadder/contents/loveclans/models/siege/*.json -text
+/extras/itemsadder/blockbench/*.bbmodel -text

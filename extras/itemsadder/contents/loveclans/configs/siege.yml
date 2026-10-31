@@ -1,0 +1,219 @@
+info:
+  namespace: loveclans
+items:
+  siege_camp:
+    display_name: "Осадный лагерь"
+    permission: loveclans.siege.siege_camp
+    resource:
+      material: PAPER
+      generate: false
+      model_path: siege/siege_camp
+    behaviours:
+      furniture:
+        entity: item_display
+        gravity: false
+        fixed_rotation: false
+        opposite_direction: true
+        solid: false
+        light_level: 0
+        hitbox:
+          width: 1
+          length: 1
+          height: 1
+        placeable_on:
+          floor: true
+          ceiling: false
+          walls: false
+        display_transformation:
+          transform: HEAD
+          translation:
+            x: 0
+            y: 0
+            z: 0
+          scale:
+            x: 1
+            y: 1
+            z: 1
+          render_size:
+            width: 5
+            height: 4
+  siege_camp_fortified_1:
+    display_name: "Укрепление I"
+    permission: loveclans.siege.siege_camp_fortified_1
+    resource:
+      material: PAPER
+      generate: false
+      model_path: siege/siege_camp_fortified_1
+    behaviours:
+      furniture:
+        entity: item_display
+        gravity: false
+        fixed_rotation: false
+        opposite_direction: true
+        solid: false
+        light_level: 0
+        hitbox:
+          width: 1
+          length: 1
+          height: 1
+        placeable_on:
+          floor: true
+          ceiling: false
+          walls: false
+        display_transformation:
+          transform: HEAD
+          translation:
+            x: 0
+            y: 0
+            z: 0
+          scale:
+            x: 1
+            y: 1
+            z: 1
+          render_size:
+            width: 5
+            height: 4
+  siege_camp_fortified_2:
+    display_name: "Укрепление II"
+    permission: loveclans.siege.siege_camp_fortified_2
+    resource:
+      material: PAPER
+      generate: false
+      model_path: siege/siege_camp_fortified_2
+    behaviours:
+      furniture:
+        entity: item_display
+        gravity: false
+        fixed_rotation: false
+        opposite_direction: true
+        solid: false
+        light_level: 0
+        hitbox:
+          width: 1
+          length: 1
+          height: 1
+        placeable_on:
+          floor: true
+          ceiling: false
+          walls: false
+        display_transformation:
+          transform: HEAD
+          translation:
+            x: 0
+            y: 0
+            z: 0
+          scale:
+            x: 1
+            y: 1
+            z: 1
+          render_size:
+            width: 5
+            height: 4
+  siege_camp_fortified_3:
+    display_name: "Укрепление III"
+    permission: loveclans.siege.siege_camp_fortified_3
+    resource:
+      material: PAPER
+      generate: false
+      model_path: siege/siege_camp_fortified_3
+    behaviours:
+      furniture:
+        entity: item_display
+        gravity: false
+        fixed_rotation: false
+        opposite_direction: true
+        solid: false
+        light_level: 0
+        hitbox:
+          width: 1
+          length: 1
+          height: 1
+        placeable_on:
+          floor: true
+          ceiling: false
+          walls: false
+        display_transformation:
+          transform: HEAD
+          translation:
+            x: 0
+            y: 0
+            z: 0
+          scale:
+            x: 1
+            y: 1
+            z: 1
+          render_size:
+            width: 5
+            height: 4
+  siege_camp_destroyed:
+    display_name: "Разрушенный лагерь"
+    permission: loveclans.siege.siege_camp_destroyed
+    resource:
+      material: PAPER
+      generate: false
+      model_path: siege/siege_camp_destroyed
+    behaviours:
+      furniture:
+        entity: item_display
+        gravity: false
+        fixed_rotation: false
+        opposite_direction: true
+        solid: false
+        light_level: 0
+        hitbox:
+          width: 1
+          length: 1
+          height: 1
+        placeable_on:
+          floor: true
+          ceiling: false
+          walls: false
+        display_transformation:
+          transform: HEAD
+          translation:
+            x: 0
+            y: 0
+            z: 0
+          scale:
+            x: 1
+            y: 1
+            z: 1
+          render_size:
+            width: 5
+            height: 4
+  siege_tower:
+    display_name: "Осадная башня"
+    permission: loveclans.siege.siege_tower
+    resource:
+      material: PAPER
+      generate: false
+      model_path: siege/siege_tower
+    behaviours:
+      furniture:
+        entity: item_display
+        gravity: false
+        fixed_rotation: false
+        opposite_direction: true
+        solid: false
+        light_level: 0
+        hitbox:
+          width: 1
+          length: 1
+          height: 1
+        placeable_on:
+          floor: true
+          ceiling: false
+          walls: false
+        display_transformation:
+          transform: HEAD
+          translation:
+            x: 0
+            y: 0
+            z: 0
+          scale:
+            x: 1
+            y: 1
+            z: 1
+          render_size:
+            width: 9
+            height: 10

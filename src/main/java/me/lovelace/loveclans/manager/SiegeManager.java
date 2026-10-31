@@ -3,13 +3,10 @@ package me.lovelace.loveclans.manager;
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.ClanMember;
-import me.lovelace.loveclans.model.ClanRank;
 import me.lovelace.loveclans.model.ClanTerritory;
 import me.lovelace.loveclans.model.DiplomacyRelation;
 import me.lovelace.loveclans.model.TerritoryKey;
-import me.lovelace.loveclans.model.artifact.ArtifactType;
 import me.lovelace.loveclans.model.history.ConflictKind;
-import me.lovelace.loveclans.model.history.ConflictRecord;
 import me.lovelace.loveclans.model.siege.ClanSiege;
 import me.lovelace.loveclans.model.siege.SiegeCamp;
 import me.lovelace.loveclans.model.siege.SiegeResult;
@@ -25,7 +22,6 @@ import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.Sound;
 import org.bukkit.World;
-import org.bukkit.block.Campfire;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -49,6 +45,23 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public final class SiegeManager {
     private final LoveClansPlugin plugin;
+  private final me.lovelace.loveclans.siege.SiegeRepository repository;
+  private final me.lovelace.loveclans.siege.SiegeScenery scenery;
+  private final Set<UUID> pending = new HashSet<>();
+  private final Set<UUID> checkpointing = new HashSet<>();
+  private final Map<UUID, Long> revisions = new HashMap<>();
+  private final Map<UUID, String> outcomes = new ConcurrentHashMap<>();
+  private final Set<UUID> storagePaused = new HashSet<>();
+  private final Set<UUID> settled = new HashSet<>();
+  private long previousTick = System.currentTimeMillis();
+  private final Map<UUID, Long> fees = new HashMap<>();
+  private final Map<UUID, String> refundScrolls = new HashMap<>();
+  private long parcelCheck;
+  private boolean parcelBusy;
+  private final Map<UUID, UpgradeOperation> upgrades = new HashMap<>();
+  private boolean closing;
+  private boolean ready;
+
     private final Map<UUID, ClanSiege> activeSieges = new ConcurrentHashMap<>();
     private final Map<AbstractMap.SimpleImmutableEntry<UUID, UUID>, Long> siegeCooldowns = new ConcurrentHashMap<>();
 
@@ -72,6 +85,9 @@ public final class SiegeManager {
 
     public SiegeManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
+    this.repository =
+        new me.lovelace.loveclans.siege.SiegeRepository(plugin.getDatabaseManager().dataSource());
+    this.scenery = new me.lovelace.loveclans.siege.SiegeScenery(plugin);
     }
 
     public void loadCooldowns() {
@@ -140,13 +156,20 @@ public final class SiegeManager {
     /** True when {@link #fortifyCamp} would succeed: siege running, camp standing, level below the maximum. */
     public boolean canFortify(UUID siegeId, int campIndex) {
         ClanSiege siege = activeSieges.get(siegeId);
-        if (siege == null || siege.state() != SiegeState.ACTIVE || campIndex < 0 || campIndex >= siege.camps().size()) {
+    if (closing
+        || outcomes.containsKey(siegeId)
+        || pending.contains(siegeId)
+        || storagePaused.contains(siegeId)
+        || siege == null
+        || siege.state() != SiegeState.ACTIVE
+        || campIndex < 0
+        || campIndex >= siege.camps().size()) {
             return false;
         }
         if (siege.camps().get(campIndex).broken()) {
             return false;
         }
-        int max = Math.max(1, plugin.getConfig().getInt("siege.fortification.max-level", 3));
+    int max = maxFortificationLevel();
         return fortificationLevel(siegeId, campIndex) < max;
     }
 
@@ -155,13 +178,18 @@ public final class SiegeManager {
         if (!canFortify(siegeId, campIndex)) {
             return false;
         }
-        int max = Math.max(1, plugin.getConfig().getInt("siege.fortification.max-level", 3));
+    int max = maxFortificationLevel();
         Map<Integer, Integer> levels = campFortification.computeIfAbsent(siegeId, id -> new ConcurrentHashMap<>());
         int current = levels.getOrDefault(campIndex, 0);
         if (current >= max) {
             return false;
         }
+    var plan = scenery.site(siegeId, campIndex);
+    if (current + 1 == 4 && !scenery.towerAvailable()) return false;
+    if (plan != null && !scenery.loaded(plan)) return false;
         levels.put(campIndex, current + 1);
+    if (plan != null) scenery.render(plan, current + 1, false);
+    checkpoint(siegeId);
         return true;
     }
 
@@ -177,36 +205,63 @@ public final class SiegeManager {
 
     public CompletableFuture<ClanSiege> startSiegeAsync(Clan attacker, Clan defender, TerritoryKey territoryKey, boolean force) {
         if (force) {
-            return plugin.supplySync(() -> startSiegeInternal(attacker, defender, territoryKey, true));
+      return plugin
+          .supplySync(() -> startSiegeInternal(attacker, defender, territoryKey, true))
+          .thenCompose(this::persistDeclaration);
         }
 
-        // Асинхронно проверяем недельные лимиты осад из архива
-        return plugin.getConflictArchive().historyOf(attacker.id(), 50).thenCompose(atkHistory ->
-                plugin.getConflictArchive().historyOf(defender.id(), 50).thenCompose(defHistory ->
-                        plugin.supplySync(() -> {
-                            long now = System.currentTimeMillis();
-                            long weekAgo = now - 7L * 24 * 3600_000L;
-                            int maxAttacks = plugin.getConfig().getInt("siege.max-sieges-per-clan-per-week", 2);
-                            int maxDefends = plugin.getConfig().getInt("siege.max-times-sieged-per-week", 2);
+    // Асинхронно проверяем недельные лимиты осад из архива
+    return plugin
+        .getConflictArchive()
+        .historyOf(attacker.id(), 50)
+        .thenCompose(
+            atkHistory ->
+                plugin
+                    .getConflictArchive()
+                    .historyOf(defender.id(), 50)
+                    .thenCompose(
+                        defHistory ->
+                            plugin.supplySync(
+                                () -> {
+                                  long now = System.currentTimeMillis();
+                                  long weekAgo = now - 7L * 24 * 3600_000L;
+                                  int maxAttacks =
+                                      plugin
+                                          .getConfig()
+                                          .getInt("siege.max-sieges-per-clan-per-week", 2);
+                                  int maxDefends =
+                                      plugin
+                                          .getConfig()
+                                          .getInt("siege.max-times-sieged-per-week", 2);
 
-                            long recentAttacks = atkHistory.stream()
-                                    .filter(r -> r.kind() == ConflictKind.SIEGE && r.attackerClanId().equals(attacker.id()) && r.endedAt() >= weekAgo)
-                                    .count();
-                            if (recentAttacks >= maxAttacks) {
-                                throw new IllegalStateException("siege.weekly-attacker-limit");
-                            }
+                                  long recentAttacks =
+                                      atkHistory.stream()
+                                          .filter(
+                                              r ->
+                                                  r.kind() == ConflictKind.SIEGE
+                                                      && r.attackerClanId().equals(attacker.id())
+                                                      && r.endedAt() >= weekAgo)
+                                          .count();
+                                  if (recentAttacks >= maxAttacks) {
+                                    throw new IllegalStateException("siege.weekly-attacker-limit");
+                                  }
 
-                            long recentDefends = defHistory.stream()
-                                    .filter(r -> r.kind() == ConflictKind.SIEGE && r.defenderClanId().equals(defender.id()) && r.endedAt() >= weekAgo)
-                                    .count();
-                            if (recentDefends >= maxDefends) {
-                                throw new IllegalStateException("siege.weekly-defender-limit");
-                            }
+                                  long recentDefends =
+                                      defHistory.stream()
+                                          .filter(
+                                              r ->
+                                                  r.kind() == ConflictKind.SIEGE
+                                                      && r.defenderClanId().equals(defender.id())
+                                                      && r.endedAt() >= weekAgo)
+                                          .count();
+                                  if (recentDefends >= maxDefends) {
+                                    throw new IllegalStateException("siege.weekly-defender-limit");
+                                  }
 
-                            return startSiegeInternal(attacker, defender, territoryKey, false);
-                        })
-                )
-        );
+                                  return startSiegeInternal(
+                                      attacker, defender, territoryKey, false);
+                                })))
+        .thenCompose(this::persistDeclaration);
     }
 
     private ClanSiege startSiegeInternal(Clan attacker, Clan defender, TerritoryKey territoryKey, boolean force) {
@@ -216,6 +271,7 @@ public final class SiegeManager {
         if (attacker.id().equals(defender.id())) {
             throw new IllegalStateException("war.cannot-target-self");
         }
+    if (!ready || closing) throw new IllegalStateException("siege.models.loading");
         if (!force) {
             if (!attacker.hasCapital()) {
                 throw new IllegalStateException("siege.attacker-no-capital");
@@ -293,6 +349,9 @@ public final class SiegeManager {
         ClanSiege siege = new ClanSiege(UUID.randomUUID(), attacker.id(), defender.id(), territoryKey,
                 now, now + preStartDuration().toMillis(), SiegeState.PREPARING, List.of());
         activeSieges.put(siege.id(), siege);
+    fees.put(
+        siege.id(),
+        force ? 0 : Math.max(0, plugin.getConfig().getLong("siege.declare-treasury-fee", 500)));
         siegeCooldowns.put(cooldownKey, now);
         plugin.getConflictCooldownStore().saveAsync(me.lovelace.loveclans.storage.ConflictCooldownStore.SIEGE, cooldownKey, now);
 
@@ -377,7 +436,14 @@ public final class SiegeManager {
         }
 
         long now = System.currentTimeMillis();
-        List<SiegeCamp> camps = spawnCamps(siege.id(), center, now);
+    List<SiegeCamp> camps;
+    try {
+      camps = spawnCamps(siege.id(), center, now);
+    } catch (RuntimeException failure) {
+      plugin.getLogger().warning("Осада не размещена: " + failure.getMessage());
+      cancelPlacement(siege, attacker);
+      return;
+    }
         ClanSiege activated = siege.activate(now + siegeDuration(attacker).toMillis(), camps);
         activeSieges.put(activated.id(), activated);
 
@@ -385,31 +451,71 @@ public final class SiegeManager {
         lastHoldTick.put(activated.id(), now);
         allBrokenSince.remove(activated.id());
 
-        // Создаём активный BossBar
-        BossBar activeBar = BossBar.bossBar(
-                formatActiveBossBarTitle(attacker, defender, camps.size(), camps.size(), false, 0L, siegeDuration(attacker).toMillis()),
-                0.0f,
-                BossBar.Color.YELLOW,
-                BossBar.Overlay.PROGRESS
-        );
-        activeBossBars.put(activated.id(), activeBar);
-        java.util.stream.Stream.concat(onlineMembers(attacker), onlineMembers(defender))
-                .forEach(p -> p.showBossBar(activeBar));
+    pending.add(activated.id());
+    repository
+        .save(snapshot(activated.id()))
+        .whenComplete(
+            (ignored, failure) ->
+                onMain(
+                    () -> {
+                      pending.remove(activated.id());
+                      if (failure != null) {
+                        storageFailure(activated.id(), failure);
+                        return;
+                      }
+                      if (!activeSieges.containsKey(activated.id())) return;
+                      for (var plan : scenery.sites(activated.id())) scenery.render(plan, 0, false);
+                      // Создаём активный BossBar
+                      BossBar activeBar =
+                          BossBar.bossBar(
+                              formatActiveBossBarTitle(
+                                  attacker,
+                                  defender,
+                                  camps.size(),
+                                  camps.size(),
+                                  false,
+                                  0L,
+                                  siegeDuration(attacker).toMillis()),
+                              0.0f,
+                              BossBar.Color.YELLOW,
+                              BossBar.Overlay.PROGRESS);
+                      activeBossBars.put(activated.id(), activeBar);
+                      java.util.stream.Stream.concat(
+                              onlineMembers(attacker), onlineMembers(defender))
+                          .forEach(p -> p.showBossBar(activeBar));
 
-        // Раздаём компасы
-        distributeSiegeCompasses(activated, attacker, defender, center);
+                      // Раздаём компасы
+                      distributeSiegeCompasses(activated, attacker, defender, center);
 
-        // Звуки и оповещения
-        onlineMembers(attacker).forEach(p -> {
-            p.playSound(p.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_0, 1.2f, 1.0f);
-            plugin.getMessages().sendImportantTitle(p, "siege.start.attacker-title", "siege.start.attacker-subtitle",
-                    Map.of("tag", defender.tag(), "color", defender.tagColor()));
-        });
-        onlineMembers(defender).forEach(p -> {
-            p.playSound(p.getLocation(), Sound.BLOCK_BELL_USE, 1.2f, 0.8f);
-            plugin.getMessages().sendImportantTitle(p, "siege.start.defender-title", "siege.start.defender-subtitle",
-                    Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
-        });
+                      // Звуки и оповещения
+                      onlineMembers(attacker)
+                          .forEach(
+                              p -> {
+                                p.playSound(
+                                    p.getLocation(), Sound.ITEM_GOAT_HORN_SOUND_0, 1.2f, 1.0f);
+                                plugin
+                                    .getMessages()
+                                    .sendImportantTitle(
+                                        p,
+                                        "siege.start.attacker-title",
+                                        "siege.start.attacker-subtitle",
+                                        Map.of(
+                                            "tag", defender.tag(), "color", defender.tagColor()));
+                              });
+                      onlineMembers(defender)
+                          .forEach(
+                              p -> {
+                                p.playSound(p.getLocation(), Sound.BLOCK_BELL_USE, 1.2f, 0.8f);
+                                plugin
+                                    .getMessages()
+                                    .sendImportantTitle(
+                                        p,
+                                        "siege.start.defender-title",
+                                        "siege.start.defender-subtitle",
+                                        Map.of(
+                                            "tag", attacker.tag(), "color", attacker.tagColor()));
+                              });
+                    }));
     }
 
     private Location territoryCenter(ClanTerritory territory) {
@@ -428,32 +534,18 @@ public final class SiegeManager {
     }
 
     private List<SiegeCamp> spawnCamps(UUID siegeId, Location center, long now) {
-        int min = plugin.getConfig().getInt("siege.camp-count-min", 3);
+    int min = Math.max(1, plugin.getConfig().getInt("siege.camp-count-min", 3));
         int max = Math.max(min, plugin.getConfig().getInt("siege.camp-count-max", 4));
-        int count = min + (max > min ? ThreadLocalRandom.current().nextInt(max - min + 1) : 0);
-        double distance = plugin.getConfig().getInt("siege.camp-distance-blocks", 50);
-
-        List<SiegeCamp> camps = new ArrayList<>(count);
-        double baseAngle = ThreadLocalRandom.current().nextDouble(0, 360);
-        for (int i = 0; i < count; i++) {
-            double angle = Math.toRadians(baseAngle + (360.0 / count) * i + ThreadLocalRandom.current().nextDouble(-10, 10));
-            int x = center.getBlockX() + (int) Math.round(Math.cos(angle) * distance);
-            int z = center.getBlockZ() + (int) Math.round(Math.sin(angle) * distance);
-            World world = center.getWorld();
-            int y = world.getHighestBlockYAt(x, z) + 1;
-            camps.add(placeCamp(siegeId, i, world, x, y, z, now));
-        }
-        return camps;
+    int count = ThreadLocalRandom.current().nextInt(min, max + 1);
+    int distance = Math.max(10, plugin.getConfig().getInt("siege.camp-distance-blocks", 50));
+    var plans = scenery.plan(siegeId, center, count, distance, towerEnabled());
+    plans.forEach(scenery::register);
+    return plans.stream().map(me.lovelace.loveclans.siege.SiegeScenery.Plan::camp).toList();
     }
 
     private SiegeCamp placeCamp(UUID siegeId, int index, World world, int x, int y, int z, long standingSince) {
-        var block = world.getBlockAt(x, y, z);
-        block.setType(Material.CAMPFIRE);
-        if (block.getState() instanceof Campfire campfire) {
-            campfire.getPersistentDataContainer().set(ClanItemFactory.SIEGE_ID_KEY, PersistentDataType.STRING, siegeId.toString());
-            campfire.getPersistentDataContainer().set(ClanItemFactory.SIEGE_CAMP_INDEX_KEY, PersistentDataType.INTEGER, index);
-            campfire.update(true);
-        }
+    var plan = scenery.site(siegeId, index);
+    if (plan != null) scenery.render(plan, fortificationLevel(siegeId, index), false);
         return new SiegeCamp(index, world.getName(), x, y, z, standingSince, false, 0L);
     }
 
@@ -470,7 +562,14 @@ public final class SiegeManager {
 
     public boolean breakCamp(UUID siegeId, int campIndex) {
         ClanSiege siege = activeSieges.get(siegeId);
-        if (siege == null || siege.state() != SiegeState.ACTIVE || campIndex < 0 || campIndex >= siege.camps().size()) {
+    if (closing
+        || outcomes.containsKey(siegeId)
+        || pending.contains(siegeId)
+        || storagePaused.contains(siegeId)
+        || siege == null
+        || siege.state() != SiegeState.ACTIVE
+        || campIndex < 0
+        || campIndex >= siege.camps().size()) {
             return false;
         }
         SiegeCamp camp = siege.camps().get(campIndex);
@@ -491,6 +590,7 @@ public final class SiegeManager {
                                 "hits", String.valueOf(accumulated),
                                 "required", String.valueOf(required)));
                     }));
+      checkpoint(siegeId);
             return true;
         }
 
@@ -504,7 +604,12 @@ public final class SiegeManager {
         long now = System.currentTimeMillis();
         ClanSiege updated = siege.withCamp(camp.brokenNow(now, campRespawnDuration().toMillis()));
         activeSieges.put(siegeId, updated);
-        removeCampBlock(camp);
+    var plan = scenery.site(siegeId, campIndex);
+    if (plan != null) {
+      scenery.evacuate(plan);
+      scenery.render(plan, 0, true);
+    } else removeCampBlock(camp);
+    checkpoint(siegeId);
 
         // Взрывной визуальный и аудио эффект сноса
         Location campLoc = camp.toLocation();
@@ -629,204 +734,136 @@ public final class SiegeManager {
     }
 
     private void endSiege(ClanSiege siege, SiegeResult result) {
-        // Read before the maps are cleared: how far the attackers got decides if a lost siege was a near thing.
-        long requiredHoldMs = Math.max(1L, campHoldDuration(siege.defenderClanId()).toMillis());
-        double holdFraction = Math.min(1.0, holdProgress.getOrDefault(siege.id(), 0L) / (double) requiredHoldMs);
-        activeSieges.remove(siege.id());
-        campFortification.remove(siege.id());
-        campHits.remove(siege.id());
-        holdProgress.remove(siege.id());
-        allBrokenSince.remove(siege.id());
-        lastHoldTick.remove(siege.id());
-        lastCompassTick.remove(siege.id());
-        holdHalfWarned.remove(siege.id());
-        holdNearWarned.remove(siege.id());
-        wipedWarned.remove(siege.id());
+    if (outcomes.containsKey(siege.id()) || pending.contains(siege.id())) return;
+    outcomes.put(siege.id(), result.name());
+    pending.add(siege.id());
+    repository
+        .save(snapshot(siege.id()))
+        .whenComplete(
+            (v, failure) ->
+                onMain(
+                    () -> {
+                      pending.remove(siege.id());
+                      if (failure != null) {
+                        outcomes.remove(siege.id());
+                        storageFailure(siege.id(), failure);
+                        return;
+                      }
+                      settle(siege, result);
+                    }));
+  }
 
-        Optional<SiegeClans> clansOpt = resolveClans(siege);
-        clearPendingPhase(siege.id(), clansOpt.orElse(null));
-        clearActiveBossBar(siege.id(), clansOpt.orElse(null));
-
-        for (SiegeCamp camp : siege.camps()) {
-            if (!camp.broken()) {
-                removeCampBlock(camp);
-            }
-        }
+  private void finishWorld(ClanSiege siege) {
+    scenery.remove(siege.id());
+    clearPendingPhase(siege.id(), resolveClans(siege).orElse(null));
+    clearActiveBossBar(siege.id(), resolveClans(siege).orElse(null));
         removeSiegeCompasses(siege);
-
-        if (clansOpt.isEmpty()) {
-            return;
-        }
-        Clan attacker = clansOpt.get().attacker();
-        Clan defender = clansOpt.get().defender();
-
-        if (result == SiegeResult.CANCELLED) {
-            plugin.getConflictParticipants().forget(siege.id());
-            return;
-        }
-        me.lovelace.loveclans.activity.ConflictEvents.resolved(plugin, me.lovelace.loveclans.model.history.ConflictKind.SIEGE,
-                siege.id(), siege.attackerClanId(), siege.defenderClanId(),
-                result == SiegeResult.ATTACKER_WIN ? me.lovelace.loveclans.api.events.ConflictOutcome.ATTACKER_WIN
-                        : me.lovelace.loveclans.api.events.ConflictOutcome.DEFENDER_WIN,
-                // A lost siege is close when the attackers had nearly held the camps long enough; a won one is decisive.
-                result == SiegeResult.ATTACKER_WIN ? 1.0 : 1.0 - holdFraction);
-
-        Clan winner = result == SiegeResult.ATTACKER_WIN ? attacker : defender;
-        Clan loser = result == SiegeResult.ATTACKER_WIN ? defender : attacker;
-
-        if (plugin.getDiplomacyManager() != null) {
-            plugin.getDiplomacyManager().onSiegeVictory(winner, loser);
-        }
-
-        if (result == SiegeResult.ATTACKER_WIN) {
-            onlineMembers(attacker).forEach(p -> {
-                p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.2f, 1.0f);
-                plugin.getMessages().sendImportantTitle(p, "siege.end.victory-title", "siege.end.victory-subtitle",
-                        Map.of("tag", defender.tag(), "color", defender.tagColor()));
-            });
-            onlineMembers(defender).forEach(p -> {
-                p.playSound(p.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.8f, 0.8f);
-                plugin.getMessages().sendImportantTitle(p, "siege.end.defeat-title", "siege.end.defeat-subtitle",
-                        Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
-            });
-        } else {
-            onlineMembers(defender).forEach(p -> {
-                p.playSound(p.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.2f, 1.0f);
-                plugin.getMessages().sendImportantTitle(p, "siege.end.repelled-title", "siege.end.repelled-subtitle",
-                        Map.of("tag", attacker.tag(), "color", attacker.tagColor()));
-            });
-            onlineMembers(attacker).forEach(p -> {
-                p.playSound(p.getLocation(), Sound.BLOCK_ANVIL_LAND, 0.8f, 0.8f);
-                plugin.getMessages().sendImportantTitle(p, "siege.end.failed-title", "siege.end.failed-subtitle",
-                        Map.of("tag", defender.tag(), "color", defender.tagColor()));
-            });
-        }
-
-        long baseExp = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
-        double multiplier = result == SiegeResult.ATTACKER_WIN
-                ? plugin.getConfig().getDouble("siege.win-exp-multiplier", 0.75)
-                : plugin.getConfig().getDouble("siege.defend-win-exp-multiplier", 0.45);
-        long rewardExp = Math.round(baseExp * multiplier);
-
-        plugin.getClanManager().addExperienceAsync(winner, rewardExp);
-        plugin.getClanManager().recordSiegeResultAsync(winner, true);
-        plugin.getClanManager().recordSiegeResultAsync(loser, false);
-
-        if (result == SiegeResult.ATTACKER_WIN) {
-            // Мгновенный трофей: казна + предметы (siege-justify-rewards.md §2.2)
-            transferInstantSpoils(attacker, defender);
-
-            // Репарации: 3 дня (newsieges.md §4.1, siege-justify-rewards.md §2.3)
-            int repDays = plugin.getConfig().getInt("siege.reparations.duration-days", 3);
-            int baseDaily = plugin.getConfig().getInt("siege.reparations.daily-amount", 300);
-            int perLevel = plugin.getConfig().getInt("siege.reparations.daily-per-defender-level", 40);
-            int minDaily = plugin.getConfig().getInt("siege.reparations.min-daily", 100);
-            int maxDaily = plugin.getConfig().getInt("siege.reparations.max-daily", 2000);
-            long dailyAmount = Math.max(minDaily, Math.min(maxDaily, (long) baseDaily + (long) defender.level() * perLevel));
-            plugin.getModifierManager().grantReparations(defender.id(), attacker.id(), repDays, dailyAmount);
-
-            // Модификатор SIEGE_PRESSURE на защитника
-            plugin.getModifierManager().grantSiegePressure(defender.id(), 3);
-
-            // Casus мести защитнику
-            plugin.getModifierManager().grantJustCasusBoth(defender.id(), attacker.id(), "revenge_siege");
-
-            if (plugin.getConfig().getBoolean("siege.reward-artifact", true)) {
-                grantRandomArtifact(attacker);
-            }
-        } else {
-            // Осада отбита: бафф SIEGE_REPELLED защитнику на 2 дня
-            plugin.getModifierManager().grantSiegeRepelled(defender.id(), 2);
-        }
-
-        plugin.getConflictArchive().record(ConflictKind.SIEGE, siege.attackerClanId(), siege.defenderClanId(),
-                winner.id(), 0, 0, siege.startedAt());
     }
 
-    private void transferInstantSpoils(Clan attacker, Clan defender) {
-        double basePercent = plugin.getConfig().getDouble("siege.instant-loot.money-percent-base", 20.0);
-        double perLevel = plugin.getConfig().getDouble("siege.instant-loot.money-percent-per-level", 0.5);
-        double cap = plugin.getConfig().getDouble("siege.instant-loot.money-percent-cap", 35.0);
-        double percent = Math.min(cap, basePercent + defender.level() * perLevel);
-
-        long moneyAmount = Math.round(defender.chestMoney() * (percent / 100.0));
-        if (moneyAmount > 0) {
-            defender.addChestMoney(-moneyAmount);
-            attacker.addChestMoney(moneyAmount);
-            plugin.getStorage().updateClanChestMoney(defender.id(), defender.chestMoney());
-            plugin.getStorage().updateClanChestMoney(attacker.id(), attacker.chestMoney());
-
-            Map<String, String> placeholders = Map.of(
-                    "amount", CoinFormat.format(moneyAmount),
-                    "percent", String.valueOf((int) Math.round(percent)));
-            onlineMembers(attacker).forEach(p -> plugin.getMessages().send(p, "siege.chest-spoils-attacker", placeholders));
-            onlineMembers(defender).forEach(p -> plugin.getMessages().send(p, "siege.chest-spoils-defender", placeholders));
+  private void settle(ClanSiege siege, SiegeResult result) {
+    if (!pending.add(siege.id())) return;
+    if (result == SiegeResult.CANCELLED || resolveClans(siege).isEmpty()) {
+      pending.remove(siege.id());
+      settled.add(siege.id());
+      finishWorld(siege);
+      plugin.getConflictParticipants().forget(siege.id());
+      return;
         }
-
-        // Share of the defender's stored stacks that moves over. A defender holding the chest menu open would write
-        // his stale snapshot over the change on close, so such menus are closed first.
-        onlineMembers(defender).forEach(p -> {
-            org.bukkit.inventory.Inventory top = p.getOpenInventory().getTopInventory();
-            if (top.getType() == org.bukkit.event.inventory.InventoryType.CHEST && top.getHolder() == null) p.closeInventory();
-        });
-        double itemPercent = plugin.getConfig().getDouble("siege.instant-loot.item-slot-percent", 20.0);
-        plugin.getClanManager().loadChestContentsAsync(defender).thenAccept(defContents ->
-                plugin.getClanManager().loadChestContentsAsync(attacker).thenAccept(atkContents ->
-                        plugin.runSync(() -> moveSpoilItems(attacker, defender, defContents, atkContents, itemPercent))));
-    }
-
-    /**
-     * Main thread. Works on copies and only touches the unlocked rows of both chests. A stack the attacker has no
-     * room for stays with the defender instead of disappearing.
-     */
-    private void moveSpoilItems(Clan attacker, Clan defender, ItemStack[] defSource, ItemStack[] atkSource, double itemPercent) {
-        if (defSource == null || atkSource == null) return;
-        if (plugin.getClanManager().isItemChestLocked(defender.id()) || plugin.getClanManager().isItemChestLocked(attacker.id())) {
-            plugin.getLogger().warning("Siege spoils: a clan chest was in use, items were not moved.");
-            return;
-        }
-        ItemStack[] def = defSource.clone();
-        ItemStack[] atk = atkSource.clone();
-        int defLimit = me.lovelace.loveclans.gui.ChestLayout.unlockedSlots(defender.chestRows(), def.length);
-        int atkLimit = me.lovelace.loveclans.gui.ChestLayout.unlockedSlots(attacker.chestRows(), atk.length);
-        List<Integer> occupied = new ArrayList<>();
-        for (int i = 0; i < defLimit; i++) {
-            if (def[i] != null && def[i].getType() != Material.AIR) occupied.add(i);
-        }
-        int toTake = (int) Math.round(occupied.size() * (itemPercent / 100.0));
-        if (toTake <= 0) return;
-        Collections.shuffle(occupied);
-        boolean moved = false;
-        for (int n = 0; n < toTake; n++) {
-            int slot = occupied.get(n);
-            for (int a = 0; a < atkLimit; a++) {
-                if (atk[a] == null || atk[a].getType() == Material.AIR) {
-                    atk[a] = def[slot];
-                    def[slot] = null;
-                    moved = true;
-                    break;
-                }
-            }
-        }
-        if (moved) {
-            plugin.getClanManager().saveChestContentsAsync(defender.id(), def);
-            plugin.getClanManager().saveChestContentsAsync(attacker.id(), atk);
-        }
-    }
-
-    private void grantRandomArtifact(Clan clan) {
-        ArtifactType[] types = ArtifactType.values();
-        ArtifactType type = types[ThreadLocalRandom.current().nextInt(types.length)];
-        Optional<Player> recipient = clan.members().values().stream()
-                .filter(m -> m.rank() == ClanRank.LEADER || m.rank() == ClanRank.GUARDIAN)
-                .map(ClanMember::playerId).map(Bukkit::getPlayer).filter(Objects::nonNull).findFirst()
-                .or(() -> onlineMembers(clan).findFirst());
-        recipient.ifPresent(player -> {
-            ItemStack artifact = plugin.getArtifactManager().createArtifact(type);
-            Map<Integer, ItemStack> overflow = player.getInventory().addItem(artifact);
-            overflow.values().forEach(leftover -> player.getWorld().dropItemNaturally(player.getLocation(), leftover));
-            plugin.getMessages().send(player, "siege.artifact-reward");
-        });
+    var clans = resolveClans(siege).orElseThrow();
+    double fraction =
+        Math.min(
+            1.0,
+            holdProgress.getOrDefault(siege.id(), 0L)
+                / (double) Math.max(1, campHoldDuration(siege.defenderClanId()).toMillis()));
+    new me.lovelace.loveclans.siege.SiegeRewards(plugin, repository)
+        .apply(siege, result, clans.attacker(), clans.defender())
+        .whenComplete(
+            (ignored, failure) ->
+                onMain(
+                    () -> {
+                      pending.remove(siege.id());
+                      if (failure != null) {
+                        storageFailure(siege.id(), failure);
+                        return;
+                      }
+                      settled.add(siege.id());
+                      storagePaused.remove(siege.id());
+                      finishWorld(siege);
+                      repository
+                          .once(siege.id(), "events", c -> null)
+                          .whenComplete(
+                              (first, error) ->
+                                  onMain(
+                                      () -> {
+                                        if (error != null) {
+                                          plugin
+                                              .getLogger()
+                                              .log(
+                                                  java.util.logging.Level.WARNING,
+                                                  "Не удалось записать уведомление осады",
+                                                  error);
+                                          return;
+                                        }
+                                        if (!first) return;
+                                        me.lovelace.loveclans.activity.ConflictEvents.resolved(
+                                            plugin,
+                                            ConflictKind.SIEGE,
+                                            siege.id(),
+                                            siege.attackerClanId(),
+                                            siege.defenderClanId(),
+                                            result == SiegeResult.ATTACKER_WIN
+                                                ? me.lovelace.loveclans.api.events.ConflictOutcome
+                                                    .ATTACKER_WIN
+                                                : me.lovelace.loveclans.api.events.ConflictOutcome
+                                                    .DEFENDER_WIN,
+                                            result == SiegeResult.ATTACKER_WIN ? 1 : 1 - fraction);
+                                        Clan winner =
+                                            result == SiegeResult.ATTACKER_WIN
+                                                ? clans.attacker()
+                                                : clans.defender();
+                                        Clan loser =
+                                            result == SiegeResult.ATTACKER_WIN
+                                                ? clans.defender()
+                                                : clans.attacker();
+                                        plugin.getDiplomacyManager().onSiegeVictory(winner, loser);
+                                        onlineMembers(winner)
+                                            .forEach(
+                                                p ->
+                                                    plugin
+                                                        .getMessages()
+                                                        .sendImportantTitle(
+                                                            p,
+                                                            result == SiegeResult.ATTACKER_WIN
+                                                                ? "siege.end.victory-title"
+                                                                : "siege.end.repelled-title",
+                                                            result == SiegeResult.ATTACKER_WIN
+                                                                ? "siege.end.victory-subtitle"
+                                                                : "siege.end.repelled-subtitle",
+                                                            Map.of(
+                                                                "tag",
+                                                                loser.tag(),
+                                                                "color",
+                                                                loser.tagColor())));
+                                        onlineMembers(loser)
+                                            .forEach(
+                                                p ->
+                                                    plugin
+                                                        .getMessages()
+                                                        .sendImportantTitle(
+                                                            p,
+                                                            result == SiegeResult.ATTACKER_WIN
+                                                                ? "siege.end.defeat-title"
+                                                                : "siege.end.failed-title",
+                                                            result == SiegeResult.ATTACKER_WIN
+                                                                ? "siege.end.defeat-subtitle"
+                                                                : "siege.end.failed-subtitle",
+                                                            Map.of(
+                                                                "tag",
+                                                                winner.tag(),
+                                                                "color",
+                                                                winner.tagColor())));
+                                      }));
+                    }));
     }
 
     public void purgeClan(UUID clanId) {
@@ -842,30 +879,117 @@ public final class SiegeManager {
     }
 
     public void shutdown() {
+    closing = true;
+    for (UpgradeOperation op : List.copyOf(upgrades.values())) {
+      Throwable failure = null;
+      try {
+        op.write.get(12, java.util.concurrent.TimeUnit.SECONDS);
+      } catch (Throwable e) {
+        failure = e;
+      }
+      if (op.write.isDone()) completeUpgrade(op, failure);
+      else
+        op.answer.completeExceptionally(
+            new java.util.concurrent.CancellationException(
+                "Сохранение будет проверено при запуске"));
+    }
         for (ClanSiege siege : activeSieges()) {
-            activeSieges.remove(siege.id());
+      if (!upgrades.containsKey(siege.id())) repository.save(snapshot(siege.id()));
             clearPendingPhase(siege.id(), resolveClans(siege).orElse(null));
             clearActiveBossBar(siege.id(), resolveClans(siege).orElse(null));
             removeSiegeCompasses(siege);
-            for (SiegeCamp camp : siege.camps()) {
-                if (!camp.broken()) {
-                    removeCampBlock(camp);
-                }
-            }
         }
+    scenery.detachDisplays();
+    repository.close();
+    activeSieges.clear();
     }
 
     public void tick() {
+    if (closing || !ready) return;
         long now = System.currentTimeMillis();
+    long delta = Math.max(0L, now - previousTick);
+    previousTick = now;
+    scenery.tickCleanup();
+    if (!parcelBusy && now - parcelCheck >= 60000) {
+      parcelBusy = true;
+      parcelCheck = now;
+      new me.lovelace.loveclans.siege.SiegeRewards(plugin, repository)
+          .deliverPending()
+          .whenComplete(
+              (v, e) ->
+                  onMain(
+                      () -> {
+                        parcelBusy = false;
+                        if (e != null)
+                          plugin
+                              .getLogger()
+                              .log(
+                                  java.util.logging.Level.WARNING,
+                                  "Не удалось доставить осадную награду",
+                                  e);
+                      }));
+    }
+    for (UUID id : List.copyOf(outcomes.keySet())) {
+      if (!settled.contains(id) && !pending.contains(id)) {
+        settle(activeSieges.get(id), SiegeResult.valueOf(outcomes.get(id)));
+        continue;
+      }
+      if (settled.contains(id) && !pending.contains(id) && scenery.cleaned(id)) {
+        pending.add(id);
+        repository
+            .finish(id)
+            .whenComplete(
+                (v, e) ->
+                    onMain(
+                        () -> {
+                          pending.remove(id);
+                          if (e == null) {
+                            activeSieges.remove(id);
+                            outcomes.remove(id);
+                            revisions.remove(id);
+                            settled.remove(id);
+                            fees.remove(id);
+                            refundScrolls.remove(id);
+                            campFortification.remove(id);
+                            campHits.remove(id);
+                            holdProgress.remove(id);
+                            allBrokenSince.remove(id);
+                            lastHoldTick.remove(id);
+                            storagePaused.remove(id);
+                          } else storageFailure(id, e);
+                        }));
+      }
+    }
         long cooldownMillis = cooldownDuration().toMillis();
         siegeCooldowns.entrySet().removeIf(entry -> now - entry.getValue() >= cooldownMillis);
 
-        for (ClanSiege siege : activeSieges.values()) {
+    for (ClanSiege original : List.copyOf(activeSieges.values())) {
+      if (outcomes.containsKey(original.id())) continue;
+      ClanSiege siege = original;
+      boolean unavailable =
+          siege.camps().stream()
+              .anyMatch(
+                  c -> {
+                    var p = scenery.site(siege.id(), c.index());
+                    return p != null && !scenery.loaded(p);
+                  });
+      if (pending.contains(siege.id()) || storagePaused.contains(siege.id()) || unavailable) {
+        freeze(siege, delta);
+        if (storagePaused.contains(siege.id())) checkpoint(siege.id());
+        continue;
+      }
+      for (var plan : scenery.sites(siege.id()))
+        scenery.render(
+            plan,
+            fortificationLevel(siege.id(), plan.key().index()),
+            siege.camps().get(plan.key().index()).broken());
             if (siege.state() == SiegeState.PREPARING) {
                 tickPending(siege, now);
+        checkpoint(siege.id());
                 continue;
             }
             tickActive(siege, now);
+      if (activeSieges.containsKey(siege.id())) checkpoint(siege.id());
         }
     }
 
@@ -1201,4 +1325,419 @@ public final class SiegeManager {
     public int activeSiegesCount() {
         return activeSieges.size();
     }
+
+  public CompletableFuture<Boolean> upgradeCamp(
+      Player player, UUID id, int index, boolean treasuryOnly) {
+    if (!Bukkit.isPrimaryThread())
+      return plugin
+          .supplySync(() -> upgradeCamp(player, id, index, treasuryOnly))
+          .thenCompose(f -> f);
+    ClanSiege siege = activeSieges.get(id);
+    if (siege == null || !canFortify(id, index)) return CompletableFuture.completedFuture(false);
+    Clan clan = plugin.getClanManager().getClanById(siege.attackerClanId()).orElse(null);
+    if (clan == null || !clan.hasMember(player.getUniqueId()))
+      return CompletableFuture.completedFuture(false);
+    int old = fortificationLevel(id, index);
+    if (old == 3 && !scenery.towerAvailable()) {
+      plugin.getMessages().send(player, "siege.models.tower-unavailable");
+      return CompletableFuture.completedFuture(false);
+    }
+    var plan = scenery.site(id, index);
+    if (plan == null || !scenery.loaded(plan)) return CompletableFuture.completedFuture(false);
+    long cost = fortifyCost(id, index);
+    boolean bank =
+        clan.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.BANK)
+            && clan.chestMoney() >= cost;
+    Optional<dev.lovelace.lovecore.api.economy.LoveEconomy> economy =
+        dev.lovelace.lovecore.api.LoveCore.service(
+            dev.lovelace.lovecore.api.economy.LoveEconomy.class);
+    if ((treasuryOnly && !bank)
+        || (!bank && (economy.isEmpty() || !economy.get().charge(player, cost)))) {
+      plugin
+          .getMessages()
+          .send(
+              player,
+              "gui.camp-fortify.message.not-enough-money",
+              Map.of("cost", CoinFormat.format(cost)));
+      return CompletableFuture.completedFuture(false);
+    }
+    pending.add(id);
+    campFortification.computeIfAbsent(id, k -> new HashMap<>()).put(index, old + 1);
+    var state = snapshot(id);
+    CompletableFuture<Boolean> answer = new CompletableFuture<>();
+    CompletableFuture<Boolean> write =
+        repository.submit(
+            c -> {
+              c.setAutoCommit(false);
+              try {
+                if (bank)
+                  try (var ps =
+                      c.prepareStatement(
+                          "UPDATE clans SET chest_money=chest_money-? WHERE id=? AND chest_money>=?")) {
+                    ps.setLong(1, cost);
+                    ps.setString(2, clan.id().toString());
+                    ps.setLong(3, cost);
+                    if (ps.executeUpdate() != 1)
+                      throw new java.sql.SQLException("Недостаточно средств в казне");
+                  }
+                try (var ps =
+                    c.prepareStatement(
+                        "UPDATE clan_siege_state SET revision=?,payload=? WHERE siege_id=? AND terminal=0 AND revision<?")) {
+                  ps.setLong(1, state.revision());
+                  ps.setBytes(2, me.lovelace.loveclans.siege.SiegeRepository.encode(state));
+                  ps.setString(3, id.toString());
+                  ps.setLong(4, state.revision());
+                  if (ps.executeUpdate() != 1)
+                    throw new java.sql.SQLException("Устаревшее состояние лагеря");
+                }
+                c.commit();
+                return true;
+              } catch (Throwable e) {
+                c.rollback();
+                throw e;
+              } finally {
+                c.setAutoCommit(true);
+              }
+            });
+    UpgradeOperation op =
+        new UpgradeOperation(
+            id, index, old, cost, bank, player, clan, economy, plan, write, answer);
+    upgrades.put(id, op);
+    write.whenComplete(
+        (ok, error) -> {
+          if (!closing) onMain(() -> completeUpgrade(op, error));
+        });
+    return answer;
+  }
+
+  private record UpgradeOperation(
+      UUID id,
+      int index,
+      int old,
+      long cost,
+      boolean bank,
+      Player player,
+      Clan clan,
+      Optional<dev.lovelace.lovecore.api.economy.LoveEconomy> economy,
+      me.lovelace.loveclans.siege.SiegeScenery.Plan plan,
+      CompletableFuture<Boolean> write,
+      CompletableFuture<Boolean> answer) {}
+
+  private void completeUpgrade(UpgradeOperation op, Throwable failure) {
+    if (!upgrades.remove(op.id(), op)) return;
+    pending.remove(op.id());
+    if (failure != null) {
+      campFortification.get(op.id()).put(op.index(), op.old());
+      if (!op.bank()) op.economy().ifPresent(e -> e.give(op.player(), op.cost()));
+      storageFailure(op.id(), failure);
+      op.answer().completeExceptionally(failure);
+      return;
+    }
+    if (op.bank()) op.clan().addChestMoney(-op.cost());
+    plugin.getConflictParticipants().mark(op.id(), op.player().getUniqueId(), op.clan().id());
+    if (!closing) {
+      try {
+        scenery.evacuate(op.plan());
+        scenery.render(op.plan(), op.old() + 1, false);
+      } catch (RuntimeException e) {
+        plugin
+            .getLogger()
+            .log(
+                java.util.logging.Level.WARNING,
+                "Модель укрепления будет восстановлена при следующем обновлении",
+                e);
+      }
+      plugin
+          .getMessages()
+          .send(
+              op.player(),
+              "gui.camp-fortify.message.fortified",
+              Map.of(
+                  "number",
+                  String.valueOf(op.index() + 1),
+                  "level",
+                  String.valueOf(op.old() + 1),
+                  "hits",
+                  String.valueOf(hitsRequired(op.id(), op.index()))));
+    }
+    op.answer().complete(true);
+  }
+
+  public me.lovelace.loveclans.siege.SiegeScenery scenery() {
+    return scenery;
+  }
+
+  public boolean isSettling(UUID clan) {
+    return activeSieges.values().stream()
+        .anyMatch(
+            s ->
+                s.involves(clan) && (outcomes.containsKey(s.id()) || upgrades.containsKey(s.id())));
+  }
+
+  public boolean towerEnabled() {
+    return plugin.getConfig().getBoolean("siege.tower.enabled", true)
+        && plugin.getConfig().getInt("siege.fortification.max-level", 3) >= 3;
+  }
+
+  public int maxFortificationLevel() {
+    return towerEnabled()
+        ? 4
+        : Math.max(1, Math.min(3, plugin.getConfig().getInt("siege.fortification.max-level", 3)));
+  }
+
+  public CompletableFuture<List<me.lovelace.loveclans.siege.SiegeSnapshot>> loadAsync() {
+    return repository.load();
+  }
+
+  public void restore(List<me.lovelace.loveclans.siege.SiegeSnapshot> saved) {
+    long now = System.currentTimeMillis();
+    for (var state : saved) {
+      List<SiegeCamp> camps = new ArrayList<>();
+      for (var c : state.camps()) {
+        SiegeCamp camp = c.resume(now);
+        camps.add(camp);
+        scenery.register(
+            new me.lovelace.loveclans.siege.SiegeScenery.Plan(
+                new me.lovelace.loveclans.siege.SiegeScenery.Key(state.id(), c.index()),
+                camp,
+                c.direction(),
+                c.cells()));
+        campFortification
+            .computeIfAbsent(state.id(), id -> new HashMap<>())
+            .put(c.index(), c.level());
+        campHits.computeIfAbsent(state.id(), id -> new HashMap<>()).put(c.index(), c.hits());
+      }
+      ClanSiege siege = state.resume(now);
+      activeSieges.put(siege.id(), siege);
+      fees.put(siege.id(), state.paidFee());
+      if (state.refundScroll() != null) refundScrolls.put(siege.id(), state.refundScroll());
+      revisions.put(siege.id(), state.revision());
+      holdProgress.put(siege.id(), state.hold());
+      lastHoldTick.put(siege.id(), now);
+      if (state.wipeElapsed() > 0) allBrokenSince.put(siege.id(), now - state.wipeElapsed());
+      state
+          .participants()
+          .forEach((p, c) -> plugin.getConflictParticipants().mark(siege.id(), p, c));
+      if (state.outcome() != null) {
+        outcomes.put(siege.id(), state.outcome());
+        settle(siege, SiegeResult.valueOf(state.outcome()));
+        continue;
+      }
+      var clans = resolveClans(siege);
+      if (clans.isEmpty() || resolveContestedTerritory(siege).isEmpty()) {
+        endSiege(siege, SiegeResult.CANCELLED);
+        continue;
+      }
+      if (siege.state() == SiegeState.PREPARING)
+        beginPendingPhase(siege, clans.get().attacker(), clans.get().defender());
+      else {
+        activeBossBars.put(
+            siege.id(),
+            BossBar.bossBar(Component.empty(), 0, BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS));
+        Location center = resolveContestedTerritory(siege).map(this::territoryCenter).orElse(null);
+        if (center != null)
+          distributeSiegeCompasses(siege, clans.get().attacker(), clans.get().defender(), center);
+      }
+    }
+    previousTick = now;
+    ready = true;
+  }
+
+  private me.lovelace.loveclans.siege.SiegeSnapshot snapshot(UUID id) {
+    ClanSiege siege = activeSieges.get(id);
+    long now = System.currentTimeMillis();
+    List<me.lovelace.loveclans.siege.SiegeSnapshot.Camp> camps = new ArrayList<>();
+    for (SiegeCamp camp : siege.camps()) {
+      var plan = scenery.site(id, camp.index());
+      camps.add(
+          new me.lovelace.loveclans.siege.SiegeSnapshot.Camp(
+              camp.index(),
+              camp.world(),
+              camp.x(),
+              camp.y(),
+              camp.z(),
+              plan == null
+                  ? me.lovelace.loveclans.siege.CampLayout.Direction.NORTH
+                  : plan.direction(),
+              fortificationLevel(id, camp.index()),
+              campHits.getOrDefault(id, Map.of()).getOrDefault(camp.index(), 0),
+              camp.broken(),
+              camp.broken() ? Math.max(0, camp.respawnAt() - now) : 0,
+              plan == null ? List.of() : plan.originals()));
+    }
+    return new me.lovelace.loveclans.siege.SiegeSnapshot(
+        1,
+        id,
+        siege.attackerClanId(),
+        siege.defenderClanId(),
+        siege.contestedTerritory(),
+        siege.startedAt(),
+        fees.getOrDefault(id, 0L),
+        refundScrolls.get(id),
+        siege.state(),
+        Math.max(0, siege.endsAt() - now),
+        holdProgress.getOrDefault(id, 0L),
+        allBrokenSince.containsKey(id) ? Math.max(0, now - allBrokenSince.get(id)) : 0,
+        List.copyOf(camps),
+        plugin.getConflictParticipants().snapshot(id),
+        outcomes.get(id),
+        revisions.merge(id, 1L, Long::sum));
+  }
+
+  public void rememberDeclarationScroll(UUID id, org.bukkit.inventory.ItemStack scroll) {
+    refundScrolls.put(
+        id,
+        Base64.getEncoder()
+            .encodeToString(
+                me.lovelace.loveclans.siege.SiegeRewards.bytes(
+                    new org.bukkit.inventory.ItemStack[] {scroll.clone()})));
+    checkpoint(id);
+  }
+
+  private CompletableFuture<ClanSiege> persistDeclaration(ClanSiege siege) {
+    return plugin
+        .supplySync(() -> snapshot(siege.id()))
+        .thenCompose(repository::save)
+        .thenApply(v -> siege)
+        .exceptionallyCompose(
+            failure ->
+                plugin
+                    .supplySync(
+                        () -> {
+                          activeSieges.remove(siege.id());
+                          siegeCooldowns.remove(
+                              pairKey(siege.attackerClanId(), siege.defenderClanId()));
+                          clearPendingPhase(siege.id(), resolveClans(siege).orElse(null));
+                          long fee = fees.getOrDefault(siege.id(), 0L);
+                          plugin
+                              .getClanManager()
+                              .getClanById(siege.attackerClanId())
+                              .ifPresent(
+                                  c -> {
+                                    c.addChestMoney(fee);
+                                    plugin
+                                        .getStorage()
+                                        .updateClanChestMoney(c.id(), c.chestMoney());
+                                  });
+                          return (ClanSiege) null;
+                        })
+                    .thenCompose(v -> CompletableFuture.failedFuture(failure)));
+  }
+
+  private void checkpoint(UUID id) {
+    if (closing || !activeSieges.containsKey(id) || !checkpointing.add(id)) return;
+    repository
+        .save(snapshot(id))
+        .whenComplete(
+            (v, e) ->
+                onMain(
+                    () -> {
+                      checkpointing.remove(id);
+                      if (e != null) storageFailure(id, e);
+                      else storagePaused.remove(id);
+                    }));
+  }
+
+  private void storageFailure(UUID id, Throwable error) {
+    if (storagePaused.add(id))
+      plugin
+          .getLogger()
+          .log(java.util.logging.Level.SEVERE, "Осада приостановлена: ошибка сохранения", error);
+  }
+
+  private void onMain(Runnable action) {
+    if (closing) return;
+    if (Bukkit.isPrimaryThread()) action.run();
+    else if (plugin.isEnabled())
+      Bukkit.getScheduler()
+          .runTask(
+              plugin,
+              () -> {
+                if (!closing) action.run();
+              });
+  }
+
+  private void freeze(ClanSiege siege, long elapsed) {
+    List<SiegeCamp> camps =
+        siege.camps().stream()
+            .map(
+                c ->
+                    new SiegeCamp(
+                        c.index(),
+                        c.world(),
+                        c.x(),
+                        c.y(),
+                        c.z(),
+                        c.standingSince(),
+                        c.broken(),
+                        c.broken() ? c.respawnAt() + elapsed : c.respawnAt()))
+            .toList();
+    activeSieges.put(
+        siege.id(),
+        new ClanSiege(
+            siege.id(),
+            siege.attackerClanId(),
+            siege.defenderClanId(),
+            siege.contestedTerritory(),
+            siege.startedAt(),
+            siege.endsAt() + elapsed,
+            siege.state(),
+            camps));
+    lastHoldTick.put(siege.id(), System.currentTimeMillis());
+    allBrokenSince.computeIfPresent(siege.id(), (id, t) -> t + elapsed);
+  }
+
+  private void cancelPlacement(ClanSiege siege, Clan attacker) {
+    if (!pending.add(siege.id())) return;
+    long fee = fees.getOrDefault(siege.id(), 0L);
+    String scroll = refundScrolls.get(siege.id());
+    var cancelled=snapshot(siege.id()).withOutcome(SiegeResult.CANCELLED.name());
+    repository
+        .once(
+            siege.id(),
+            "placement-refund",
+            c -> {
+              try (var ps =
+                  c.prepareStatement("UPDATE clans SET chest_money=chest_money+? WHERE id=?")) {
+                ps.setLong(1, fee);
+                ps.setString(2, attacker.id().toString());
+                ps.executeUpdate();
+              }
+              if (scroll != null)
+                try (var ps =
+                    c.prepareStatement(
+                        "INSERT INTO clan_siege_artifacts(siege_id,clan_id,payload) VALUES(?,?,?)")) {
+                  ps.setString(1, siege.id().toString());
+                  ps.setString(2, attacker.id().toString());
+                  ps.setBytes(3, Base64.getDecoder().decode(scroll));
+                  ps.executeUpdate();
+                }
+              try (var ps =
+                  c.prepareStatement(
+                      "DELETE FROM clan_conflict_cooldowns WHERE kind='SIEGE' AND clan_a=? AND clan_b=?")) {
+                var pair = pairKey(siege.attackerClanId(), siege.defenderClanId());
+                ps.setString(1, pair.getKey().toString());
+                ps.setString(2, pair.getValue().toString());
+                ps.executeUpdate();
+              }
+              try(var ps=c.prepareStatement("UPDATE clan_siege_state SET revision=?,payload=? WHERE siege_id=? AND terminal=0")){ps.setLong(1,cancelled.revision());ps.setBytes(2,me.lovelace.loveclans.siege.SiegeRepository.encode(cancelled));ps.setString(3,siege.id().toString());ps.executeUpdate();}
+              return null;
+            })
+        .whenComplete(
+            (first, error) ->
+                onMain(
+                    () -> {
+                      pending.remove(siege.id());
+                      if (error != null) {
+                        storageFailure(siege.id(), error);
+                        return;
+                      }
+                      if (first) attacker.addChestMoney(fee);
+                      siegeCooldowns.remove(
+                          pairKey(siege.attackerClanId(), siege.defenderClanId()));
+                      plugin.getMessages().send(Bukkit.getConsoleSender(), "siege.models.no-space");
+                      outcomes.put(siege.id(),SiegeResult.CANCELLED.name());
+                      settle(siege, SiegeResult.CANCELLED);
+                    }));
+  }
 }

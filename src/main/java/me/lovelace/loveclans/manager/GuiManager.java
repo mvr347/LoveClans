@@ -164,6 +164,10 @@ public class GuiManager implements Listener {
      * authoritative "clan has a territory" and "tax is paid" checks live here, not in ClanChestMenu itself.
      */
     public void openChestItems(Player player, Clan clan) {
+    if (plugin.getSiegeManager().isSettling(clan.id())) {
+      plugin.getMessages().send(player, "siege.models.settling");
+      return;
+    }
         if (!clan.hasCapital()) {
             plugin.getMessages().send(player, "chest.no-capital");
             return;
@@ -178,6 +182,10 @@ public class GuiManager implements Listener {
 
     /** Money side of the chest ("Казна"); same territory guard as {@link #openChestItems}. */
     public void openChestMoney(Player player, Clan clan) {
+    if (plugin.getSiegeManager().isSettling(clan.id())) {
+      plugin.getMessages().send(player, "siege.models.settling");
+      return;
+    }
         if (!clan.hasCapital()) {
             plugin.getMessages().send(player, "chest.no-capital");
             return;

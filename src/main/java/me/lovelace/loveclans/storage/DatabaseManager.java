@@ -61,6 +61,12 @@ public final class DatabaseManager implements AutoCloseable {
         executor = Executors.newFixedThreadPool(type == DatabaseType.SQLITE ? 1 : poolSize, new ClanThreadFactory());
         chestMoneyExecutor = Executors.newSingleThreadExecutor(new ClanThreadFactory());
         createSchema();
+    try (Connection c = dataSource.getConnection();
+        Statement st = c.createStatement()) {
+      me.lovelace.loveclans.siege.SiegeRepository.createTables(st);
+    } catch (SQLException e) {
+      throw new IllegalStateException("Не удалось создать хранилище осад", e);
+    }
         migrateEconomy();
     }
 

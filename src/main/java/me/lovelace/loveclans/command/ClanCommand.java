@@ -1,9 +1,6 @@
 package me.lovelace.loveclans.command;
 
-import dev.lovelace.lovecore.api.economy.MoneyConfig;
-import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
-import me.lovelace.loveclans.api.events.ClanDiplomacyChangeEvent;
 import me.lovelace.loveclans.gui.*;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.model.history.ConflictRecord;
@@ -14,7 +11,7 @@ import me.lovelace.loveclans.model.raid.ClanRaid;
 import me.lovelace.loveclans.model.ritual.RitualType;
 import me.lovelace.loveclans.util.Permissions;
 import org.bukkit.Bukkit;
-import org.bukkit.Location; // Import Location
+// Import Location
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -951,34 +948,14 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
         UUID siegeId = siegeIdOpt.get();
 
-        int level = plugin.getSiegeManager().fortificationLevel(siegeId, campIndex);
-        if (!plugin.getSiegeManager().canFortify(siegeId, campIndex)) {
-            plugin.getMessages().send(player, "siege.fortify.max-level");
-            return;
-        }
-        long cost = plugin.getSiegeManager().fortifyCost(siegeId, campIndex);
-        if (clan.chestMoney() < cost) {
-            plugin.getMessages().send(player, "siege.fortify.not-enough",
-                    Map.of("cost", CoinFormat.format(cost)));
-            return;
-        }
-
-        if (!plugin.getSiegeManager().fortifyCamp(siegeId, campIndex)) {
-            plugin.getMessages().send(player, "siege.fortify.max-level");
-            return;
-        }
-
-        clan.addChestMoney(-cost);
-        plugin.getStorage().updateClanChestMoney(clan.id(), clan.chestMoney()).exceptionally(throwable -> {
-            plugin.getLogger().log(java.util.logging.Level.WARNING,
-                "Не удалось списать казну за укрепление лагеря", throwable);
-            return null;
-        });
-
-        plugin.getMessages().send(player, "siege.fortify.done", Map.of(
-                "index", String.valueOf(campIndex + 1),
-                "hits", String.valueOf(plugin.getSiegeManager().hitsRequired(siegeId, campIndex)),
-                "cost", CoinFormat.format(cost)));
+    plugin
+        .getSiegeManager()
+        .upgradeCamp(player, siegeId, campIndex, true)
+        .exceptionally(
+            error -> {
+              plugin.runSync(() -> plugin.sendOperationError(player, error));
+              return false;
+            });
     }
 
     private void siege(Player player, String[] args) {
