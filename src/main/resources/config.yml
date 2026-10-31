@@ -812,7 +812,7 @@ casus-belli:
 
 # Новая осада (newsieges.md & siege-justify-rewards.md)
 siege:
-  # Осадные модели из extras/itemsadder. Установите contents/loveclans в ItemsAdder и соберите ресурспак.
+  # Модели устанавливаются отдельно в ItemsAdder. Плагин получает их по ID из models.states; ресурспак не входит в сборку.
   # false возвращает отображение обычных лагерей кострами. Уже построенная башня сохраняет физические блоки.
   models:
     enabled: true
