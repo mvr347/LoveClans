@@ -396,7 +396,7 @@ public final class SiegeScenery {
 
   private void clean(Plan plan) {
     if (!loaded(plan)) return;
-    evacuate(plan);
+    evacuateIfSupported(plan);
     for (var cell : plan.originals()) {
       Location loc = new Position(cell.world(), cell.x(), cell.y(), cell.z()).location();
       Block b = loc.getBlock();
@@ -433,6 +433,22 @@ public final class SiegeScenery {
             Material.LADDER,
             Material.BARRIER)
         .contains(m);
+  }
+
+  public void evacuateIfSupported(Plan plan) {
+    main();
+    if (!loaded(plan)) return;
+    for (var cell : plan.originals()) {
+      Block block = Bukkit.getWorld(cell.world()).getBlockAt(cell.x(), cell.y(), cell.z());
+      Material type = block.getType();
+      if (type == Material.LADDER || type == Material.BARRIER ||
+          (type.isSolid() && type != Material.BARREL &&
+              type != Material.CAMPFIRE &&
+              !block.getBlockData().getAsString().equals(cell.original()))) {
+        evacuate(plan);
+        return;
+      }
+    }
   }
 
   public void evacuate(Plan plan) {

@@ -131,6 +131,12 @@ public final class SiegeRewards {
                                   plugin.getClanManager().invalidateSiegeChest(attacker.id());
                                   plugin.getClanManager().invalidateSiegeChest(defender.id());
                                   if (result.fresh()) {
+                                    long spiritXp = Math.max(0L, Math.round(
+                                        plugin.getConfig().getLong("leveling.war-win-exp", 1200L) *
+                                        plugin.getConfig().getDouble(attackWin ?
+                                            "siege.win-exp-multiplier" :
+                                            "siege.defend-win-exp-multiplier", attackWin ? 0.75 : 0.45)) / 4);
+                                    plugin.getSpiritManager().addSpiritExperience(winner, spiritXp, "Опыт клана");
                                     plugin
                                         .getModifierManager()
                                         .acceptSiegeModifiers(
@@ -285,7 +291,7 @@ public final class SiegeRewards {
                     "reason_id",
                     "revenge_siege"),
                 now,
-                now + 14 * 86400000L,
+                now + (long) me.lovelace.loveclans.util.CasusPrices.ttlDays(plugin.getConfig().getConfigurationSection("casus-belli"), "revenge_siege") * 86400000L,
                 1));
       for (Clan side : List.of(attacker, defender))
         for (ClanModifier mod : plugin.getModifierManager().getModifiers(side.id()))

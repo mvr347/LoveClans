@@ -606,7 +606,7 @@ public final class SiegeManager {
         activeSieges.put(siegeId, updated);
     var plan = scenery.site(siegeId, campIndex);
     if (plan != null) {
-      scenery.evacuate(plan);
+      scenery.evacuateIfSupported(plan);
       scenery.render(plan, 0, true);
     } else removeCampBlock(camp);
     checkpoint(siegeId);
@@ -978,6 +978,7 @@ public final class SiegeManager {
         if (storagePaused.contains(siege.id())) checkpoint(siege.id());
         continue;
       }
+      ensureActivePresentation(siege);
       for (var plan : scenery.sites(siege.id()))
         scenery.render(
             plan,
@@ -991,6 +992,17 @@ public final class SiegeManager {
             tickActive(siege, now);
       if (activeSieges.containsKey(siege.id())) checkpoint(siege.id());
         }
+    }
+
+    private void ensureActivePresentation(ClanSiege siege) {
+        if (siege.state() != SiegeState.ACTIVE || activeBossBars.containsKey(siege.id())) return;
+        var clans = resolveClans(siege);
+        if (clans.isEmpty()) return;
+        activeBossBars.put(siege.id(), BossBar.bossBar(Component.empty(), 0,
+                BossBar.Color.YELLOW, BossBar.Overlay.PROGRESS));
+        Location center = resolveContestedTerritory(siege).map(this::territoryCenter).orElse(null);
+        if (center != null) distributeSiegeCompasses(siege, clans.get().attacker(),
+                clans.get().defender(), center);
     }
 
     private void tickPending(ClanSiege siege, long now) {
@@ -1437,7 +1449,7 @@ public final class SiegeManager {
     plugin.getConflictParticipants().mark(op.id(), op.player().getUniqueId(), op.clan().id());
     if (!closing) {
       try {
-        scenery.evacuate(op.plan());
+        if (op.old() == 3) scenery.evacuate(op.plan());
         scenery.render(op.plan(), op.old() + 1, false);
       } catch (RuntimeException e) {
         plugin
