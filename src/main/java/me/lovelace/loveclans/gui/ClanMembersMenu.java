@@ -218,7 +218,7 @@ public final class ClanMembersMenu {
                     .build());
             inventory.setItem(SLOT_CONTRIBUTION, contributionButton(player, true).glow(true).build());
             inventory.setItem(4, GuiFrames.glassPane());
-            inventory.setItem(SLOT_ACTIVITY, CycleButton.build(plugin, player, ItemBuilder.HEAD_EXPERIENCE,
+            inventory.setItem(SLOT_ACTIVITY, CycleButton.build(plugin, player, ItemBuilder.HEAD_ACTIVITY_PERIOD,
                     "gui.activity.period.name", "gui.activity.period.", ActivityPeriod.values(), period));
         } else {
             inventory.setItem(SLOT_FILTER, cycleButton("filter", Filter.values(), filter, manager, player));

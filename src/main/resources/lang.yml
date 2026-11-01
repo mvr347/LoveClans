@@ -11,7 +11,7 @@
 # (gui, item, raid.compass, clan.banner и др. - список в LangMigrator), потому что copyDefaults не обновляет уже
 # существующие строки. Версия 14: стандарт лора gui-gen-6 во всех меню и предметах. Не меняйте вручную.
 lang-version: 15
-prefix: "<gray>[<gold>LoveClans<gray>] "
+prefix: "<gradient:#FFD166:#F6A623>Кланы</gradient> <white>»</white> "
 
 general:
   error: "<prefix><red>Произошла ошибка: <reason>"

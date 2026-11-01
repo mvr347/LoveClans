@@ -1,0 +1,11 @@
+# Однократное обновление оформления; исходные файлы сохраняются рядом как .pre-style-20261101.bak.
+version: 20261101
+updates:
+- file: heads.yml
+  path: activity_period
+  before:
+  value: eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYzVmYzFkYWRhOWM2NWE3YWJjZTM0MjQxNDBkM2FiMjI0ZmNjNTM5OGNiOGNmZDY3NWY0MzY4NjhiZTZmNTRmZCJ9fX0=
+- file: lang.yml
+  path: prefix
+  before: "<gray>[<gold>LoveClans<gray>] "
+  value: '<gradient:#FFD166:#F6A623>Кланы</gradient> <white>»</white> '
