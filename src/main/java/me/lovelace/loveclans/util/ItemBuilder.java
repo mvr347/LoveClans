@@ -187,20 +187,31 @@ public final class ItemBuilder {
 
     public static ItemBuilder head(String base64) {
         ItemBuilder builder = new ItemBuilder(Material.PLAYER_HEAD);
-        builder.mutate(meta -> {
-            if (meta instanceof SkullMeta skullMeta) {
-                URL skinUrl = extractSkinUrl(base64);
-                if (skinUrl != null) {
-                    // Bukkit.createPlayerProfile()/setOwnerProfile() - актуальный стандартный
-                    // Bukkit API. Устаревшая пара Bukkit.createProfile()/setPlayerProfile()
-                    // (com.destroystokyo.paper.profile.PlayerProfile) на части серверных сборок
-                    // Paper не применяет текстуру - голова рендерится обычным Steve/Alex.
-                    PlayerProfile profile = Bukkit.createPlayerProfile(UUID.randomUUID());
-                    profile.getTextures().setSkin(skinUrl);
-                    skullMeta.setOwnerProfile(profile);
-                }
-            }
-        });
+        builder.mutate(
+                meta -> {
+                    if (meta instanceof SkullMeta skullMeta) {
+                        URL skinUrl = extractSkinUrl(base64);
+                        if (skinUrl != null) {
+                            // Bukkit.createPlayerProfile()/setOwnerProfile() - актуальный
+                            // стандартный
+                            // Bukkit API. Устаревшая пара Bukkit.createProfile()/setPlayerProfile()
+                            // (com.destroystokyo.paper.profile.PlayerProfile) на части серверных
+                            // сборок
+                            // Paper не применяет текстуру - голова рендерится обычным Steve/Alex.
+                            PlayerProfile profile =
+                                    Bukkit.createPlayerProfile(
+                                            UUID.nameUUIDFromBytes(
+                                                    base64.getBytes(
+                                                            java.nio.charset.StandardCharsets
+                                                                    .UTF_8)),
+                                            "LoveTexture");
+                            var textures = profile.getTextures();
+                            textures.setSkin(skinUrl);
+                            profile.setTextures(textures);
+                            skullMeta.setOwnerProfile(profile);
+                        }
+                    }
+                });
         return builder;
     }
 
