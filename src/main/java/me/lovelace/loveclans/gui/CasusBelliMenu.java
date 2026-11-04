@@ -84,7 +84,7 @@ public final class CasusBelliMenu {
     /** Type switch in the header: the selected one is marked in its name, the other one carries the click hint. */
     private ItemStack tabItem(Material material, boolean war, boolean selected, Player player) {
         String base = "gui.casus-belli.tab." + (war ? "war" : "siege");
-        ItemBuilder builder = ItemBuilder.of(material)
+        ItemBuilder builder = ItemBuilder.head(war ? ItemBuilder.HEAD_GUILD_WAR : ItemBuilder.HEAD_GUILD_SIEGE)
                 .name(messages().component(base + (selected ? ".name-selected" : ".name"), player))
                 .lore(messages().components(base + ".lore", Map.of("level",
                         String.valueOf(plugin.getConfig().getInt("siege.min-attacker-clan-level", 5))), player));

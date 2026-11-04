@@ -106,6 +106,12 @@ public interface ClanStorage {
 
     CompletableFuture<byte[]> loadChestContentsAsync(UUID clanId);
 
+    /** Atomically saves the post-penalty progression and removes the exact expired vow. */
+    default CompletableFuture<Boolean> settleFailedContractAsync(ClanQuestProgress progress,
+            int level, long experience, int upgradePoints, int spiritLevel) {
+        return CompletableFuture.failedFuture(new UnsupportedOperationException("Atomic vow settlement is not supported"));
+    }
+
     // --- Clan contracts: separate weekly/monthly slots, one active contract per clan in each (§1) ---
 
     CompletableFuture<Void> saveContractProgressAsync(ClanQuestProgress progress);

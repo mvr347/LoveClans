@@ -1208,17 +1208,20 @@ gui:
       claimed: "<gray>Награда уже получена: следующий обет в новом периоде."
       claim-action: "забрать награду"
       select-action: "выбрать этот обет"
+      failure-penalty: '<red>При провале: −<penalty> опыта клана (не ниже нуля).</red>'
   guildmaster:
     title: "<gray>Гильдмастер <color><tag>"
     info:
-      title: "<gold>Гильдмастер"
+      title: <white>Гильдмастер <color><tag>
       lore:
-        - "<dark_gray>Справка"
-        - ""
-        - "<dark_gray>▪ <gray>Что здесь делают:"
-        - "  <gray>Клан берёт обеты"
-        - "  <gray>Владелец добивается признания"
-        - "  <gray>Оформляют поводы к войне"
+      - <dark_gray>Дела вашего клана</dark_gray>
+      - ''
+      - '<gray>Участников: <white><members></white></gray>'
+      - '<gray>Обеты: общая цель, награда и штраф за провал.</gray>'
+      - '<gray>Признание: официальный статус клана.</gray>'
+      - '<gray>Поводы: основания для войны или осады.</gray>'
+      - <dark_gray>─────────────────────</dark_gray>
+      - <gray>Доступные действия находятся ниже.</gray>
     button:
       vows:
         name: "<gold>Обеты"

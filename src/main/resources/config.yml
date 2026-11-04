@@ -193,10 +193,12 @@ clans:
   contracts:
     tick-interval-minutes: 5
     progress-flush-seconds: 30
-    penalty-percent: 80
+    penalty-percent: 150
     difficulty:
       base: 1.0
       per-member-step: 0.15
+      # Только объём целей новых обетов; награда не умножается, принятые обеты не меняются.
+      target-multiplier: 2.0
     weekly:
       # Сколько обетов показывать на выбор (1-3: в меню три места).
       choices: 3

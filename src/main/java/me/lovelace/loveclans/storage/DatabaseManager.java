@@ -374,6 +374,9 @@ public final class DatabaseManager implements AutoCloseable {
             dropColumnIfExists(connection, statement, "clan_contracts", "last_reset");
 
             statement.executeUpdate(ContractSchema.createTableSql("clan_monthly_contracts"));
+            for (String table : new String[]{"clan_contracts", "clan_monthly_contracts"}) {
+                addColumnIfMissing(connection, statement, table, "penalty_percent", "INT NOT NULL DEFAULT 80");
+            }
             // clan_daily_contracts (ежедневные обеты) убрана из кода 2026-10-05; таблица, если она была
             // создана раньше, остаётся нетронутой — данные не удаляем без явной просьбы владельца.
 

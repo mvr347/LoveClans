@@ -23,20 +23,21 @@ final class ContractSchema {
                 + "reward_xp BIGINT NOT NULL DEFAULT 0, "
                 + "started_at BIGINT NOT NULL DEFAULT 0, "
                 + "expires_at BIGINT NOT NULL DEFAULT 0, "
+                + "penalty_percent INT NOT NULL DEFAULT 80, "
                 + "FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE)";
     }
 
-    /** Parameters: clan_id, contract_id, progress, completed, claimed, target, reward_xp, started_at, expires_at. */
+    /** Parameters: clan_id, contract_id, progress, completed, claimed, target, reward_xp, started_at, expires_at, penalty_percent. */
     static String upsertSql(String table, boolean mysql) {
         String columns = "INSERT INTO " + table
-                + " (clan_id, contract_id, progress, completed, claimed, target, reward_xp, started_at, expires_at) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ";
+                + " (clan_id, contract_id, progress, completed, claimed, target, reward_xp, started_at, expires_at, penalty_percent) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ";
         return mysql
                 ? columns + "ON DUPLICATE KEY UPDATE contract_id = VALUES(contract_id), "
                   + "progress = VALUES(progress), completed = VALUES(completed), claimed = VALUES(claimed), "
-                  + "target = VALUES(target), reward_xp = VALUES(reward_xp), started_at = VALUES(started_at), expires_at = VALUES(expires_at)"
+                  + "target = VALUES(target), reward_xp = VALUES(reward_xp), started_at = VALUES(started_at), expires_at = VALUES(expires_at), penalty_percent = VALUES(penalty_percent)"
                 : columns + "ON CONFLICT(clan_id) DO UPDATE SET contract_id = excluded.contract_id, "
                   + "progress = excluded.progress, completed = excluded.completed, claimed = excluded.claimed, "
-                  + "target = excluded.target, reward_xp = excluded.reward_xp, started_at = excluded.started_at, expires_at = excluded.expires_at";
+                  + "target = excluded.target, reward_xp = excluded.reward_xp, started_at = excluded.started_at, expires_at = excluded.expires_at, penalty_percent = excluded.penalty_percent";
     }
 }
