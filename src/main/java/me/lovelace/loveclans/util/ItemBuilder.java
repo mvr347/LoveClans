@@ -24,6 +24,11 @@ import java.util.UUID;
 import java.util.function.Consumer;
 
 public final class ItemBuilder {
+    public static final String HEAD_GUILD_RECOGNITION = HeadsConfig.get("guildmaster-recognition", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNmVhYWQxNDU3YTMyMTYzMGQxMzA3NDZhODYwZTQwMjdiNDA4MGY0YTUzOTIzZGI4ZTU4MzdiZTM2OGVkNmYzMCJ9fX0=");
+    public static final String HEAD_GUILD_CASUS = HeadsConfig.get("guildmaster-casus", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZTQzMzQ3YjgzMWZlZmZiMDNmYjQ0YzA2MTFjZjA0NjVjMjQ4ZmRlNmI5NTIyMGMwNTQ4MDUxMDU3NDZmYTk5NCJ9fX0=");
+    public static final String HEAD_GUILD_LIST = HeadsConfig.get("guildmaster-list", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNmVlZjdlNTZjZGU3NDA3NzJkZmI3NmRkZDJmNTg0YmU4OTA3Yjg1OTc2NjhlNDAyNjM0OTg2NDY5MjMwYWE0OSJ9fX0=");
+    public static final String HEAD_GUILD_WAR = HeadsConfig.get("guildmaster-war", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMmQ4ZDE0ZWM0MGM1MGRmY2VmMjJhYjJlZWVkZWU0NDI3OWY0NTI3YThmMTgwOWIyZGE3NjI0YjgwOTJkNGI5ZCJ9fX0=");
+    public static final String HEAD_GUILD_SIEGE = HeadsConfig.get("guildmaster-siege", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvODI1MzBmMzAxZDFhNDA2NDcyNjEzY2UzNTgwNzgwYTUzYmFmZGI2MWM4NzE0ZGQzNWRmYTU0NDQwYmFhMjE2YiJ9fX0=");
     // Custom Head Textures
     public static final String HEAD_BACK = HeadsConfig.get("back", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvODY1MmUyYjkzNmNhODAyNmJkMjg2NTFkN2M5ZjI4MTlkMmU5MjM2OTc3MzRkMThkZmRiMTM1NTBmOGZkYWQ1ZiJ9fX0=");
     public static final String HEAD_BARRIER = HeadsConfig.get("barrier", "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYWZkMjQwMDAwMmFkOWZiYmJkMDA2Njk0MWViNWIxYTM4NGFiOWIwZTQ4YTE3OGVlOTZlNGQxMjlhNTIwODY1NCJ9fX0=");

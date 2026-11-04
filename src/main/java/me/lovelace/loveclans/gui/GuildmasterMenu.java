@@ -90,9 +90,10 @@ public final class GuildmasterMenu {
         holder.setInventory(inventory);
 
         GuiFrames.fillFrame27(inventory);
-        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
-                .name(plugin.getMessages().component("gui.guildmaster.info.title", player))
-                .lore(plugin.getMessages().components("gui.guildmaster.info.lore", player))
+        inventory.setItem(SLOT_INFO, ItemBuilder.of(org.bukkit.Material.PLAYER_HEAD)
+                .name(plugin.getMessages().component("gui.guildmaster.info.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player))
+                .lore(plugin.getMessages().components("gui.guildmaster.info.lore", Map.of("tag", clan.tag(), "members", String.valueOf(clan.members().size())), player))
+                .mutate(meta -> ((org.bukkit.inventory.meta.SkullMeta) meta).setOwnerProfile(player.getPlayerProfile()))
                 .build());
         layout.forEach((slot, action) -> inventory.setItem(slot, buildButton(action, clan, player)));
 
@@ -111,16 +112,16 @@ public final class GuildmasterMenu {
                     .name(plugin.getMessages().component("gui.guildmaster.button.vows.name", player))
                     .lore(plugin.getMessages().components("gui.guildmaster.button.vows.lore", player))
                     .build();
-            case RECOGNITION -> ItemBuilder.head(ItemBuilder.HEAD_LEVEL_INFO)
+            case RECOGNITION -> ItemBuilder.head(ItemBuilder.HEAD_GUILD_RECOGNITION)
                     .name(plugin.getMessages().component("gui.guildmaster.button.recognition.name", player))
                     .lore(plugin.getMessages().components("gui.guildmaster.button.recognition.lore",
                             Map.of("cost", CoinFormat.format(plugin.getRecognitionService().cost())), player))
                     .build();
-            case CLAN_LIST -> ItemBuilder.head(ItemBuilder.HEAD_MEMBERS)
+            case CLAN_LIST -> ItemBuilder.head(ItemBuilder.HEAD_GUILD_LIST)
                     .name(plugin.getMessages().component("gui.guildmaster.button.clans.name", player))
                     .lore(plugin.getMessages().components("gui.guildmaster.button.clans.lore", player))
                     .build();
-            case CASUS_BELLI -> ItemBuilder.of(org.bukkit.Material.WRITTEN_BOOK)
+            case CASUS_BELLI -> ItemBuilder.head(ItemBuilder.HEAD_GUILD_CASUS)
                     .name(plugin.getMessages().component("gui.guildmaster.button.casus.name", player))
                     .lore(plugin.getMessages().components("gui.guildmaster.button.casus.lore", player))
                     .build();

@@ -688,6 +688,28 @@ public final class SqlClanStorage implements ClanStorage {
 
     // --- Clan contracts: independent weekly/monthly active slots, one table per type (§1) ---
 
+    @Override
+    public CompletableFuture<Boolean> settleFailedContractAsync(ClanQuestProgress progress,
+            int level, long experience, int upgradePoints, int spiritLevel) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = database.dataSource().getConnection()) {
+                connection.setAutoCommit(false);
+                try {
+                    boolean applied = ContractFailureSettlement.apply(connection, contractTable(progress.type()),
+                            progress.clanId().toString(), progress.questId(), progress.startedAt(),
+                            level, experience, upgradePoints, spiritLevel);
+                    connection.commit();
+                    return applied;
+                } catch (SQLException | RuntimeException error) {
+                    connection.rollback();
+                    throw error;
+                }
+            } catch (SQLException error) {
+                throw new StorageException("Unable to settle failed vow for clan " + progress.clanId(), error);
+            }
+        }, database.executor());
+    }
+
     private static String contractTable(ContractType type) {
         return type == ContractType.MONTHLY ? "clan_monthly_contracts" : "clan_contracts";
     }
@@ -708,6 +730,7 @@ public final class SqlClanStorage implements ClanStorage {
                 statement.setLong(7, progress.scaledRewardXp());
                 statement.setLong(8, progress.startedAt());
                 statement.setLong(9, progress.expiresAt());
+                statement.setInt(10, progress.failurePenaltyPercent());
                 statement.executeUpdate();
             } catch (SQLException exception) {
                 throw new StorageException("Unable to save " + progress.type() + " contract progress for clan " + progress.clanId(), exception);
@@ -747,7 +770,8 @@ public final class SqlClanStorage implements ClanStorage {
                             rs.getInt("completed") != 0,
                             rs.getInt("claimed") != 0,
                             rs.getLong("started_at"),
-                            rs.getLong("expires_at")
+                            rs.getLong("expires_at"),
+                            rs.getInt("penalty_percent")
                     ));
                 }
             } catch (SQLException exception) {

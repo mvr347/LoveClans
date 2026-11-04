@@ -47,6 +47,7 @@ class ContractSchemaTest {
             ps.setLong(7, 7000L);
             ps.setLong(8, 1L);
             ps.setLong(9, 2L);
+            ps.setInt(10, 150);
             ps.executeUpdate();
         }
     }
@@ -85,6 +86,7 @@ class ContractSchemaTest {
             st.execute("ALTER TABLE clan_contracts ADD COLUMN reward_xp BIGINT NOT NULL DEFAULT 0");
             st.execute("ALTER TABLE clan_contracts ADD COLUMN started_at BIGINT NOT NULL DEFAULT 0");
             st.execute("ALTER TABLE clan_contracts ADD COLUMN expires_at BIGINT NOT NULL DEFAULT 0");
+            st.execute("ALTER TABLE clan_contracts ADD COLUMN penalty_percent INT NOT NULL DEFAULT 80");
         }
         SQLException failure = assertThrows(SQLException.class, () -> upsert("clan_contracts", "vow_a", 0, 0, 0));
         assertTrue(failure.getMessage().contains("last_reset"), failure.getMessage());

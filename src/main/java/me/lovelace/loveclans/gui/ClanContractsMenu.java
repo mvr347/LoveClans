@@ -133,6 +133,8 @@ public final class ClanContractsMenu {
         lore.add(messages.component("gui.contracts.item.reward-title", player));
         lore.add(messages.component("gui.contracts.item.reward-scaled",
                 Map.of("reward", String.valueOf(progress.scaledRewardXp())), player));
+        if (!progress.completed()) lore.add(messages.component("gui.contracts.item.failure-penalty",
+                Map.of("penalty", String.valueOf(progress.failurePenaltyXp())), player));
         lore.add(Component.empty());
         lore.add(messages.component("gui.contracts.item.time-title", player));
         if (!claimed && !ready) {

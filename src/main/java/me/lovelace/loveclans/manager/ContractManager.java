@@ -51,6 +51,7 @@ public final class ContractManager {
         final ContractSlots slots = new ContractSlots();
         /** Clans whose in-memory progress is newer than what the database holds. */
         final Set<UUID> dirty = ConcurrentHashMap.newKeySet();
+        final Set<UUID> settling = ConcurrentHashMap.newKeySet();
 
         Track(ContractType type, Map<String, ClanContractDefinition> catalog) {
             this.type = type;
@@ -163,7 +164,8 @@ public final class ContractManager {
 
     public ScaledOffer scale(Clan clan, ClanContractDefinition definition) {
         double multiplier = difficultyMultiplier(clan);
-        QuestObjective scaled = definition.objective().scaled(multiplier);
+        double effort = Math.max(1.0, plugin.getConfig().getDouble("clans.contracts.difficulty.target-multiplier", 2.0));
+        QuestObjective scaled = definition.objective().scaled(multiplier * effort);
         return new ScaledOffer(definition, scaled, scaled.getTargetAmount(), Math.round(definition.baseRewardXp() * multiplier));
     }
 
@@ -227,7 +229,7 @@ public final class ContractManager {
             }
             ScaledOffer scaled = scale(clan, definition);
             ClanQuestProgress progress = new ClanQuestProgress(clan.id(), type, definition.id(), scaled.target(), scaled.rewardXp(),
-                    0, false, false, System.currentTimeMillis(), periodEnd(type));
+                    0, false, false, System.currentTimeMillis(), periodEnd(type), failurePenaltyPercent());
             if (!track.slots.reserve(progress)) {
                 boolean doneThisPeriod = track.slots.get(clan.id()).map(ClanQuestProgress::claimed).orElse(false);
                 throw new IllegalStateException(doneThisPeriod ? "contract.already-done-this-period" : "contract.already-active");
@@ -300,7 +302,7 @@ public final class ContractManager {
         for (Track track : tracks()) {
             if (track.dirty.isEmpty()) continue;
             for (UUID clanId : List.copyOf(track.dirty)) {
-                if (!track.dirty.remove(clanId)) continue;
+                if (track.settling.contains(clanId) || !track.dirty.remove(clanId)) continue;
                 track.slots.get(clanId).ifPresent(progress -> storage.saveContractProgressAsync(progress).exceptionally(error -> {
                     plugin.getLogger().warning("Failed to save " + track.type + " contract progress for clan " + clanId + ": " + error.getMessage());
                     track.dirty.add(clanId);
@@ -438,7 +440,7 @@ public final class ContractManager {
                 return null;
             }));
         } else if (!progress.completed()) {
-            if (track.slots.remove(progress)) {
+            if (track.settling.add(progress.clanId())) {
                 track.dirty.remove(progress.clanId());
                 applyPenalty(track, clan, progress);
             }
@@ -449,27 +451,53 @@ public final class ContractManager {
         }
     }
 
+    public int failurePenaltyPercent() {
+        return Math.clamp(plugin.getConfig().getInt("clans.contracts.penalty-percent", 150), 0, 1000);
+    }
+
+    public long failurePenaltyXp(long reward) {
+        return Math.max(0L, Math.round(reward * (failurePenaltyPercent() / 100.0)));
+    }
+
     private void applyPenalty(Track track, Clan clan, ClanQuestProgress progress) {
-        ClanContractDefinition definition = track.catalog.get(progress.questId());
-        int penaltyPercent = plugin.getConfig().getInt("clans.contracts.penalty-percent", 80);
-        long penalty = Math.round(progress.scaledRewardXp() * (penaltyPercent / 100.0));
-        plugin.getClanManager().removeExperienceAsync(clan, penalty)
-                .handle((ignored, error) -> {
-                    if (error != null) {
-                        plugin.getLogger().warning("Failed to apply contract penalty for clan " + clan.id() + ": " + error.getMessage());
+        plugin.supplySync(() -> {
+            long removed = Math.min(clan.experience(), progress.failurePenaltyXp());
+            clan.removeExperience(removed);
+            // Enqueue while still on the main thread, before any later progression snapshot.
+            return storage.settleFailedContractAsync(progress, clan.level(), clan.experience(),
+                    clan.upgradePoints(), clan.spirit().level()).handle((applied, error) -> {
+                plugin.runSync(() -> {
+                    if (error != null || !Boolean.TRUE.equals(applied)) {
+                        clan.setExperience(clan.experience() + removed);
+                        if (error != null) {
+                            // Later progression snapshots might have been queued with the temporary deduction.
+                            // Queue the restored snapshot after them so cache and storage converge again.
+                            storage.updateClanProgression(clan.id(), clan.level(), clan.experience(),
+                                    clan.upgradePoints(), clan.spirit().level()).exceptionally(rollbackError -> {
+                                plugin.getLogger().warning("Не удалось сохранить восстановленный опыт клана "
+                                        + clan.id() + ": " + rollbackError.getMessage());
+                                return null;
+                            });
+                            plugin.getLogger().warning("Не удалось сохранить штраф обета клана " + clan.id()
+                                    + "; обет сохранён для повторной попытки: " + error.getMessage());
+                        } else {
+                            track.slots.remove(progress); // Already removed; do not charge again.
+                        }
+                    } else {
+                        track.slots.remove(progress);
+                        ClanContractDefinition definition = track.catalog.get(progress.questId());
+                        if (definition != null) notifyOnline(clan, "contract.failed", Map.of(
+                                "name", definition.displayName(), "penalty", String.valueOf(removed)));
                     }
-                    return null;
-                })
-                .thenCompose(ignored -> storage.deleteContractProgressAsync(clan.id(), track.type))
-                .thenRun(() -> {
-                    if (definition != null) {
-                        plugin.runSync(() -> notifyOnline(clan, "contract.failed",
-                                Map.of("name", definition.displayName(), "penalty", String.valueOf(penalty))));
-                    }
-                }).exceptionally(error -> {
-                    plugin.getLogger().warning("Failed to remove expired contract row for clan " + clan.id() + ": " + error.getMessage());
-                    return null;
+                    track.settling.remove(clan.id());
                 });
+                return null;
+            });
+        }).exceptionally(error -> {
+            track.settling.remove(clan.id());
+            plugin.getLogger().warning("Не удалось начать завершение обета клана " + clan.id() + ": " + error.getMessage());
+            return null;
+        });
     }
 
     private void notifyOnline(Clan clan, String key, Map<String, String> placeholders) {

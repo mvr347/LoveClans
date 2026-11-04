@@ -119,6 +119,9 @@ public final class ClanContractChoiceMenu {
         if (points > 0) {
             lore.add(messages.component("gui.contracts.item.reward-points", Map.of("points", String.valueOf(points)), player));
         }
+        lore.add(Component.empty());
+        lore.add(messages.component("gui.contracts.item.failure-penalty", Map.of("penalty",
+                String.valueOf(plugin.getContractManager().failurePenaltyXp(offer.rewardXp()))), player));
         lore.addAll(LoreBlocks.clicks(messages, player, List.of(
                 LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.contracts.item.select-action"))));
         return ItemBuilder.head(type == ContractType.MONTHLY ? ItemBuilder.HEAD_MONTHLY_QUESTS : ItemBuilder.HEAD_WEEKLY_QUESTS)
