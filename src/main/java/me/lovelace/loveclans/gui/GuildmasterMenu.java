@@ -90,10 +90,16 @@ public final class GuildmasterMenu {
         holder.setInventory(inventory);
 
         GuiFrames.fillFrame27(inventory);
-        inventory.setItem(SLOT_INFO, ItemBuilder.of(org.bukkit.Material.PLAYER_HEAD)
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
                 .name(plugin.getMessages().component("gui.guildmaster.info.title", Map.of("tag", clan.tag(), "color", clan.tagColor()), player))
                 .lore(plugin.getMessages().components("gui.guildmaster.info.lore", Map.of("tag", clan.tag(), "members", String.valueOf(clan.members().size())), player))
-                .mutate(meta -> ((org.bukkit.inventory.meta.SkullMeta) meta).setOwnerProfile(player.getPlayerProfile()))
+                .mutate(meta -> {
+                    // An offline UUID without textures must not trigger a Mojang profile lookup.
+                    var profile = player.getPlayerProfile();
+                    if (profile.getTextures().getSkin() != null) {
+                        ((org.bukkit.inventory.meta.SkullMeta) meta).setOwnerProfile(profile);
+                    }
+                })
                 .build());
         layout.forEach((slot, action) -> inventory.setItem(slot, buildButton(action, clan, player)));
 

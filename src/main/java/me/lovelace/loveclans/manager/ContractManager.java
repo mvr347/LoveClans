@@ -464,8 +464,16 @@ public final class ContractManager {
             long removed = Math.min(clan.experience(), progress.failurePenaltyXp());
             clan.removeExperience(removed);
             // Enqueue while still on the main thread, before any later progression snapshot.
-            return storage.settleFailedContractAsync(progress, clan.level(), clan.experience(),
-                    clan.upgradePoints(), clan.spirit().level()).handle((applied, error) -> {
+            CompletableFuture<Boolean> settlement;
+            try {
+                settlement = storage.settleFailedContractAsync(progress, clan.level(), clan.experience(),
+                        clan.upgradePoints(), clan.spirit().level());
+            } catch (RuntimeException rejected) {
+                // Executor shutdown/rejection can throw before a Future exists.
+                clan.setExperience(clan.experience() + removed);
+                throw rejected;
+            }
+            return settlement.handle((applied, error) -> {
                 plugin.runSync(() -> {
                     if (error != null || !Boolean.TRUE.equals(applied)) {
                         clan.setExperience(clan.experience() + removed);
