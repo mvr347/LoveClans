@@ -2,6 +2,7 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.util.CoinFormat;
 import me.lovelace.loveclans.LoveClansPlugin;
+import me.lovelace.loveclans.util.ConfirmMenuLayout;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -79,7 +80,9 @@ public final class BannerPurchaseConfirmMenu {
     public static void open(Player player, LoveClansPlugin plugin, long cost, boolean affordable, boolean replacement) {
         Holder holder = new Holder(cost, affordable, replacement);
         Component title = plugin.getMessages().component(replacement ? "clan.banner.replacement-confirm-title" : "clan.banner.confirm-title", player);
-        Inventory inventory = Bukkit.createInventory(holder, SIZE, title);
+        boolean large = ConfirmMenuLayout.available();
+        Inventory inventory = Bukkit.createInventory(holder, large ? ConfirmMenuLayout.SIZE : SIZE,
+                large ? ConfirmMenuLayout.title(player) : title);
         holder.setInventory(inventory);
 
         ItemStack glass = ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build();
@@ -107,6 +110,30 @@ public final class BannerPurchaseConfirmMenu {
             }
             infoLore.add(LoreBlocks.funds(plugin.getMessages(), player, cost, affordable ? Math.max(have, cost) : have));
         }
+        if (large) {
+            // The server's confirm menu has no middle slot: the banner info goes into the confirm button's lore.
+            java.util.List<Component> yesLore = new java.util.ArrayList<>();
+            yesLore.add(title);
+            yesLore.addAll(infoLore);
+            ItemStack yes = ConfirmMenuLayout.button(
+                    plugin.getMessages().component("gui.confirm.yes", player), yesLore);
+            ItemStack no = ConfirmMenuLayout.button(plugin.getMessages().component("gui.confirm.no", player), java.util.List.of());
+            if (yes != null && no != null) {
+                ConfirmMenuLayout.fill(inventory, yes, no);
+                player.openInventory(inventory);
+                return;
+            }
+            // The invisible item vanished between the check and now: rebuild the small window below.
+            holder = new Holder(cost, affordable, replacement);
+            inventory = Bukkit.createInventory(holder, SIZE, title);
+            holder.setInventory(inventory);
+            for (int slot : new int[]{0, 2, 3, 5, 6, 8}) {
+                inventory.setItem(slot, glass);
+            }
+            if (!affordable) {
+                inventory.setItem(SLOT_CONFIRM, glass);
+            }
+        }
         ItemStack info = ItemBuilder.of(Material.WHITE_BANNER)
                 .name(plugin.getMessages().component(replacement ? "clan.banner.replacement-item-name" : "clan.banner.confirm-item-name", placeholders, player))
                 .lore(infoLore)
@@ -125,11 +152,12 @@ public final class BannerPurchaseConfirmMenu {
         player.openInventory(inventory);
     }
 
-    public static boolean isConfirmSlot(int slot) {
-        return slot == SLOT_CONFIRM;
+    /** {@code size} is the size of the open window: the 9-slot window and the 27-slot menu place the buttons differently. */
+    public static boolean isConfirmSlot(int slot, int size) {
+        return size == ConfirmMenuLayout.SIZE ? ConfirmMenuLayout.isConfirm(slot) : slot == SLOT_CONFIRM;
     }
 
-    public static boolean isCancelSlot(int slot) {
-        return slot == SLOT_CANCEL;
+    public static boolean isCancelSlot(int slot, int size) {
+        return size == ConfirmMenuLayout.SIZE ? ConfirmMenuLayout.isCancel(slot) : slot == SLOT_CANCEL;
     }
 }

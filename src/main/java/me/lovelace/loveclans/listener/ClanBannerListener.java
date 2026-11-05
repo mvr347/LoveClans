@@ -300,7 +300,7 @@ public final class ClanBannerListener implements Listener {
                 return;
             }
             int slot = event.getRawSlot();
-            if (BannerPurchaseConfirmMenu.isConfirmSlot(slot)) {
+            if (BannerPurchaseConfirmMenu.isConfirmSlot(slot, event.getInventory().getSize())) {
                 if (!holder.affordable()) {
                     return; // no confirm button was shown; ignore the (glass) slot
                 }
@@ -310,7 +310,7 @@ public final class ClanBannerListener implements Listener {
                 } else {
                     finalizePurchase(player, holder.cost());
                 }
-            } else if (BannerPurchaseConfirmMenu.isCancelSlot(slot)) {
+            } else if (BannerPurchaseConfirmMenu.isCancelSlot(slot, event.getInventory().getSize())) {
                 player.closeInventory();
             }
             return;
