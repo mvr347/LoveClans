@@ -72,7 +72,7 @@ public final class ClanRecognitionConfirmMenu {
 
         Holder holder = new Holder(clan.id(), cost, affordable);
         Component title = plugin.getMessages().component("gui.recognition.title", player);
-        boolean large = ConfirmMenuLayout.available();
+        boolean large = ConfirmMenuLayout.available(player);
         Inventory inventory = Bukkit.createInventory(holder, large ? ConfirmMenuLayout.SIZE : SIZE,
                 large ? ConfirmMenuLayout.title(player) : title);
         holder.setInventory(inventory);

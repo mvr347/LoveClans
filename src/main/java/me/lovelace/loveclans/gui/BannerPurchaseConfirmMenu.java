@@ -80,7 +80,7 @@ public final class BannerPurchaseConfirmMenu {
     public static void open(Player player, LoveClansPlugin plugin, long cost, boolean affordable, boolean replacement) {
         Holder holder = new Holder(cost, affordable, replacement);
         Component title = plugin.getMessages().component(replacement ? "clan.banner.replacement-confirm-title" : "clan.banner.confirm-title", player);
-        boolean large = ConfirmMenuLayout.available();
+        boolean large = ConfirmMenuLayout.available(player);
         Inventory inventory = Bukkit.createInventory(holder, large ? ConfirmMenuLayout.SIZE : SIZE,
                 large ? ConfirmMenuLayout.title(player) : title);
         holder.setInventory(inventory);

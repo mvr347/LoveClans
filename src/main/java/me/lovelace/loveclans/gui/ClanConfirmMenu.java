@@ -43,7 +43,7 @@ public final class ClanConfirmMenu {
         ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.CONFIRM, clan.id());
         // The server's 27-slot confirm menu when its background and invisible item exist, otherwise the 9-slot window
         // (gui_gen v2.1 confirm: glass 0,2-6,8, yes at 1, no at 7).
-        boolean large = ConfirmMenuLayout.available();
+        boolean large = ConfirmMenuLayout.available(player);
         Inventory inventory = Bukkit.createInventory(holder, large ? ConfirmMenuLayout.SIZE : SIZE,
                 large ? ConfirmMenuLayout.title(player) : title);
         holder.setInventory(inventory);
