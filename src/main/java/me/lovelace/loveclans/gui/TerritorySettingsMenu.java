@@ -103,17 +103,25 @@ public class TerritorySettingsMenu implements InventoryHolder {
                 plugin.getMessages().send(player, "gui.territory-settings.pvp.success");
                 new TerritorySettingsMenu(plugin, clan, updated).open(player);
             }));
-        } else if (slot == 15) { // Disband Private
-            player.closeInventory();
-            plugin.getClanManager().unclaimTerritoryAsync(clan, territory.key(), player.getUniqueId())
-                    .thenAccept(v -> plugin.runSync(() -> {
-                        plugin.getMessages().send(player, "territory.unclaimed");
-                        plugin.getGuiManager().openTerritories(player, clan);
-                    }))
-                    .exceptionally(t -> {
-                        plugin.runSync(() -> plugin.sendOperationError(player, t));
-                        return null;
-                    });
+        } else if (slot == 15) { // Disband Private: asks first, the claim and its protection vanish at once
+            Map<String, String> placeholders = Map.of("chunk", territory.name() != null ? territory.name()
+                    : territory.key().chunkX() + "," + territory.key().chunkZ());
+            plugin.getGuiManager().openConfirm(player, clan,
+                    plugin.getMessages().component("gui.confirm.unclaim-private.title", placeholders, player),
+                    plugin.getGuiManager().confirmEffects(player, "unclaim-private", placeholders),
+                    () -> {
+                        player.closeInventory();
+                        plugin.getClanManager().unclaimTerritoryAsync(clan, territory.key(), player.getUniqueId())
+                                .thenAccept(v -> plugin.runSync(() -> {
+                                    plugin.getMessages().send(player, "territory.unclaimed");
+                                    plugin.getGuiManager().openTerritories(player, clan);
+                                }))
+                                .exceptionally(t -> {
+                                    plugin.runSync(() -> plugin.sendOperationError(player, t));
+                                    return null;
+                                });
+                    },
+                    () -> plugin.runSync(() -> new TerritorySettingsMenu(plugin, clan, territory).open(player)));
         }
     }
 

@@ -1581,6 +1581,11 @@ gui:
       effects:
         - "  <red>− <gray>Клан будет распущен безвозвратно"
         - "  <red>− <gray>Все участники покинут клан"
+    unclaim-private:
+      title: "<red>Распустить приват <white><chunk><red>?"
+      effects:
+        - "  <red>− <gray>Приват исчезнет, защита территории будет снята"
+        - "  <red>− <gray>Постройки останутся, но будут открыты для всех"
     break-pact:
       title: "<red>Расторгнуть «<type>» с кланом <color><tag></color>?"
       effects:

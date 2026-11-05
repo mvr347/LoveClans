@@ -51,6 +51,11 @@ public final class PlaceholderAPIHook extends PlaceholderExpansion {
         if (key.equals("invites_enabled")) {
             return plugin.getPlayerPreferencesManager().isInvitesEnabled(player.getUniqueId()) ? "yes" : "no";
         }
+        if (key.equals("can_invite")) {
+            // Profile (LoveEssential) greys its "invite to clan" button when the viewer lacks the right.
+            return clanOptional.map(c -> c.hasPermission(player.getUniqueId(), me.lovelace.loveclans.model.ClanPermission.INVITE))
+                    .orElse(false) ? "yes" : "no";
+        }
         if (clanOptional.isEmpty()) {
             return "";
         }
