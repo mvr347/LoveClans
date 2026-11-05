@@ -61,7 +61,7 @@ public final class GuildmasterMenu {
                 || (ClanRecognitionService.isOwner(clan, playerId) && !clan.isRecognized());
     }
 
-    private List<Action> buttonsFor(Clan clan, UUID playerId) {
+    static List<Action> buttonsFor(Clan clan, UUID playerId) {
         List<Action> buttons = new ArrayList<>();
         if (clan.hasPermission(playerId, ClanPermission.CONTRACTS)) {
             buttons.add(Action.VOWS);
