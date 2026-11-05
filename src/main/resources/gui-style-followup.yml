@@ -1,5 +1,5 @@
 # Обновление 04.11.2026: исходные файлы копируются в .pre-style-20261104.bak; свои значения сохраняются.
-version: 20261104
+version: 20261105
 updates:
 - file: heads.yml
   path: previous
@@ -74,4 +74,15 @@ updates:
   - '<gray>Поводы: основания для войны или осады.</gray>'
   - <dark_gray>─────────────────────</dark_gray>
   - <gray>Доступные действия находятся ниже.</gray>
+  preserve-custom: true
+# 05.11.2026: новые текстуры «включено/выключено» (права, переключатели). Заменяется только точное прежнее значение.
+- file: heads.yml
+  path: permission-on
+  before: eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvODg5MDgyNTQ1MWMwMWJkMDNiMDMwNzkwNjIxYWI3NTM0NDgzMTlmODQ3NDliYjAyYzkwZjNhMjg0ODliZDcyIn19fQ==
+  value: eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvOWI1ODcxYzcyOTg3MjY2ZTE1ZjFiZTQ5YjFlYzMzNGVmNmI2MThlOTY1M2ZiNzhlOTE4YWJkMzk1NjNkYmI5MyJ9fX0=
+  preserve-custom: true
+- file: heads.yml
+  path: permission-off
+  before: eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYTRmZWY3NTNkNWI0ZmYyYTljYWU3NWJjMmVkZWIzMTUzMDI1YWJjNWNjMjc0NDI4NWYzMTk2NGY5NDA4YTFmIn19fQ==
+  value: eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvYmI3OGZhNWRlZmU3MmRlYmNkOWM3NmFiOWY0ZTExNDI1MDQ3OWJiOWI0NGY0Mjg4N2JiZjZmNzM4NjEyYiJ9fX0=
   preserve-custom: true
