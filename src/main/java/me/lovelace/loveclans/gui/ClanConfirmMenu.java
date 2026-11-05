@@ -2,6 +2,7 @@ package me.lovelace.loveclans.gui;
 
 import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.model.Clan;
+import me.lovelace.loveclans.util.ConfirmMenuLayout;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -40,9 +41,21 @@ public final class ClanConfirmMenu {
 
     public void open(Player player, Clan clan, Component title, List<Component> effects) {
         ClanMenuHolder holder = new ClanMenuHolder(ClanMenuType.CONFIRM, clan.id());
-        Inventory inventory = Bukkit.createInventory(
-                holder, SIZE, title); // gui_gen v2.1 confirm: glass 0,2-6,8 (the middle is a plain separator), yes at 1, no at 7
+        // The server's 27-slot confirm menu when its background and invisible item exist, otherwise the 9-slot window
+        // (gui_gen v2.1 confirm: glass 0,2-6,8, yes at 1, no at 7).
+        boolean large = ConfirmMenuLayout.available(player);
+        Inventory inventory = Bukkit.createInventory(holder, large ? ConfirmMenuLayout.SIZE : SIZE,
+                large ? ConfirmMenuLayout.title(player) : title);
         holder.setInventory(inventory);
+        if (large && openLarge(player, inventory, title, effects)) {
+            player.openInventory(inventory);
+            return;
+        }
+        if (large) { // the invisible item vanished between the check and now: fall back to the small window
+            holder = new ClanMenuHolder(ClanMenuType.CONFIRM, clan.id());
+            inventory = Bukkit.createInventory(holder, SIZE, title);
+            holder.setInventory(inventory);
+        }
 
         for (int slot = 0; slot < inventory.getSize(); slot++) {
             inventory.setItem(slot, ItemBuilder.of(Material.GRAY_STAINED_GLASS_PANE).name(Component.empty()).build());
@@ -69,15 +82,48 @@ public final class ClanConfirmMenu {
         player.openInventory(inventory);
     }
 
-    public static boolean isAnswerSlot(int slot) {
-        return slot == CONFIRM_SLOT || slot == CANCEL_SLOT;
+    private boolean openLarge(Player player, Inventory inventory, Component question, List<Component> effects) {
+        var messages = plugin.getMessages();
+        List<Component> yesLore = new java.util.ArrayList<>();
+        // The window title is only the background glyph here, so the question moves into the button.
+        yesLore.add(question);
+        yesLore.add(messages.component("gui.confirm.subtitle", player));
+        if (!effects.isEmpty()) {
+            yesLore.add(Component.empty());
+            yesLore.add(messages.component("gui.confirm.effects-title", player));
+            yesLore.addAll(effects);
+        }
+        yesLore.addAll(LoreBlocks.clicks(messages, player, List.of(
+                LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.confirm.yes-action"))));
+        var yes = ConfirmMenuLayout.button(messages.component("gui.confirm.yes", player), yesLore);
+        List<Component> noLore = new java.util.ArrayList<>(messages.components("gui.confirm.no-lore", player));
+        noLore.addAll(LoreBlocks.clicks(messages, player, List.of(
+                LoreBlocks.hint(messages, LoreBlocks.Click.LEFT, "gui.confirm.no-action"))));
+        var no = ConfirmMenuLayout.button(messages.component("gui.confirm.no", player), noLore);
+        if (yes == null || no == null) return false;
+        ConfirmMenuLayout.fill(inventory, yes, no);
+        return true;
+    }
+
+    public static boolean isAnswerSlot(int slot, int size) {
+        return yes(size, slot) || no(size, slot);
+    }
+
+    /** Whether the clicked slot answers "yes" in the window with {@code size} slots (9-slot or the 27-slot menu). */
+    private static boolean yes(int size, int slot) {
+        return size == ConfirmMenuLayout.SIZE ? ConfirmMenuLayout.isConfirm(slot) : slot == CONFIRM_SLOT;
+    }
+
+    private static boolean no(int size, int slot) {
+        return size == ConfirmMenuLayout.SIZE ? ConfirmMenuLayout.isCancel(slot) : slot == CANCEL_SLOT;
     }
 
     public void handleInventoryClick(Player player, int slot, Runnable onYes, Runnable onNo) {
-        if (slot == CONFIRM_SLOT) {
+        int size = player.getOpenInventory().getTopInventory().getSize();
+        if (yes(size, slot)) {
             player.closeInventory();
             if (onYes != null) onYes.run();
-        } else if (slot == CANCEL_SLOT) {
+        } else if (no(size, slot)) {
             player.closeInventory();
             if (onNo != null) onNo.run();
         }

@@ -288,6 +288,21 @@ public final class ClanBannerListener implements Listener {
         giveBanner(player, cost);
     }
 
+    /**
+     * The 27-slot confirm menu leaves its middle slots empty for the background; a drag would drop the cursor's items
+     * into this temporary inventory and they would be lost on close. Drags that touch it are cancelled.
+     */
+    @EventHandler
+    public void onInventoryDrag(org.bukkit.event.inventory.InventoryDragEvent event) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof BannerPurchaseConfirmMenu.Holder)) {
+            return;
+        }
+        int topSize = event.getView().getTopInventory().getSize();
+        if (event.getRawSlots().stream().anyMatch(slot -> slot < topSize)) {
+            event.setCancelled(true);
+        }
+    }
+
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
@@ -300,7 +315,7 @@ public final class ClanBannerListener implements Listener {
                 return;
             }
             int slot = event.getRawSlot();
-            if (BannerPurchaseConfirmMenu.isConfirmSlot(slot)) {
+            if (BannerPurchaseConfirmMenu.isConfirmSlot(slot, event.getInventory().getSize())) {
                 if (!holder.affordable()) {
                     return; // no confirm button was shown; ignore the (glass) slot
                 }
@@ -310,7 +325,7 @@ public final class ClanBannerListener implements Listener {
                 } else {
                     finalizePurchase(player, holder.cost());
                 }
-            } else if (BannerPurchaseConfirmMenu.isCancelSlot(slot)) {
+            } else if (BannerPurchaseConfirmMenu.isCancelSlot(slot, event.getInventory().getSize())) {
                 player.closeInventory();
             }
             return;

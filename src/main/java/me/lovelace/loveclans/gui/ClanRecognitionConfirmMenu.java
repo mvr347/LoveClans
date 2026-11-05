@@ -6,6 +6,7 @@ import me.lovelace.loveclans.LoveClansPlugin;
 import me.lovelace.loveclans.manager.ClanRecognitionService;
 import me.lovelace.loveclans.model.Clan;
 import me.lovelace.loveclans.util.CoinFormat;
+import me.lovelace.loveclans.util.ConfirmMenuLayout;
 import me.lovelace.loveclans.util.ItemBuilder;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
@@ -70,7 +71,10 @@ public final class ClanRecognitionConfirmMenu {
         boolean affordable = cost <= 0 || LoveCore.service(LoveEconomy.class).map(eco -> eco.has(player, cost)).orElse(false);
 
         Holder holder = new Holder(clan.id(), cost, affordable);
-        Inventory inventory = Bukkit.createInventory(holder, SIZE, plugin.getMessages().component("gui.recognition.title", player));
+        Component title = plugin.getMessages().component("gui.recognition.title", player);
+        boolean large = ConfirmMenuLayout.available(player);
+        Inventory inventory = Bukkit.createInventory(holder, large ? ConfirmMenuLayout.SIZE : SIZE,
+                large ? ConfirmMenuLayout.title(player) : title);
         holder.setInventory(inventory);
 
         ItemStack glass = GuiFrames.glassPane();
@@ -87,6 +91,31 @@ public final class ClanRecognitionConfirmMenu {
             long have = LoveCore.service(LoveEconomy.class).map(eco -> eco.balance(player)).orElse(0L);
             lore.add(LoreBlocks.funds(plugin.getMessages(), player, cost, have));
         }
+        if (large) {
+            // The small window's glass frame was already placed above; the large menu is only its two zones.
+            inventory.clear();
+            // The server's confirm menu has no middle slot: the recognition info goes into the confirm button's lore.
+            List<Component> yesLore = new ArrayList<>();
+            yesLore.add(title);
+            yesLore.addAll(lore);
+            ItemStack yes = ConfirmMenuLayout.button(plugin.getMessages().component("gui.confirm.yes", player), yesLore);
+            ItemStack no = ConfirmMenuLayout.button(plugin.getMessages().component("gui.confirm.no", player), List.of());
+            if (yes != null && no != null) {
+                ConfirmMenuLayout.fill(inventory, yes, no);
+                player.openInventory(inventory);
+                return;
+            }
+            // The invisible item vanished between the check and now: rebuild the small window below.
+            holder = new Holder(clan.id(), cost, affordable);
+            inventory = Bukkit.createInventory(holder, SIZE, title);
+            holder.setInventory(inventory);
+            for (int slot : new int[]{0, 2, 3, 5, 6, 8}) {
+                inventory.setItem(slot, glass);
+            }
+            inventory.setItem(SLOT_CONFIRM, affordable
+                    ? ItemBuilder.head(ItemBuilder.HEAD_DELETE_YES).name(plugin.getMessages().component("gui.confirm.yes", player)).build()
+                    : glass);
+        }
         inventory.setItem(SLOT_INFO, ItemBuilder.of(Material.WHITE_BANNER)
                 .name(plugin.getMessages().component("gui.recognition.info-name", placeholders, player))
                 .lore(lore)
@@ -99,11 +128,14 @@ public final class ClanRecognitionConfirmMenu {
     }
 
     public void handleInventoryClick(Player player, int slot, Holder holder) {
-        if (slot == SLOT_CONFIRM && holder.affordable()) {
+        int size = player.getOpenInventory().getTopInventory().getSize();
+        boolean yes = size == ConfirmMenuLayout.SIZE ? ConfirmMenuLayout.isConfirm(slot) : slot == SLOT_CONFIRM;
+        boolean no = size == ConfirmMenuLayout.SIZE ? ConfirmMenuLayout.isCancel(slot) : slot == SLOT_CANCEL;
+        if (yes && holder.affordable()) {
             // Close first so a second click cannot confirm twice; the service re-checks everything anyway.
             player.closeInventory();
             plugin.getRecognitionService().recognize(player, holder.cost());
-        } else if (slot == SLOT_CANCEL) {
+        } else if (no) {
             var clan = plugin.getClanManager().getPlayerClan(player.getUniqueId());
             if (plugin.getGuiManager().inGuildmasterSession(player) && clan.isPresent()) {
                 plugin.getGuiManager().openGuildmaster(player, clan.get());

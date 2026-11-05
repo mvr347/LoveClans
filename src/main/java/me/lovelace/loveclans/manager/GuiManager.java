@@ -514,7 +514,7 @@ public class GuiManager implements Listener {
 
             if (clanMenuHolder.type() == ClanMenuType.CONFIRM) {
                 // A click on the glass must not throw away the pending callbacks.
-                if (!ClanConfirmMenu.isAnswerSlot(slot)) return;
+                if (!ClanConfirmMenu.isAnswerSlot(slot, event.getInventory().getSize())) return;
                 Runnable onYes = confirmYes.remove(player.getUniqueId());
                 Runnable onNo = confirmNo.remove(player.getUniqueId());
                 confirmMenu.handleInventoryClick(player, slot, onYes, onNo);

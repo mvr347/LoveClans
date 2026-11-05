@@ -136,7 +136,7 @@ public final class ClanMainMenu implements InventoryHolder {
                 : disabledItem("gui.main.trade.name", "gui.main.trade.description",
                         List.of(plugin.getMessages().reason("gui.main.no-territory-lore", player))));
 
-        inventory.setItem(SLOT_HISTORY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_MAP)
+        inventory.setItem(SLOT_HISTORY, withOpenHint(ItemBuilder.head(ItemBuilder.HEAD_HISTORY)
                 .name(plugin.getMessages().component("gui.main.history.name", player))
                 .lore(plugin.getMessages().components("gui.main.history.description", player))).build());
 
