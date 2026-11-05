@@ -110,7 +110,7 @@ public final class CasusBelliMenu {
         GuiFrames.fillFrame54(inventory);
 
         // Слот 0: Инфо
-        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_GUILD_CASUS)
                 .name(messages().component("gui.casus-belli.info.name", player))
                 .lore(messages().components("gui.casus-belli.info.lore", player))
                 .build());
@@ -190,7 +190,7 @@ public final class CasusBelliMenu {
         GuiFrames.fillFrame54(inventory);
 
         // Слот 0: эмблема цели
-        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_GUILD_CASUS)
                 .name(messages().component("gui.casus-belli.reason-info.name",
                         Map.of("name", targetClan.name(), "tag", targetClan.tag()), player))
                 .lore(messages().components("gui.casus-belli.reason-info.lore", Map.of("type", typeTitle,
