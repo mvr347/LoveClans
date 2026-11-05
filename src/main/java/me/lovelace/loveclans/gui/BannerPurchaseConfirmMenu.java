@@ -111,6 +111,8 @@ public final class BannerPurchaseConfirmMenu {
             infoLore.add(LoreBlocks.funds(plugin.getMessages(), player, cost, affordable ? Math.max(have, cost) : have));
         }
         if (large) {
+            // The small window's glass frame was already placed above; the large menu is only its two zones.
+            inventory.clear();
             // The server's confirm menu has no middle slot: the banner info goes into the confirm button's lore.
             java.util.List<Component> yesLore = new java.util.ArrayList<>();
             yesLore.add(title);

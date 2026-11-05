@@ -92,6 +92,8 @@ public final class ClanRecognitionConfirmMenu {
             lore.add(LoreBlocks.funds(plugin.getMessages(), player, cost, have));
         }
         if (large) {
+            // The small window's glass frame was already placed above; the large menu is only its two zones.
+            inventory.clear();
             // The server's confirm menu has no middle slot: the recognition info goes into the confirm button's lore.
             List<Component> yesLore = new ArrayList<>();
             yesLore.add(title);
