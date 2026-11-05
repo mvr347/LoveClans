@@ -75,7 +75,7 @@ public final class ClanHistoryMenu {
         holder.setInventory(inventory);
         GuiFrames.fillFrame54(inventory);
 
-        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_INFO)
+        inventory.setItem(SLOT_INFO, ItemBuilder.head(ItemBuilder.HEAD_HISTORY)
                 .name(plugin.getMessages().component("gui.history.info.name", Map.of("clan", clan.name()), player))
                 .lore(plugin.getMessages().components("gui.history.info.lore", player))
                 .build());
