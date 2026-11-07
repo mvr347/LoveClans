@@ -31,6 +31,7 @@ public final class CasusBelliMenu {
     private static final int SLOT_NEXT_PAGE = 44;
     private static final int SLOT_BACK = 52;
     private static final int SLOT_CLOSE = 53;
+    private static final int EMPTY_SLOT = 31;
 
     private static final int[] TARGET_SLOTS = {
             19, 20, 21, 22, 23, 24, 25,
@@ -148,6 +149,14 @@ public final class CasusBelliMenu {
                             "members", String.valueOf(target.members().size())), player))
                     .lore(LoreBlocks.clicks(messages(), player, List.of(
                             LoreBlocks.hint(messages(), LoreBlocks.Click.LEFT, "gui.casus-belli.target.action"))))
+                    .build());
+        }
+
+        // Empty list: a tile in the centre of the working zone instead of a blank menu.
+        if (targets.isEmpty()) {
+            inventory.setItem(EMPTY_SLOT, ItemBuilder.head(ItemBuilder.HEAD_NO_PLAYERS_EMPTY)
+                    .name(messages().component("gui.casus-belli.no-targets.name", player))
+                    .lore(messages().components("gui.casus-belli.no-targets.lore", player))
                     .build());
         }
 
