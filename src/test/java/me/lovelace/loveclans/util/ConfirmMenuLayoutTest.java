@@ -41,4 +41,12 @@ class ConfirmMenuLayoutTest {
         assertFalse(ConfirmMenuLayout.backgroundResolved(""));
         assertFalse(ConfirmMenuLayout.backgroundResolved(null));
     }
+
+    @org.junit.jupiter.api.Test
+    void theInvisibleItemIsAnItemsAdderIdWithoutTheDeluxeMenusPrefix() {
+        org.junit.jupiter.api.Assertions.assertEquals("voidcore:invisible", ConfirmMenuLayout.INVISIBLE_ITEM);
+        org.junit.jupiter.api.Assertions.assertEquals("voidcore:invisible", ConfirmMenuLayout.itemId("itemsadder-voidcore:invisible"));
+        org.junit.jupiter.api.Assertions.assertEquals("voidcore:invisible", ConfirmMenuLayout.itemId("voidcore:invisible"));
+        org.junit.jupiter.api.Assertions.assertNull(ConfirmMenuLayout.itemId(null));
+    }
 }
