@@ -417,6 +417,28 @@ public final class SiegeManager {
         }
     }
 
+    /** Admin: ends the preparation timer of the single siege this clan is in. False when none is preparing. */
+    public boolean skipPreparation(UUID clanId) {
+        for (ClanSiege siege : activeSieges.values()) {
+            if (siege.state() == SiegeState.PREPARING && siege.involves(clanId)) {
+                activateSiege(siege);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Admin: skips the preparation timer of any siege currently preparing. */
+    public boolean skipAnyPreparation() {
+        for (ClanSiege siege : List.copyOf(activeSieges.values())) {
+            if (siege.state() == SiegeState.PREPARING) {
+                activateSiege(siege);
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void activateSiege(ClanSiege siege) {
         Optional<SiegeClans> clansOpt = resolveClans(siege);
         clearPendingPhase(siege.id(), clansOpt.orElse(null));

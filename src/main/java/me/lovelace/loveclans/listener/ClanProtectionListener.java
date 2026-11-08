@@ -212,43 +212,30 @@ public class ClanProtectionListener implements Listener {
      * координаты блока, а не сырые from/to, чтобы одна лишь смена угла обзора (осмотреться на
      * месте) не засчитывалась как движение и не отменяла прогрев впустую.
      */
+    /**
+     * Walking is allowed during the "/clan home" warmup. It is broken by PvP and by any other
+     * teleport (waystone, scroll, ender pearl, another plugin).
+     */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onPlayerMove(PlayerMoveEvent event) {
+    public void onHomeWarmupTeleport(org.bukkit.event.player.PlayerTeleportEvent event) {
         Player player = event.getPlayer();
-        if (!clanManager.hasPendingHomeTeleport(player.getUniqueId())) {
-            return;
+        if (clanManager.hasPendingHomeTeleport(player.getUniqueId())) {
+            clanManager.cancelHomeTeleport(player.getUniqueId(), "territory.home-teleport.cancelled-teleport");
         }
-        Location from = event.getFrom();
-        Location to = event.getTo();
-        if (to == null) return;
-        if (from.getBlockX() == to.getBlockX() && from.getBlockY() == to.getBlockY() && from.getBlockZ() == to.getBlockZ()) {
-            return; // Только осмотрелся — не движение.
-        }
-        clanManager.cancelHomeTeleport(player.getUniqueId(), "territory.home-teleport.cancelled-moved");
     }
 
-    /**
-     * {@link PlayerMoveEvent} НЕ вызывается для игрока-пассажира транспорта (лодка, вагонетка,
-     * лошадь и т.п.) — пока игрок едет пассажиром, его перемещение идёт только через
-     * {@link VehicleMoveEvent} на самом транспортном средстве. Без этого слушателя игрок мог
-     * уехать на лодке (или верхом) далеко от места старта прогрева "/clan home" во время прогрева
-     * и всё равно получить телепорт по его истечении — обход проверки в {@link #onPlayerMove}.
-     * Планер (элитры) сюда не относится: там движется сам игрок, а не отдельная сущность-транспорт,
-     * так что обычный {@code PlayerMoveEvent} по-прежнему срабатывает и отменяет прогрев как надо.
-     *
-     * <p>{@code VehicleMoveEvent} не реализует {@code Cancellable}, поэтому {@code ignoreCancelled}
-     * здесь неприменим (и не нужен — движение транспорта нельзя отменить на этом этапе).</p>
-     */
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onVehicleMove(VehicleMoveEvent event) {
-        Location from = event.getFrom();
-        Location to = event.getTo();
-        if (from.getBlockX() == to.getBlockX() && from.getBlockY() == to.getBlockY() && from.getBlockZ() == to.getBlockZ()) {
-            return; // Транспорт не сменил блок — симметрично проверке блок-координат в onPlayerMove.
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onHomeWarmupPvp(org.bukkit.event.entity.EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Player victim)) return;
+        Entity damager = event.getDamager();
+        if (damager instanceof org.bukkit.entity.Projectile projectile
+                && projectile.getShooter() instanceof Entity shooter) {
+            damager = shooter;
         }
-        for (Entity passenger : event.getVehicle().getPassengers()) {
-            if (passenger instanceof Player player && clanManager.hasPendingHomeTeleport(player.getUniqueId())) {
-                clanManager.cancelHomeTeleport(player.getUniqueId(), "territory.home-teleport.cancelled-moved");
+        if (!(damager instanceof Player attacker) || attacker.equals(victim)) return;
+        for (Player p : new Player[] {victim, attacker}) {
+            if (clanManager.hasPendingHomeTeleport(p.getUniqueId())) {
+                clanManager.cancelHomeTeleport(p.getUniqueId(), "territory.home-teleport.cancelled-pvp");
             }
         }
     }

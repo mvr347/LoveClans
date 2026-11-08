@@ -54,6 +54,17 @@ public final class ShieldColorManager {
 
     public java.util.Optional<DyeColor> resolveDyeColor(Clan clan) {
         if (clan == null) return java.util.Optional.empty();
+        // The shield follows the clan banner (emblem). The tag color is only a fallback: most
+        // clans keep the default gold tag, which painted every shield orange.
+        Material emblem = clan.emblem();
+        if (emblem != null && emblem.name().endsWith("_BANNER") && !emblem.name().endsWith("_WALL_BANNER")) {
+            try {
+                return java.util.Optional.of(DyeColor.valueOf(
+                        emblem.name().substring(0, emblem.name().length() - "_BANNER".length())));
+            } catch (IllegalArgumentException ignored) {
+                // fall through to the tag color
+            }
+        }
         return java.util.Optional.ofNullable(tagToDyeColor.get(clan.tagColor()));
     }
 
@@ -62,6 +73,10 @@ public final class ShieldColorManager {
      * Помечаем щит PDC-тэгом, чтобы при выходе из клана точно знать, какие щиты сбрасывать
      * (а не трогать щиты, которые игрок специально покрасил/получил вручную до вступления).
      */
+    public void applyToPlayerMembers(Clan clan) {
+        plugin.getClanManager().onlineMembers(clan).forEach(p -> applyToPlayer(p, clan));
+    }
+
     public void applyToPlayer(Player player, Clan clan) {
         java.util.Optional<DyeColor> colorOpt = resolveDyeColor(clan);
         if (colorOpt.isEmpty()) return;

@@ -111,3 +111,8 @@ npc-header: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3J
 
 # Кнопка «История» в главном меню клана (05.11.2026, текстура владельца).
 history: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZGY2YjMwYjZkMjRmNmUwNmY4ZjQyYzEyZjdiZGVlNTIwNDRhZjYxN2MxMjQ0NjEzYmE0ODQ1MjhiYjQ4YTllIn19fQ=="
+
+# 2026-11-08: новые текстуры «клан открыт/закрыт» (владелец); новые ключи, чтобы они сработали и на
+# серверах, где heads.yml уже скопирован со старыми значениями open/closed.
+open-2026-11-08: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvZDExZGUxY2FkYjJhZGU2MTE0OWU1ZGVkMWJkODg1ZWRmMGRmNjI1OTI1NWIzM2I1ODdhOTZmOTgzYjJhMSJ9fX0="
+closed-2026-11-08: "eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvMWQ0ZWFlMTM5MzM4NjBhNmRmNWU4ZTk1NTY5M2I5NWE4YzNiMTVjMzZiOGI1ODc1MzJhYzA5OTZiYzM3ZTUifX19"

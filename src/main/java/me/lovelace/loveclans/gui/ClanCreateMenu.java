@@ -37,10 +37,9 @@ public final class ClanCreateMenu implements InventoryHolder {
         inventory.setItem(0, ItemBuilder.head(ItemBuilder.HEAD_INFO).name(plugin.getMessages().component("gui.create.title", player)).build());
         inventory.setItem(25, GuiFrames.glassPane());
 
-        inventory.setItem(10, nameButton(plugin, player, name));
-        inventory.setItem(12, tagButton(plugin, player, tag));
-        inventory.setItem(14, typeButton(plugin, player, open));
-        inventory.setItem(16, createButton(plugin, player, name, tag, "gui.create.create.ready", "gui.create.create.action"));
+        inventory.setItem(11, nameTagButton(plugin, player, name, tag));
+        inventory.setItem(13, typeButton(plugin, player, open));
+        inventory.setItem(15, createButton(plugin, player, name, tag, "gui.create.create.ready", "gui.create.create.action"));
 
         inventory.setItem(26, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
@@ -50,6 +49,21 @@ public final class ClanCreateMenu implements InventoryHolder {
     }
 
     // The name/tag/type/create buttons are shared with the foundation-banner screen (ClanBannerCreationMenu).
+
+    /** One button for both fields: they are typed in the same dialog anyway. */
+    static ItemStack nameTagButton(LoveClansPlugin plugin, Player player, String name, String tag) {
+        var messages = plugin.getMessages();
+        return ItemBuilder.head(HeadTextures.HEAD_NAME)
+                .name(messages.component("gui.create.nametag.button", player))
+                .lore(messages.components("gui.create.nametag.lore", Map.of(
+                        "name", name.isEmpty() ? messages.raw("gui.create.name.not-set") : name,
+                        "tag", tag.isEmpty() ? messages.raw("gui.create.tag.not-set") : tag,
+                        "nmin", String.valueOf(plugin.getConfig().getInt("clans.name.min-length", 4)),
+                        "nmax", String.valueOf(plugin.getConfig().getInt("clans.name.max-length", 10)),
+                        "tmin", String.valueOf(plugin.getConfig().getInt("clans.tag.min-length", 3)),
+                        "tmax", String.valueOf(plugin.getConfig().getInt("clans.tag.max-length", 6))), player))
+                .build();
+    }
 
     static ItemStack nameButton(LoveClansPlugin plugin, Player player, String name) {
         String shown = name.isEmpty() ? plugin.getMessages().raw("gui.create.name.not-set") : name;
@@ -97,13 +111,13 @@ public final class ClanCreateMenu implements InventoryHolder {
 
     public void handleInventoryClick(int slot) {
         switch (slot) {
-            case 10, 12 -> askNameAndTag(slot == 10);
-            case 14 -> {
+            case 11 -> askNameAndTag(true);
+            case 13 -> {
                 open = !open;
                 plugin.getSoundService().playGui(player, GuiSounds.Kind.TOGGLE);
                 open();
             }
-            case 16 -> tryCreate();
+            case 15 -> tryCreate();
             case 26 -> player.closeInventory();
             default -> {}
         }
@@ -117,11 +131,11 @@ public final class ClanCreateMenu implements InventoryHolder {
             open();
         }, this::open);
         if (!shown) {
-            if (nameClicked) promptName(); else promptTag();
+            promptName(true); // chat fallback: name first, then the tag, so both fields stay reachable
         }
     }
 
-    private void promptName() {
+    private void promptName(boolean thenTag) {
         player.closeInventory();
         plugin.getMessages().send(player, "gui.create.name.prompt");
         plugin.expectChatInput(player.getUniqueId(), (input, isCancelled) -> {
@@ -138,7 +152,7 @@ public final class ClanCreateMenu implements InventoryHolder {
                 return;
             }
             this.name = trimmed;
-            plugin.runSync(this::open);
+            plugin.runSync(thenTag ? this::promptTag : this::open);
         });
     }
 

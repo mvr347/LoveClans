@@ -72,6 +72,21 @@ public final class GuildRewardService {
     }
 
     /** Unlocks the reward if it is new. Main thread. @return true when it was newly unlocked. */
+    /**
+     * Pioneer belongs to the very first clan of the server only. It used to be granted to every
+     * clan, so two freshly created clans both received it.
+     */
+    public void grantPioneerIfFirst(Clan clan, Iterable<Clan> all, boolean announce) {
+        if (clan == null) return;
+        for (Set<GuildReward> set : unlocked.values()) {
+            if (set.contains(GuildReward.PIONEER)) return;
+        }
+        for (Clan other : all) {
+            if (other.createdAt() < clan.createdAt()) return;
+        }
+        grant(clan, GuildReward.PIONEER, announce);
+    }
+
     public boolean grant(Clan clan, GuildReward reward) {
         return grant(clan, reward, true);
     }
@@ -124,7 +139,7 @@ public final class GuildRewardService {
     /** Silent catch-up for clans that earned rewards before the system existed. */
     public void backfill(Iterable<Clan> clans) {
         for (Clan clan : clans) {
-            grant(clan, GuildReward.PIONEER, false);
+            grantPioneerIfFirst(clan, clans, false);
             Set<GuildReward> before = new HashSet<>(of(clan));
             checkMilestones(clan, false);
             if (!before.equals(of(clan))) {

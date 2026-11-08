@@ -354,6 +354,22 @@ public final class AdvancedClaimsHook {
         return Optional.empty();
     }
 
+    /** Claims of the world whose box is within {@code range} blocks of the location (for placement hints). */
+    public java.util.List<Claim> claimsNear(Location location, double range) {
+        java.util.List<Claim> result = new java.util.ArrayList<>();
+        if (!enabled() || location == null || location.getWorld() == null) return result;
+        try {
+            BoundingBox probe = BoundingBox.of(location, range, 256, range);
+            for (Claim claim : api.getAllClaims()) {
+                if (claim.getWorld() == null || !claim.getWorld().getName().equalsIgnoreCase(location.getWorld().getName())) continue;
+                if (claim.getBoundingBox() != null && claim.getBoundingBox().overlaps(probe)) result.add(claim);
+            }
+        } catch (RuntimeException ex) {
+            plugin.getLogger().log(Level.WARNING, "claimsNear failed: " + ex.getMessage(), ex);
+        }
+        return result;
+    }
+
     /**
      * Есть ли пересечение box с любым существующим приватом в мире.
      */

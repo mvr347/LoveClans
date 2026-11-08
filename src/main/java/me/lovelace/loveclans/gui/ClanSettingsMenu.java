@@ -92,6 +92,11 @@ public final class ClanSettingsMenu {
     }
 
     public void handleInventoryClick(Player player, Clan clan, int slot) {
+        handleInventoryClick(player, clan, slot, null);
+    }
+
+    /** {@code cursor} is the stack dragged onto the menu: a banner dropped on the banner slot is applied and consumed. */
+    public void handleInventoryClick(Player player, Clan clan, int slot, org.bukkit.inventory.ItemStack cursor) {
         if (slot == 35) {
             player.closeInventory();
             return;
@@ -108,19 +113,40 @@ public final class ClanSettingsMenu {
             case 10 -> askRename(player, clan);
             case 12 -> askTag(player, clan);
             case 14 -> {
-                org.bukkit.inventory.ItemStack inHand = player.getInventory().getItemInMainHand();
+                boolean fromCursor = cursor != null && cursor.getType().name().endsWith("_BANNER");
+                org.bukkit.inventory.ItemStack inHand = fromCursor ? cursor : player.getInventory().getItemInMainHand();
                 if (!inHand.getType().name().endsWith("_BANNER")) {
                     plugin.getMessages().sendDeny(player, "gui.settings.change-banner.no-banner-in-hand", Map.of());
                     return;
                 }
                 Material bannerMat = inHand.getType();
+                // Reserve exactly one dragged banner BEFORE the async update (no dupes, no charging a
+                // different item later); it is returned if the change fails.
+                final org.bukkit.inventory.ItemStack refund;
+                if (fromCursor) {
+                    org.bukkit.inventory.ItemStack reserved = player.getItemOnCursor();
+                    // Keep an exact one-item clone (patterns, name, PDC) to hand back on failure.
+                    refund = reserved.asOne();
+                    reserved.setAmount(reserved.getAmount() - 1);
+                    player.setItemOnCursor(reserved.getAmount() <= 0 ? null : reserved);
+                } else {
+                    refund = null;
+                }
                 plugin.getClanManager().changeClanEmblemAsync(clan, player.getUniqueId(), bannerMat)
                         .thenAccept(updated -> plugin.runSync(() -> {
+                            plugin.getShieldColorManager().applyToPlayerMembers(updated);
                             plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                             plugin.getMessages().send(player, "gui.settings.change-banner.success");
                             open(player, updated);
                         }))
-                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                        .exceptionally(t -> { plugin.runSync(() -> {
+                            if (refund != null) {
+                                // Give the very same banner back.
+                                player.getInventory().addItem(refund)
+                                        .values().forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+                            }
+                            plugin.sendOperationError(player, t);
+                        }); return null; });
             }
             case 16 -> plugin.getGuiManager().openColorPicker(player, clan);
             case 19 -> plugin.getGuiManager().openConfirm(player, clan,

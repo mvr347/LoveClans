@@ -179,6 +179,8 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                         openApplications(requirePlayer(sender));
                     }
                 }
+                case "homecancel" -> plugin.getClanManager().cancelHomeTeleport(
+                        requirePlayer(sender).getUniqueId(), "territory.home-teleport.cancelled-manual"); // chat cancel button
                 case "home" -> home(requirePlayer(sender)); // Added home command handler
                 case "chest" -> openChest(requirePlayer(sender));
                 case "contracts" -> openContracts(requirePlayer(sender));
