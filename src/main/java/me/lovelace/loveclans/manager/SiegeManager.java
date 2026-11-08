@@ -147,6 +147,12 @@ public final class SiegeManager {
         return base + fortificationLevel(siegeId, campIndex) * perLevel;
     }
 
+    /** Hits a camp would need after the next fortification level (same formula as {@link #hitsRequired}). */
+    public int hitsRequiredAfterNextLevel(UUID siegeId, int campIndex) {
+        int perLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.hits-per-level", 1));
+        return hitsRequired(siegeId, campIndex) + perLevel;
+    }
+
     public int fortificationLevel(UUID siegeId, int campIndex) {
         return campFortification.getOrDefault(siegeId, Map.of()).getOrDefault(campIndex, 0);
     }
@@ -1549,6 +1555,8 @@ public final class SiegeManager {
             .computeIfAbsent(state.id(), id -> new HashMap<>())
             .put(c.index(), c.level());
         campHits.computeIfAbsent(state.id(), id -> new HashMap<>()).put(c.index(), c.hits());
+        // The last-hit time is not persisted: restored damage fades camp-break-reset-seconds after the restart.
+        if (c.hits() > 0) campLastHit.put(state.id() + ":" + c.index(), now);
       }
       ClanSiege siege = state.resume(now);
       activeSieges.put(siege.id(), siege);

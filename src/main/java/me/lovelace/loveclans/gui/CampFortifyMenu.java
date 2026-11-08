@@ -105,7 +105,7 @@ public final class CampFortifyMenu {
                 return;
             }
             long cost = plugin.getSiegeManager().fortifyCost(siegeId, campIndex);
-            int nextHits = 1 + (currentLevel + 1) * hitsPerLevel;
+            int nextHits = plugin.getSiegeManager().hitsRequiredAfterNextLevel(siegeId, campIndex);
 
             Map<String, String> ph = Map.of(
                     "level", String.valueOf(currentLevel + 1), "max", String.valueOf(maxLevel),
