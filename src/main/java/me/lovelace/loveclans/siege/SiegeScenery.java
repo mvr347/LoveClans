@@ -83,20 +83,30 @@ public final class SiegeScenery {
     double base = ThreadLocalRandomHolder.angle();
     for (int i = 0; i < count; i++) {
       Plan found = null;
-      for (int attempt = 0; attempt < 24 && found == null; attempt++) {
-        double angle = base + Math.PI * 2 * i / count + (attempt % 3 - 1) * 0.12;
-        int radius = distance + (attempt / 3) * 3;
+      java.util.Map<String, Integer> rejected = new java.util.TreeMap<>();
+      // Many candidate spots: real terrain rarely offers a flat 7x8 patch at the first try, so the search
+      // sweeps several angles per ring and widens the ring slowly (was 24 tries over three angles).
+      for (int attempt = 0; attempt < 120 && found == null; attempt++) {
+        double angle = base + Math.PI * 2 * i / count + ((attempt % 6) - 2.5) * 0.2;
+        int radius = distance + (attempt / 6) * 2;
         int x = center.getBlockX() + (int) Math.round(Math.cos(angle) * radius);
         int z = center.getBlockZ() + (int) Math.round(Math.sin(angle) * radius);
         World w = center.getWorld();
-        int y = w.getHighestBlockYAt(x, z) + 1;
+        // Ground level ignores tree canopies: leaves must not push the camp up into the air.
+        int y = w.getHighestBlockYAt(x, z, org.bukkit.HeightMap.MOTION_BLOCKING_NO_LEAVES) + 1;
         CampLayout.Direction dir = direction(center.getX() - x, center.getZ() - z);
         SiegeCamp camp =
             new SiegeCamp(i, w.getName(), x, y, z, System.currentTimeMillis(), false, 0);
-        List<SiegeSnapshot.Cell> cells = inspect(camp, dir, tower, reserved);
+        String[] why = new String[1];
+        List<SiegeSnapshot.Cell> cells = inspect(camp, dir, tower, reserved, why);
         if (cells != null) found = new Plan(new Key(siege, i), camp, dir, cells);
+        else rejected.merge(why[0] == null ? "?" : why[0], 1, Integer::sum);
       }
-      if (found == null) throw new IllegalStateException("siege.models.no-space");
+      if (found == null) {
+        plugin.getLogger().warning("Siege camp " + i + " not placed near " + center.getBlockX() + ", "
+            + center.getBlockZ() + " (distance " + distance + "); rejected spots by reason: " + rejected);
+        throw new IllegalStateException("siege.models.no-space");
+      }
       result.add(found);
       for (var cell : found.originals())
         reserved.add(new Position(cell.world(), cell.x(), cell.y(), cell.z()));
@@ -105,9 +115,9 @@ public final class SiegeScenery {
   }
 
   private List<SiegeSnapshot.Cell> inspect(
-      SiegeCamp camp, CampLayout.Direction dir, boolean tower, Set<Position> reserved) {
+      SiegeCamp camp, CampLayout.Direction dir, boolean tower, Set<Position> reserved, String[] why) {
     Location c = camp.toLocation();
-    if (c == null) return null;
+    if (c == null) { why[0] = "no-world"; return null; }
     World w = c.getWorld();
     CampLayout.Offset a = CampLayout.anchor(dir);
     int height = tower ? 9 : 4;
@@ -117,11 +127,10 @@ public final class SiegeScenery {
         for (int y = 0; y < height; y++) {
           var p = dir.rotate(new CampLayout.Offset(x, y, z));
           int bx = camp.x() + a.x() + p.x(), by = camp.y() + p.y(), bz = camp.z() + a.z() + p.z();
-          if (by < w.getMinHeight()
-              || by >= w.getMaxHeight()
-              || reserved.contains(new Position(camp.world(), bx, by, bz))) return null;
+          if (by < w.getMinHeight() || by >= w.getMaxHeight()) { why[0] = "height"; return null; }
+          if (reserved.contains(new Position(camp.world(), bx, by, bz))) { why[0] = "other-camp"; return null; }
           Block b = w.getBlockAt(bx, by, bz);
-          if (!replaceable(b)) return null;
+          if (!replaceable(b)) { why[0] = "blocked:" + b.getType().name().toLowerCase(java.util.Locale.ROOT); return null; }
         }
     Set<CampLayout.Offset> needed = new LinkedHashSet<>();
     for (int level = 0; level <= (tower ? 4 : 3); level++)
@@ -131,8 +140,10 @@ public final class SiegeScenery {
     for (var local : needed) {
       var p = dir.rotate(local);
       Block b = w.getBlockAt(camp.x() + a.x() + p.x(), camp.y() + p.y(), camp.z() + a.z() + p.z());
-      if (local.y() == 0 && !b.getRelative(org.bukkit.block.BlockFace.DOWN).getType().isSolid())
+      if (local.y() == 0 && !b.getRelative(org.bukkit.block.BlockFace.DOWN).getType().isSolid()) {
+        why[0] = "no-ground";
         return null;
+      }
       cells.add(
           new SiegeSnapshot.Cell(
               camp.world(), b.getX(), b.getY(), b.getZ(), b.getBlockData().getAsString()));
@@ -141,14 +152,16 @@ public final class SiegeScenery {
   }
 
   private static boolean replaceable(Block b) {
-    return b.getType().isAir()
-        || Set.of(
-                Material.SHORT_GRASS,
-                Material.TALL_GRASS,
-                Material.FERN,
-                Material.DEAD_BUSH,
-                Material.SNOW)
-            .contains(b.getType());
+    Material t = b.getType();
+    if (t.isAir()) return true;
+    if (b.isLiquid()) return false;
+    // Soft natural decor only (grass, ferns, flowers, saplings, snow layers, vines...). Players' builds such as
+    // rails, buttons or signs are passable too, but must never be built over; the snapshot restores these cells.
+    return org.bukkit.Tag.REPLACEABLE.isTagged(t)
+        || org.bukkit.Tag.FLOWERS.isTagged(t)
+        || org.bukkit.Tag.SAPLINGS.isTagged(t)
+        || t == Material.DEAD_BUSH
+        || t == Material.SNOW;
   }
 
   public void register(Plan plan) {
