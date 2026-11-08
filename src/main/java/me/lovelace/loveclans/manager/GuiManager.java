@@ -534,7 +534,7 @@ public class GuiManager implements Listener {
                         }
                     }
                     case TERRITORIES -> territoriesMenu.handleTerritoryClick(player, clan, slot, event.isRightClick());
-                    case SETTINGS -> settingsMenu.handleInventoryClick(player, clan, slot);
+                    case SETTINGS -> settingsMenu.handleInventoryClick(player, clan, slot, event.getCursor());
                     case DIPLOMACY -> diplomacyMenu.handleInventoryClick(player, clan, slot, event.isRightClick());
                     case UPGRADE_OFFER -> {
                         if (clanMenuHolder instanceof ClanUpgradeOfferMenu.Holder offerHolder) {

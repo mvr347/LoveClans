@@ -279,7 +279,7 @@ public final class SiegeManager {
             if (!defender.hasCapital()) {
                 throw new IllegalStateException("siege.defender-no-capital");
             }
-            if (activeSieges.size() >= plugin.getConfig().getInt("siege.max-concurrent", 3)) {
+            if (activeSieges.size() >= 1) {
                 throw new IllegalStateException("siege.max-sieges-reached");
             }
             if (isInSiege(attacker.id()) || isInSiege(defender.id())) {
@@ -415,6 +415,28 @@ public final class SiegeManager {
             java.util.stream.Stream.concat(onlineMembers(clans.attacker()), onlineMembers(clans.defender()))
                     .forEach(p -> p.hideBossBar(bar));
         }
+    }
+
+    /** Admin: ends the preparation timer of the single siege this clan is in. False when none is preparing. */
+    public boolean skipPreparation(UUID clanId) {
+        for (ClanSiege siege : activeSieges.values()) {
+            if (siege.state() == SiegeState.PREPARING && siege.involves(clanId)) {
+                activateSiege(siege);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Admin: skips the preparation timer of any siege currently preparing. */
+    public boolean skipAnyPreparation() {
+        for (ClanSiege siege : List.copyOf(activeSieges.values())) {
+            if (siege.state() == SiegeState.PREPARING) {
+                activateSiege(siege);
+                return true;
+            }
+        }
+        return false;
     }
 
     private void activateSiege(ClanSiege siege) {

@@ -767,7 +767,7 @@ public final class ClanDiplomacyMenu {
         b.blockIf(siege.isInSiege(sourceClan.id()) || siege.isInSiege(targetClan.id()), "deny.siege.already-in-siege");
         b.blockIf(plugin.getWarManager().isAtWar(sourceClan.id()) || plugin.getWarManager().isAtWar(targetClan.id()), "deny.siege.war-in-progress");
         b.blockIf(plugin.getRaidManager().isInRaid(sourceClan.id()) || plugin.getRaidManager().isInRaid(targetClan.id()), "deny.raid.already-in-raid");
-        b.blockIf(siege.activeSiegesCount() >= plugin.getConfig().getInt("siege.max-concurrent", 3), "deny.siege.already-in-siege");
+        b.blockIf(siege.activeSiegesCount() >= 1, "deny.siege.already-in-siege");
 
         Map<String, String> tp = targetPh(targetClan);
         b.require("cap-self", sourceClan.hasCapital(), "deny.siege.attacker-no-capital");

@@ -292,7 +292,7 @@ public final class LoveClansPlugin extends JavaPlugin {
                 Bukkit.getScheduler().runTaskTimer(this, () -> {
                     try {
                         for (me.lovelace.loveclans.model.Clan clan : clanManager.getAllClans()) {
-                            guildRewards.grant(clan, me.lovelace.loveclans.model.upgrade.GuildReward.PIONEER);
+                            guildRewards.grantPioneerIfFirst(clan, clanManager.getAllClans(), true);
                             guildRewards.checkMilestones(clan);
                         }
                     } catch (Throwable t) {
@@ -723,6 +723,7 @@ public final class LoveClansPlugin extends JavaPlugin {
             }
             pluginManager.registerEvents(new GuildmasterListener(this, npcService), this);
             pluginManager.registerEvents(new ClanBannerListener(this, npcService), this);
+            Bukkit.getScheduler().runTaskTimer(this, new me.lovelace.loveclans.listener.FoundationHintTask(this), 20L, 20L);
             // Providers register late: look at them once every plugin has finished enabling.
             Bukkit.getScheduler().runTaskLater(this, npcService::checkAtStartup, 200L);
         } catch (LinkageError error) {

@@ -92,6 +92,11 @@ public final class ClanSettingsMenu {
     }
 
     public void handleInventoryClick(Player player, Clan clan, int slot) {
+        handleInventoryClick(player, clan, slot, null);
+    }
+
+    /** {@code cursor} is the stack dragged onto the menu: a banner dropped on the banner slot is applied and consumed. */
+    public void handleInventoryClick(Player player, Clan clan, int slot, org.bukkit.inventory.ItemStack cursor) {
         if (slot == 35) {
             player.closeInventory();
             return;
@@ -108,7 +113,8 @@ public final class ClanSettingsMenu {
             case 10 -> askRename(player, clan);
             case 12 -> askTag(player, clan);
             case 14 -> {
-                org.bukkit.inventory.ItemStack inHand = player.getInventory().getItemInMainHand();
+                boolean fromCursor = cursor != null && cursor.getType().name().endsWith("_BANNER");
+                org.bukkit.inventory.ItemStack inHand = fromCursor ? cursor : player.getInventory().getItemInMainHand();
                 if (!inHand.getType().name().endsWith("_BANNER")) {
                     plugin.getMessages().sendDeny(player, "gui.settings.change-banner.no-banner-in-hand", Map.of());
                     return;
@@ -116,6 +122,15 @@ public final class ClanSettingsMenu {
                 Material bannerMat = inHand.getType();
                 plugin.getClanManager().changeClanEmblemAsync(clan, player.getUniqueId(), bannerMat)
                         .thenAccept(updated -> plugin.runSync(() -> {
+                            if (fromCursor) {
+                                // Consume exactly one dragged banner, only after the change really succeeded (no dupes).
+                                org.bukkit.inventory.ItemStack now = player.getItemOnCursor();
+                                if (now.getType() == bannerMat && now.getAmount() > 0) {
+                                    now.setAmount(now.getAmount() - 1);
+                                    player.setItemOnCursor(now.getAmount() <= 0 ? null : now);
+                                }
+                            }
+                            plugin.getShieldColorManager().applyToPlayerMembers(updated);
                             plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                             plugin.getMessages().send(player, "gui.settings.change-banner.success");
                             open(player, updated);

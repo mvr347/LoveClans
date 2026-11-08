@@ -1118,6 +1118,10 @@ public final class ClanManager {
         return getFoundationSession(playerId).isPresent();
     }
 
+    public boolean isCreationBanner(ItemStack stack) {
+        return stack != null && clanItemFactory.isClanCreationBanner(stack);
+    }
+
     public boolean takeCreationBanner(Player player) {
         if (player == null) return false;
         ItemStack mainHand = player.getInventory().getItemInMainHand();

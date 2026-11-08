@@ -47,7 +47,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
     );
     private static final List<String> AMOUNT_ACTIONS = List.of("add", "remove", "set");
     private static final List<String> WAR_ACTIONS = List.of("start", "forcestart", "skip", "end");
-    private static final List<String> SIEGE_ACTIONS = List.of("forcestart");
+    private static final List<String> SIEGE_ACTIONS = List.of("forcestart", "skiptimer");
     private static final List<String> RAID_ACTIONS = List.of("forcestart");
     private static final List<String> RELATIONS = List.of("ally", "enemy", "neutral");
 
@@ -346,6 +346,11 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
      * штатный игровой путь, а не эта команда.
      */
     private void siege(CommandSender sender, String[] args) {
+        if (args.length >= 2 && args[1].equalsIgnoreCase("skiptimer")) {
+            boolean done = plugin.getSiegeManager().skipAnyPreparation();
+            plugin.getMessages().send(sender, done ? "admin.siege-skipped" : "admin.siege-nothing-to-skip");
+            return;
+        }
         if (args.length < 4 || !args[1].equalsIgnoreCase("forcestart")) {
             plugin.getMessages().send(sender, "clan.help.admin-siege");
             return;

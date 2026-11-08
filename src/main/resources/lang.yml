@@ -141,6 +141,8 @@ admin:
   war-force-started: "<prefix><green>Война между <color1><clan1></color1> и <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
   raid-force-started: "<prefix><green>Набег <color1><clan1></color1> на <color2><clan2></color2> принудительно начат администратором (без проверок готовности)."
   siege-force-started: "<prefix><green>Осада <color1><clan1></color1> против <color2><clan2></color2> принудительно начата администратором (без проверок готовности)."
+  siege-skipped: "<prefix><green>Таймер подготовки осады пропущен: осада началась."
+  siege-nothing-to-skip: "<prefix><red>Нет осады в стадии подготовки."
   clan-recognized: "<prefix><green>Клан <yellow><tag></yellow> (<white><name></white>) получил статус признанного клана."
   clan-unrecognized: "<prefix><yellow>Клан <yellow><tag></yellow> (<white><name></white>) теперь является непризнанным кланом."
   seal-given: "<prefix><green>Печать переноса выдана игроку <white><player></white>."
@@ -311,9 +313,9 @@ clan:
     creation-in-progress: "<prefix><red>Клан уже создаётся - подождите пару секунд."
     spot-occupied: "<prefix><red>Место для знамени занято - поставьте знамя создания заново."
     setup-done: "<prefix><green>Данные клана сохранены! <yellow>Поставьте Знамя основания ещё раз</yellow>, чтобы увидеть границы территории."
-    overlap-denied: "<prefix><red>Здесь нельзя основать клан: территория (±<radius> блоков) пересекает чужой приват около <yellow><x>, <z></yellow> (<owner>). Отойдите дальше и снова поставьте знамя — рамка покажет границы."
+    overlap-denied: "<prefix><gray>Здесь нельзя основать клан: территория (±<yellow><radius></yellow> блоков) пересекает чужой приват около <yellow><x>, <z></yellow> (<white><owner></white>). <red>Отойдите дальше</red> и снова поставьте знамя — рамка покажет границы."
     preview-ok: "<prefix><green>Превью территории (±<radius> блоков). Поставьте Знамя основания ещё раз в эту точку, чтобы подтвердить основание клана."
-    preview-overlap: "<prefix><red>Превью: пересечение с чужим приватом (<owner>). Рамки подсвечены. Выберите другое место."
+    preview-overlap: "<prefix><gray>Превью: <red>пересечение с чужим приватом</red> (<white><owner></white>). Рамки подсвечены. Выберите другое место."
     preview-mismatch: "<prefix><yellow>Новая точка: превью территории (±<radius> блоков). Поставьте знамя ещё раз для подтверждения."
     cancelled: "<prefix><yellow>Основание клана отменено."
   already-in-clan: "<prefix><red>Вы уже состоите в клане."
@@ -421,7 +423,7 @@ clan:
     admin-npc-remove: "<aqua>/loveclansadmin removenpc <guildmaster|banner|ключ></aqua> <gray>- отвязать NPC</gray>"
     admin-disband: "<aqua>/loveclansadmin disband <tag></aqua> <gray>- распустить клан</gray>"
     admin-war: "<aqua>/loveclansadmin war <start|forcestart|skip|end> <clan1> <clan2></aqua> <gray>- управление войной между кланами (forcestart - без проверок, skip - пропустить таймер подготовки)</gray>"
-    admin-siege: "<aqua>/loveclansadmin siege forcestart <clan1> <clan2></aqua> <gray>- принудительно начать осаду без проверок готовности (для тестов)</gray>"
+    admin-siege: "<aqua>/loveclansadmin siege forcestart <clan1> <clan2></aqua> <gray>- принудительно начать осаду без проверок готовности (для тестов)</gray>\n<aqua>/loveclansadmin siege skiptimer</aqua> <gray>- пропустить таймер подготовки осады</gray>"
     admin-raid: "<aqua>/loveclansadmin raid forcestart <атакующий> <защитник></aqua> <gray>- принудительно начать набег без проверок онлайна, лимитов, щита и кулдауна</gray>"
     admin-diplo: "<aqua>/loveclansadmin diplo <clan1> <clan2> <relation></aqua> <gray>- изменить отношения между кланами</gray>"
     admin-exp: "<aqua>/loveclansadmin exp <add|remove|set> <tag> <amount></aqua> <gray>- изменить опыт клана</gray>"
@@ -1634,6 +1636,20 @@ gui:
     success: "<prefix><green>Клан <color><tag></color> (<name>) успешно создан!"
     # 2026-10-19: кнопки ввода показывают текущее значение (или красное «не задано») и секцию «Правила ввода» с лимитами
     # из config.yml; тип клана - переключатель с «Было → Станет»; недоступное «Купить знамя» - блок отказа через LoreBlocks.
+    nametag:
+      button: "<gold>Название и тег клана"
+      lore:
+        - "<dark_gray>Ввод в одном окне"
+        - ""
+        - "<dark_gray>▪ <gray>Сейчас:"
+        - "  <gray>Название: <white><name>"
+        - "  <gray>Тег: <white><tag>"
+        - ""
+        - "<dark_gray>▪ <gray>Правила ввода:"
+        - "  <gray>Название: <white><nmin>–<nmax> <gray>символов"
+        - "  <gray>Тег: <white><tmin>–<tmax> <gray>символов; A-Z, 0-9, _"
+        - "<dark_gray><st>─────────────────────</st>"
+        - "<green>ЛКМ <dark_gray>— <gray>ввести название и тег"
     name:
       button: "<gold>Название клана"
       lore:
@@ -3448,10 +3464,12 @@ territory:
   limit-reached: "<prefix><red>Достигнут лимит территорий для вашего клана."
   not-claimed: "<prefix><red>Эта территория не захвачена вашим кланом."
   home-teleport:
-    started: "<prefix><yellow>Телепортация домой начнётся через <white><seconds></white> сек. Не двигайтесь!"
+    started: "<prefix><yellow>Телепортация домой начнётся через <white><seconds></white> сек. Двигаться можно, но PvP и другие телепорты отменят её. <click:run_command:'/clan homecancel'><hover:show_text:'<gray>Нажмите, чтобы отменить'><red>[Отменить перемещение]</red></hover></click>"
     bossbar: "<gold>Телепортация домой: <white><time></white> сек."
     cancelled-manual: "<prefix><yellow>Телепортация домой отменена."
     cancelled-moved: "<prefix><red>Телепортация домой отменена — вы сдвинулись с места."
+    cancelled-teleport: "<prefix><red>Телепортация домой отменена — вы были телепортированы другим способом."
+    cancelled-pvp: "<prefix><red>Телепортация домой отменена — вы вступили в PvP."
   teleported: "<prefix><green>Вы телепортированы на территорию клана."
   too-close-to-spawn: "<prefix><red>Эта территория находится слишком близко к спавну."
   unclaim:

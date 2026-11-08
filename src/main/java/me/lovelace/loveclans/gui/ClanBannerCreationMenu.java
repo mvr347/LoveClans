@@ -47,10 +47,9 @@ public final class ClanBannerCreationMenu implements InventoryHolder {
                 .lore(plugin.getMessages().components("gui.banner-create.info.lore", player))
                 .build());
 
-        inventory.setItem(10, ClanCreateMenu.nameButton(plugin, player, name));
-        inventory.setItem(12, ClanCreateMenu.tagButton(plugin, player, tag));
-        inventory.setItem(14, ClanCreateMenu.typeButton(plugin, player, open));
-        inventory.setItem(16, ClanCreateMenu.createButton(plugin, player, name, tag, "gui.banner-create.ready", "gui.banner-create.action"));
+        inventory.setItem(11, ClanCreateMenu.nameTagButton(plugin, player, name, tag));
+        inventory.setItem(13, ClanCreateMenu.typeButton(plugin, player, open));
+        inventory.setItem(15, ClanCreateMenu.createButton(plugin, player, name, tag, "gui.banner-create.ready", "gui.banner-create.action"));
 
         inventory.setItem(26, ItemBuilder.head(ItemBuilder.HEAD_CLOSE)
                 .name(plugin.getMessages().component("gui.close", player))
@@ -61,9 +60,9 @@ public final class ClanBannerCreationMenu implements InventoryHolder {
 
     public void handleInventoryClick(int slot) {
         switch (slot) {
-            case 10, 12 -> askNameAndTag(slot == 10);
-            case 14 -> { open = !open; open(); }
-            case 16 -> tryCreate();
+            case 11 -> askNameAndTag(true);
+            case 13 -> { open = !open; open(); }
+            case 15 -> tryCreate();
             case 26 -> player.closeInventory();
             default -> {}
         }
