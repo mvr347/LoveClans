@@ -1414,7 +1414,7 @@ public final class SiegeManager {
             if (!compact) {
                 int cells = 10;
                 int filled = requiredHold <= 0 ? 0 : (int) Math.max(0, Math.min(cells, Math.round(cells * (double) hold / requiredHold)));
-                tail.add(Component.text((paused ? "§8" : "§a") + "█".repeat(filled) + "§8" + "░".repeat(cells - filled)));
+                tail.add(Component.text("§8[" + (paused ? "§8" : "§a") + "█".repeat(filled) + "§8" + "░".repeat(cells - filled) + "§8]"));
                 tail.add(Component.text("    "));
             }
             // The brand line is added last: it is centred in a board at least as wide as the configured minimum.
