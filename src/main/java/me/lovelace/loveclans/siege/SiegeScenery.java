@@ -121,7 +121,9 @@ public final class SiegeScenery {
     World w = c.getWorld();
     CampLayout.Offset a = CampLayout.anchor(dir);
     int height = tower ? 9 : 4;
-    // Physical footprint and empty interior are checked independently of item_display bounds.
+    // The footprint only has to stay inside the world and clear of other camps. Natural ground that pokes
+    // into it (slopes, hills, leaves) no longer disqualifies the spot: only the cells the camp really
+    // writes to are checked below, and the snapshot restores them when the siege ends.
     for (int x = -3; x <= 3; x++)
       for (int z = -4; z <= 3; z++)
         for (int y = 0; y < height; y++) {
@@ -129,8 +131,6 @@ public final class SiegeScenery {
           int bx = camp.x() + a.x() + p.x(), by = camp.y() + p.y(), bz = camp.z() + a.z() + p.z();
           if (by < w.getMinHeight() || by >= w.getMaxHeight()) { why[0] = "height"; return null; }
           if (reserved.contains(new Position(camp.world(), bx, by, bz))) { why[0] = "other-camp"; return null; }
-          Block b = w.getBlockAt(bx, by, bz);
-          if (!replaceable(b)) { why[0] = "blocked:" + b.getType().name().toLowerCase(java.util.Locale.ROOT); return null; }
         }
     Set<CampLayout.Offset> needed = new LinkedHashSet<>();
     for (int level = 0; level <= (tower ? 4 : 3); level++)
@@ -140,15 +140,34 @@ public final class SiegeScenery {
     for (var local : needed) {
       var p = dir.rotate(local);
       Block b = w.getBlockAt(camp.x() + a.x() + p.x(), camp.y() + p.y(), camp.z() + a.z() + p.z());
-      if (local.y() == 0 && !b.getRelative(org.bukkit.block.BlockFace.DOWN).getType().isSolid()) {
-        why[0] = "no-ground";
+      boolean ground = local.y() == 0;
+      if (!(replaceable(b) || b.getType().name().endsWith("_LEAVES") || (ground && naturalGround(b.getType())))) {
+        why[0] = "blocked:" + b.getType().name().toLowerCase(java.util.Locale.ROOT);
         return null;
+      }
+      if (ground) {
+        // Solid ground right below, or at most a one-block gap above it.
+        var down = b.getRelative(org.bukkit.block.BlockFace.DOWN);
+        if (!naturalGround(b.getType()) && !down.getType().isSolid()
+            && !down.getRelative(org.bukkit.block.BlockFace.DOWN).getType().isSolid()) {
+          why[0] = "no-ground";
+          return null;
+        }
       }
       cells.add(
           new SiegeSnapshot.Cell(
               camp.world(), b.getX(), b.getY(), b.getZ(), b.getBlockData().getAsString()));
     }
     return List.copyOf(cells);
+  }
+
+  /** Natural terrain a camp cell may replace at ground level (restored from the snapshot later). */
+  private static boolean naturalGround(Material t) {
+    String n = t.name();
+    return n.equals("GRASS_BLOCK") || n.equals("DIRT") || n.equals("COARSE_DIRT") || n.equals("ROOTED_DIRT")
+        || n.equals("PODZOL") || n.equals("MYCELIUM") || n.equals("DIRT_PATH") || n.equals("SAND")
+        || n.equals("RED_SAND") || n.equals("GRAVEL") || n.equals("CLAY") || n.equals("SNOW_BLOCK")
+        || n.equals("MOSS_BLOCK") || n.equals("STONE") || n.equals("MUD") || n.equals("SANDSTONE");
   }
 
   private static boolean replaceable(Block b) {
