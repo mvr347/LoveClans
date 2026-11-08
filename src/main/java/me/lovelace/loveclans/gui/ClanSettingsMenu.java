@@ -120,22 +120,28 @@ public final class ClanSettingsMenu {
                     return;
                 }
                 Material bannerMat = inHand.getType();
+                // Reserve exactly one dragged banner BEFORE the async update (no dupes, no charging a
+                // different item later); it is returned if the change fails.
+                if (fromCursor) {
+                    org.bukkit.inventory.ItemStack reserved = player.getItemOnCursor();
+                    reserved.setAmount(reserved.getAmount() - 1);
+                    player.setItemOnCursor(reserved.getAmount() <= 0 ? null : reserved);
+                }
                 plugin.getClanManager().changeClanEmblemAsync(clan, player.getUniqueId(), bannerMat)
                         .thenAccept(updated -> plugin.runSync(() -> {
-                            if (fromCursor) {
-                                // Consume exactly one dragged banner, only after the change really succeeded (no dupes).
-                                org.bukkit.inventory.ItemStack now = player.getItemOnCursor();
-                                if (now.getType() == bannerMat && now.getAmount() > 0) {
-                                    now.setAmount(now.getAmount() - 1);
-                                    player.setItemOnCursor(now.getAmount() <= 0 ? null : now);
-                                }
-                            }
                             plugin.getShieldColorManager().applyToPlayerMembers(updated);
                             plugin.getSoundService().playGui(player, GuiSounds.Kind.SUCCESS);
                             plugin.getMessages().send(player, "gui.settings.change-banner.success");
                             open(player, updated);
                         }))
-                        .exceptionally(t -> { plugin.runSync(() -> plugin.sendOperationError(player, t)); return null; });
+                        .exceptionally(t -> { plugin.runSync(() -> {
+                            if (fromCursor) {
+                                // Give the reserved banner back.
+                                player.getInventory().addItem(new org.bukkit.inventory.ItemStack(bannerMat))
+                                        .values().forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
+                            }
+                            plugin.sendOperationError(player, t);
+                        }); return null; });
             }
             case 16 -> plugin.getGuiManager().openColorPicker(player, clan);
             case 19 -> plugin.getGuiManager().openConfirm(player, clan,

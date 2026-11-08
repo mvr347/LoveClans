@@ -131,11 +131,11 @@ public final class ClanCreateMenu implements InventoryHolder {
             open();
         }, this::open);
         if (!shown) {
-            if (nameClicked) promptName(); else promptTag();
+            promptName(true); // chat fallback: name first, then the tag, so both fields stay reachable
         }
     }
 
-    private void promptName() {
+    private void promptName(boolean thenTag) {
         player.closeInventory();
         plugin.getMessages().send(player, "gui.create.name.prompt");
         plugin.expectChatInput(player.getUniqueId(), (input, isCancelled) -> {
@@ -152,7 +152,7 @@ public final class ClanCreateMenu implements InventoryHolder {
                 return;
             }
             this.name = trimmed;
-            plugin.runSync(this::open);
+            plugin.runSync(thenTag ? this::promptTag : this::open);
         });
     }
 
