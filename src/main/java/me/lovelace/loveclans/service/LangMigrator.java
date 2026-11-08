@@ -46,7 +46,9 @@ public final class LangMigrator {
             // v15: NPC bindings by provider key (Citizens id or LoveEssential id) - admin.npc.* texts reworded
             List.of("admin.npc", "clan.help"),
             // v16: modifiers menu - readable conflict types, siege pressure / repelled show their real experience effect
-            List.of("gui.modifiers")
+            List.of("gui.modifiers"),
+            // v17: the "new upgrade available" notice - plugin prefix, white text, open-menu button
+            List.of("gui.upgrades.notify")
     );
 
     private LangMigrator() {

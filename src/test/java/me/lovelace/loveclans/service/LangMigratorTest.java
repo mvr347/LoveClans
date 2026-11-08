@@ -91,6 +91,6 @@ class LangMigratorTest {
             bundled.load(reader);
         }
         assertEquals(LangMigrator.latestVersion(), bundled.getInt(LangMigrator.VERSION_KEY));
-        assertEquals(16, LangMigrator.latestVersion());
+        assertEquals(17, LangMigrator.latestVersion());
     }
 }
