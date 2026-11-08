@@ -1307,7 +1307,8 @@ public final class SiegeManager {
                 plugin.getMessages().hud(player, Component.text("§6Возврат к лагерю: §f" + left[0] + " §6сек"));
                 return;
             }
-            campTeleports.remove(id);
+            // Cancel the repeating task itself, not only its handle, or it would keep teleporting every second.
+            cancelCampTeleport(id, null);
             var spot = pickCamp(live.get(), player.getLocation()).flatMap(c -> safeSpotNear(c.toLocation()));
             if (spot.isEmpty()) {
                 plugin.getMessages().send(player, "siege.camp-teleport.no-camp");
