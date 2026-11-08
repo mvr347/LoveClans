@@ -139,13 +139,13 @@ public final class ClanModifiersMenu {
         String timeLeft = TimeUtil.formatDuration(mod.remainingMillis(now));
         return switch (mod.type()) {
             case ClanModifier.TYPE_REPARATIONS_DEBT -> entry(player, Material.RED_BANNER, "reparations-debt", Map.of(
-                    "tag", resolveClanTag(mod.targetClanId()), "amount", String.valueOf(mod.dailyAmount()),
+                    "tag", resolveClanTag(mod.targetClanId()), "amount", me.lovelace.loveclans.util.CoinFormat.format(mod.dailyAmount()),
                     "days", String.valueOf(mod.daysLeft()),
                     "debt", mod.arrears() > 0
                             ? plugin.getMessages().raw("gui.modifiers.debt.arrears").replace("<count>", String.valueOf(mod.arrears()))
                             : plugin.getMessages().raw("gui.modifiers.debt.clean")));
             case ClanModifier.TYPE_REPARATIONS_INCOME -> entry(player, Material.LIME_BANNER, "reparations-income", Map.of(
-                    "tag", resolveClanTag(mod.targetClanId()), "amount", String.valueOf(mod.dailyAmount()),
+                    "tag", resolveClanTag(mod.targetClanId()), "amount", me.lovelace.loveclans.util.CoinFormat.format(mod.dailyAmount()),
                     "days", String.valueOf(mod.daysLeft())));
             case ClanModifier.TYPE_POST_RAID_SHIELD -> entry(player, Material.SHIELD, "post-raid-shield", Map.of("time", timeLeft));
             case ClanModifier.TYPE_SIEGE_PRESSURE -> entry(player, Material.CRACKED_STONE_BRICKS, "siege-pressure", Map.of("time", timeLeft));
