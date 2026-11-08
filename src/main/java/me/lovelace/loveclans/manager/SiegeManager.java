@@ -279,7 +279,7 @@ public final class SiegeManager {
             if (!defender.hasCapital()) {
                 throw new IllegalStateException("siege.defender-no-capital");
             }
-            if (activeSieges.size() >= 1) {
+            if (activeSieges.size() >= plugin.getConfig().getInt("siege.max-concurrent", 3)) {
                 throw new IllegalStateException("siege.max-sieges-reached");
             }
             if (isInSiege(attacker.id()) || isInSiege(defender.id())) {
