@@ -1417,9 +1417,9 @@ public final class SiegeManager {
                 tail.add(Component.text((paused ? "§8" : "§a") + "█".repeat(filled) + "§8" + "░".repeat(cells - filled)));
                 tail.add(Component.text("    "));
             }
-            tail.add(Component.text("§c✌ §7V O I D C O R E §c✌"));
+            // The brand line is added last: it is centred in a board at least as wide as the configured minimum.
             // The sidebar holds 15 lines: keep as many camps as fit and summarise the rest.
-            int budget = Math.max(1, 15 - head.size() - tail.size());
+            int budget = Math.max(1, 15 - head.size() - tail.size() - 1);
             if (campLines.size() > budget) {
                 int hidden = campLines.size() - (budget - 1);
                 campLines = new ArrayList<>(campLines.subList(0, budget - 1));
@@ -1428,6 +1428,9 @@ public final class SiegeManager {
             List<Component> lines = new ArrayList<>(head);
             lines.addAll(campLines);
             lines.addAll(tail);
+            int target = Math.max(plugin.getConfig().getInt("siege.sidebar-min-width", 170),
+                    me.lovelace.loveclans.siege.SidebarMetrics.widest(lines));
+            lines.add(me.lovelace.loveclans.siege.SidebarMetrics.center("§c✌ §7V O I D C O R E §c✌", target));
             Clan side = attackingSide ? attacker : defender;
             for (Player p : onlineMembers(side).toList()) {
                 sidebar.show(p, title, lines);
