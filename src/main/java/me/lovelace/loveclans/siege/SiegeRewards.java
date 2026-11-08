@@ -218,16 +218,13 @@ public final class SiegeRewards {
     List<UUID> remove = new ArrayList<>();
     if (win) {
       int days = Math.max(1, plugin.getConfig().getInt("siege.reparations.duration-days", 3));
+      // Dynamic: grows with the defeated clan's level, active members and influence (TributeMath).
       long daily =
-          Math.max(
-              plugin.getConfig().getLong("siege.reparations.min-daily", 100),
-              Math.min(
-                  plugin.getConfig().getLong("siege.reparations.max-daily", 2000),
-                  plugin.getConfig().getLong("siege.reparations.daily-amount", 300)
-                      + defender.level()
-                          * plugin
-                              .getConfig()
-                              .getLong("siege.reparations.daily-per-defender-level", 40)));
+          me.lovelace.loveclans.manager.TributeMath.daily(
+              plugin.getConfig().getConfigurationSection("siege.reparations"),
+              defender.level(),
+              plugin.getClanManager().activeMemberCount(defender),
+              defender.influence());
       UUID debt = id(siege, "debt"), income = id(siege, "income");
       long until = now + (days + 1L) * 86400000;
       modifiers.add(

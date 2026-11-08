@@ -51,6 +51,7 @@ public final class ExperienceMath {
         if (amount <= 0) {
             return 0L;
         }
-        return Math.round(amount * (1.0D + bonusPercent / 100.0D) * taxFactor);
+        // A penalty can lower the multiplier but never below zero: earning experience must not remove it.
+        return Math.round(amount * Math.max(0.0D, 1.0D + bonusPercent / 100.0D) * taxFactor);
     }
 }

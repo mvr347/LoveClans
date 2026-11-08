@@ -758,9 +758,15 @@ war:
 
   reparations:
     duration-days: 5
+    # 2026-11-08: дань динамическая (владелец): база + уровень + активные участники + влияние ПРОИГРАВШЕГО клана,
+    # затем зажим в [min-daily, max-daily]. Так крупный сильный клан платит заметно больше слабого, а не одну сумму
+    # для всех. Для клана 20 ур., 15 активных, влияние 1500: 500 + 20x40 + 15x15 + 1500x0.2 = 1825.
     daily-amount: 500
+    daily-per-defender-level: 40
+    daily-per-member: 15
+    daily-per-influence: 0.2
     min-daily: 100
-    max-daily: 3000
+    max-daily: 5000
     on-missed-payment: accrue
     max-arrears-days: 3
 
@@ -871,6 +877,11 @@ siege:
   # Тот же срок - «тишина после урона» для автоматического возврата: если атакующий погиб, когда все лагеря были
   # сломаны, его переносит к лагерю сам, как только лагерь восстановлен и 5 секунд не было урона.
   camp-teleport-seconds: 5
+  # 2026-11-08: «Осадное давление» (после проигранной осады) и «Отражение осады» (после отбитой) раньше только
+  # выдавались и показывались, но ничего не меняли. Теперь они сдвигают получаемый кланом опыт на процент ниже,
+  # пока модификатор действует: -25% опыта проигравшему и +10% отразившему (срок задан самим модификатором).
+  pressure-experience-percent: 25
+  repelled-experience-percent: 10
   camp-break-base-hits: 10
   camp-break-reset-seconds: 15
   fortification:
@@ -886,10 +897,13 @@ siege:
     item-slot-percent: 20
   reparations:
     duration-days: 3
+    # 2026-11-08: динамическая дань, как у войны: база + уровень + активные участники + влияние проигравшего клана.
     daily-amount: 300
     daily-per-defender-level: 40
+    daily-per-member: 15
+    daily-per-influence: 0.2
     min-daily: 100
-    max-daily: 2000
+    max-daily: 5000
   win-exp-multiplier: 0.75
   defend-win-exp-multiplier: 0.45
   glow-near-camp-radius: 15

@@ -10,7 +10,7 @@
 # Версия lang.yml (2026-10-19): при росте версии админский файл получает из jar переписанные разделы
 # (gui, item, raid.compass, clan.banner и др. - список в LangMigrator), потому что copyDefaults не обновляет уже
 # существующие строки. Версия 14: стандарт лора gui-gen-6 во всех меню и предметах. Не меняйте вручную.
-lang-version: 15
+lang-version: 16
 prefix: "<gradient:#FFD166:#F6A623>Кланы</gradient> <white>»</white> "
 
 general:
@@ -674,6 +674,10 @@ gui:
       DIPLOMACY_CREATED: "<aqua>Союз с кланом <color><tag></color>"
       DIPLOMACY_ENDED: "<gray>Союз с кланом <color><tag></color> разорван"
   modifiers:
+    conflict-type:
+      war: "война"
+      siege: "осада"
+      raid: "набег"
     title: "<gray>Модификаторы: <gold><clan>"
     forever: "бессрочно"
     # 2026-10-19: гильдейская награда в списке модификаторов - тоже запись списка: `Награда | Получено`, эффект и дата.
@@ -820,7 +824,8 @@ gui:
           - "<dark_gray>Последствия осады"
           - ""
           - "<dark_gray>▪ <gray>Эффект:"
-          - "  <red>− <gray>Штраф после поражения в осаде"
+          - "  <red>− <gray>Опыт клана: <white>−<percent>%"
+          - "  <gray>Штраф после поражения в осаде"
           - ""
           - "<dark_gray>▪ <gray>Срок:"
           - "  <yellow>⌛ <gray>Осталось: <white><time>"
@@ -830,7 +835,8 @@ gui:
           - "<dark_gray>Последствия осады"
           - ""
           - "<dark_gray>▪ <gray>Эффект:"
-          - "  <green>+ <gray>Боевой дух клана укреплён"
+          - "  <green>+ <gray>Опыт клана: <white>+<percent>%"
+          - "  <gray>Боевой дух клана укреплён после отражённой осады"
           - ""
           - "<dark_gray>▪ <gray>Срок:"
           - "  <yellow>⌛ <gray>Осталось: <white><time>"

@@ -64,7 +64,35 @@ public final class ClanBonusService {
     public double experiencePercent(Clan clan) {
         if (clan == null) return 0.0D;
         return clan.upgradeLevel(ClanUpgrade.EXPERIENCE) * cfg().getDouble("limits.experience-percent-per-upgrade", 5.0D)
-                + plugin.getGuildRewards().percent(clan, GuildReward.Bonus.EXPERIENCE);
+                + plugin.getGuildRewards().percent(clan, GuildReward.Bonus.EXPERIENCE)
+                + siegeModifierExperiencePercent(clan);
+    }
+
+    /**
+     * Aftermath of a siege on the experience the clan earns: "siege pressure" (lost a siege) takes a share away,
+     * "siege repelled" (held the siege) adds one. Both only while the modifier lasts.
+     */
+    public double siegeModifierExperiencePercent(Clan clan) {
+        if (clan == null || plugin.getModifierManager() == null) return 0.0D;
+        // Each effect counts once however many modifiers of that type exist (several lost sieges in a row must
+        // not stack into a negative experience multiplier).
+        boolean pressure = false, repelled = false;
+        for (var modifier : plugin.getModifierManager().getModifiers(clan.id())) {
+            if (me.lovelace.loveclans.model.modifier.ClanModifier.TYPE_SIEGE_PRESSURE.equals(modifier.type())) {
+                pressure = true;
+            } else if (me.lovelace.loveclans.model.modifier.ClanModifier.TYPE_SIEGE_REPELLED.equals(modifier.type())) {
+                repelled = true;
+            }
+        }
+        return (pressure ? -siegePressureExperiencePercent() : 0.0D) + (repelled ? siegeRepelledExperiencePercent() : 0.0D);
+    }
+
+    public double siegePressureExperiencePercent() {
+        return cfg().getDouble("siege.pressure-experience-percent", 25.0D);
+    }
+
+    public double siegeRepelledExperiencePercent() {
+        return cfg().getDouble("siege.repelled-experience-percent", 10.0D);
     }
 
     public double taxDiscountPercent(Clan clan) {
