@@ -44,7 +44,9 @@ public final class LangMigrator {
             // foundation-banner purchase screen texts (clan.banner)
             List.of("gui", "item", "raid.compass", "clan.banner"),
             // v15: NPC bindings by provider key (Citizens id or LoveEssential id) - admin.npc.* texts reworded
-            List.of("admin.npc", "clan.help")
+            List.of("admin.npc", "clan.help"),
+            // v16: modifiers menu - readable conflict types, siege pressure / repelled show their real experience effect
+            List.of("gui.modifiers")
     );
 
     private LangMigrator() {

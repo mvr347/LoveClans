@@ -74,15 +74,17 @@ public final class ClanBonusService {
      */
     public double siegeModifierExperiencePercent(Clan clan) {
         if (clan == null || plugin.getModifierManager() == null) return 0.0D;
-        double percent = 0.0D;
+        // Each effect counts once however many modifiers of that type exist (several lost sieges in a row must
+        // not stack into a negative experience multiplier).
+        boolean pressure = false, repelled = false;
         for (var modifier : plugin.getModifierManager().getModifiers(clan.id())) {
             if (me.lovelace.loveclans.model.modifier.ClanModifier.TYPE_SIEGE_PRESSURE.equals(modifier.type())) {
-                percent -= siegePressureExperiencePercent();
+                pressure = true;
             } else if (me.lovelace.loveclans.model.modifier.ClanModifier.TYPE_SIEGE_REPELLED.equals(modifier.type())) {
-                percent += siegeRepelledExperiencePercent();
+                repelled = true;
             }
         }
-        return percent;
+        return (pressure ? -siegePressureExperiencePercent() : 0.0D) + (repelled ? siegeRepelledExperiencePercent() : 0.0D);
     }
 
     public double siegePressureExperiencePercent() {
