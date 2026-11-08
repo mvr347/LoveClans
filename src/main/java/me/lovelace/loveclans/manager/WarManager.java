@@ -639,7 +639,10 @@ public final class WarManager {
         if (points <= 0) {
             return;
         }
-        getActiveWar(victimClan.id()).filter(w -> w.state() == WarState.ACTIVE).ifPresent(war -> {
+        // Pick among ACTIVE wars only: a PREPARING war against another clan must not hide a running one.
+        activeWars.values().stream()
+                .filter(w -> w.involves(victimClan.id()) && w.state() == WarState.ACTIVE)
+                .findFirst().ifPresent(war -> {
             UUID opponent = war.attackerClanId().equals(victimClan.id()) ? war.defenderClanId() : war.attackerClanId();
             killStreaks.remove(victim.getUniqueId());
             addScore(opponent, victimClan.id(), points);
