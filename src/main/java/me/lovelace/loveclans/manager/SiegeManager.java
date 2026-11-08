@@ -1385,7 +1385,7 @@ public final class SiegeManager {
                     lines.add(Component.text(name + "§c✘ §7вернётся через §f"
                             + formatDuration(Math.max(0L, camp.respawnAt() - now))));
                 } else if (attackingSide) {
-                    lines.add(Component.text(name + "§a✔ §7укрепление §e" + fortificationLevel(siege.id(), camp.index()) + "/3"));
+                    lines.add(Component.text(name + "§a✔ §7укрепление §e" + fortificationLevel(siege.id(), camp.index()) + "/" + maxFortificationLevel()));
                 } else {
                     int required = hitsRequired(siege.id(), camp.index());
                     int cur = campHits.getOrDefault(siege.id(), Map.of()).getOrDefault(camp.index(), 0);
@@ -1441,7 +1441,7 @@ public final class SiegeManager {
                             int req = hitsRequired(siege.id(), camp.index());
                             int cur = campHits.getOrDefault(siege.id(), Map.of()).getOrDefault(camp.index(), 0);
                             plugin.getMessages().hud(p, Component.text("§6Лагерь #" + (camp.index() + 1)
-                                    + " §8· §7Укрепление §e" + fortLevel + "/3"
+                                    + " §8· §7Укрепление §e" + fortLevel + "/" + maxFortificationLevel()
                                     + " §8· §7Ударов до сноса: §c" + Math.max(1, req - cur)));
                         }
                     }
