@@ -629,6 +629,26 @@ public final class WarManager {
         killer.playSound(killer.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.7f, 1.4f);
     }
 
+    /**
+     * A death of a member that no enemy clan member caused (mob, fall, an outsider, suicide) still scores in a
+     * running war: the opposing clan gets {@code war.objectives.death-score}. Kills by the enemy clan go through
+     * {@link #addKillScore(Player, Player, Clan, Clan)} instead, so a death never counts twice.
+     */
+    public void addDeathScore(Player victim, Clan victimClan) {
+        int points = plugin.getConfig().getInt("war.objectives.death-score", 1);
+        if (points <= 0) {
+            return;
+        }
+        // Pick among ACTIVE wars only: a PREPARING war against another clan must not hide a running one.
+        activeWars.values().stream()
+                .filter(w -> w.involves(victimClan.id()) && w.state() == WarState.ACTIVE)
+                .findFirst().ifPresent(war -> {
+            UUID opponent = war.attackerClanId().equals(victimClan.id()) ? war.defenderClanId() : war.attackerClanId();
+            killStreaks.remove(victim.getUniqueId());
+            addScore(opponent, victimClan.id(), points);
+        });
+    }
+
     /** A finished war ends every streak of both clans: the next war starts from zero. */
     private void resetStreaks(ClanWar war) {
         resolveWarClans(war).ifPresent(c -> java.util.stream.Stream.concat(c.attacker().members().keySet().stream(),

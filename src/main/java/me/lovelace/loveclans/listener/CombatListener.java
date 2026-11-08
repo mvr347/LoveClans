@@ -80,25 +80,30 @@ public final class CombatListener implements Listener {
     public void onDeath(PlayerDeathEvent event) {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
-        
-        if (killer == null) {
-            return;
-        }
-        Optional<Clan> killerClan = plugin.getClanManager().getPlayerClan(killer.getUniqueId());
+
         Optional<Clan> victimClan = plugin.getClanManager().getPlayerClan(victim.getUniqueId());
-        if (killerClan.isEmpty() || victimClan.isEmpty()) {
+        Optional<Clan> killerClan = killer == null ? Optional.empty() : plugin.getClanManager().getPlayerClan(killer.getUniqueId());
+        boolean crossClan = killerClan.isPresent() && victimClan.isPresent()
+                && !killerClan.get().id().equals(victimClan.get().id());
+        // The kill score only exists between the two clans of a running war; any other death (mob, fall, an
+        // outsider, a member of a third clan, suicide) still scores for the victim's war opponent.
+        boolean killedByWarOpponent = crossClan
+                && plugin.getWarManager().activeWar(killerClan.get().id(), victimClan.get().id())
+                        .filter(w -> w.state() == me.lovelace.loveclans.model.war.WarState.ACTIVE).isPresent();
+        if (!killedByWarOpponent) {
+            victimClan.ifPresent(clan -> plugin.getWarManager().addDeathScore(victim, clan));
+        }
+        if (!crossClan) {
             return;
         }
         Clan kClan = killerClan.get();
         Clan vClan = victimClan.get();
-        if (!kClan.id().equals(vClan.id())) {
-            plugin.getWarManager().addKillScore(killer, victim, kClan, vClan);
-            if (!plugin.getClanManager().inConflictWith(kClan.id(), vClan.id()) && plugin.getDiplomacyManager() != null) {
-                // Outside a war every kill of another clan's member cools the relations; on the victim's land twice as much
-                Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(victim.getLocation());
-                boolean onVictimTerritory = territoryClan.isPresent() && territoryClan.get().id().equals(vClan.id());
-                plugin.getDiplomacyManager().onKill(kClan, vClan, onVictimTerritory);
-            }
+        plugin.getWarManager().addKillScore(killer, victim, kClan, vClan);
+        if (!plugin.getClanManager().inConflictWith(kClan.id(), vClan.id()) && plugin.getDiplomacyManager() != null) {
+            // Outside a war every kill of another clan's member cools the relations; on the victim's land twice as much
+            Optional<Clan> territoryClan = plugin.getClanManager().getClanAt(victim.getLocation());
+            boolean onVictimTerritory = territoryClan.isPresent() && territoryClan.get().id().equals(vClan.id());
+            plugin.getDiplomacyManager().onKill(kClan, vClan, onVictimTerritory);
         }
     }
 
