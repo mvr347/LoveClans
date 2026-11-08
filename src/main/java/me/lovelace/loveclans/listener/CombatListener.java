@@ -83,12 +83,17 @@ public final class CombatListener implements Listener {
 
         Optional<Clan> victimClan = plugin.getClanManager().getPlayerClan(victim.getUniqueId());
         Optional<Clan> killerClan = killer == null ? Optional.empty() : plugin.getClanManager().getPlayerClan(killer.getUniqueId());
-        boolean killedByEnemyClanMember = killerClan.isPresent() && victimClan.isPresent()
+        boolean crossClan = killerClan.isPresent() && victimClan.isPresent()
                 && !killerClan.get().id().equals(victimClan.get().id());
-        if (!killedByEnemyClanMember) {
-            // A death without an enemy clan killer (mob, fall, an outsider, suicide) still counts in a running war:
-            // the opposing clan gets the death score.
+        // The kill score only exists between the two clans of a running war; any other death (mob, fall, an
+        // outsider, a member of a third clan, suicide) still scores for the victim's war opponent.
+        boolean killedByWarOpponent = crossClan
+                && plugin.getWarManager().activeWar(killerClan.get().id(), victimClan.get().id())
+                        .filter(w -> w.state() == me.lovelace.loveclans.model.war.WarState.ACTIVE).isPresent();
+        if (!killedByWarOpponent) {
             victimClan.ifPresent(clan -> plugin.getWarManager().addDeathScore(victim, clan));
+        }
+        if (!crossClan) {
             return;
         }
         Clan kClan = killerClan.get();
