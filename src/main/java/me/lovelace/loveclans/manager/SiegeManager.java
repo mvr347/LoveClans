@@ -1367,41 +1367,57 @@ public final class SiegeManager {
         campTeleports.put(id, task);
     }
 
-    /** Sidebar for both sides: camps, hold progress and time left. */
+    /**
+     * Sidebar for both sides in the server's scoreboard style: short phrases, grey for the connecting words,
+     * white for the values, a coloured icon as the theme of the line, the VOIDCORE brand line at the bottom.
+     */
     private void updateSidebar(ClanSiege siege, Clan attacker, Clan defender, long hold, long requiredHold, int unbroken) {
         long now = System.currentTimeMillis();
         boolean paused = unbroken < siege.camps().size();
-        Component title = Component.text("§6§lОсада §8| §f" + formatDuration(Math.max(0L, siege.endsAt() - now)));
+        int max = maxFortificationLevel();
+        Component title = Component.text("§c⚔ §f§lО С А Д А §c⚔");
         Set<UUID> viewers = sidebarViewersBySiege.computeIfAbsent(siege.id(), id -> ConcurrentHashMap.newKeySet());
         for (boolean attackingSide : new boolean[] {true, false}) {
             List<Component> lines = new ArrayList<>();
-            lines.add(Component.text("§6" + attacker.tag() + " §7→ §c" + defender.tag()));
-            lines.add(Component.text(attackingSide ? "§7Вы: §6атакуете" : "§7Вы: §aобороняетесь"));
+            lines.add(Component.text("§7штурм §6" + attacker.tag() + " §8→ §c" + defender.tag()));
+            lines.add(Component.text(attackingSide
+                    ? "§7вы §6⚔ §fатакуете лагеря"
+                    : "§7вы §a⛨ §fзащищаете земли"));
             lines.add(Component.text(" "));
-            lines.add(Component.text("§fЛагеря §a" + unbroken + "§7/§f" + siege.camps().size()));
+            lines.add(Component.text("§7до конца §e⏳ §f" + formatDuration(Math.max(0L, siege.endsAt() - now))));
+            lines.add(Component.text("  "));
+            lines.add(Component.text("§7лагеря §6⚑ §a" + unbroken + "§7/§f" + siege.camps().size()));
             for (SiegeCamp camp : siege.camps()) {
-                String name = "§7#" + (camp.index() + 1) + " ";
+                String name = "§8 #" + (camp.index() + 1) + " ";
                 if (camp.broken()) {
                     lines.add(Component.text(name + "§c✘ §7вернётся через §f"
                             + formatDuration(Math.max(0L, camp.respawnAt() - now))));
                 } else if (attackingSide) {
-                    lines.add(Component.text(name + "§a✔ §7укрепление §e" + fortificationLevel(siege.id(), camp.index()) + "/" + maxFortificationLevel()));
+                    lines.add(Component.text(name + "§a✔ §7укрепление §e" + fortificationLevel(siege.id(), camp.index())
+                            + "§7/§f" + max));
                 } else {
                     int required = hitsRequired(siege.id(), camp.index());
                     int cur = campHits.getOrDefault(siege.id(), Map.of()).getOrDefault(camp.index(), 0);
-                    lines.add(Component.text(name + "§a✔ §7ударов: §f" + Math.min(cur, required) + "§7/§f" + required));
+                    lines.add(Component.text(name + "§a✔ §7ударов §f" + Math.min(cur, required) + "§7/§f" + required));
                 }
             }
-            lines.add(Component.text(" "));
-            lines.add(Component.text(paused ? "§cУдержание: ПАУЗА"
-                    : "§eУдержание: §f" + formatDuration(hold) + "§7/§f" + formatDuration(requiredHold)));
+            lines.add(Component.text("   "));
+            if (paused) {
+                lines.add(Component.text("§c⚠ §7удержание §cпауза"));
+            } else {
+                lines.add(Component.text("§7удержание §e⏳ §f" + formatDuration(hold) + "§7/§f" + formatDuration(requiredHold)));
+            }
+            int cells = 10;
+            int filled = requiredHold <= 0 ? 0 : (int) Math.max(0, Math.min(cells, Math.round(cells * (double) hold / requiredHold)));
+            lines.add(Component.text((paused ? "§8" : "§a") + "█".repeat(filled) + "§8" + "░".repeat(cells - filled)));
+            lines.add(Component.text("    "));
+            lines.add(Component.text("§c✌ §7V O I D C O R E §c✌"));
             Clan side = attackingSide ? attacker : defender;
             for (Player p : onlineMembers(side).toList()) {
                 sidebar.show(p, title, lines);
                 viewers.add(p.getUniqueId());
             }
         }
-        // Members who logged off or left the clan lose their lease with the player (the service handles that).
     }
 
     private Component formatActiveBossBarTitle(Clan attacker, Clan defender, int unbroken, int total,
