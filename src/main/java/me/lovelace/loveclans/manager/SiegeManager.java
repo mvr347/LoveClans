@@ -82,6 +82,8 @@ public final class SiegeManager {
     private final Map<UUID, Map<Integer, Integer>> campFortification = new ConcurrentHashMap<>();
     /** Накопленные удары по лагерю: id осады -> индекс лагеря -> удары. */
     private final Map<UUID, Map<Integer, Integer>> campHits = new ConcurrentHashMap<>();
+    /** When each camp was last hit, so unfinished damage fades (siege.camp-break-reset-seconds). */
+    private final Map<String, Long> campLastHit = new ConcurrentHashMap<>();
 
     public SiegeManager(LoveClansPlugin plugin) {
         this.plugin = plugin;
@@ -140,7 +142,9 @@ public final class SiegeManager {
 
     public int hitsRequired(UUID siegeId, int campIndex) {
         int perLevel = Math.max(1, plugin.getConfig().getInt("siege.fortification.hits-per-level", 1));
-        return 1 + fortificationLevel(siegeId, campIndex) * perLevel;
+        // A camp no longer falls to a single hit: a base toughness (default 10 hits) plus the fortification.
+        int base = Math.max(1, plugin.getConfig().getInt("siege.camp-break-base-hits", 10));
+        return base + fortificationLevel(siegeId, campIndex) * perLevel;
     }
 
     public int fortificationLevel(UUID siegeId, int campIndex) {
@@ -601,6 +605,11 @@ public final class SiegeManager {
 
         int required = hitsRequired(siegeId, campIndex);
         Map<Integer, Integer> hits = campHits.computeIfAbsent(siegeId, id -> new ConcurrentHashMap<>());
+        long nowHit = System.currentTimeMillis();
+        String hitKey = siegeId + ":" + campIndex;
+        Long lastHit = campLastHit.put(hitKey, nowHit);
+        long resetMs = plugin.getConfig().getLong("siege.camp-break-reset-seconds", 15L) * 1000L;
+        if (lastHit != null && nowHit - lastHit > resetMs) hits.remove(campIndex);
         int accumulated = hits.merge(campIndex, 1, Integer::sum);
         if (accumulated < required) {
             resolveClans(siege).ifPresent(clans -> onlineMembers(clans.defender())
