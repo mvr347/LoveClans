@@ -3599,6 +3599,14 @@ siege:
     attacker-subtitle: "<gray>Удержите осадные лагеря клана <color><tag></color> 20 минут"
     defender-title: "<red><bold>Вас осаждают!"
     defender-subtitle: "<gray>Клан <color><tag></color> поставил осадные лагеря - уничтожайте их"
+  camp-teleport:
+    started: "<prefix><yellow>Возврат к лагерю через <white><seconds></white> сек. Любой полученный урон отменит его. <click:run_command:'/clan siege camp'><hover:show_text:'<gray>Нажмите, чтобы отменить'><red>[Отменить]</red></hover></click>"
+    cancelled-damage: "<prefix><red>Возврат к лагерю отменён — вы получили урон."
+    cancelled-manual: "<prefix><yellow>Возврат к лагерю отменён."
+    cancelled-ended: "<prefix><red>Возврат к лагерю отменён — осада закончилась."
+    not-attacker: "<prefix><red>Вернуться к лагерю могут только атакующие во время активной осады."
+    no-camp: "<prefix><red>Лагерь недоступен, телепортация не удалась."
+    done: "<prefix><green>Вы вернулись к осадному лагерю."
   camp:
     not-your-camp: "<prefix><red>Разрушать этот осадный лагерь может только клан-защитник."
     broken-attacker: "<prefix><yellow>Защитники разрушили осадный лагерь #<index>! Он восстановится через некоторое время."

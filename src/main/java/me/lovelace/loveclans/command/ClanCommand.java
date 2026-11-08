@@ -961,6 +961,11 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     }
 
     private void siege(Player player, String[] args) {
+        // Returning to a camp is open to every attacking member, not only to those allowed to declare sieges.
+        if (args.length >= 2 && args[1].equalsIgnoreCase("camp")) {
+            plugin.getSiegeManager().requestCampTeleport(player);
+            return;
+        }
         requirePermission(player, Permissions.WAR);
         if (!checkAntiCheat(player)) return;
         if (args.length < 2) {
@@ -971,6 +976,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             fortifyCamp(player, args);
             return;
         }
+
         Optional<Clan> optionalAttacker = requireClan(player);
         if (optionalAttacker.isEmpty()) {
             plugin.getMessages().send(player, "clan.not-in-clan");
