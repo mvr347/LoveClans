@@ -429,24 +429,30 @@ public final class SiegeScenery {
   private void clean(Plan plan) {
     if (!loaded(plan)) return;
     evacuateIfSupported(plan);
+    int foreign = 0;
+    String firstForeign = null;
     for (var cell : plan.originals()) {
       Location loc = new Position(cell.world(), cell.x(), cell.y(), cell.z()).location();
       Block b = loc.getBlock();
-      // Never delete a block placed by an external administrator after our last shutdown.
-      if (ownedMaterial(b.getType()) || profileMaterials.contains(b.getType()) || replaceable(b))
-        b.setBlockData(Bukkit.createBlockData(cell.original()), false);
-      else
-        plugin
-            .getLogger()
-            .warning(
-                "Осадная уборка: посторонний блок оставлен на "
-                    + cell.x()
-                    + " "
-                    + cell.y()
-                    + " "
-                    + cell.z());
+      BlockData original = Bukkit.createBlockData(cell.original());
+      // A cell that already holds its original block (natural ground, leaves restored earlier) is clean.
+      if (b.getBlockData().matches(original)) {
+        // nothing to restore
+      } else if (ownedMaterial(b.getType()) || profileMaterials.contains(b.getType()) || replaceable(b)) {
+        // Never delete a block placed by an external administrator after our last shutdown: only ours is reverted.
+        b.setBlockData(original, false);
+      } else {
+        foreign++;
+        if (firstForeign == null) firstForeign = cell.x() + " " + cell.y() + " " + cell.z();
+      }
       blocks.remove(Position.of(loc), plan.key());
     }
+    // One line per camp instead of one per block (a camp has dozens of cells).
+    if (foreign > 0)
+      plugin
+          .getLogger()
+          .warning(
+              "Осадная уборка: оставлено посторонних блоков: " + foreign + " (первый на " + firstForeign + ")");
     retries.remove(plan.key());
     sites.remove(plan.key());
     cleanup.remove(plan.key());
