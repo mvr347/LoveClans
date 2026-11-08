@@ -1269,6 +1269,9 @@ public final class SiegeManager {
 
     public void waitForCamp(UUID playerId, UUID siegeId) {
         waitingForCamp.put(playerId, siegeId);
+        // The lethal hit happened before this player was registered, so its timestamp was not recorded:
+        // the respawn moment is a safe baseline for the quiet period.
+        lastDamageAt.merge(playerId, System.currentTimeMillis(), Math::max);
     }
 
     public void noteDamage(UUID playerId) {
