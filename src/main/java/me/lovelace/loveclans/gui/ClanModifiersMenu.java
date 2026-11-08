@@ -148,17 +148,39 @@ public final class ClanModifiersMenu {
                     "tag", resolveClanTag(mod.targetClanId()), "amount", me.lovelace.loveclans.util.CoinFormat.format(mod.dailyAmount()),
                     "days", String.valueOf(mod.daysLeft())));
             case ClanModifier.TYPE_POST_RAID_SHIELD -> entry(player, Material.SHIELD, "post-raid-shield", Map.of("time", timeLeft));
-            case ClanModifier.TYPE_SIEGE_PRESSURE -> entry(player, Material.CRACKED_STONE_BRICKS, "siege-pressure", Map.of("time", timeLeft));
-            case ClanModifier.TYPE_SIEGE_REPELLED -> entry(player, Material.BEACON, "siege-repelled", Map.of("time", timeLeft));
+            case ClanModifier.TYPE_SIEGE_PRESSURE -> entry(player, Material.CRACKED_STONE_BRICKS, "siege-pressure", Map.of("time", timeLeft,
+                    "percent", percentText(plugin.getClanBonuses().siegePressureExperiencePercent())));
+            case ClanModifier.TYPE_SIEGE_REPELLED -> entry(player, Material.BEACON, "siege-repelled", Map.of("time", timeLeft,
+                    "percent", percentText(plugin.getClanBonuses().siegeRepelledExperiencePercent())));
             case ClanModifier.TYPE_JUST_CASUS -> entry(player, Material.WRITTEN_BOOK, "just-casus", Map.of(
-                    "type", String.valueOf(mod.conflictType()), "tag", resolveClanTag(mod.targetClanId()),
-                    "reason", String.valueOf(mod.reasonId()),
+                    "type", conflictTypeName(mod.conflictType()), "tag", resolveClanTag(mod.targetClanId()),
+                    "reason", reasonName(mod.reasonId()),
                     "time", mod.endsAt() > 0 ? timeLeft : plugin.getMessages().raw("gui.modifiers.forever")));
             case ClanModifier.TYPE_GUILD_SHIELD -> entry(player, Material.GOLDEN_APPLE, "guild-shield", Map.of("time", timeLeft));
             case ClanModifier.TYPE_GUILD_SHIELD_COOLDOWN -> cooldownEntry(player, "guild-shield-cooldown", Map.of("time", timeLeft));
             case ClanModifier.TYPE_CAPITAL_RELOCATE_COOLDOWN -> cooldownEntry(player, "relocate-cooldown", Map.of("time", timeLeft));
             default -> entry(player, Material.PAPER, "unknown", Map.of("type", mod.type()));
         };
+    }
+
+    private static String percentText(double value) {
+        return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
+    }
+
+    /** WAR / SIEGE / RAID as readable Russian instead of the raw enum name. */
+    private String conflictTypeName(String type) {
+        if (type == null) return "?";
+        String key = "gui.modifiers.conflict-type." + type.toLowerCase(java.util.Locale.ROOT);
+        String text = plugin.getMessages().raw(key);
+        return text == null || text.equals(key) ? type : text;
+    }
+
+    /** Casus belli reason id (revenge_siege...) as its Russian title. */
+    private String reasonName(String reasonId) {
+        if (reasonId == null) return "?";
+        String key = "gui.casus-belli.reason." + reasonId + ".title";
+        String text = plugin.getMessages().raw(key);
+        return text == null || text.equals(key) ? reasonId : text;
     }
 
     private ItemStack rewardEntry(Player player, Clan clan, GuildReward reward) {

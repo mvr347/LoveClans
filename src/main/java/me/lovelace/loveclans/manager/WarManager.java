@@ -275,6 +275,13 @@ public final class WarManager {
         return false;
     }
 
+    /** Daily tribute of the defeated clan: depends on its level, active members and influence. */
+    private long tributeOf(UUID payerClanId, org.bukkit.configuration.ConfigurationSection config) {
+        return plugin.getClanManager().getClanById(payerClanId)
+                .map(c -> TributeMath.daily(config, c.level(), plugin.getClanManager().activeMemberCount(c), c.influence()))
+                .orElse(config.getLong("daily-amount", 500L));
+    }
+
     /** The war this clan is currently in (any phase), if any. */
     public Optional<ClanWar> warOf(UUID clanId) {
         return activeWars.values().stream()
@@ -449,7 +456,7 @@ public final class WarManager {
 
                 long reward = plugin.getConfig().getLong("leveling.war-win-exp", 1200L);
                 int durationDays = plugin.getConfig().getInt("war.reparations.duration-days", 5);
-                long dailyAmount = plugin.getConfig().getLong("war.reparations.daily-amount", 500L);
+                var tributeConfig = plugin.getConfig().getConfigurationSection("war.reparations");
 
                 if (result == WarResult.ATTACKER_WIN) {
                     plugin.getClanManager().getClanById(war.attackerClanId()).ifPresent(clan -> {
@@ -471,7 +478,8 @@ public final class WarManager {
                     plugin.getDiplomacyManager().liftBlockadeOnVictory(war.attackerClanId(), war.defenderClanId());
 
                     // Репарации и Casus мести (newwars-1.md)
-                    plugin.getModifierManager().grantReparations(war.defenderClanId(), war.attackerClanId(), durationDays, dailyAmount);
+                    plugin.getModifierManager().grantReparations(war.defenderClanId(), war.attackerClanId(), durationDays,
+                            tributeOf(war.defenderClanId(), tributeConfig));
                     plugin.getModifierManager().grantJustCasusBoth(war.defenderClanId(), war.attackerClanId(), "revenge_war");
 
                     Clan atkClan = plugin.getClanManager().getClanById(war.attackerClanId()).orElse(null);
@@ -500,7 +508,8 @@ public final class WarManager {
                     plugin.getDiplomacyManager().liftBlockadeOnVictory(war.defenderClanId(), war.attackerClanId());
 
                     // Репарации и Casus мести (newwars-1.md)
-                    plugin.getModifierManager().grantReparations(war.attackerClanId(), war.defenderClanId(), durationDays, dailyAmount);
+                    plugin.getModifierManager().grantReparations(war.attackerClanId(), war.defenderClanId(), durationDays,
+                            tributeOf(war.attackerClanId(), tributeConfig));
                     plugin.getModifierManager().grantJustCasusBoth(war.attackerClanId(), war.defenderClanId(), "revenge_war");
 
                     Clan atkClan = plugin.getClanManager().getClanById(war.attackerClanId()).orElse(null);
