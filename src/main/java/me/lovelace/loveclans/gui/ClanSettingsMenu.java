@@ -122,10 +122,15 @@ public final class ClanSettingsMenu {
                 Material bannerMat = inHand.getType();
                 // Reserve exactly one dragged banner BEFORE the async update (no dupes, no charging a
                 // different item later); it is returned if the change fails.
+                final org.bukkit.inventory.ItemStack refund;
                 if (fromCursor) {
                     org.bukkit.inventory.ItemStack reserved = player.getItemOnCursor();
+                    // Keep an exact one-item clone (patterns, name, PDC) to hand back on failure.
+                    refund = reserved.asOne();
                     reserved.setAmount(reserved.getAmount() - 1);
                     player.setItemOnCursor(reserved.getAmount() <= 0 ? null : reserved);
+                } else {
+                    refund = null;
                 }
                 plugin.getClanManager().changeClanEmblemAsync(clan, player.getUniqueId(), bannerMat)
                         .thenAccept(updated -> plugin.runSync(() -> {
@@ -135,9 +140,9 @@ public final class ClanSettingsMenu {
                             open(player, updated);
                         }))
                         .exceptionally(t -> { plugin.runSync(() -> {
-                            if (fromCursor) {
-                                // Give the reserved banner back.
-                                player.getInventory().addItem(new org.bukkit.inventory.ItemStack(bannerMat))
+                            if (refund != null) {
+                                // Give the very same banner back.
+                                player.getInventory().addItem(refund)
                                         .values().forEach(left -> player.getWorld().dropItemNaturally(player.getLocation(), left));
                             }
                             plugin.sendOperationError(player, t);
