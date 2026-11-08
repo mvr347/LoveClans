@@ -227,6 +227,7 @@ public class ClanProtectionListener implements Listener {
     /** Taking any damage interrupts the attackers' return to a siege camp. */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onCampTeleportDamage(org.bukkit.event.entity.EntityDamageEvent event) {
+        if (event.getEntity() instanceof Player hurt) plugin.getSiegeManager().noteDamage(hurt.getUniqueId());
         if (event.getEntity() instanceof Player player
                 && plugin.getSiegeManager().hasCampTeleport(player.getUniqueId())) {
             plugin.getSiegeManager().cancelCampTeleport(player.getUniqueId(), "siege.camp-teleport.cancelled-damage");

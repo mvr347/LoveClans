@@ -425,6 +425,7 @@ public final class SiegeManager {
 
     private void clearActiveBossBar(UUID siegeId, SiegeClans clans) {
         // The sidebar belongs to the active phase too: release it for everyone who was shown it.
+        waitingForCamp.values().removeIf(siegeId::equals);
         Set<UUID> viewers = sidebarViewersBySiege.remove(siegeId);
         if (viewers != null) viewers.forEach(sidebar::clear);
         BossBar bar = activeBossBars.remove(siegeId);
@@ -1204,6 +1205,7 @@ public final class SiegeManager {
         }
 
         updateSidebar(siege, attacker, defender, currentHold, requiredHoldMs, unbrokenCount);
+        processWaitingAttackers(siege);
 
         // Партиклы, визуализация и Action Bar (каждую секунду)
         tickVisualsAndActionBars(siege, attacker, defender);
@@ -1252,12 +1254,58 @@ public final class SiegeManager {
         return Optional.of(camp.clone().add(0.5, 1.0, 0.5));
     }
 
-    /** Where a dead attacker returns to during an active siege: a camp of their own. */
+    /** Where a dead attacker returns to during an active siege: a STANDING camp of their own, if there is one. */
     public Optional<Location> attackerRespawn(UUID clanId, Location from) {
         return getActiveSiege(clanId)
                 .filter(s -> s.state() == SiegeState.ACTIVE && s.attackerClanId().equals(clanId))
                 .flatMap(s -> pickCamp(s, from))
+                .filter(c -> !c.broken())
                 .flatMap(c -> safeSpotNear(c.toLocation()));
+    }
+
+    /** Attackers who died while every camp was down: they are taken to a camp as soon as one stands again. */
+    private final Map<UUID, UUID> waitingForCamp = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastDamageAt = new ConcurrentHashMap<>();
+
+    public void waitForCamp(UUID playerId, UUID siegeId) {
+        waitingForCamp.put(playerId, siegeId);
+        // The lethal hit happened before this player was registered, so its timestamp was not recorded:
+        // the respawn moment is a safe baseline for the quiet period.
+        lastDamageAt.merge(playerId, System.currentTimeMillis(), Math::max);
+    }
+
+    public void noteDamage(UUID playerId) {
+        if (!waitingForCamp.isEmpty()) lastDamageAt.put(playerId, System.currentTimeMillis());
+    }
+
+    /**
+     * Automatic return of waiting attackers: a camp stands and the player took no damage for
+     * siege.camp-teleport-seconds (5). While all camps are down nobody is moved.
+     */
+    private void processWaitingAttackers(ClanSiege siege) {
+        if (waitingForCamp.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        long quiet = Math.max(1L, plugin.getConfig().getLong("siege.camp-teleport-seconds", 5L)) * 1000L;
+        for (var entry : Map.copyOf(waitingForCamp).entrySet()) {
+            if (!entry.getValue().equals(siege.id())) continue;
+            Player player = Bukkit.getPlayer(entry.getKey());
+            if (player == null || !player.isOnline()) {
+                waitingForCamp.remove(entry.getKey());
+                continue;
+            }
+            boolean attacker = plugin.getClanManager().getPlayerClan(player.getUniqueId())
+                    .map(c -> c.id().equals(siege.attackerClanId())).orElse(false);
+            if (!attacker) {
+                waitingForCamp.remove(entry.getKey());
+                continue;
+            }
+            if (player.isDead() || now - lastDamageAt.getOrDefault(entry.getKey(), 0L) < quiet) continue;
+            var spot = pickCamp(siege, player.getLocation()).filter(c -> !c.broken())
+                    .flatMap(c -> safeSpotNear(c.toLocation()));
+            if (spot.isEmpty()) continue; // every camp is still down: keep waiting
+            waitingForCamp.remove(entry.getKey());
+            player.teleportAsync(spot.get()).thenRun(() -> plugin.getMessages().send(player, "siege.camp-teleport.done"));
+        }
     }
 
     public boolean hasCampTeleport(UUID playerId) {
@@ -1337,7 +1385,7 @@ public final class SiegeManager {
                     lines.add(Component.text(name + "§c✘ §7вернётся через §f"
                             + formatDuration(Math.max(0L, camp.respawnAt() - now))));
                 } else if (attackingSide) {
-                    lines.add(Component.text(name + "§a✔ §7укрепление §e" + fortificationLevel(siege.id(), camp.index()) + "/3"));
+                    lines.add(Component.text(name + "§a✔ §7укрепление §e" + fortificationLevel(siege.id(), camp.index()) + "/" + maxFortificationLevel()));
                 } else {
                     int required = hitsRequired(siege.id(), camp.index());
                     int cur = campHits.getOrDefault(siege.id(), Map.of()).getOrDefault(camp.index(), 0);
@@ -1393,7 +1441,7 @@ public final class SiegeManager {
                             int req = hitsRequired(siege.id(), camp.index());
                             int cur = campHits.getOrDefault(siege.id(), Map.of()).getOrDefault(camp.index(), 0);
                             plugin.getMessages().hud(p, Component.text("§6Лагерь #" + (camp.index() + 1)
-                                    + " §8· §7Укрепление §e" + fortLevel + "/3"
+                                    + " §8· §7Укрепление §e" + fortLevel + "/" + maxFortificationLevel()
                                     + " §8· §7Ударов до сноса: §c" + Math.max(1, req - cur)));
                         }
                     }

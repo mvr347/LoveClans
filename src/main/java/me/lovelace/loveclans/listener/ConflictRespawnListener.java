@@ -33,11 +33,20 @@ public final class ConflictRespawnListener implements Listener {
         var siege = plugin.getSiegeManager().getActiveSiege(clan.id())
                 .filter(s -> s.state() == me.lovelace.loveclans.model.siege.SiegeState.ACTIVE);
         if (siege.isPresent()) {
-            Optional<Location> spot = siege.get().attackerClanId().equals(clan.id())
-                    ? plugin.getSiegeManager().attackerRespawn(clan.id(), player.getLocation())
-                    : plugin.getClanManager().ensureHome(clan);
-            if (spot.isPresent()) {
-                event.setRespawnLocation(spot.get());
+            if (siege.get().attackerClanId().equals(clan.id())) {
+                Optional<Location> camp = plugin.getSiegeManager().attackerRespawn(clan.id(), player.getLocation());
+                if (camp.isPresent()) {
+                    event.setRespawnLocation(camp.get());
+                } else {
+                    // Every camp is down: no forced move. The player is taken to a camp automatically once
+                    // one stands again and no damage was taken for a few seconds.
+                    plugin.getSiegeManager().waitForCamp(player.getUniqueId(), siege.get().id());
+                }
+                return;
+            }
+            Optional<Location> home = plugin.getClanManager().ensureHome(clan);
+            if (home.isPresent()) {
+                event.setRespawnLocation(home.get());
                 return;
             }
         }
