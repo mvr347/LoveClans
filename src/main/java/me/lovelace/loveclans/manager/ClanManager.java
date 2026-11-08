@@ -906,6 +906,30 @@ public final class ClanManager {
                 .thenCompose(this::refreshClanClaimOwnerName);
     }
 
+    /**
+     * Recolours a placed banner block. setType() alone drops the tile entity, and with it the clan PDC tags
+     * (clan id, banner type...) that make the block protected: the recoloured banner became an ordinary,
+     * breakable one. The tags and the rotation are carried over to the new block.
+     */
+    private void swapBannerKeepingClanData(org.bukkit.block.Block block, Material newEmblem) {
+        org.bukkit.persistence.PersistentDataContainer saved = null;
+        if (block.getState() instanceof org.bukkit.block.Banner oldBanner) {
+            saved = oldBanner.getPersistentDataContainer().getAdapterContext().newPersistentDataContainer();
+            oldBanner.getPersistentDataContainer().copyTo(saved, true);
+        }
+        org.bukkit.block.data.BlockData old = block.getBlockData();
+        block.setType(newEmblem, false);
+        if (old instanceof org.bukkit.block.data.Rotatable oldRot
+                && block.getBlockData() instanceof org.bukkit.block.data.Rotatable newRot) {
+            newRot.setRotation(oldRot.getRotation());
+            block.setBlockData(newRot, false);
+        }
+        if (saved != null && block.getState() instanceof org.bukkit.block.Banner newBanner) {
+            saved.copyTo(newBanner.getPersistentDataContainer(), true);
+            newBanner.update(true, false);
+        }
+    }
+
     public CompletableFuture<Clan> changeClanEmblemAsync(Clan clan, UUID actorId, Material newEmblem) {
         if (clan == null || actorId == null || newEmblem == null)
             return CompletableFuture.failedFuture(new IllegalArgumentException("Clan, actor ID and emblem cannot be null."));
@@ -925,7 +949,7 @@ public final class ClanManager {
                         if (world != null) {
                             org.bukkit.block.Block block = world.getBlockAt(territory.bannerX(), territory.bannerY(), territory.bannerZ());
                             if (block.getType().toString().endsWith("_BANNER")) {
-                                block.setType(newEmblem);
+                                swapBannerKeepingClanData(block, newEmblem);
                             }
                         }
                     }
