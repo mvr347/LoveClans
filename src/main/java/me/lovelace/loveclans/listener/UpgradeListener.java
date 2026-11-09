@@ -28,14 +28,33 @@ public final class UpgradeListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
+        // A player who still has to log in or register must not see clan notices: LoveAuth announces itself later
+        // through PlayerAuthenticatedEvent, which runs the same check.
+        if (isAuthenticated(event.getPlayer())) {
+            scheduleReminder(event.getPlayer(), 60L);
+        }
+    }
+
+    @EventHandler
+    public void onAuthenticated(dev.lovelace.lovecore.api.auth.PlayerAuthenticatedEvent event) {
+        scheduleReminder(event.player(), 40L);
+    }
+
+    private void scheduleReminder(Player player, long delay) {
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            if (!player.isOnline()) return;
+            if (!player.isOnline() || !isAuthenticated(player)) return;
             plugin.getClanManager().getPlayerClan(player.getUniqueId()).ifPresent(clan -> {
                 plugin.getUpgradeOffers().topUp(clan);
                 plugin.getUpgradeOffers().remindIfPending(player, clan);
             });
-        }, 60L);
+        }, delay);
+    }
+
+    /** Not cached: LoveAuth may register its oracle later. Without LoveAuth everybody counts as logged in. */
+    private boolean isAuthenticated(Player player) {
+        return dev.lovelace.lovecore.api.LoveCore.service(dev.lovelace.lovecore.api.auth.AuthOracle.class)
+                .map(oracle -> oracle.isAuthenticated(player.getUniqueId()))
+                .orElse(true);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
