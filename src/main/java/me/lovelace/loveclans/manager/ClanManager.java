@@ -446,6 +446,7 @@ public final class ClanManager {
                 throw new IllegalStateException("clan.creation-insufficient-funds");
             }
             indexClan(clan);
+            me.lovelace.loveclans.integration.AchievementsHook.unlock(founderId, "clan_founder");
 
             if (giveCapitalBanner && founder != null) {
                 founder.getInventory().addItem(clanItemFactory.createCapitalBanner(clan.id(), clan.name()));

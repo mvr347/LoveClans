@@ -830,6 +830,7 @@ public final class LoveClansPlugin extends JavaPlugin {
         pluginManager.registerEvents(new ArtifactListener(this), this);
         pluginManager.registerEvents(new ChatInputListener(this), this);
         pluginManager.registerEvents(new ShieldColorListener(this), this);
+        pluginManager.registerEvents(new me.lovelace.loveclans.listener.AchievementsListener(this), this);
         pluginManager.registerEvents(spiritManager, this);
         pluginManager.registerEvents(afkManager, this);
         pluginManager.registerEvents(new ContractListener(this), this);
