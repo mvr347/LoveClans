@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Pure helpers for NPC bindings stored in config.yml. A binding is a String key: for the {@code citizens}
- * provider it is the numeric Citizens id written as text, for {@code loveessential} its own {@code ext-xxxxxxxx} id.
+ * Pure helpers for NPC bindings stored in config.yml. A binding is a String key of a LoveEssential NPC: its
+ * {@code ext-xxxxxxxx} id, its name or its visible number written as text.
  * Older configs kept an Integer under {@code npc-id} (-1 = unbound); that value is still read and is migrated
  * to {@code npc-key} by {@link #migrate}.
  */

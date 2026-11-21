@@ -12,6 +12,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NpcServiceTest {
@@ -38,7 +39,7 @@ class NpcServiceTest {
 
     @Test
     void startupGraceDoesNotHideALaterProviderLoss() throws Exception {
-        var c = config("integrations:\n  npc-provider: loveessential\n");
+        var c = config("");
         boolean[] graceDone = {false}, present = {false};
         List<String> warnings = new ArrayList<>();
         var service = new NpcService(() -> c, id -> present[0] ? Optional.of(fakeProvider()) : Optional.empty(),
@@ -56,35 +57,47 @@ class NpcServiceTest {
     }
 
     @Test
-    void providerIdDefaultsToCitizensAndIsNormalised() throws Exception {
-        assertEquals("citizens", NpcService.providerId(config("")));
-        assertEquals("citizens", NpcService.providerId(config("integrations:\n  npc-provider: '  '\n")));
-        assertEquals("loveessential", NpcService.providerId(config("integrations:\n  npc-provider: ' LoveEssential '\n")));
+    void providerIsAlwaysLoveEssential() throws Exception {
+        var empty = config("");
+        assertEquals("loveessential", new NpcService(() -> empty, id -> Optional.empty(), message -> { }).providerId());
+        assertEquals("loveessential", NpcService.PROVIDER_ID);
     }
 
     @Test
-    void globalAndAbsentFollowTheCoreAndWithoutItMeanCitizens() throws Exception {
-        assertEquals("citizens", NpcService.providerId(config("integrations:\n  npc-provider: global\n")));
-        assertEquals("citizens", NpcService.providerId(config("integrations:\n  npc-provider: ' GLOBAL '\n")));
-        // An explicit id is never replaced by the global choice.
-        assertEquals("citizens", NpcService.providerId(config("integrations:\n  npc-provider: citizens\n")));
+    void leftoverProviderValuesAreReportedButNeverUsed() throws Exception {
+        assertEquals("citizens", NpcService.ignoredProviderValue(config("integrations:\n  npc-provider: citizens\n")));
+        assertEquals("cmi", NpcService.ignoredProviderValue(config("integrations:\n  npc-provider: ' cmi '\n")));
+        assertNull(NpcService.ignoredProviderValue(config("integrations:\n  npc-provider: global\n")));
+        assertNull(NpcService.ignoredProviderValue(config("integrations:\n  npc-provider: ' LoveEssential '\n")));
+        assertNull(NpcService.ignoredProviderValue(config("integrations:\n  npc-provider: '  '\n")));
+        assertNull(NpcService.ignoredProviderValue(config("")));
     }
 
     @Test
-    void selectsTheConfiguredProviderAndNothingElse() throws Exception {
-        var config = config("integrations:\n  npc-provider: loveessential\n");
+    void startupCheckReportsALeftoverProviderValueOnce() throws Exception {
+        var config = config("integrations:\n  npc-provider: citizens\nclans:\n  banner:\n    npc-key: '5'\n");
+        List<String> warnings = new ArrayList<>();
+        var service = new NpcService(() -> config, id -> Optional.of(fakeProvider()), warnings::add);
+        service.checkAtStartup();
+        assertEquals(1, warnings.size());
+        assertTrue(warnings.get(0).contains("citizens") && warnings.get(0).contains("игнорируется"), warnings.get(0));
+    }
+
+    @Test
+    void onlyLoveEssentialIsAsked() throws Exception {
+        var config = config("integrations:\n  npc-provider: citizens\n");
         List<String> asked = new ArrayList<>();
         var service = new NpcService(() -> config, id -> {
             asked.add(id);
             return Optional.of(fakeProvider());
         }, message -> { });
         assertTrue(service.provider().isPresent());
-        assertEquals(List.of("loveessential"), asked);
+        assertEquals(List.of("loveessential"), asked, "the old value must not pick another provider");
     }
 
     @Test
     void missingProviderWarnsOnceAndDoesNotFallBackToAnotherProvider() throws Exception {
-        var config = config("integrations:\n  npc-provider: loveessential\n");
+        var config = config("");
         List<String> warnings = new ArrayList<>();
         List<String> asked = new ArrayList<>();
         var service = new NpcService(() -> config, id -> {
@@ -93,14 +106,14 @@ class NpcServiceTest {
         }, warnings::add);
         assertTrue(service.provider().isEmpty());
         assertTrue(service.provider().isEmpty());
-        assertEquals(List.of("loveessential", "loveessential"), asked, "never silently switches to citizens");
+        assertEquals(List.of("loveessential", "loveessential"), asked);
         assertEquals(1, warnings.size());
         assertTrue(warnings.get(0).contains("loveessential"));
     }
 
     @Test
-    void warnsAgainAfterTheProviderCameAndWentOrTheChoiceChanged() throws Exception {
-        var config = config("integrations:\n  npc-provider: citizens\n");
+    void warnsAgainAfterTheProviderCameAndWent() throws Exception {
+        var config = config("");
         List<String> warnings = new ArrayList<>();
         boolean[] present = {false};
         var service = new NpcService(() -> config, id -> present[0] ? Optional.of(fakeProvider()) : Optional.empty(),
@@ -111,10 +124,6 @@ class NpcServiceTest {
         present[0] = false;
         service.provider();
         assertEquals(2, warnings.size(), "a provider that disappeared again is worth a new warning");
-        config.set("integrations.npc-provider", "loveessential");
-        service.provider();
-        assertEquals(3, warnings.size());
-        assertTrue(warnings.get(2).contains("loveessential"));
     }
 
     @Test
@@ -130,22 +139,22 @@ class NpcServiceTest {
 
     @Test
     void clicksOfOtherProvidersAndOtherKeysAreIgnored() throws Exception {
-        var config = config("integrations:\n  npc-provider: citizens\nclans:\n  guildmaster:\n    npc-key: '12'\n  banner:\n    npc-id: 5\n");
+        var config = config("clans:\n  guildmaster:\n    npc-key: '12'\n  banner:\n    npc-id: 5\n");
         var service = new NpcService(() -> config, id -> Optional.empty(), message -> { });
-        assertTrue(service.isBound(handle("citizens", "12"), NpcBindings.Slot.GUILDMASTER));
-        assertFalse(service.isBound(handle("citizens", "13"), NpcBindings.Slot.GUILDMASTER));
-        assertFalse(service.isBound(handle("loveessential", "12"), NpcBindings.Slot.GUILDMASTER),
-                "the same key from a provider that is not configured must not open the menu");
-        assertFalse(service.isBound(handle("citizens", "12"), NpcBindings.Slot.BANNER));
-        assertTrue(service.isBound(handle("citizens", "5"), NpcBindings.Slot.BANNER), "legacy numeric npc-id still binds");
+        assertTrue(service.isBound(handle("loveessential", "12"), NpcBindings.Slot.GUILDMASTER));
+        assertFalse(service.isBound(handle("loveessential", "13"), NpcBindings.Slot.GUILDMASTER));
+        assertFalse(service.isBound(handle("other", "12"), NpcBindings.Slot.GUILDMASTER),
+                "the same key from another provider must not open the menu");
+        assertFalse(service.isBound(handle("loveessential", "12"), NpcBindings.Slot.BANNER));
+        assertTrue(service.isBound(handle("loveessential", "5"), NpcBindings.Slot.BANNER), "legacy numeric npc-id still binds");
         assertFalse(service.isBound(null, NpcBindings.Slot.BANNER));
     }
 
     @Test
-    void switchingTheProviderRebindsToItsOwnKeys() throws Exception {
-        var config = config("integrations:\n  npc-provider: loveessential\nclans:\n  banner:\n    npc-key: ext-0badf00d\n");
+    void extKeysBindToLoveEssentialNpcs() throws Exception {
+        var config = config("clans:\n  banner:\n    npc-key: ext-0badf00d\n");
         var service = new NpcService(() -> config, id -> Optional.empty(), message -> { });
         assertTrue(service.isBound(handle("loveessential", "ext-0badf00d"), NpcBindings.Slot.BANNER));
-        assertFalse(service.isBound(handle("citizens", "ext-0badf00d"), NpcBindings.Slot.BANNER));
+        assertFalse(service.isBound(handle("other", "ext-0badf00d"), NpcBindings.Slot.BANNER));
     }
 }

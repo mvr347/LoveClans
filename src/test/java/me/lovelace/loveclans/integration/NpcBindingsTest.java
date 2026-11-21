@@ -91,14 +91,13 @@ class NpcBindingsTest {
     }
 
     @Test
-    void bundledConfigFollowsTheGlobalChoiceAndHasUnboundKeys() throws Exception {
+    void bundledConfigHasNoProviderSwitchAndHasUnboundKeys() throws Exception {
         YamlConfiguration bundled = new YamlConfiguration();
         try (var in = NpcBindingsTest.class.getResourceAsStream("/config.yml");
              var reader = new java.io.InputStreamReader(in, java.nio.charset.StandardCharsets.UTF_8)) {
             bundled.load(reader);
         }
-        assertEquals("global", bundled.getString("integrations.npc-provider"));
-        assertEquals("citizens", NpcService.providerId(bundled), "without a core 'global' keeps the old behaviour");
+        assertNull(bundled.getString("integrations.npc-provider"), "the provider switch was removed");
         assertTrue(NpcBindings.boundSlots(bundled).isEmpty());
         assertEquals("", bundled.getString("clans.banner.npc-key"));
         assertFalse(NpcBindings.migrate(bundled), "the bundled config must not carry legacy keys");

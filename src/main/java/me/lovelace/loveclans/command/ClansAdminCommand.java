@@ -152,7 +152,7 @@ public final class ClansAdminCommand implements CommandExecutor, TabCompleter {
             plugin.getMessages().send(sender, "admin.npc.unbound", Map.of("id", key == null ? "-" : key));
             return;
         }
-        // Not a type: treat the argument as an NPC key (a Citizens id or a LoveEssential ext-... id).
+        // Not a type: treat the argument as an NPC key (a LoveEssential ext-... id, name or number).
         String targetKey = NpcBindings.normalize(args[1]);
         if (targetKey != null) {
             for (NpcBindings.Slot candidate : NpcBindings.Slot.values()) {
