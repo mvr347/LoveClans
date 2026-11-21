@@ -26,7 +26,8 @@ public final class ActivityLedger {
 
     private final Map<Row, long[]> totals = new HashMap<>();
     private final Set<Row> dirtyRows = new LinkedHashSet<>();
-    private final Set<String> processed = new HashSet<>();
+    // Event key -> first-seen time; the time lets us drop keys once the database would have pruned them too.
+    private final Map<String, Long> processed = new HashMap<>();
 
     public synchronized void add(UUID clan, UUID player, ActivityCategory category, long amount, long nowMillis) {
         if (amount <= 0 || clan == null || player == null || category == null) return;
@@ -39,11 +40,16 @@ public final class ActivityLedger {
 
     /** True the first time a key is seen: use it so that one event pays exactly once. */
     public synchronized boolean claim(String eventKey) {
-        return processed.add(eventKey);
+        return processed.putIfAbsent(eventKey, System.currentTimeMillis()) == null;
     }
 
     public synchronized void markProcessed(String eventKey) {
-        processed.add(eventKey);
+        processed.putIfAbsent(eventKey, System.currentTimeMillis());
+    }
+
+    /** Forgets event keys first seen before {@code cutoffMillis}: the set otherwise grows until a restart. */
+    public synchronized void pruneProcessed(long cutoffMillis) {
+        processed.values().removeIf(seen -> seen < cutoffMillis);
     }
 
     public synchronized void load(UUID clan, UUID player, String period, ActivityCategory category, long points) {

@@ -1001,6 +1001,13 @@ public final class SiegeManager {
                             allBrokenSince.remove(id);
                             lastHoldTick.remove(id);
                             storagePaused.remove(id);
+                            // Per-siege bookkeeping that nothing else releases: without this it lives until restart.
+                            String hitPrefix = id + ":";
+                            campLastHit.keySet().removeIf(k -> k.startsWith(hitPrefix));
+                            lastCompassTick.remove(id);
+                            holdHalfWarned.remove(id);
+                            holdNearWarned.remove(id);
+                            wipedWarned.remove(id);
                           } else storageFailure(id, e);
                         }));
       }
@@ -1275,7 +1282,8 @@ public final class SiegeManager {
     }
 
     public void noteDamage(UUID playerId) {
-        if (!waitingForCamp.isEmpty()) lastDamageAt.put(playerId, System.currentTimeMillis());
+        // Only players actually waiting need a timestamp; recording everyone leaked one entry per player hit.
+        if (waitingForCamp.containsKey(playerId)) lastDamageAt.put(playerId, System.currentTimeMillis());
     }
 
     /**
@@ -1283,7 +1291,12 @@ public final class SiegeManager {
      * siege.camp-teleport-seconds (5). While all camps are down nobody is moved.
      */
     private void processWaitingAttackers(ClanSiege siege) {
-        if (waitingForCamp.isEmpty()) return;
+        if (waitingForCamp.isEmpty()) {
+            lastDamageAt.clear();
+            return;
+        }
+        // Drop timestamps of players who stopped waiting (teleported, quit, or siege ended).
+        lastDamageAt.keySet().retainAll(waitingForCamp.keySet());
         long now = System.currentTimeMillis();
         long quiet = Math.max(1L, plugin.getConfig().getLong("siege.camp-teleport-seconds", 5L)) * 1000L;
         for (var entry : Map.copyOf(waitingForCamp).entrySet()) {
