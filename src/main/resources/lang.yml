@@ -151,7 +151,7 @@ admin:
   npc:
     unknown-type: "<prefix><red>Неизвестный тип NPC. Доступно: 'guildmaster', 'banner'."
     not-looking-at-npc: "<prefix><red>Посмотрите на NPC, которого нужно привязать, и повторите команду."
-    provider-missing: "<prefix><red>NPC-провайдер <white><provider></white> (integrations.npc-provider) не зарегистрирован в LoveCore - привязать NPC нельзя."
+    provider-missing: "<prefix><red>NPC-провайдер <white><provider></white> не зарегистрирован в LoveCore - привязать NPC нельзя."
     bound: "<prefix><green>NPC привязан (ключ <white><id></white>, тип <yellow><type></yellow>)."
     not-bound: "<prefix><red>NPC не привязан к этому ключу."
     unbound: "<prefix><green>NPC (ключ <white><id></white>) отвязан."

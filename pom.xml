@@ -130,7 +130,7 @@
         <dependency>
             <groupId>com.github.mvr347.LoveCore</groupId>
             <artifactId>lovecore-api</artifactId>
-            <version>c4bebec8bf</version>
+            <version>672f1e4f78</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

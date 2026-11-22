@@ -375,10 +375,10 @@ clans:
       reward-upgrade-points: 3
 
   # NPC «Гильдмастер»: привязывается командой /loveclansadmin createnpc guildmaster, глядя на NPC
-  # (его выбирает провайдер из integrations.npc-provider); пустой npc-key отключает взаимодействие.
-  # 2026-10-22: npc-id (число, -1 = нет) заменён строковым npc-key: у Citizens это номер NPC в виде
-  # текста ("12"), у LoveEssential — его собственный id (ext-xxxxxxxx). Старый npc-id при запуске и
-  # /loveclansadmin reload сам переносится в npc-key. npc-bind-distance убран: цель NPC выбирает провайдер.
+  # (его выбирает LoveEssential); пустой npc-key отключает взаимодействие.
+  # 2026-10-22: npc-id (число, -1 = нет) заменён строковым npc-key: id NPC LoveEssential (ext-xxxxxxxx),
+  # его имя или номер в виде текста ("12"). Старый npc-id при запуске и
+  # /loveclansadmin reload сам переносится в npc-key. npc-bind-distance убран: цель NPC выбирает LoveEssential.
   # Без клана / без права на обеты открывает список кланов (/clans); с правом на обеты — меню
   # «Обеты» и «Список кланов»; владельцу непризнанного клана добавляется «Признание клана».
   guildmaster:
@@ -964,16 +964,11 @@ raid:
 
   bonus-items: []
 
-# 2026-10-22: чьим API пользоваться для NPC Гильдмастера и Основателя знамён. Выбор идёт через LoveCore
-# (NpcProvider); если выбранный провайдер не зарегистрирован, в лог пишется одно предупреждение и
-# NPC-функции отключаются, остальной плагин работает. Ключи привязок (clans.*.npc-key) относятся к
-# выбранному провайдеру: при смене провайдера NPC нужно привязать заново.
-# 2026-10-23: значение global (по умолчанию) следует общему переключателю integrations.provider в config.yml
-# LoveCore: external - Citizens, loveessential - LoveEssential, один выбор сразу для всех плагинов. Пока в
-# ядре стоит external, поведение прежнее (citizens). Явное citizens или loveessential перекрывает общий
-# выбор. Уже сохранённое на сервере `citizens` остаётся явным: чтобы следовать ядру, замените его на `global`.
-integrations:
-  npc-provider: global
+# 2026-11-21: секция integrations.npc-provider удалена. NPC Гильдмастера и Основателя знамён теперь поставляет
+# только LoveEssential (Citizens и другие провайдеры не поддерживаются): выбирать больше не из чего. Оставленный
+# на сервере ключ integrations.npc-provider игнорируется, при старте в логе будет одно предупреждение.
+# Если LoveEssential не зарегистрирован, в лог пишется одно предупреждение и NPC-функции отключаются,
+# остальной плагин работает.
 
 integration:
   advanced-claims:

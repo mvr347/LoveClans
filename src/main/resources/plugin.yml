@@ -5,7 +5,7 @@ api-version: '26.2'
 authors: [ lovelace ]
 description: Full-featured clans, guild wars, territories and LoveClaims integration.
 depend: [LoveCore, LoveEssential]
-softdepend: [LoveClaims, LoveTrades, PlaceholderAPI, ItemsAdder, Citizens, LoveHunt, Vesuvio]
+softdepend: [LoveClaims, LoveTrades, PlaceholderAPI, ItemsAdder, LoveHunt, Vesuvio]
 
 commands:
   loveclan:
