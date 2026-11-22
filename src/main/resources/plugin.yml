@@ -1,7 +1,7 @@
 name: LoveClans
 version: '${project.version}'
 main: me.lovelace.loveclans.LoveClansPlugin
-api-version: '26.2'
+api-version: '26.3'
 authors: [ lovelace ]
 description: Full-featured clans, guild wars, territories and LoveClaims integration.
 depend: [LoveCore, LoveEssential]
