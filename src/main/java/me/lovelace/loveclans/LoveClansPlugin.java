@@ -72,6 +72,13 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public final class LoveClansPlugin extends JavaPlugin {
+    private ClanBannerListener bannerListener;
+
+    /** The banner counter, or null before the listeners are registered. */
+    public ClanBannerListener getBannerListener() {
+        return bannerListener;
+    }
+
     private static final int LOVECLAIMS_INIT_RETRY_ATTEMPTS = 6;
     private static final long LOVECLAIMS_INIT_RETRY_DELAY_TICKS = 20L * 5L;
 
@@ -722,7 +729,8 @@ public final class LoveClansPlugin extends JavaPlugin {
                 throw new NoClassDefFoundError("LoveCore is not installed");
             }
             pluginManager.registerEvents(new GuildmasterListener(this, npcService), this);
-            pluginManager.registerEvents(new ClanBannerListener(this, npcService), this);
+            bannerListener = new ClanBannerListener(this, npcService);
+            pluginManager.registerEvents(bannerListener, this);
             pluginManager.registerEvents(new me.lovelace.loveclans.listener.ConflictRespawnListener(this), this);
             Bukkit.getScheduler().runTaskTimer(this, new me.lovelace.loveclans.listener.FoundationHintTask(this), 20L, 20L);
             // Providers register late: look at them once every plugin has finished enabling.

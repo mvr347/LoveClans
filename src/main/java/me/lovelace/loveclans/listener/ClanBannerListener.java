@@ -210,8 +210,14 @@ public final class ClanBannerListener implements Listener {
         }
 
         event.setCancelled(true);
-        Player player = event.getPlayer();
+        openBannerDesk(event.getPlayer());
+    }
 
+    /**
+     * The banner counter: buy a clan banner, or a replacement for a clan that lost its territory. Used by the
+     * banner NPC and by the craftsman hub (/clan banner, allowed only through the hub).
+     */
+    public void openBannerDesk(Player player) {
         // A clan that lost its territory and its banner: the leader buys a replacement for part of the price.
         if (plugin.getClanManager().getPlayerClan(player.getUniqueId()).isPresent()) {
             openReplacement(player);
