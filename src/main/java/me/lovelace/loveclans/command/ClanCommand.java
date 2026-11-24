@@ -34,10 +34,10 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
     private static final List<String> ROOT_PLAYER_IN_CLAN = List.of(
             "help", "disband", "invite", "invites", "accept", "leave", "kick", "promote", "demote",
             "info", "claim", "unclaim", "menu", "members", "territories", "upgrades", "spirit",
-            "history", "conflicts", "war", "siege", "raid", "peace", "мир", "diplo", "modifiers", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
+            "banner", "history", "conflicts", "war", "siege", "raid", "peace", "мир", "diplo", "modifiers", "ritual", "vote", "settings", "applications", "list", "home", "chest", "contracts", "trade", "servertrade"
     );
     private static final List<String> ROOT_PLAYER_NOT_IN_CLAN = List.of(
-            "help", "accept", "invites", "applications", "list", "info"
+            "help", "accept", "invites", "applications", "list", "info", "banner"
     );
     private final LoveClansPlugin plugin;
     private final Map<UUID, Long> acceptDebounce = new java.util.concurrent.ConcurrentHashMap<>();
@@ -145,6 +145,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                 case "info" -> info(sender, args);
                 case "claim" -> claim(requirePlayer(sender));
                 case "unclaim" -> unclaim(requirePlayer(sender));
+                case "banner" -> openBanner(requirePlayer(sender));
                 case "menu" -> openMenu(requirePlayer(sender));
                 case "members" -> openMembers(requirePlayer(sender));
                 case "territories" -> openTerritories(requirePlayer(sender));
@@ -675,6 +676,21 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
                     plugin.runSync(() -> plugin.sendOperationError(player, throwable));
                     return null;
                 });
+    }
+
+    /**
+     * /clan banner: the banner counter. Only through the craftsman hub (it sets the metadata for a few seconds),
+     * so the banner is not bought from anywhere; administrators may always use it.
+     */
+    private void openBanner(Player player) {
+        boolean viaHub = player.getMetadata("craftsman_hub_until").stream()
+                .anyMatch(v -> v.asLong() > System.currentTimeMillis());
+        if (!viaHub && !player.hasPermission("loveclans.admin")) {
+            plugin.getMessages().send(player, "clan.banner.hub-only");
+            return;
+        }
+        if (plugin.getBannerListener() == null) return;
+        plugin.getBannerListener().openBannerDesk(player);
     }
 
     private void openMenu(Player player) {
