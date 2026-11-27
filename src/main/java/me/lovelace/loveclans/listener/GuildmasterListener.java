@@ -29,7 +29,8 @@ public final class GuildmasterListener implements Listener {
         this.npcs = npcs;
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
+    // ignoreCancelled: a dialog window of another plugin (LoveContracts) that took the click must not open this menu too
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onNpcClick(NpcClickEvent event) {
         // Cheapest checks first: NpcClickEvent is fired for every NPC of every provider.
         if (event.click() != NpcClick.RIGHT || !npcs.isBound(event.npc(), NpcBindings.Slot.GUILDMASTER)) {
